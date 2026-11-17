@@ -14,11 +14,11 @@
 --   r:info()   { i, total, turn, thrown, throws, differs, done }
 --
 -- The session it plays in belongs to nobody: no side and not the computer, so nothing in
--- it can act but the log (lua/web/api refuses every action while a replay is loaded).
+-- it can act but the log (session/api refuses every action while a replay is loaded).
 -- A hash that disagrees (an old match after a physics change) or an action this engine
 -- refuses marks the replay `differs` and it goes on: a refused action is passed over.
 import "core/tw"
-import "web/session"
+import "session/session"
 
 local session = tw.web.session
 

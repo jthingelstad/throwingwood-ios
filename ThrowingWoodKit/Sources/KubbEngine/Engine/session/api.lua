@@ -1,13 +1,14 @@
--- The one door from JavaScript (docs/ENGINE.md "API"): kubbCall(method,
+-- The one door from JavaScript (docs/SESSION.md "The API"): kubbCall(method,
 -- argsJson) -> resultJson. One session per Lua state. Every call is
 -- protected: a Lua error comes back as {"error": "..."}, which src/engine
 -- throws as a JavaScript Error. snapshot returns the snapshot text itself;
 -- restore takes it as its argument.
 import "core/tw"
-import "web/json"
-import "web/session"
-import "web/wide"
-import "web/replay"
+import "version"
+import "session/json"
+import "session/session"
+import "session/wide"
+import "session/replay"
 
 local json, session, wide, replay = tw.web.json, tw.web.session, tw.web.wide, tw.web.replay
 
@@ -19,7 +20,7 @@ local function need()
 	return S
 end
 
--- A replay (lua/web/replay.lua) while one is loaded: its session is S, and nothing may
+-- A replay (session/replay.lua) while one is loaded: its session is S, and nothing may
 -- act in it (every call that would change the match but the replay's own is refused).
 local R = nil
 
@@ -30,7 +31,7 @@ end
 
 local M = {}
 
--- The wide view (lua/web/wide.lua): while it is on, the calls that hand JS a
+-- The wide view (session/wide.lua): while it is on, the calls that hand JS a
 -- camera hand it the wide one, and what is in Team B's view frame comes out
 -- in the world frame. It belongs to this Lua state, not to a session: a new
 -- match or a restore keeps it.
@@ -64,6 +65,15 @@ local function wideOut(method, r)
 	return wide.out(r, wideCam, S.frameSide, S.recSide)
 end
 
+-- ---------- the host, at start-up ----------
+-- engineVersion: { version } (version.lua). useTune { name }: the host's tune
+-- (tune/<name>.lua), once per Lua state, before the first new or restore; returns
+-- { tune }. setClient { label }: the client label written into game files ("web
+-- 0.4.2"; default "kubb-engine <version>"); returns { client }.
+function M.engineVersion() return { version = tw.engine.version } end
+function M.useTune(a) return { tune = session.useTune(a and a.name) } end
+function M.setClient(a) return { client = session.setClient(a and a.label) } end
+
 function M.new(a) R = nil; S = session.new(a or {}); return S:view() end
 function M.restore(text, raw) R = nil; S = session.restore(raw); return S:view() end
 function M.view() return need():view() end
@@ -91,7 +101,7 @@ function M.showAim(a) return need():showAim(a) or json.object() end
 function M.apply(a) return act():apply(a) end
 function M.checkPunish(a) return need():checkPunish(a.x, a.y) end
 function M.hash() local text = need():snapshot(); return { hash = session.fnv(text), bytes = #text } end
--- ---------- a replay (lua/web/replay.lua) ----------
+-- ---------- a replay (session/replay.lua) ----------
 -- replayLoad { setup, h0, log } sets the match out again from its options; the view,
 -- with `replay` = its info. replayStep plays the next action ({ ok, recording?, need,
 -- action, replay }); replayBack goes to the start of the previous turn and

@@ -19,18 +19,19 @@ public enum EngineError: Error, Equatable, CustomStringConvertible {
   }
 }
 
-/// Where the vendored Lua came from (`Engine/engine.json`, written by
-/// scripts/vendor-engine.sh).
+/// The vendored engine's own manifest (`Engine/engine.json`, from the
+/// kubb-engine release scripts/vendor-engine.sh copies).
 public struct EngineManifest: Decodable, Sendable, Equatable {
-  public let source: String
-  public let commit: String
+  public let name: String
+  /// The kubb-engine release, "0.2.0".
+  public let version: String
   /// "core/world.lua" to the file's SHA-256.
   public let files: [String: String]
 }
 
-/// The game engine: the Playdate game's Lua core and the web's session
-/// (`lua/web`) in Lua 5.4, behind one door, `call(_:json:)`, the native twin
-/// of the web's `kubbCall` (kubb.thingelstad.xyz docs/ENGINE.md). Every
+/// The game engine, kubb-engine (the rules, physics and session of Kubb:
+/// Throwing Wood) in Lua 5.4, behind one door, `call(_:json:)`, the native
+/// twin of the engine's `kubbCall` (kubb-engine docs/SESSION.md). Every
 /// argument and result is JSON text.
 ///
 /// Each Engine is its own Lua state holding one session. It is not thread
@@ -38,10 +39,22 @@ public struct EngineManifest: Decodable, Sendable, Equatable {
 public final class Engine {
   private let state: OpaquePointer
   public let manifest: EngineManifest
+  /// The engine's version, as its `engineVersion` call gives it.
+  public let engineVersion: String
 
-  /// The engine shipped in this package.
-  public convenience init() throws {
-    try self.init(directory: Self.bundled())
+  /// The tune the engine runs with: a pointer's, until the iPhone's touch
+  /// throw has its own (kubb-engine tune/).
+  public static let tune = "pointer"
+
+  /// The engine shipped in this package. `appVersion` names the app in the
+  /// game files the engine writes (`[Scored by "Throwing Wood ios 0.1"]`).
+  public convenience init(appVersion: String) throws {
+    try self.init(directory: Self.bundled(), appVersion: appVersion)
+  }
+
+  /// The label `setClient` gets: "ios" and the app's version.
+  public static func clientLabel(appVersion: String) -> String {
+    "ios \(appVersion)"
   }
 
   /// The `Engine` folder in this package's resources.
@@ -52,9 +65,10 @@ public final class Engine {
     return dir
   }
 
-  /// An engine from a folder laid out as `Engine/`: `core/*.lua`, `web/*.lua`
-  /// and `engine.json`.
-  public convenience init(directory: URL, extra: [String: String] = [:]) throws {
+  /// An engine from a folder laid out as `Engine/`: engine.json and the Lua
+  /// files it names (`core/`, `session/`, `tune/`, `version.lua`). `extra`
+  /// adds modules beside them (a test driver).
+  public convenience init(directory: URL, appVersion: String, extra: [String: String] = [:]) throws {
     let manifest: EngineManifest
     do {
       manifest = try JSONDecoder().decode(
@@ -69,34 +83,61 @@ public final class Engine {
       }
       sources[String(name.dropLast(4))] = text
     }
-    try self.init(sources: sources, manifest: manifest)
+    try self.init(sources: sources, manifest: manifest, appVersion: appVersion)
   }
 
-  /// `sources` maps module names as the web's bundle does ("core/world",
-  /// "web/session") to their Lua.
-  init(sources: [String: String], manifest: EngineManifest) throws {
+  /// `sources` maps module names as the engine's bundle does ("core/world",
+  /// "session/api", "version") to their Lua.
+  init(sources: [String: String], manifest: EngineManifest, appVersion: String) throws {
     guard let state = luaL_newstate() else { throw EngineError.load("no memory for a Lua state") }
+    do {
+      luaL_openlibs(state)
+      lua_createtable(state, 0, Int32(sources.count))
+      for (name, text) in sources {
+        Self.push(state, text)
+        lua_setfield(state, -2, name)
+      }
+      lua_setglobal(state, "__kubbSources")
+      try Self.run(state, Self.boot, name: "=boot")
+      lua_getglobal(state, "kubbCall")
+      let loaded = lua_type(state, -1) == LUA_TFUNCTION
+      lua_settop(state, -2)
+      if !loaded { throw EngineError.load("session/api did not define kubbCall") }
+      let version = try Self.start(state: state, appVersion: appVersion)
+      if version != manifest.version {
+        throw EngineError.load("the engine says it is \(version), engine.json \(manifest.version)")
+      }
+      self.engineVersion = version
+    } catch {
+      lua_close(state)
+      throw error
+    }
     self.state = state
     self.manifest = manifest
-    luaL_openlibs(state)
-    lua_createtable(state, 0, Int32(sources.count))
-    for (name, text) in sources {
-      push(text)
-      lua_setfield(state, -2, name)
+  }
+
+  /// The host's calls before the first `new` or `restore` (kubb-engine
+  /// docs/SESSION.md "Starting"): the version, the tune and the client label.
+  private static func start(state: OpaquePointer, appVersion: String) throws -> String {
+    struct Version: Decodable { let version: String }
+    func call(_ method: String, _ args: [String: String]) throws -> Data {
+      let json = String(decoding: try JSONEncoder().encode(args), as: UTF8.self)
+      let text = try callGlobal(state, "kubbCall", method, json)
+      if text.hasPrefix(#"{"error":"#) { throw EngineError.load("\(method): \(text)") }
+      return Data(text.utf8)
     }
-    lua_setglobal(state, "__kubbSources")
-    try run(Self.boot, name: "=boot")
-    lua_getglobal(state, "kubbCall")
-    let loaded = lua_type(state, -1) == LUA_TFUNCTION
-    lua_settop(state, -2)
-    if !loaded { throw EngineError.load("web/api did not define kubbCall") }
+    let version = try JSONDecoder().decode(Version.self, from: call("engineVersion", [:])).version
+    _ = try call("useTune", ["name": tune])
+    _ = try call("setClient", ["label": clientLabel(appVersion: appVersion)])
+    return version
   }
 
   deinit {
     lua_close(state)
   }
 
-  // The web's import shim (src/engine/index.js), reading the sources table.
+  // The engine's import shim (kubb-engine docs/SESSION.md "Loading"), reading
+  // the sources table.
   private static let boot = """
     local sources = __kubbSources
     __kubbSources = nil
@@ -110,7 +151,7 @@ public final class Engine {
       if not s then error("import: no module " .. name, 2) end
       return assert(load(s, "@" .. name))()
     end
-    import "web/api"
+    import "session/api"
     """
 
   /// One engine call: the method's name and its argument as JSON text (empty
@@ -142,22 +183,34 @@ public final class Engine {
 
   /// Runs a chunk of Lua in this engine's state.
   func run(_ chunk: String, name: String) throws {
+    try Self.run(state, chunk, name: name)
+  }
+
+  private static func run(_ state: OpaquePointer, _ chunk: String, name: String) throws {
     var chunk = chunk
     let status = chunk.withUTF8 { buf in
       buf.withMemoryRebound(to: CChar.self) {
         luaL_loadbufferx(state, $0.baseAddress, $0.count, name, "t")
       }
     }
-    if status != LUA_OK { throw EngineError.load(popError()) }
-    if lua_pcallk(state, 0, 0, 0, 0, nil) != LUA_OK { throw EngineError.load(popError()) }
+    if status != LUA_OK { throw EngineError.load(popError(state)) }
+    if lua_pcallk(state, 0, 0, 0, 0, nil) != LUA_OK { throw EngineError.load(popError(state)) }
   }
 
   /// Calls a global Lua function with string arguments and one string result.
   func callGlobal(_ function: String, _ args: String...) throws -> String {
+    try Self.callGlobal(state, function, args)
+  }
+
+  private static func callGlobal(_ state: OpaquePointer, _ function: String, _ args: String...) throws -> String {
+    try callGlobal(state, function, args)
+  }
+
+  private static func callGlobal(_ state: OpaquePointer, _ function: String, _ args: [String]) throws -> String {
     lua_getglobal(state, function)
-    for arg in args { push(arg) }
+    for arg in args { push(state, arg) }
     guard lua_pcallk(state, Int32(args.count), 1, 0, 0, nil) == LUA_OK else {
-      throw EngineError.lua(popError())
+      throw EngineError.lua(popError(state))
     }
     defer { lua_settop(state, -2) }
     var length = 0
@@ -168,6 +221,10 @@ public final class Engine {
   }
 
   private func push(_ text: String) {
+    Self.push(state, text)
+  }
+
+  private static func push(_ state: OpaquePointer, _ text: String) {
     var text = text
     text.withUTF8 { buf in
       buf.withMemoryRebound(to: CChar.self) { _ = lua_pushlstring(state, $0.baseAddress, $0.count) }
@@ -175,6 +232,10 @@ public final class Engine {
   }
 
   private func popError() -> String {
+    Self.popError(state)
+  }
+
+  private static func popError(_ state: OpaquePointer) -> String {
     defer { lua_settop(state, -2) }
     var length = 0
     guard let bytes = lua_tolstring(state, -1, &length) else { return "(an error that is not text)" }

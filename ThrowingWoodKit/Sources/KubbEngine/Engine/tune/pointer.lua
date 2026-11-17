@@ -1,8 +1,10 @@
--- The web's values for the core's tune tables (docs/ENGINE.md "Tuning").
--- Pure Lua. vendor/core is never edited: the web changes how the game plays
--- by setting the core's own tune tables, once, at start-up (tune.apply, which
--- the session calls when it is loaded). Every value here says what it was on
--- the Playdate and why the web's differs. They are a first fit from what a
+-- The pointer tune: a mouse or a finger on the web's dial (docs/SESSION.md
+-- "Tunables"). Pure Lua. core/ is never edited for a client: a host changes how
+-- the game plays by setting the core's own tune tables, once, at start-up
+-- (tune.apply, run by session.useTune "pointer", which the host asks for
+-- through the API's useTune call). It also holds the session's dial and throw
+-- tables (read by session/throw). Every value here says what it was on the
+-- Playdate and why the web's differs. They are a first fit from what a
 -- pointer physically does; Jamie tunes them by play, here and only here.
 --
 -- What a pointer does (measured in browsers, not on a crank):
@@ -58,7 +60,7 @@ tune.swing = {
 	maxSamples = 600,
 }
 
--- The web dial's own values (not core tables; read by lua/web/throw).
+-- The web dial's own values (not core tables; read by session/throw).
 tune.dial = {
 	-- A press on the dial within this many degrees behind 6 o'clock (inside
 	-- the dead zone) counts as starting at the bottom: the crank has to cross
@@ -72,7 +74,7 @@ tune.dial = {
 	upFeedDt = 1 / 60,
 }
 
--- The recording and the cameras (lua/web/throw; scenes/throw.lua's tune on
+-- The recording and the cameras (session/throw; scenes/throw.lua's tune on
 -- the Playdate).
 tune.throw = {
 	-- s of simulated time between recorded poses. The Playdate records at
@@ -115,5 +117,5 @@ function tune.apply()
 	at.softDps = { map(at.softDps[1]), map(at.softDps[2]) }
 end
 
-tw.web = tw.web or {}
-tw.web.tune = tune
+tw.tune = tw.tune or {}
+tw.tune.pointer = tune

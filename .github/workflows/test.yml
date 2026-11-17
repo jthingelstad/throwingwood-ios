@@ -28,17 +28,21 @@ jobs:
           path: ThrowingWoodKit/.build
           key: kit-${{ runner.os }}-${{ hashFiles('ThrowingWoodKit/Package.swift', 'ThrowingWoodKit/Sources/**', 'ThrowingWoodKit/Tests/**') }}
           restore-keys: kit-${{ runner.os }}-
-      # The vendored engine must be what engine.json says, byte for byte.
+      # The vendored engine must be the kubb-engine release scripts/vendor-engine.sh
+      # names, every file as its engine.json says, byte for byte.
       - name: Vendored engine matches its manifest
         run: scripts/vendor-engine.sh check
       - name: Version arithmetic
         run: scripts/version.sh test
-      # The golden tests: every hash the same as the web's WebAssembly engine.
+      # The golden tests: every hash the same as kubb-engine's golden corpus.
       - name: ThrowingWoodKit tests
         run: swift test --package-path ThrowingWoodKit
       # TestFlight builds are optimized; the hashes must hold there too.
       - name: ThrowingWoodKit tests, optimized
         run: swift test -c release -Xswiftc -enable-testing --package-path ThrowingWoodKit
+      # Neither build of the engine's C calls Apple's libm.
+      - name: No Apple libm in CLua or CMusl
+        run: scripts/check-libm.sh
       - name: Build the app for the simulator
         run: >
           xcodebuild -project ThrowingWood.xcodeproj -scheme ThrowingWood

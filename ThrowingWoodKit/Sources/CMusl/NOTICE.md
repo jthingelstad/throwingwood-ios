@@ -38,9 +38,13 @@ file here uses long double.
   files define to `twm_*`; Lua is compiled with the same header, so its
   `sin` is `twm_sin`. Nothing in the app is linked to musl under Apple's
   names, and Swift, Foundation and the frameworks keep Apple's libm.
-  `nm` on the objects shows only `twm_*` defined. A Debug (-O0) build keeps
-  one reference outside the list, `__fpclassifyl`, from a branch of musl's
-  `isnan` that is never taken for a double; it resolves to Apple's.
+  `nm` on the objects shows only `twm_*` defined.
+- `-include twm_musl.h` (`config/twm_musl.h`, these files only) also renames
+  `__fpclassifyl`, which musl's `isnan` and `isinf` call for a long double:
+  never taken for a double, but a Debug (-O0) build still emits the call. It
+  becomes a static function there that the compiler expands inline, so no
+  build references Apple's libm. `scripts/check-libm.sh` checks Debug and
+  release.
 
 KubbEngineTests proves the result: probe arguments where the two libms
 differ give musl's bits, and seeded matches hash as the web's do.

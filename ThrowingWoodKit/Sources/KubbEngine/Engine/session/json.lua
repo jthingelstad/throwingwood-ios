@@ -1,4 +1,4 @@
--- JSON in and out for the web session (docs/ENGINE.md "JSON"). Pure Lua 5.4.
+-- JSON in and out for the web session (docs/SESSION.md "Determinism"). Pure Lua 5.4.
 --
 -- What the session hands JavaScript and what it keeps in a snapshot goes
 -- through here, so it is exact and the same in every browser:

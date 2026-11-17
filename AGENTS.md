@@ -1,8 +1,9 @@
 # Throwing Wood for iPhone: agent guide
 
-Kubb: Throwing Wood for iPhone. The game itself is the Lua core of
-[playdate-kubb](https://github.com/jthingelstad/playdate-kubb), run here the way
-the web version (kubb.thingelstad.xyz, https://throwingwood.com) runs it.
+Kubb: Throwing Wood for iPhone. The game itself is
+[kubb-engine](https://github.com/jthingelstad/kubb-engine), the Lua rules,
+physics and session that the Playdate and the web version
+(kubb.thingelstad.xyz, https://throwingwood.com) run too.
 `README.md` is the overview for people; this file is the working rules.
 
 `CLAUDE.md` is a symlink to this file. Do not fork them.
@@ -35,20 +36,41 @@ agrees. So:
   Apple's. Both targets build with `-ffp-contract=off -fno-builtin` (no fused
   multiply-add, no compiler-folded maths) and `-fno-modules` (the Darwin
   module map would bring Apple's `math.h` and skip the renames). Don't drop
-  any of these flags. `nm` on the objects should show no unprefixed libm call.
+  any of these flags. CMusl also force-includes `config/twm_musl.h`, which
+  turns musl's long double classifier (`__fpclassifyl`, emitted by a Debug
+  build from a branch a double never takes) into an inline function of its
+  own. `scripts/check-libm.sh` (in CI) builds Debug and release and fails if
+  CLua or CMusl references anything Apple's libm exports.
 - Update Lua or musl only with `scripts/vendor-c.sh <lua dir> <musl dir>`, and
   record the source and its sha256 in the target's `NOTICE.md`.
-- **The game's Lua** is vendored from the web checkout's `vendor/core/` and
-  `lua/web/` into `ThrowingWoodKit/Sources/KubbEngine/Engine/` by
-  `scripts/vendor-engine.sh sync` (it writes `engine.json`; `check` runs in
-  CI). Fix behaviour in playdate-kubb, sync it to the web, then here. Never
-  edit the vendored files, and never write in the web checkout from here.
-- **Golden hashes.** After every engine sync run
-  `node tools/golden-hashes.mjs`: it plays `Tests/KubbEngineTests/Fixtures/drive.lua`
-  in the web's own wasmoon (its `node_modules`, read only) and writes
-  `golden-hashes.json`. The Swift tests must then give every hash
-  identically. A golden test that fails is a determinism bug, never a
-  fixture to regenerate around.
+- **The game's Lua** comes from a tagged release of kubb-engine, named once,
+  `TAG` in `scripts/vendor-engine.sh`. `sync` copies that tag's tree (never
+  the working tree) from the kubb-engine checkout beside this one
+  (`KUBB_ENGINE_SOURCE` overrides) byte for byte: `core/`, `session/`,
+  `tune/`, `version.lua`, `engine.json` and `LICENSE` into
+  `ThrowingWoodKit/Sources/KubbEngine/Engine/`, and the engine's golden
+  driver and corpus (`tests/golden/drive.lua`, `hashes.json`) into
+  `Tests/KubbEngineTests/Fixtures/golden/`. `check` (in CI, no checkout
+  needed) verifies every file against the engine's own `engine.json`, and
+  the version against the tag. Never edit the vendored files; a fix belongs
+  in kubb-engine, then here by moving to its next tag. Never write in the
+  kubb-engine checkout from here.
+- **Moving to a new engine release:** set `TAG`, run
+  `scripts/vendor-engine.sh sync`, then all three test runs below (macOS
+  Debug, release and the simulator). Every golden action must match on each.
+  A golden test that fails is a determinism bug, never a fixture to
+  regenerate around: the corpus is the engine's, made on its reference
+  platform (kubb-engine docs/DETERMINISM.md). A minor or major engine
+  version may change hashes or formats (kubb-engine docs/VERSIONING.md):
+  read its changes before moving.
+- **Starting the engine.** `Engine(appVersion:)` boots through
+  `session/api`, then makes the host's calls before any match:
+  `engineVersion` (it must equal `engine.json`'s), `useTune {name =
+  "pointer"}` (until the engine has a touch tune) and `setClient {label =
+  "ios <app version>"}`.
+- **The maths probe.** `Fixtures/math-probe.json` holds arguments where
+  Apple's libm and musl's differ in the last bit, with the web's answers;
+  `mathIsTheWebsMath` checks the engine gives those.
 
 ## Testing
 
@@ -58,5 +80,25 @@ agrees. So:
   -destination 'platform=iOS Simulator,name=iPhone 17'`.
 - The app: `xcodebuild -project ThrowingWood.xcodeproj -scheme ThrowingWood
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`.
+- `scripts/check-libm.sh`: no Apple libm in the engine's C, Debug and release.
 - CI (`.github/workflows/test.yml`) runs these on `macos-26`. macOS minutes
   cost money on a private repo: add jobs only for a reason.
+
+## Proving Apple's libm fails (manual, not CI)
+
+The golden tests mean something only if Apple's libm would fail them. To see
+it, build Lua on Apple's libm in a scratch build of its own and run them:
+
+```sh
+cd ThrowingWoodKit
+KUBB_APPLE_LIBM_PROOF=1 swift test -c release -Xswiftc -enable-testing \
+  -Xcc -DTWL_APPLE_LIBM --scratch-path .build/apple-libm
+rm -rf .build/apple-libm
+```
+
+It must fail: `appleLibmDiffersOnTheProbe` shows Apple's answer differs on
+the probes, `mathIsTheWebsMath` fails on them, and every golden match leaves
+the corpus within a few actions (engine 0.2.0, 2026-11-17: all 22 probes
+differ, 75 of 453 actions agree before each match's first difference, the
+same as kubb-engine measures with desktop Lua). It is not in CI because a
+new Apple libm could round these arguments musl's way.

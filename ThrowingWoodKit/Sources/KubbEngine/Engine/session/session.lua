@@ -1,8 +1,8 @@
--- The web session (docs/ENGINE.md): a practice pitch or a match, behind a
+-- The web session (docs/SESSION.md): a practice pitch or a match, behind a
 -- few coarse calls. Pure Lua 5.4 over the vendored core.
 --
 -- This is the Playdate's scenes/match.lua and scenes/settle.lua with the
--- screen taken out (../../playdate-kubb), over lua/web/throw (its throw
+-- screen taken out (../../playdate-kubb), over session/throw (its throw
 -- scene). What the Playdate showed as cards, rails and flags is returned as
 -- data; what it read from the d-pad and the crank comes in as calls.
 --
@@ -33,24 +33,61 @@ import "core/camera"
 import "core/names"
 import "core/notation"
 import "core/gamefile"
-import "web/json"
-import "web/tune"
-import "web/throw"
+import "version"
+import "session/json"
+import "session/throw"
 
 local cmatch, cards, save, autothrow, wind = tw.match, tw.cards, tw.save, tw.autothrow, tw.wind
 local raising, frame, pitch, quat, swing, plan = tw.raising, tw.frame, tw.pitch, tw.quat, tw.swing, tw.plan
 local camera = tw.camera
 local notation, gamefile = tw.notation, tw.gamefile
-local json, wtune, throw = tw.web.json, tw.web.tune, tw.web.throw
+local json, throw = tw.web.json, tw.web.throw
 
 local fmt, upper = string.format, string.upper
 local floor, max, min, sqrt = math.floor, math.max, math.min, math.sqrt
 
-wtune.apply()
-
 local session = {}
-session.version = "0.1.0"
+session.version = tw.engine.version
 session.snapshotVersion = 1
+
+-- ---------- what the host sets at start-up ----------
+
+-- The client label written into every game file the session makes ("Scored by"):
+-- what the host is and its version, like "web 0.4.2". Not in the snapshot, so it
+-- never changes a hash.
+session.client = "kubb-engine " .. tw.engine.version
+
+function session.setClient(label)
+	assert(type(label) == "string" and #label >= 1 and #label <= 40 and label:match("^[%w%.%-%+ ]+$")
+		and not label:match("^ ") and not label:match(" $"),
+		"setClient: a label of 1 to 40 letters, digits, spaces, dots, hyphens or pluses, like \"web 0.4.2\"")
+	session.client = label
+	return label
+end
+
+-- The host's tune: tune/<name>.lua, its values for the core's tune tables (put in
+-- once, here) and the session's dial and throw tables. One per Lua state, chosen
+-- before the first new or restore; it cannot change after.
+session.tuneName = nil
+
+function session.useTune(name)
+	assert(type(name) == "string" and name:match("^[a-z][a-z0-9]*$"), "useTune: a tune name, like \"pointer\"")
+	if session.tuneName then
+		assert(session.tuneName == name, "the tune is already " .. session.tuneName .. "; it cannot change")
+		return name
+	end
+	import("tune/" .. name)
+	local t = tw.tune and tw.tune[name]
+	assert(t, "no tune " .. name)
+	t.apply()
+	tw.web.tune = t
+	session.tuneName = name
+	return name
+end
+
+local function needTune()
+	assert(session.tuneName, "no tune: call useTune first")
+end
 
 -- ---------- words ----------
 
@@ -194,6 +231,7 @@ Session.__index = Session
 -- A new session. o.mode = "practice" | "match"; the rest as matchOptions
 -- (match) or { surface, level, set, drill } (practice).
 function session.new(o)
+	needTune()
 	o = o or {}
 	local s = setmetatable({}, Session)
 	s.kind = (o.mode == "match") and "match" or "practice"
@@ -317,7 +355,7 @@ function Session:advance()
 	self.phase = "throw"
 	local ts = self.ts
 	throw.prepare(ts, setup)
-	self.frameSide = setup.side -- the frame ts is in now (lua/web/wide)
+	self.frameSide = setup.side -- the frame ts is in now (session/wide)
 	ts.level = setup.thrower and setup.thrower.level or nil
 	ts.watching = isCpu(self, setup.side)
 	ts.scripted = false
@@ -378,7 +416,7 @@ function Session:over()
 		winner = cards.winner(self.m, finish),
 		how = cmatch.howText(self.m),
 	}
-	local text, name = cmatch.file(self.m, finish, "web " .. session.version)
+	local text, name = cmatch.file(self.m, finish, session.client)
 	self.overInfo.file = { text = text, name = name }
 end
 
@@ -400,7 +438,7 @@ function Session:sheet()
 				if e.level then levels[#levels + 1] = e.id .. " " .. e.level end
 			end
 		end
-		text = notation.render(m.game, { start = m.start, version = "web " .. session.version, mode = m.mode,
+		text = notation.render(m.game, { start = m.start, version = session.client, mode = m.mode,
 			levels = levels })
 		local start = m.start or self.opts.start
 		name = start and notation.filename(start, m.game.teams.A.name, m.game.teams.B.name) or "kubb-game.txt"
@@ -732,14 +770,14 @@ function Session:throwAction(L, how, info)
 end
 
 -- Run a throw action: the same path for the actor and for every other
--- browser (docs/ENGINE.md "Sharing"). Returns the recording.
+-- browser (docs/SESSION.md "Determinism"). Returns the recording.
 function Session:applyThrow(a)
 	if self.kind == "match" then
 		assert(self.phase == "throw", "no throw set up")
 		assert(I(a.seq) == self.throws, "throw out of step: seq " .. tostring(a.seq) .. ", expected " .. self.throws)
 	end
 	local ts = self.ts
-	-- the frame this throw's recording is in (lua/web/wide)
+	-- the frame this throw's recording is in (session/wide)
 	self.recSide = self.kind == "match" and self.setup.side or nil
 	local st, tg = a.stance or {}, a.target or {}
 	ts.playerX, ts.playerY, ts.stanceSet = F(st.x), F(st.y), st.set and true or false
@@ -790,7 +828,7 @@ end
 
 -- ---------- the frame ----------
 
--- One frame while aiming (docs/ENGINE.md "The frame"). inp = { dt, arm,
+-- One frame while aiming (docs/SESSION.md "The frame"). inp = { dt, arm,
 -- plan, move = {dx, dy}, walk = {dx, dy} }. Returns { dial, camera, aim,
 -- event, action, recording, need }.
 function Session:frame(inp)
@@ -809,7 +847,7 @@ function Session:frame(inp)
 	if cpu then
 		if ts.mode == "aim" then
 			-- the computer's throw: its aim shows (cpuThink), then its arm plays on the dial
-			local a = autothrow.choose(self.setup, rngFor(self, 1, self.throws), wtune.throw.cpuScatter)
+			local a = autothrow.choose(self.setup, rngFor(self, 1, self.throws), tw.web.tune.throw.cpuScatter)
 			self.cpuAim = a
 			throw.cpuBegin(ts, a)
 		end
@@ -991,6 +1029,7 @@ function Session:hash()
 end
 
 function session.restore(text, control)
+	needTune()
 	local d = type(text) == "string" and json.decode(text) or text
 	assert(type(d) == "table" and d.v == session.snapshotVersion, "not a snapshot of this version")
 	local s = setmetatable({}, Session)

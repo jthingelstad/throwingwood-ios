@@ -23,7 +23,8 @@ let package = Package(
     // the double functions Lua uses. Compiled against musl's own headers and
     // nothing else (-nostdinc), with every symbol renamed twm_* by
     // include/twm_names.h so none of it stands in for Apple's libm elsewhere
-    // in the app. See NOTICE.md.
+    // in the app, and config/twm_musl.h keeps even an unoptimized build off
+    // Apple's libm. See NOTICE.md; scripts/check-libm.sh proves it.
     .target(
       name: "CMusl",
       exclude: ["NOTICE.md", "COPYRIGHT"],
@@ -33,8 +34,9 @@ let package = Package(
         .headerSearchPath("musl/src/include"),
         .headerSearchPath("musl/src/internal"),
         .headerSearchPath("musl/include"),
+        .headerSearchPath("config"),
         .unsafeFlags(
-          ["-nostdinc", "-std=c99", "-U__FP_FAST_FMA", "-include", "twm_names.h", "-w"] + exactFloatingPoint + textualHeaders),
+          ["-nostdinc", "-std=c99", "-U__FP_FAST_FMA", "-include", "twm_musl.h", "-w"] + exactFloatingPoint + textualHeaders),
       ]
     ),
     // Lua 5.4 at the commit wasmoon 1.16 ships, unedited; config/twl_config.h
@@ -49,11 +51,11 @@ let package = Package(
         .unsafeFlags(["-include", "twl_config.h", "-w"] + exactFloatingPoint + textualHeaders),
       ]
     ),
-    // The game engine: the Playdate game's Lua core and the web's session
-    // (Engine/, vendored by scripts/vendor-engine.sh) behind kubbCall.
+    // The game engine: a kubb-engine release (Engine/, vendored byte for
+    // byte by scripts/vendor-engine.sh) behind kubbCall.
     .target(name: "KubbEngine", dependencies: ["CLua"], resources: [.copy("Engine")]),
-    // Seeded computer-against-computer matches, played here and compared
-    // hash by hash with the web's WebAssembly engine (tools/golden-hashes.mjs).
+    // kubb-engine's golden matches, played here and compared hash by hash
+    // with its corpus from the reference platform (Fixtures/golden/).
     .testTarget(name: "KubbEngineTests", dependencies: ["KubbEngine"], resources: [.copy("Fixtures")]),
   ]
 )

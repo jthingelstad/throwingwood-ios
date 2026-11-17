@@ -1,0 +1,163 @@
+{
+ "about": "Arguments where Apple's libm and musl's round the last bit differently (found by comparing them on a Mac), and the bits the web's engine gives for them: wasmoon 1.16.0 (Lua 5.4 and musl's libm in WebAssembly, kubb-engine's reference platform). The results depend only on musl, not on the engine's version. Never edit by hand.",
+ "probes": [
+  {
+   "fn": "sin",
+   "args": [
+    "0x401c3109cc6e044a"
+   ],
+   "bits": "0x3fe62782ee453221"
+  },
+  {
+   "fn": "sin",
+   "args": [
+    "0x4020cb95554ff503"
+   ],
+   "bits": "0x3feb62f69ae579c9"
+  },
+  {
+   "fn": "cos",
+   "args": [
+    "0x40100f1d5b921536"
+   ],
+   "bits": "0xbfe48e8ed623bbb2"
+  },
+  {
+   "fn": "cos",
+   "args": [
+    "0x40028fb4c919b20f"
+   ],
+   "bits": "0xbfe5cc3942587fff"
+  },
+  {
+   "fn": "tan",
+   "args": [
+    "0xbfe0e20d2ae4dc35"
+   ],
+   "bits": "0xbfe2a56517b5599b"
+  },
+  {
+   "fn": "tan",
+   "args": [
+    "0xbff5203985c2892a"
+   ],
+   "bits": "0xc00f4649fe4105b2"
+  },
+  {
+   "fn": "atan",
+   "args": [
+    "0xbfd67c8bd67dc3a2",
+    "0x3fcdf2e1af4b8e08"
+   ],
+   "bits": "0xbfef773dc8a74d7e"
+  },
+  {
+   "fn": "atan",
+   "args": [
+    "0x3fd271f336b1a79e",
+    "0xbf9361926b77aae0"
+   ],
+   "bits": "0x3ffa2e964e0c1758"
+  },
+  {
+   "fn": "asin",
+   "args": [
+    "0x3fe2ba7ac11778c0"
+   ],
+   "bits": "0x3fe401ae2f49a772"
+  },
+  {
+   "fn": "asin",
+   "args": [
+    "0x3fe6f8621d50bc66"
+   ],
+   "bits": "0x3fe99f0f2865874b"
+  },
+  {
+   "fn": "acos",
+   "args": [
+    "0x3fd3f0ec65c76e94"
+   ],
+   "bits": "0x3ff41024a1d37f21"
+  },
+  {
+   "fn": "acos",
+   "args": [
+    "0xbfad44de732c0980"
+   ],
+   "bits": "0x3ffa0c42fa329d56"
+  },
+  {
+   "fn": "exp",
+   "args": [
+    "0xc00d99c7946a6a22"
+   ],
+   "bits": "0x3f99508e461a850e"
+  },
+  {
+   "fn": "exp",
+   "args": [
+    "0x3fefa1c832fbd52c"
+   ],
+   "bits": "0x40057f615672ef3f"
+  },
+  {
+   "fn": "log",
+   "args": [
+    "0x40441263da2dd37e"
+   ],
+   "bits": "0x400d8a2aff8f57eb"
+  },
+  {
+   "fn": "log",
+   "args": [
+    "0x401392bdd1e0ead1"
+   ],
+   "bits": "0x3ff967e79fc14259"
+  },
+  {
+   "fn": "log2",
+   "args": [
+    "0x4049bee6a6bf82cf"
+   ],
+   "bits": "0x4016bebaefbc7478"
+  },
+  {
+   "fn": "log2",
+   "args": [
+    "0x3ff0a26a867ed7c4"
+   ],
+   "bits": "0x3facb94c6bc0055e"
+  },
+  {
+   "fn": "log10",
+   "args": [
+    "0x4055a5e84b89572f"
+   ],
+   "bits": "0x3ffeffea48fdc458"
+  },
+  {
+   "fn": "log10",
+   "args": [
+    "0x4056856525ab9de6"
+   ],
+   "bits": "0x3fff463e22c85f25"
+  },
+  {
+   "fn": "pow",
+   "args": [
+    "0x3ff0701b319947e3",
+    "0xbfeb923b02dcbb7c"
+   ],
+   "bits": "0x3fef439d5e542bf2"
+  },
+  {
+   "fn": "pow",
+   "args": [
+    "0x400aeabbab81728b",
+    "0xc00415abc38d62e3"
+   ],
+   "bits": "0x3fa8578a818e3f0c"
+  }
+ ]
+}

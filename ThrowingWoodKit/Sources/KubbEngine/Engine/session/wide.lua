@@ -187,6 +187,13 @@ local function recording(side, rec)
 			local nb = {}
 			for k, v in pairs(b) do nb[k] = v end
 			nb.anchor = point(side, b.anchor)
+			-- a double hit's second burst (session/throw entry) has its own anchor
+			if b.second then
+				local ns = {}
+				for k, v in pairs(b.second) do ns[k] = v end
+				ns.anchor = point(side, b.second.anchor)
+				nb.second = ns
+			end
 			tl.bursts[i] = nb
 		end
 	end
