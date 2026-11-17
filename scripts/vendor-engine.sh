@@ -3,7 +3,7 @@
 # (jthingelstad/kubb-engine), byte for byte, as the engine's own docs ask
 # (its docs/VERSIONING.md "Releases and vendoring"):
 #
-#   ThrowingWoodKit/Sources/KubbEngine/Engine/   core/, session/, tune/,
+#   ThrowingWoodKit/Sources/KubbEngine/Engine/   core/, room/, session/, tune/,
 #       version.lua, engine.json (the engine's manifest: its version and a
 #       sha256 for every Lua file) and LICENSE
 #   ThrowingWoodKit/Tests/KubbEngineTests/Fixtures/golden/   the engine's
@@ -17,14 +17,17 @@
 #   scripts/vendor-engine.sh check   the vendored copy is the release TAG
 #                                    names: every Lua file as engine.json
 #                                    says, byte for byte, no file missing or
-#                                    extra, the corpus for the same version.
+#                                    extra, the corpus recorded by this engine
+#                                    version or an earlier one (a hash-neutral
+#                                    release keeps its corpus: 0.3.0 carries
+#                                    0.2.0's, kubb-engine docs/VERSIONING.md).
 #                                    Needs no kubb-engine checkout (CI runs it)
 #
 # To move to a new release: change TAG, run sync, then the tests (AGENTS.md).
 set -euo pipefail
 
 # The kubb-engine release this app runs.
-TAG=v0.2.0
+TAG=v0.3.0
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 source_dir=${KUBB_ENGINE_SOURCE:-$root/../kubb-engine}
@@ -32,7 +35,7 @@ engine=$root/ThrowingWoodKit/Sources/KubbEngine/Engine
 golden=$root/ThrowingWoodKit/Tests/KubbEngineTests/Fixtures/golden
 
 # What is copied: engine paths into Engine/, test paths into Fixtures/golden/.
-engine_paths=(core session tune version.lua engine.json LICENSE)
+engine_paths=(core room session tune version.lua engine.json LICENSE)
 golden_files=(drive.lua hashes.json)
 
 sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
@@ -95,9 +98,13 @@ case "${1:-}" in
     for f in "${golden_files[@]}"; do [[ -s $golden/$f ]] || fail "missing: Fixtures/golden/$f"; done
     if [[ -s $golden/hashes.json ]]; then
       corpus=$(json_version "$golden/hashes.json")
-      [[ $corpus == "$version" ]] || fail "the golden corpus is for $corpus, the engine is $version; run sync"
+      # 0.3.0 is explicitly hash-neutral and ships 0.2.0's exact corpus.
+      # Do not accept arbitrary older corpora when moving to another release.
+      expected=$version
+      [[ $version == 0.3.0 ]] && expected=0.2.0
+      [[ $corpus == "$expected" ]] || fail "golden corpus is $corpus, expected $expected; run sync"
     fi
-    [[ $status == 0 ]] && echo "engine: kubb-engine $TAG, $count files match engine.json, golden corpus for $version"
+    [[ $status == 0 ]] && echo "engine: kubb-engine $TAG, $count files match engine.json, golden corpus recorded by $corpus"
     exit $status
     ;;
   *)

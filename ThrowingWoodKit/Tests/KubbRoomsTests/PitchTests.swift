@@ -1,0 +1,138 @@
+import Foundation
+import KubbEngine
+import Testing
+
+@testable import KubbRooms
+
+@Suite @MainActor struct PitchTests {
+  func setup() async throws -> (PitchController, MockTransport) {
+    let t = MockTransport()
+    let room = try makeClient { _ in t }
+    let engine = try Engine(appVersion: "0.0-test")
+    let p = try PitchController(room: room, engine: engine)
+    t.onSend = { m in
+      if m["t"]?.string == "join" { t.joined() }
+      if m["t"]?.string == "set" {
+        t.push("{\"t\":\"ok\",\"id\":\(m["id"]!.int!),\"v\":\(m["base"]!.int!+1)}")
+      }
+    }
+    p.connect()
+    try await room.ready()
+    // Real member payloads make the strict engine START check meaningful.
+    room.receive(
+      #"{"t":"member","rev":2,"member":{"id":"Native_Member","connected":true,"joined":1,"me":{"name":"Native","level":"pro","engine":"0.3.0"}}}"#
+    )
+    return (p, t)
+  }
+  let at = JSONText(#"{"year":2026,"month":11,"day":17,"hour":12,"min":0}"#)
+
+  @Test func hostComputerAndStrictMismatch() async throws {
+    let (p, _) = try await setup()
+    defer { p.close() }
+    try await p.joinTeam("A")
+    #expect(try await p.start(seed: 1001, at: at))
+    #expect(p.state == .match && p.mayAct)
+    // A resignation on A's turn leaves the computer's match finished and kept.
+    #expect(try await p.take(JSONText(#"{"type":"resign","side":"A"}"#)))
+    #expect(try JSONNode.parse(p.need)["kind"]?.string == "over")
+    #expect(try JSONNode.parse(p.room.document)["match"]?["over"]?.bool == true)
+    _ = try await p.reduce("backToLobby")
+    #expect(p.state == .lobby)
+    p.room.receive(
+      #"{"t":"member","rev":3,"member":{"id":"Guest_01","connected":true,"joined":2,"me":{"engine":"0.2.0"}}}"#
+    )
+    _ = try await p.room.update { doc in
+      let value = try p.roomCall(
+        "joinTeam", [("doc", .raw(doc)), ("id", .string("Guest_01")), ("side", .string("B"))])
+      return value.raw
+    }
+    #expect(try await p.start(seed: 3, at: at) == false)
+    #expect(p.state == .versionMismatch)
+  }
+
+  @Test func applyGapCorrectionAndRunningVersionMismatch() async throws {
+    let (p, _) = try await setup()
+    defer { p.close() }
+    try await p.joinTeam("A")
+    #expect(try await p.start(seed: 10, at: at))
+    let peer = try Engine(appVersion: "0.0-test")
+    _ = try peer.call("restore", json: p.engine.call("snapshot"))
+    let action = JSONText(#"{"type":"resign","side":"A"}"#)
+    _ = try peer.call("apply", json: action.text)
+    let doc = try p.roomCall(
+      "commitAction",
+      [
+        ("doc", .raw(p.room.document)), ("n", .int(1)), ("seq", .int(1)),
+        ("snap", .string(peer.call("snapshot"))), ("hash", .string(peer.hash())),
+        ("action", .raw(action)), ("over", .bool(true)),
+      ])
+    let rider = try p.roomCall(
+      "rider", [("n", .int(1)), ("seq", .int(1)), ("action", .raw(action))])
+    p.room.receive(
+      JS.object([
+        ("t", .string("doc")), ("v", .int(3)), ("doc", .raw(doc.raw)), ("with", .raw(rider.raw)),
+      ]).ascii)
+    #expect(p.applied == 1 && p.corrections == 0)
+    #expect(try p.engine.hash() == peer.hash())
+    // A missing action is a gap adoption, distinct from a hash correction.
+    let gapMatch = JS.object(
+      doc["match"]!.members.map {
+        ($0.key, $0.key == "seq" ? JS.int(3) : JS.raw($0.value.raw))
+      })
+    let gap = JS.object(
+      doc.members.map { ($0.key, $0.key == "match" ? gapMatch : JS.raw($0.value.raw)) })
+    p.room.receive(JS.object([("t", .string("doc")), ("v", .int(4)), ("doc", gap)]).ascii)
+    #expect(p.adoptions == 1 && p.sequence == 3)
+    // Return to the original seq to test same-sequence hash recovery.
+    p.room.receive(
+      JS.object([
+        ("t", .string("joined")), ("host", .string(p.room.you)), ("rev", .int(10)),
+        ("members", p.room.membersJSON), ("v", .int(5)), ("doc", .raw(doc.raw)),
+      ]).ascii)
+    // Explicit fresh match adoption resets the local sequence for this test.
+    _ = try await p.reduce("backToLobby")
+    #expect(try await p.start(seed: 11, at: at))
+    let current = try JSONNode.parse(p.room.document)
+    // A same-sequence document with a deliberately corrupt hash forces recovery.
+    var m = current["match"]!.members.map { ($0.key, JS.raw($0.value.raw)) }
+    m.removeAll { $0.0 == "hash" }
+    m.append(("hash", .string("00000000")))
+    let corrupt = JS.object(
+      doc.members.map { ($0.key, $0.key == "match" ? .object(m) : JS.raw($0.value.raw)) })
+    p.room.receive(
+      JS.object([("t", .string("doc")), ("v", .int(p.room.version + 1)), ("doc", corrupt)]).ascii)
+    #expect(p.corrections == 1)
+    m.removeAll { $0.0 == "engine" }
+    m.append(("engine", .string("9.0")))
+    let newer = JS.object(
+      doc.members.map { ($0.key, $0.key == "match" ? .object(m) : JS.raw($0.value.raw)) })
+    p.room.receive(
+      JS.object([("t", .string("doc")), ("v", .int(p.room.version + 1)), ("doc", newer)]).ascii)
+    #expect(p.state == .versionMismatch && !p.mayAct)
+  }
+
+  @Test func hostCPUActuallyReleasesAndSeatsRemainCached() async throws {
+    let (p, _) = try await setup()
+    defer { p.close() }
+    try await p.joinTeam("A")
+    #expect(try await p.start(seed: 1001, at: at))
+    // Exercise human computer-planned throws with a minimal legal fixed launch until
+    // B's turn, then use the production frame path for the host-owned computer.
+    for _ in 0..<6 {
+      let n = try JSONNode.parse(p.need)
+      if n["cpu"]?.bool == true { break }
+      let a = JSONText(
+        "{\"type\":\"throw\",\"seq\":\(n["throws"]!.int!),\"how\":\"baton\",\"launch\":{\"speed\":5,\"loft\":20,\"swivel\":0,\"legal\":true},\"stance\":{\"x\":0,\"y\":0},\"target\":{\"x\":0,\"y\":8},\"scripted\":true}"
+      )
+      #expect(try await p.take(a))
+    }
+    #expect(try JSONNode.parse(p.need)["cpu"]?.bool == true)
+    let seq = p.sequence
+    for _ in 0..<200 {
+      _ = try await p.frame(JSONText(#"{"dt":0.1}"#))
+      if p.sequence > seq { break }
+    }
+    #expect(p.sequence == seq + 1)
+    #expect(p.lastError == nil)
+  }
+}

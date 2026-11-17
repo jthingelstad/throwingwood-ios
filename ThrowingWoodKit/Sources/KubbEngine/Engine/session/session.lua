@@ -39,7 +39,7 @@ import "session/throw"
 
 local cmatch, cards, save, autothrow, wind = tw.match, tw.cards, tw.save, tw.autothrow, tw.wind
 local raising, frame, pitch, quat, swing, plan = tw.raising, tw.frame, tw.pitch, tw.quat, tw.swing, tw.plan
-local camera = tw.camera
+local camera, outcome, debris = tw.camera, tw.outcome, tw.debris
 local notation, gamefile = tw.notation, tw.gamefile
 local json, throw = tw.web.json, tw.web.throw
 
@@ -353,6 +353,7 @@ function Session:advance()
 	if not setup then return self:over() end
 	self.setup = setup
 	self.phase = "throw"
+	self.pitchFromMatch = nil -- ts holds the match's pitch from here on
 	local ts = self.ts
 	throw.prepare(ts, setup)
 	self.frameSide = setup.side -- the frame ts is in now (session/wide)
@@ -411,6 +412,8 @@ end
 function Session:over()
 	self.phase = "over"
 	self.setup = nil
+	-- the frame the pitch is shown in: the last throw's (a restored session has none yet)
+	self.frameSide = self.frameSide or self.side or "A"
 	local finish = self.finish or self.opts.start
 	self.overInfo = {
 		winner = cards.winner(self.m, finish),
@@ -640,10 +643,36 @@ function Session:minimap(items)
 	}
 end
 
+-- The match's pitch as it stands, in the frame it is shown in (self.frameSide), for a
+-- session restored while no throw is set up (raising, punishment kubbs, the end): its
+-- ts.items are throw.new's practice layout, so the pieces come from the match itself, as
+-- core/match's setup makes them: the engine's pieces with the exact poses a throw left,
+-- and the debris lying on the pitch. A live session keeps showing its last throw's own
+-- items (the physical poses, a fallen king's included). The engine keeps no pose for a
+-- king that fell and ends the match, so here it lies along its last angle. Display only:
+-- nothing here is in the snapshot, and the match is not changed.
+function Session:pitchItems()
+	local m, side = self.m, self.frameSide
+	local pieces = outcome.pieces(m.game, side)
+	debris.applyExact(m.debris, pieces, side)
+	local how = m.game.how
+	if cmatch.over(m) and type(how) == "string" and how:find("^king") then
+		for _, k in ipairs(pieces) do
+			if k.id == "king" and not k.toppled then
+				local v = frame.pose(side, k.pose)
+				v.standing = false
+				k.qw, k.qx, k.qy, k.qz = outcome.quatOf(v)
+				k.z, k.toppled = nil, true -- resting height from the new pose
+			end
+		end
+	end
+	return throw.itemsOf(pieces, debris.pieces(m.debris, side))
+end
+
 -- Everything the screen needs when nothing is playing back.
 function Session:view()
 	local ts = self.ts
-	local items = throw.items(ts)
+	local items = (self.pitchFromMatch and self.phase ~= "throw") and self:pitchItems() or throw.items(ts)
 	return {
 		need = self:need(),
 		items = items,
@@ -1052,6 +1081,10 @@ function session.restore(text, control)
 		s.settle = { raised = I(d.settle.raised), placed = I(d.settle.placed), raiseTotal = I(d.settle.raiseTotal),
 			punishTotal = I(d.settle.punishTotal) }
 	end
+	-- ts holds throw.new's layout until a throw is set up: until then the view draws the
+	-- match's pitch (Session:pitchItems) in the frame a live session holds it in, the last
+	-- throw's
+	s.pitchFromMatch, s.frameSide = true, s.side
 	s:advance()
 	if control then s:setControl(control) end
 	return s

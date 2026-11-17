@@ -66,7 +66,7 @@ public final class Engine {
   }
 
   /// An engine from a folder laid out as `Engine/`: engine.json and the Lua
-  /// files it names (`core/`, `session/`, `tune/`, `version.lua`). `extra`
+  /// files it names (`core/`, `room/`, `session/`, `tune/`, `version.lua`). `extra`
   /// adds modules beside them (a test driver).
   public convenience init(directory: URL, appVersion: String, extra: [String: String] = [:]) throws {
     let manifest: EngineManifest

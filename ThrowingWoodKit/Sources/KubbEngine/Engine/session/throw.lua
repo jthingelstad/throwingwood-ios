@@ -122,11 +122,15 @@ function throw.standUp(s)
 	s.items = items
 end
 
-function throw.setPieces(s, pieces, debris)
+local function itemsFrom(pieces, debris)
 	local items = {}
 	for i, p in ipairs(pieces) do items[i] = newItem(p) end
 	for _, p in ipairs(debris or {}) do items[#items + 1] = newItem(p) end
-	s.items = items
+	return items
+end
+
+function throw.setPieces(s, pieces, debris)
+	s.items = itemsFrom(pieces, debris)
 end
 
 local function itemById(s, id)
@@ -918,6 +922,13 @@ function throw.items(s)
 		out[#out + 1] = itemOut(it.id, it.kind, it.x, it.y, it.z, it.qw, it.qx, it.qy, it.qz, it.toppled)
 	end
 	return stakeItems(out)
+end
+
+-- Engine pieces and debris (core/match's setup shape) as the renderer's items, without
+-- touching a throw's state: the pitch as it stands while nothing is set up to throw
+-- (raising, punishment kubbs, the end).
+function throw.itemsOf(pieces, debris)
+	return throw.items { items = itemsFrom(pieces, debris) }
 end
 
 -- Fire launch L (how: "baton", "drill" or "lob") from where the player

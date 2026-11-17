@@ -1,6 +1,6 @@
 {
   "name": "kubb-engine",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "extractedFrom": {
     "repository": "jthingelstad/playdate-kubb",
     "path": "source/core",
@@ -11,6 +11,12 @@
     "path": "lua/web",
     "commit": "ff76a61ecd3ac84b0b03683d589f4e944ee37b33",
     "note": "session/ is lua/web's session, throw, replay, json, api and wide; tune/pointer.lua is lua/web/tune.lua"
+  },
+  "roomFrom": {
+    "repository": "jthingelstad/kubb.thingelstad.xyz",
+    "path": "src/net",
+    "commit": "36f27e623b80b545d7d90bd3604de4423e9e70a7",
+    "note": "room/ is src/net's lobby.js, seats.js and sync.js in Lua; tests/room/vectors/ were recorded from this commit (docs/ROOM.md)"
   },
   "files": {
     "core/autothrow.lua": "080d77c98534f34b23c02ddc827f4a3f71d3ef741e2a27f917a67043e9437d70",
@@ -51,16 +57,21 @@
     "core/vec.lua": "16ed8c29ccd68dcc7cff60892b5b2e767aaf01635e7fad30e593f09247326393",
     "core/wind.lua": "5be8fbc824ab65f875570249012fe334c5327b93f5036d37e2679e8bef93a876",
     "core/world.lua": "9a056fce5b3573f7bcac0218cceafbb2999c8595f4a04b4f8f87770953b1edea",
-    "session/api.lua": "a1f93bb35cc9918c9573920596669dd51c8f7541167e7f30df6e2d139b7ddf0a",
-    "session/json.lua": "31362ccfc377700837d6aff90e995c18b05d6ec7be89e4c65784c2eac242a140",
+    "room/api.lua": "00e460c6c255151c86f606892ee76a35f249370dc0080dfbeb79c548714cd9da",
+    "room/js.lua": "579c2d7743603ee7c87b94db472d3b0100eab12a8fbd9957df097f441ea4e562",
+    "room/lobby.lua": "363b9e47e910f3ab91211f1c7f3273f73c367f38b84df599329abf5dbd5de84a",
+    "room/seats.lua": "6bbc5db4cddf33f6f49f8d4887840134eb9d02d86ec2d2969203e84c140ef1bc",
+    "room/sync.lua": "b7703c43982aad5abfe7275d908f1ee4d9f0b1ae2570622193b9d572c8883cb1",
+    "session/api.lua": "742798b732566f812850978f8be5ba5441899f98e3c56ac15c38f6afb45981c8",
+    "session/json.lua": "c67017eb3aa54b2ebc68000999b7a7c770dab6d7ec45d5e6f2a481bfe38e25b0",
     "session/replay.lua": "cd6415008b9a7cebc79a4c61ccdf3c4f9a81f5963e2e82a468c10f294f1f10ea",
-    "session/session.lua": "888c6fab8fc5bcc4a91c2666906349d82726ea932986dd17a76485688fd7cbce",
-    "session/throw.lua": "470fc02c635a4552abccc294ffc65ffd924960c2da064d892cf02bb1eef2fa9b",
+    "session/session.lua": "25a381723e5002fd68f610d1b05308b538fa96b61b09ad4fa5c8981a31a7f0a2",
+    "session/throw.lua": "92be4fb3be90247399b10b05d7ad9a24034208121b4068b5c8ec4922144b0ecb",
     "session/wide.lua": "f2ac4b36d7bba2ab081c55a27c1eb31549810431423e6a3671dedb7be99f90c5",
     "tune/pointer.lua": "7b30c67adf47fb8387e5b0dd7f73af3c92c99116d05781885e7fc0157fcc9397",
-    "version.lua": "cfc55a10e02a9e83d2377886c113fbaa240979f3471a4444c1cae498899b1fed"
+    "version.lua": "dce51ae3742f5a072386f66770fa70ecb54113e2288a229a1989750424b69c57"
   },
   "bundle": {
-    "sha256": "d83e21ffdb7f732953a4343cf701bac1d2473252cd60bfc038b9c7e114ca1274"
+    "sha256": "da7c82427dd80848113daaf859c94398b853d1d044bb6d58a35cdc7ee98049f8"
   }
 }

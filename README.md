@@ -7,9 +7,10 @@ iPhone version.
 
 ## What's here
 
-So far, the foundation: the game engine running natively, and a placeholder
-screen that shows it loaded, its match hash, and a button that lets the
-computer throw.
+The game engine runs natively, with a headless rooms client and cross-play
+tests against the web engine. The app still has its placeholder screen:
+the engine loaded, its match hash, and a button that lets the computer throw.
+Rooms screens are the next phase.
 
 - `ThrowingWoodKit/` is a Swift package. `KubbEngine` runs the game engine,
   a tagged release of [kubb-engine](https://github.com/jthingelstad/kubb-engine)
@@ -17,6 +18,9 @@ computer throw.
   math library compiled in so every result matches the web's WebAssembly
   engine to the last bit. Its tests play the engine's golden matches and
   check every hash against the engine's own corpus.
+- `KubbRooms` in that package is the Foundation WebSocket client and native
+  pitch controller. Its contract and local cross-play checks are in
+  [docs/ROOMS-CLIENT.md](docs/ROOMS-CLIENT.md).
 - `ThrowingWood/` is the SwiftUI app (iOS 26, iPhone).
 - `scripts/` vendors the engine and the C sources, checks the C never calls
   Apple's libm, stamps the version, and uploads to TestFlight.

@@ -17,6 +17,8 @@ let package = Package(
   platforms: [.iOS("26.0"), .macOS("15.0")],
   products: [
     .library(name: "KubbEngine", targets: ["KubbEngine"]),
+    .library(name: "KubbRooms", targets: ["KubbRooms"]),
+    .executable(name: "RoomsProbe", targets: ["RoomsProbe"]),
   ],
   targets: [
     // musl 1.2.5's portable C maths (src/math, not the arch assembly), only
@@ -36,7 +38,8 @@ let package = Package(
         .headerSearchPath("musl/include"),
         .headerSearchPath("config"),
         .unsafeFlags(
-          ["-nostdinc", "-std=c99", "-U__FP_FAST_FMA", "-include", "twm_musl.h", "-w"] + exactFloatingPoint + textualHeaders),
+          ["-nostdinc", "-std=c99", "-U__FP_FAST_FMA", "-include", "twm_musl.h", "-w"]
+            + exactFloatingPoint + textualHeaders),
       ]
     ),
     // Lua 5.4 at the commit wasmoon 1.16 ships, unedited; config/twl_config.h
@@ -54,8 +57,13 @@ let package = Package(
     // The game engine: a kubb-engine release (Engine/, vendored byte for
     // byte by scripts/vendor-engine.sh) behind kubbCall.
     .target(name: "KubbEngine", dependencies: ["CLua"], resources: [.copy("Engine")]),
+    .target(name: "KubbRooms", dependencies: ["KubbEngine"]),
+    .executableTarget(name: "RoomsProbe", dependencies: ["KubbRooms"], path: "Tools/RoomsProbe"),
+    .testTarget(
+      name: "KubbRoomsTests", dependencies: ["KubbRooms"], resources: [.copy("Fixtures")]),
     // kubb-engine's golden matches, played here and compared hash by hash
     // with its corpus from the reference platform (Fixtures/golden/).
-    .testTarget(name: "KubbEngineTests", dependencies: ["KubbEngine"], resources: [.copy("Fixtures")]),
+    .testTarget(
+      name: "KubbEngineTests", dependencies: ["KubbEngine"], resources: [.copy("Fixtures")]),
   ]
 )

@@ -46,13 +46,15 @@ agrees. So:
 - **The game's Lua** comes from a tagged release of kubb-engine, named once,
   `TAG` in `scripts/vendor-engine.sh`. `sync` copies that tag's tree (never
   the working tree) from the kubb-engine checkout beside this one
-  (`KUBB_ENGINE_SOURCE` overrides) byte for byte: `core/`, `session/`,
-  `tune/`, `version.lua`, `engine.json` and `LICENSE` into
+  (`KUBB_ENGINE_SOURCE` overrides) byte for byte: `core/`, `room/`,
+  `session/`, `tune/`, `version.lua`, `engine.json` and `LICENSE` into
   `ThrowingWoodKit/Sources/KubbEngine/Engine/`, and the engine's golden
   driver and corpus (`tests/golden/drive.lua`, `hashes.json`) into
   `Tests/KubbEngineTests/Fixtures/golden/`. `check` (in CI, no checkout
   needed) verifies every file against the engine's own `engine.json`, and
-  the version against the tag. Never edit the vendored files; a fix belongs
+  the version against the tag (0.3.0 explicitly retains the 0.2.0
+  golden corpus; arbitrary older corpora are not accepted). Never edit the
+  vendored files; a fix belongs
   in kubb-engine, then here by moving to its next tag. Never write in the
   kubb-engine checkout from here.
 - **Moving to a new engine release:** set `TAG`, run
@@ -76,7 +78,7 @@ agrees. So:
 
 - `swift test --package-path ThrowingWoodKit`, and optimized:
   `swift test -c release -Xswiftc -enable-testing --package-path ThrowingWoodKit`.
-- On the simulator: `cd ThrowingWoodKit && xcodebuild test -scheme ThrowingWoodKit
+- On the simulator: `cd ThrowingWoodKit && xcodebuild test -scheme ThrowingWoodKit-Package
   -destination 'platform=iOS Simulator,name=iPhone 17'`.
 - The app: `xcodebuild -project ThrowingWood.xcodeproj -scheme ThrowingWood
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`.
@@ -102,3 +104,18 @@ the corpus within a few actions (engine 0.2.0, 2026-11-17: all 22 probes
 differ, 75 of 453 actions agree before each match's first difference, the
 same as kubb-engine measures with desktop Lua). It is not in CI because a
 new Apple libm could round these arguments musl's way.
+
+## Rooms (no UI yet)
+
+`KubbRooms` is the main-actor room client and headless pitch controller; its contract
+is `docs/ROOMS-CLIENT.md`. Lobby, seat and sync rules are exclusively the engine's
+`room.*` API. Keep engine JSON as raw text. Use the tagged record/report helpers.
+Close the controller/client when its owner ends.
+
+Local wire conformance and three complete cross-play matches run with
+`swift build --package-path ThrowingWoodKit --product RoomsProbe` then
+`node tools/rooms-test.mjs` (or `--web <web checkout>`). The script imports the web's
+client and rooms-dev read-only, binds an ephemeral 127.0.0.1 port and writes only
+`build/rooms-results.json` here. Never point tests at production. Regenerate wire
+vectors with `node tools/room-vectors.mjs`; committed vectors and injected Swift tests
+run in the existing macOS CI job, without an additional cross-repository checkout.
