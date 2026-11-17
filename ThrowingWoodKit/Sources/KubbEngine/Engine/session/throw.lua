@@ -1,4 +1,4 @@
--- The throw scene with the screen taken out (docs/ENGINE.md). Pure Lua 5.4.
+-- The throw scene with the screen taken out (docs/SESSION.md). Pure Lua 5.4.
 --
 -- This is the Playdate's source/scenes/throw.lua (../../playdate-kubb), taken
 -- over line for line where it decides something: the aim (target circle,
@@ -7,7 +7,7 @@
 -- the verdicts, the result flag, the cameras (first person, plan view,
 -- follow, impact, the half circle) and the computer's arm on the clock.
 -- What the Playdate drew is returned as data instead. Where the web differs
--- it says so here and in docs/ENGINE.md "Where the web differs":
+-- it says so here and in docs/SESSION.md "Differences from the Playdate":
 --   * a throw is computed whole at release (playback.finish) and returned as
 --     a recording; the camera for any shown time is a pure function of it;
 --   * the target circle and the stance are also set by absolute position
@@ -29,13 +29,14 @@ import "core/quat"
 import "core/burstpick"
 import "core/drill"
 import "core/throwplan"
-import "web/tune"
-import "web/json"
+import "session/json"
 
 local camera, swing, flight, pitch = tw.camera, tw.swing, tw.flight, tw.pitch
 local phys, playback, quat, burstpick = tw.world, tw.playback, tw.quat, tw.burstpick
 local drill, plan, body = tw.drill, tw.plan, tw.body
-local wtune = tw.web.tune
+-- The host's tune (tune/<name>.lua, chosen by session.useTune): read when it is used,
+-- not when this file loads, since the host chooses it after loading the engine.
+local function wtune() return assert(tw.web.tune, "no tune: call useTune first") end
 
 local abs, sqrt, max, min, floor, rad = math.abs, math.sqrt, math.max, math.min, math.floor, math.rad
 local fmt = string.format
@@ -686,7 +687,7 @@ function throw.aimFrame(s, inp)
 		if sw.phase == "swinging" then
 			-- lifting the pointer while swinging forward is the release: core/swing is
 			-- fed stopped frames until its stop test releases (or lets down)
-			local d = wtune.dial
+			local d = wtune().dial
 			local n = math.ceil(d.upFeedS / d.upFeedDt)
 			for _ = 1, n do
 				local ev = swing.update(sw, 0, d.upFeedDt)
@@ -710,7 +711,7 @@ function throw.aimFrame(s, inp)
 		-- a press: a press inside the dead zone behind 6 counts as starting at
 		-- the bottom (tune.dial.pressArmDeg)
 		s.pointerDown = true
-		local pa = wtune.dial.pressArmDeg
+		local pa = wtune().dial.pressArmDeg
 		if pa > 0 and arm < 0 and arm > -pa then prevArm = 0 else prevArm = nil end
 	end
 	s.arm = arm
@@ -796,7 +797,7 @@ function throw.cpuFrame(s, dt)
 	if s.mode == "cputhink" then
 		s.cpuWait = s.cpuWait + dt
 		aimCamera(s)
-		if s.cpuWait < wtune.throw.cpuThink then return nil end
+		if s.cpuWait < wtune().throw.cpuThink then return nil end
 		local a = s.cpuAim
 		s.cpuThrow, s.cpuT, s.cpuArm, s.cpuBack, s.cpuPhase = a, 0, 0, 0, "winding"
 		s.cpuPlan = s.cpuPlan or a.plan
@@ -926,7 +927,7 @@ end
 function throw.fire(s, L, how, info)
 	info = info or {}
 	local t = throw.tune
-	local wt = wtune.throw
+	local wt = wtune().throw
 	local aimCamNow
 	-- the follow camera starts from the aim camera as it is in first person
 	s.camMix, s.planHeld, s.shF = 0, false, nil
@@ -1172,7 +1173,7 @@ local function slewTable(s)
 	local L = s.last
 	if L.slew then return L.slew end
 	local t = throw.tune
-	local dt = wtune.throw.slewDt
+	local dt = wtune().throw.slewDt
 	local fl, w = L.fl, L.w
 	local dur = L.pb.frames * L.pb.frameDt
 	local ts, xs, ys = { 0 }, { fl.lx }, { fl.ly }

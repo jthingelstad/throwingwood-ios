@@ -9,7 +9,8 @@ import Testing
   /// (scripts/vendor-engine.sh check does the same from the shell).
   @Test func vendoredFilesMatchTheManifest() throws {
     let dir = try Engine.bundled()
-    let engine = try Engine()
+    let engine = try Engine(appVersion: testAppVersion)
+    #expect(engine.manifest.name == "kubb-engine")
     #expect(engine.manifest.files.count > 40)
     for (name, sha) in engine.manifest.files {
       let data = try Data(contentsOf: dir.appending(path: name))
@@ -18,23 +19,38 @@ import Testing
     }
   }
 
+  /// The host's calls at start: the version matches engine.json, the tune is
+  /// loaded (so `new` runs) and the label is in the game file.
+  @Test func theEngineStartsAsAHost() throws {
+    let engine = try Engine(appVersion: "1.2")
+    #expect(engine.engineVersion == engine.manifest.version)
+    #expect(engine.engineVersion.split(separator: ".").count == 3)
+    _ = try engine.call("new", json: #"{"mode":"match","seed":7,"cpu":"both","maxTurns":1}"#)
+    var need = try engine.call("need")
+    for _ in 0..<100_000 where !need.contains(#""kind":"over""#) {
+      _ = try engine.call("frame", json: #"{"dt":0.016666666666666666}"#)
+      need = try engine.call("need")
+    }
+    #expect(need.contains(#"Throwing Wood ios 1.2"#))
+  }
+
   @Test func aMatchStartsAndHashesTheSameEveryTime() throws {
     let options = #"{"mode":"match","seed":42,"cpu":"both","maxTurns":4}"#
-    let a = try Engine()
-    let b = try Engine()
+    let a = try Engine(appVersion: testAppVersion)
+    let b = try Engine(appVersion: testAppVersion)
     _ = try a.call("new", json: options)
     _ = try b.call("new", json: options)
     let hash = try a.hash()
     #expect(hash.count == 8)
     #expect(try b.hash() == hash)
     // A snapshot restored elsewhere is the same match.
-    let c = try Engine()
+    let c = try Engine(appVersion: testAppVersion)
     _ = try c.call("restore", json: a.call("snapshot"))
     #expect(try c.hash() == hash)
   }
 
   @Test func refusalsAreErrors() throws {
-    let engine = try Engine()
+    let engine = try Engine(appVersion: testAppVersion)
     #expect {
       try engine.call("snapshot")
     } throws: { error in
@@ -45,9 +61,9 @@ import Testing
   }
 
   @Test func aBrokenModuleFailsToLoad() throws {
-    let manifest = EngineManifest(source: "test", commit: "0", files: [:])
+    let manifest = EngineManifest(name: "kubb-engine", version: "0.0.0", files: [:])
     #expect(throws: EngineError.self) {
-      try Engine(sources: ["web/api": "this is not lua"], manifest: manifest)
+      try Engine(sources: ["session/api": "this is not lua"], manifest: manifest, appVersion: testAppVersion)
     }
   }
 }

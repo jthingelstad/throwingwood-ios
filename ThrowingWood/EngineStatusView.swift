@@ -12,7 +12,7 @@ struct EngineStatusView: View {
       List {
         Section("Engine") {
           LabeledContent("Lua", value: status.lua)
-          LabeledContent("Engine", value: status.commit)
+          LabeledContent("Engine", value: status.engineVersion)
           LabeledContent("Loaded in", value: status.loadTime)
         }
         Section("Match, seed \(EngineStatus.seed)") {
@@ -40,7 +40,7 @@ final class EngineStatus {
 
   private var engine: Engine?
   var lua = "…"
-  var commit = "…"
+  var engineVersion = "…"
   var loadTime = "…"
   var hash = "…"
   var throwCount = 0
@@ -51,10 +51,10 @@ final class EngineStatus {
     guard engine == nil else { return }
     do {
       let started = ContinuousClock.now
-      let engine = try Engine()
+      let engine = try Engine(appVersion: Bundle.main.shortVersion)
       loadTime = (ContinuousClock.now - started).formatted(.units(allowed: [.milliseconds]))
       lua = engine.luaVersion
-      commit = String(engine.manifest.commit.prefix(7))
+      engineVersion = "\(engine.manifest.name) \(engine.engineVersion)"
       _ = try engine.call("new", json: #"{"mode":"match","seed":\#(Self.seed),"cpu":"both"}"#)
       hash = try engine.hash()
       self.engine = engine
@@ -81,6 +81,11 @@ final class EngineStatus {
 }
 
 extension Bundle {
+  /// "0.1": the version alone, as the engine's client label takes it.
+  var shortVersion: String {
+    object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+  }
+
   /// "0.1 (12)": the version and build that scripts/version.sh stamped.
   var versionText: String {
     let version = object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
