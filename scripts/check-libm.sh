@@ -1,7 +1,7 @@
 #!/bin/bash
 # The engine's C never calls Apple's libm: every maths function CLua and CMusl
 # reference is musl's, renamed twm_* (ThrowingWoodKit/Sources/CMusl/NOTICE.md).
-# Builds both C targets in Debug and release and fails if either object
+# Builds the package in Debug and release and fails if either object
 # references a symbol that Apple's libm (the SDK's libsystem_m) exports, or if
 # CMusl defines any global symbol without the twm_ prefix.
 #
@@ -18,22 +18,26 @@ tbd=$(xcrun --sdk macosx --show-sdk-path)/usr/lib/system/libsystem_m.tbd
 libm=$(grep -oE "'?_[A-Za-z0-9_]+'?" "$tbd" | tr -d "'" | LC_ALL=C sort -u)
 [[ $(wc -l <<< "$libm") -gt 100 ]] || { echo "could not read libm's symbols from $tbd" >&2; exit 1; }
 
-# A target's object for a configuration, from either SwiftPM build system.
-object() { # <target> <debug|release>
+# A target's objects for a configuration: the merged object of the Swift
+# Build system (.build/out/Products/<Config>/<target>.o), or the per-file
+# objects of the native one (<arch>/<config>/<target>.build/**/*.o).
+objects() { # <target> <debug|release>
   local cfg=$2 cap
   cap=$(tr '[:lower:]' '[:upper:]' <<< "${cfg:0:1}")${cfg:1}
-  local merged=$kit/.build/out/Products/$cap/$1.o
-  if [[ -f $merged ]]; then echo "$merged"; return; fi
-  ls "$kit"/.build/"$cfg"/"$1".build/*.o 2> /dev/null || true
+  if [[ -f $kit/.build/out/Products/$cap/$1.o ]]; then
+    echo "$kit/.build/out/Products/$cap/$1.o"
+    return
+  fi
+  find "$kit/.build" -path "*-apple-macosx/$cfg/$1.build/*" -name '*.o' 2> /dev/null | LC_ALL=C sort
 }
 
 status=0
 for cfg in debug release; do
   if [[ $build == 1 ]]; then
-    swift build --package-path "$kit" -c "$cfg" --target CLua > /dev/null
+    swift build --package-path "$kit" -c "$cfg" > /dev/null
   fi
   for target in CMusl CLua; do
-    objs=$(object "$target" "$cfg")
+    objs=$(objects "$target" "$cfg")
     [[ -n $objs ]] || { echo "$cfg: no $target objects; build first" >&2; status=1; continue; }
     # shellcheck disable=SC2086
     bad=$(nm -u $objs 2> /dev/null | grep -E '^_' | LC_ALL=C sort -u | LC_ALL=C comm -12 - <(echo "$libm") || true)
