@@ -59,8 +59,16 @@ struct PracticeView: View {
             Text("Practice pitch").font(.custom("LondrinaSolid-Black", size: 31))
             Spacer()
             Menu {
-              Picker("Surface", selection: Binding(get: { model.surface }, set: model.select)) {
-                ForEach(Surface.allCases, id: \.self) { s in Text(s.rawValue.capitalized).tag(s) }
+              ForEach(Surface.allCases, id: \.self) { surface in
+                Button {
+                  model.select(surface)
+                } label: {
+                  if surface == model.surface {
+                    Label(surface.rawValue.capitalized, systemImage: "checkmark")
+                  } else {
+                    Text(surface.rawValue.capitalized)
+                  }
+                }
               }
             } label: {
               HStack(spacing: 6) {
