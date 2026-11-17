@@ -1,7 +1,7 @@
 # The iPhone rooms client
 
 `KubbRooms` is a headless Swift 6 library. No screens, accounts, analytics, third-party
-Swift packages or task groups. The app has not connected its placeholder screen to it.
+Swift packages or task groups. The local practice screen runs its own engine session.
 
 ## Ownership and lifetime
 

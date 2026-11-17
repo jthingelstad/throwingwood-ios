@@ -105,7 +105,17 @@ differ, 75 of 453 actions agree before each match's first difference, the
 same as kubb-engine measures with desktop Lua). It is not in CI because a
 new Apple libm could round these arguments musl's way.
 
-## Rooms (no UI yet)
+## Pitch renderer and practice
+
+`KubbRenderer` owns the pure Core Graphics picture, the shared projection for hit
+testing, and main-actor `PracticePitch`. Keep physics, cameras, slow motion and
+verdicts in the tagged session. Read [docs/RENDER.md](docs/RENDER.md) before
+changing projection, recording interpolation, input or review fixtures. The app
+uses the pointer dial through `ThrowInput`. Compare all five snapshots and the
+independent practice throw locally with the usual Kit tests. The web checkout is
+read-only when generating review pictures. Keep synthetic scenes free of names.
+
+## Rooms (headless)
 
 `KubbRooms` is the main-actor room client and headless pitch controller; its contract
 is `docs/ROOMS-CLIENT.md`. Lobby, seat and sync rules are exclusively the engine's
