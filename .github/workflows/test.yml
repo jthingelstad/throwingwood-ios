@@ -1,0 +1,46 @@
+name: test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-26
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # SwiftPM rebuilds by content, so a restored .build compiles only what
+      # changed (Lua and musl are most of the build).
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ThrowingWoodKit/.build
+          key: kit-${{ runner.os }}-${{ hashFiles('ThrowingWoodKit/Package.swift', 'ThrowingWoodKit/Sources/**', 'ThrowingWoodKit/Tests/**') }}
+          restore-keys: kit-${{ runner.os }}-
+      # The vendored engine must be what engine.json says, byte for byte.
+      - name: Vendored engine matches its manifest
+        run: scripts/vendor-engine.sh check
+      - name: Version arithmetic
+        run: scripts/version.sh test
+      # The golden tests: every hash the same as the web's WebAssembly engine.
+      - name: ThrowingWoodKit tests
+        run: swift test --package-path ThrowingWoodKit
+      # TestFlight builds are optimized; the hashes must hold there too.
+      - name: ThrowingWoodKit tests, optimized
+        run: swift test -c release -Xswiftc -enable-testing --package-path ThrowingWoodKit
+      - name: Build the app for the simulator
+        run: >
+          xcodebuild -project ThrowingWood.xcodeproj -scheme ThrowingWood
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO build
