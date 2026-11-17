@@ -89,7 +89,8 @@ import Testing
         ("t", .string("joined")), ("host", .string(p.room.you)), ("rev", .int(10)),
         ("members", p.room.membersJSON), ("v", .int(5)), ("doc", .raw(doc.raw)),
       ]).ascii)
-    // Explicit fresh match adoption resets the local sequence for this test.
+    #expect(p.sequence == 1)  // authoritative joined reset, not an ordinary old doc
+    // Start another match to test same-sequence hash recovery.
     _ = try await p.reduce("backToLobby")
     #expect(try await p.start(seed: 11, at: at))
     let current = try JSONNode.parse(p.room.document)
@@ -98,14 +99,14 @@ import Testing
     m.removeAll { $0.0 == "hash" }
     m.append(("hash", .string("00000000")))
     let corrupt = JS.object(
-      doc.members.map { ($0.key, $0.key == "match" ? .object(m) : JS.raw($0.value.raw)) })
+      current.members.map { ($0.key, $0.key == "match" ? .object(m) : JS.raw($0.value.raw)) })
     p.room.receive(
       JS.object([("t", .string("doc")), ("v", .int(p.room.version + 1)), ("doc", corrupt)]).ascii)
     #expect(p.corrections == 1)
     m.removeAll { $0.0 == "engine" }
     m.append(("engine", .string("9.0")))
     let newer = JS.object(
-      doc.members.map { ($0.key, $0.key == "match" ? .object(m) : JS.raw($0.value.raw)) })
+      current.members.map { ($0.key, $0.key == "match" ? .object(m) : JS.raw($0.value.raw)) })
     p.room.receive(
       JS.object([("t", .string("doc")), ("v", .int(p.room.version + 1)), ("doc", newer)]).ascii)
     #expect(p.state == .versionMismatch && !p.mayAct)
@@ -135,4 +136,63 @@ import Testing
     #expect(p.sequence == seq + 1)
     #expect(p.lastError == nil)
   }
+  @Test func rejoinAdoptsRestartedRoomWithReusedMatchNumber() async throws {
+    let (p, _) = try await setup()
+    defer { p.close() }
+    try await p.joinTeam("A")
+    #expect(try await p.start(seed: 1001, at: at))
+    let stale = try JSONNode.parse(p.room.document)
+    let advanced = JS.object(
+      stale["match"]!.members.map {
+        ($0.key, $0.key == "seq" ? JS.int(8) : JS.raw($0.value.raw))
+      })
+    let staleDoc = JS.object(
+      stale.members.map {
+        ($0.key, $0.key == "match" ? advanced : JS.raw($0.value.raw))
+      })
+    p.room.receive(JS.object([("t", .string("doc")), ("v", .int(9)), ("doc", staleDoc)]).ascii)
+    #expect(p.sequence == 8)
+    let (fresh, _) = try await setup()
+    defer { fresh.close() }
+    try await fresh.joinTeam("A")
+    #expect(try await fresh.start(seed: 2002, at: at))
+    let newHash = try fresh.engine.hash()
+    #expect(try p.engine.hash() != newHash)
+    p.room.receive(
+      JS.object([
+        ("t", .string("joined")), ("host", .string(p.room.you)), ("rev", .int(1)),
+        ("members", p.room.membersJSON), ("v", .int(2)), ("doc", .raw(fresh.room.document)),
+      ]).ascii)
+    #expect(p.matchNumber == 1 && p.sequence == 0 && p.state == .match)
+    #expect(try p.engine.hash() == newHash)
+    #expect(p.mayAct)
+  }
+
+  @Test func incompatibleRunningMatchSurvivesJoinedMembersEvent() async throws {
+    let (host, _) = try await setup()
+    defer { host.close() }
+    try await host.joinTeam("A")
+    #expect(try await host.start(seed: 7, at: at))
+    let doc = try JSONNode.parse(host.room.document)
+    let incompatible = JS.object(
+      doc["match"]!.members.filter { $0.key != "engine" }.map {
+        ($0.key, JS.raw($0.value.raw))
+      } + [("engine", .string("9.0"))])
+    let remoteDoc = JS.object(
+      doc.members.map { ($0.key, $0.key == "match" ? incompatible : JS.raw($0.value.raw)) })
+    let (guest, _) = try await setup()
+    defer { guest.close() }
+    // receive(joined) emits state followed immediately by members, as a real join.
+    guest.room.receive(
+      JS.object([
+        ("t", .string("joined")), ("host", .string(host.room.you)), ("rev", .int(3)),
+        ("members", host.room.membersJSON), ("v", .int(2)), ("doc", remoteDoc),
+      ]).ascii)
+    #expect(guest.state == .versionMismatch && !guest.mayAct)
+    #expect(try JSONNode.parse(guest.mismatch!)["why"]?.string == "differs")
+    guest.room.receive(
+      #"{"t":"member","rev":4,"member":{"id":"Watcher_01","joined":3,"connected":true}}"#)
+    #expect(guest.state == .versionMismatch)
+  }
+
 }

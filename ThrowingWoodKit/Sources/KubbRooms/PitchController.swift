@@ -201,6 +201,19 @@ import KubbEngine
         try synchronize(doc, rider: rider, mine: mine)
         try keepReplay(doc, version: v)
       case .state:
+        // A joined document can be a new incarnation of an expired room. Match
+        // numbers restart there; discard a stale cursor before Lua decides how to
+        // synchronize. Ordinary document events must still ignore older sequences.
+        if let current = try JSONNode.parse(room.document)["match"],
+          current["n"]?.int == matchNumber,
+          (current["seq"]?.int ?? 0) < sequence
+            || current["h0"]?.raw != match?["h0"]?.raw
+            || current["setup"]?.raw != match?["setup"]?.raw
+        {
+          matchNumber = nil
+          sequence = 0
+          control = .null
+        }
         // Rejoins have no rider. A gap is deliberately adopted, never replayed twice.
         try synchronize(room.document)
         try refreshSeat()
@@ -212,8 +225,11 @@ import KubbEngine
         }
         try refreshSeat()
         if state == .versionMismatch, match == nil {
-          state = .lobby
-          mismatch = nil
+          let decision = try roomCall("decide", [("doc", .raw(room.document))])
+          if decision["kind"]?.string == "lobby" {
+            state = .lobby
+            mismatch = nil
+          }
         }
       case .left:
         if room.isHost, state == .lobby {
