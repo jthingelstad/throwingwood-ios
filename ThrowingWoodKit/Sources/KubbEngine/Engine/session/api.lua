@@ -2,13 +2,14 @@
 -- argsJson) -> resultJson. One session per Lua state. Every call is
 -- protected: a Lua error comes back as {"error": "..."}, which src/engine
 -- throws as a JavaScript Error. snapshot returns the snapshot text itself;
--- restore takes it as its argument.
+-- restore takes it as its argument. "room.<name>" calls are the room's (room/api.lua).
 import "core/tw"
 import "version"
 import "session/json"
 import "session/session"
 import "session/wide"
 import "session/replay"
+import "room/api"
 
 local json, session, wide, replay = tw.web.json, tw.web.session, tw.web.wide, tw.web.replay
 
@@ -147,6 +148,8 @@ function M.sheet() return need():sheet() or json.object() end
 
 local function call(method, arg)
 	if method == "snapshot" then return need():snapshot() end
+	-- the room's pure calls (room/api.lua, docs/ROOM.md): "room.<name>"
+	if type(method) == "string" and method:sub(1, 5) == "room." then return tw.room.api.call(method:sub(6), arg) end
 	local f = M[method]
 	if not f then error("unknown call " .. tostring(method), 0) end
 	local a = nil

@@ -16,6 +16,12 @@
 --     keys only: anything else is an error, as core/save's plain rule is).
 -- json.raw(text) puts text into the output as it is (the recording's pose
 -- arrays, already formatted).
+--
+-- The room's documents (room/, docs/ROOM.md) need what a JavaScript client wrote to come
+-- back as it was: json.decode(text, true) keeps every object an object (an empty one too,
+-- marked as json.object() marks it) and every null a null (json.null, which encodes as
+-- null), where the plain decode drops nulls and reads {} as an empty table, written [].
+-- The session never decodes that way, so its texts and hashes are unchanged.
 import "core/tw"
 
 local json = {}
@@ -24,9 +30,30 @@ local fmt, concat, sort, mtype = string.format, table.concat, table.sort, math.t
 
 local RAW = {}      -- metatable of json.raw values
 local OBJECT = {}   -- metatable of tables always written as objects
+local NULL = setmetatable({}, { __name = "json.null", __tostring = function() return "null" end })
 
 function json.raw(text) return setmetatable({ text }, RAW) end
 function json.object(t) return setmetatable(t or {}, OBJECT) end
+
+-- JSON's null, kept apart from a missing key (nil) by json.decode(text, true).
+json.null = NULL
+function json.isNull(v) return rawequal(v, NULL) end
+
+-- An array: a table that is not json.null, not marked as an object, and is empty or has
+-- exactly the keys 1..n (what json.encode writes as an array).
+function json.isArray(v)
+	if type(v) ~= "table" or rawequal(v, NULL) then return false end
+	local mt = getmetatable(v)
+	if mt == OBJECT or mt == RAW then return false end
+	local len, n = #v, 0
+	for _ in pairs(v) do n = n + 1 end
+	return n == len
+end
+
+-- An object: a table that is not json.null and not an array.
+function json.isObject(v)
+	return type(v) == "table" and not rawequal(v, NULL) and getmetatable(v) ~= RAW and not json.isArray(v)
+end
 
 -- A float as the shortest text that reads back as the same double.
 local function float(v)
@@ -52,7 +79,7 @@ end
 local encodeTo
 encodeTo = function(v, out, n, path)
 	local t = type(v)
-	if v == nil then n = n + 1; out[n] = "null"
+	if v == nil or rawequal(v, NULL) then n = n + 1; out[n] = "null"
 	elseif t == "boolean" then n = n + 1; out[n] = v and "true" or "false"
 	elseif t == "number" then
 		n = n + 1
@@ -147,11 +174,11 @@ local function decodeString(s, i)
 	end
 end
 
-value = function(s, i)
+value = function(s, i, keep)
 	i = skip(s, i)
 	local c = sub(s, i, i)
 	if c == "{" then
-		local t = {}
+		local t = keep and setmetatable({}, OBJECT) or {}
 		i = skip(s, i + 1)
 		if sub(s, i, i) == "}" then return t, i + 1 end
 		while true do
@@ -161,7 +188,7 @@ value = function(s, i)
 			i = skip(s, i)
 			if sub(s, i, i) ~= ":" then fail(s, i, "expected :") end
 			local v
-			v, i = value(s, i + 1)
+			v, i = value(s, i + 1, keep)
 			t[k] = v
 			i = skip(s, i)
 			local d = sub(s, i, i)
@@ -175,7 +202,7 @@ value = function(s, i)
 		if sub(s, i, i) == "]" then return t, i + 1 end
 		while true do
 			local v
-			v, i = value(s, i)
+			v, i = value(s, i, keep)
 			n = n + 1
 			t[n] = v
 			i = skip(s, i)
@@ -188,7 +215,7 @@ value = function(s, i)
 		return decodeString(s, i + 1)
 	elseif c == "t" and sub(s, i, i + 3) == "true" then return true, i + 4
 	elseif c == "f" and sub(s, i, i + 4) == "false" then return false, i + 5
-	elseif c == "n" and sub(s, i, i + 3) == "null" then return nil, i + 4
+	elseif c == "n" and sub(s, i, i + 3) == "null" then return keep and NULL or nil, i + 4
 	else
 		local _, e = find(s, "^-?%d+%.?%d*[eE]?[-+]?%d*", i)
 		if not e then fail(s, i, "unexpected character") end
@@ -204,10 +231,11 @@ value = function(s, i)
 end
 
 -- Decode JSON text. null in an object leaves the key out; in an array it
--- leaves a hole (the session never sends one).
-function json.decode(s)
+-- leaves a hole (the session never sends one). With keep, null is json.null and
+-- every object is marked as one (json.object), so the text comes back as it was.
+function json.decode(s, keep)
 	if type(s) ~= "string" then error("json: not a string", 0) end
-	local v, i = value(s, 1)
+	local v, i = value(s, 1, keep and true or nil)
 	i = skip(s, i)
 	if i <= #s then fail(s, i, "trailing text") end
 	return v
