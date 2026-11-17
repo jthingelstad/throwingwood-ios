@@ -17,6 +17,7 @@ let package = Package(
   platforms: [.iOS("26.0"), .macOS("15.0")],
   products: [
     .library(name: "KubbEngine", targets: ["KubbEngine"]),
+    .library(name: "KubbRenderer", targets: ["KubbRenderer"]),
     .library(name: "KubbRooms", targets: ["KubbRooms"]),
     .executable(name: "RoomsProbe", targets: ["RoomsProbe"]),
   ],
@@ -57,6 +58,8 @@ let package = Package(
     // The game engine: a kubb-engine release (Engine/, vendored byte for
     // byte by scripts/vendor-engine.sh) behind kubbCall.
     .target(name: "KubbEngine", dependencies: ["CLua"], resources: [.copy("Engine")]),
+    .target(name: "KubbRenderer", dependencies: ["KubbEngine"]),
+    .testTarget(name: "KubbRendererTests", dependencies: ["KubbRenderer"], resources: [.copy("Fixtures")]),
     .target(name: "KubbRooms", dependencies: ["KubbEngine"]),
     .executableTarget(name: "RoomsProbe", dependencies: ["KubbRooms"], path: "Tools/RoomsProbe"),
     .testTarget(

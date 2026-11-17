@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		7B1E000000000000000000A1 /* KubbEngine in Frameworks */ = {isa = PBXBuildFile; productRef = 7B1E000000000000000000B1 /* KubbEngine */; };
+		7B1E000000000000000000A1 /* KubbRenderer in Frameworks */ = {isa = PBXBuildFile; productRef = 7B1E000000000000000000B1 /* KubbRenderer */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,7 +28,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7B1E000000000000000000A1 /* KubbEngine in Frameworks */,
+				7B1E000000000000000000A1 /* KubbRenderer in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -73,7 +73,7 @@
 			);
 			name = ThrowingWood;
 			packageProductDependencies = (
-				7B1E000000000000000000B1 /* KubbEngine */,
+				7B1E000000000000000000B1 /* KubbRenderer */,
 			);
 			productName = ThrowingWood;
 			productReference = 7B1E00000000000000000001 /* ThrowingWood.app */;
@@ -287,9 +287,9 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		7B1E000000000000000000B1 /* KubbEngine */ = {
+		7B1E000000000000000000B1 /* KubbRenderer */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = KubbEngine;
+			productName = KubbRenderer;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -1,0 +1,91 @@
+import Foundation
+import simd
+
+struct WorldPoint: Decodable {
+  let x, y, z: Double
+  var vector: V3 { V3(x, y, z) }
+}
+
+public struct ThrowResult: Decodable, Equatable, Sendable {
+  public let flag, restText: String?
+  struct Words: Decodable, Equatable {
+    let power, release, steady, side: String?
+  }
+  let verdicts: Words?
+  public struct Verdict: Equatable {
+    public let text: String, offTarget: Bool
+  }
+  public var words: [Verdict] {
+    guard let v = verdicts else { return [] }
+    var off = [Verdict]()
+    var on = [Verdict]()
+    for (word, good, label) in [
+      (v.power, "ON", "POWER ON"), (v.release, "ON", "ARC ON"),
+      (v.steady, "STEADY", "STEADY"), (v.side, "STRAIGHT", "STRAIGHT"),
+    ] {
+      guard let word else { continue }
+      if word == good {
+        on.append(Verdict(text: label, offTarget: false))
+      } else {
+        off.append(Verdict(text: word, offTarget: true))
+      }
+    }
+    return off + on
+  }
+}
+
+struct Recording: Decodable {
+  struct Body: Decodable {
+    let id: String, start, frames: Int, poses: [Int]
+  }
+  struct Burst: Decodable {
+    let start: Double, kind: String, anchor: WorldPoint
+  }
+  struct Timeline: Decodable { let bursts: [Burst] }
+  let frameDt, duration, poseScale: Double
+  let items: [Piece], bodies: [Body], timeline: Timeline, result: ThrowResult
+}
+
+/// Pre-index moving tracks once. The other pieces keep their release pose.
+struct Playback {
+  let recording: Recording
+  private let tracks: [(index: Int, body: Recording.Body)]
+  var nextTime = 0.0, rest = 0.0, realTime = 0.0
+  var finished = false
+  var starts: [Double?]
+  init(_ r: Recording) {
+    recording = r
+    let indices = Dictionary(uniqueKeysWithValues: r.items.enumerated().map { ($1.id, $0) })
+    tracks = r.bodies.compactMap { b in indices[b.id].map { ($0, b) } }
+    starts = Array(repeating: nil, count: r.timeline.bursts.count)
+  }
+
+  func pieces(at t: Double) -> [Piece] {
+    var items = recording.items
+    let u = t / recording.frameDt
+    let frame = Int(floor(u))
+    for (index, b) in tracks where frame + 1 >= b.start && b.frames > 0 {
+      var p = items[index]
+      func pose(_ f: Int) -> (V3, SIMD4<Double>) {
+        if f < b.start { return (p.center, p.rotation.vector) }
+        let i = min(f - b.start, b.frames - 1) * 7
+        let d = b.poses
+        let scale = recording.poseScale
+        return (
+          V3(Double(d[i]), Double(d[i + 1]), Double(d[i + 2])) / scale,
+          SIMD4(Double(d[i + 4]), Double(d[i + 5]), Double(d[i + 6]), Double(d[i + 3])) / scale
+        )
+      }
+      let a = pose(frame)
+      let next = pose(frame + 1)
+      let fraction = u - Double(frame)
+      let center = a.0 + (next.0 - a.0) * fraction
+      let end = dot(a.1, next.1) < 0 ? -next.1 : next.1
+      let q = simd_normalize(a.1 + (end - a.1) * fraction)
+      (p.x, p.y, p.z) = (center.x, center.y, center.z)
+      (p.qx, p.qy, p.qz, p.qw) = (q.x, q.y, q.z, q.w)
+      items[index] = p
+    }
+    return items
+  }
+}

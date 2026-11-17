@@ -7,10 +7,11 @@ iPhone version.
 
 ## What's here
 
-The game engine runs natively, with a headless rooms client and cross-play
-tests against the web engine. The app still has its placeholder screen:
-the engine loaded, its match hash, and a button that lets the computer throw.
-Rooms screens are the next phase.
+The app opens onto a practice pitch. Choose grass, sand or snow, drag the circle
+onto a kubb, then press near the bottom of the dial. Wind up the left side into
+the orange power range, flick through the bottom and lift in the blue release
+range. The recording plays from flight to rest and the verdict describes the
+throw. Online play is tested headlessly with the web.
 
 - `ThrowingWoodKit/` is a Swift package. `KubbEngine` runs the game engine,
   a tagged release of [kubb-engine](https://github.com/jthingelstad/kubb-engine)
@@ -18,6 +19,8 @@ Rooms screens are the next phase.
   math library compiled in so every result matches the web's WebAssembly
   engine to the last bit. Its tests play the engine's golden matches and
   check every hash against the engine's own corpus.
+- `KubbRenderer` draws the pitch with Core Graphics and plays the engine’s recordings.
+  [Renderer contract, frame timings and review pictures](docs/RENDER.md).
 - `KubbRooms` in that package is the Foundation WebSocket client and native
   pitch controller. Its contract and local cross-play checks are in
   [docs/ROOMS-CLIENT.md](docs/ROOMS-CLIENT.md).
@@ -47,3 +50,5 @@ To sign a device build, put `DEVELOPMENT_TEAM = <team id>` in
 The app is MIT (`LICENSE`). Lua is MIT (`ThrowingWoodKit/Sources/CLua/LICENSE`)
 and musl is MIT (`ThrowingWoodKit/Sources/CMusl/COPYRIGHT`); each has a
 `NOTICE.md` saying what was taken and how it was changed.
+
+The display face is Londrina Solid Black, distributed under the [SIL Open Font License](ThrowingWood/Fonts/OFL-LondrinaSolid.txt).
