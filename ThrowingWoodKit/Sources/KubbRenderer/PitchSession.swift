@@ -68,6 +68,44 @@ public struct PointerDial: ThrowInput {
   public mutating func reset() { self = Self() }
 }
 
+public enum PracticeExercise: String, CaseIterable {
+  case base, pair, pile
+  public var title: String {
+    switch self {
+    case .base: "8 m base"
+    case .pair: "Offset pair"
+    case .pile: "Drill beside a kubb"
+    }
+  }
+}
+
+/// Coordinates are relative to the first contact, in units of rail travel.
+/// Keep every position between display frames, including the final position.
+struct StraightStroke: ThrowInput {
+  private var samples = [String]()
+  private var last: CGPoint?
+  mutating func sample(_ point: CGPoint?) {
+    guard let p = point ?? last else { return }
+    let phase: String
+    if point == nil {
+      phase = #","phase":"up""#
+    } else if last == nil {
+      phase = #","phase":"down""#
+    } else {
+      phase = ""
+    }
+    samples.append(#"{"x":\#(p.x),"y":\#(p.y)\#(phase)}"#)
+    last = point
+  }
+  mutating func frame(after dt: Double) -> String? {
+    guard !samples.isEmpty else { return nil }
+    let input = #"{"dt":\#(dt),"stroke":[\#(samples.joined(separator: ","))]}"#
+    samples.removeAll(keepingCapacity: true)
+    return input
+  }
+  mutating func reset() { self = Self() }
+}
+
 struct Aim: Decodable {
   struct Plan: Decodable { let loft: Double?, tilt, spin: Int? }
   struct Wind: Decodable { let text: String }
@@ -101,6 +139,7 @@ public typealias PracticePitch = PitchSession
 @MainActor
 public final class PitchSession {
   let appVersion: String
+  public let exercise: PracticeExercise?
   var trail = ReportTrail()
   let engine: Engine
   private let decoder = JSONDecoder()
@@ -120,7 +159,7 @@ public final class PitchSession {
   var onlineAction: ((JSONText) throws -> Void)?
   public internal(set) var acceptsInput = true
   var runsComputer = true
-  var playerSide: () -> String? = { "A" } // solo seat; online asks room.playingSide at the win
+  var playerSide: () -> String? = { "A" }  // solo seat; online asks room.playingSide at the win
   public var onFeedback: ((PitchFeedback) -> Void)?
   public var cancelFeedback: (() -> Void)?
   public var canAim: Bool {
@@ -132,10 +171,15 @@ public final class PitchSession {
   var levelOverride: String?
   public var playing: Bool { playback != nil }
 
-  public init(appVersion: String, input: any ThrowInput = PointerDial()) throws {
+  public init(
+    appVersion: String, input: any ThrowInput = PointerDial(), exercise: PracticeExercise? = nil
+  ) throws {
     self.appVersion = appVersion
-    self.input = input
-    engine = try Engine(appVersion: appVersion)
+    self.exercise = exercise
+    self.input = exercise == nil ? input : StraightStroke()
+    engine =
+      try exercise == nil
+      ? Engine(appVersion: appVersion) : Engine.straightPractice(appVersion: appVersion)
     options = try SoloOptions(engine: engine)
     let v = try decoder.decode(
       ViewOutput.self,
@@ -143,7 +187,8 @@ public final class PitchSession {
         engine.call(
           "new",
           json:
-            #"{"mode":"practice","drill":false,"surface":"grass"}"#
+            exercise.map { #"{"mode":"practice","exercise":"\#($0.rawValue)","surface":"grass"}"# }
+            ?? #"{"mode":"practice","surface":"grass"}"#
         ).utf8))
     scene = PitchScene(surface: v.surface, set: v.set, items: v.items)
     camera = v.camera
@@ -185,11 +230,14 @@ public final class PitchSession {
       }
       // A resignation can retain the preceding informative card in the engine view.
       handoff = v.need.kind == "throw" ? v.need.card?.handoff : nil
-      if let handoff, handoff.turn != previousHandoff?.turn || handoff.toName != previousHandoff?.toName {
+      if let handoff,
+        handoff.turn != previousHandoff?.turn || handoff.toName != previousHandoff?.toName
+      {
         onFeedback?(PitchFeedback(haptic: .handoff))
       }
       if v.need.kind == "over", previous?.kind != "over",
-        let winner = v.need.winner?.winner, winner == playerSide() {
+        let winner = v.need.winner?.winner, winner == playerSide()
+      {
         onFeedback?(PitchFeedback(haptic: .win))
       }
       placement = nil
