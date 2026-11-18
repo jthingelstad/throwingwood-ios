@@ -3,8 +3,18 @@ import KubbRenderer
 import Observation
 
 @MainActor @Observable final class GameModel {
-  enum Screen { case home, options, practice, match, menu, sheet }
-  let pitch: PitchSession?
+  enum Screen {
+    case home, options, practice, match, menu, sheet, onlineEntry, join, pitch, report, invalidLink
+  }
+  let offline: PitchSession?
+  var pitch: PitchSession? { online?.board ?? offline }
+  var online: OnlinePitch?
+  var onlineRevision = 0
+  var report: PitchReport?
+  var joinInput = ""
+  static let version =
+    Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+
   var screen = Screen.home
   var error: String?
   var surface = Surface.grass
@@ -20,15 +30,15 @@ import Observation
 
   init() {
     do {
-      pitch = try PitchSession(
+      offline = try PitchSession(
         appVersion:
           Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0")
     } catch {
-      pitch = nil
+      offline = nil
       self.error = String(describing: error)
       return
     }
-    guard let pitch else { return }
+    guard let pitch = offline else { return }
     let defaults = UserDefaults.standard
     selections = pitch.options.defaults
     for row in pitch.options.rows {
@@ -41,6 +51,10 @@ import Observation
     name = defaults.string(forKey: "solo.name") ?? "You"
     perform {
       #if targetEnvironment(simulator)
+        if let mode = ProcessInfo.processInfo.environment["ONLINE_REVIEW"] {
+          beginReview(mode)
+          return
+        }
         if let mode = ProcessInfo.processInfo.environment["MATCH_REVIEW"] {
           selections = pitch.options.defaults
           name = "You"
@@ -88,7 +102,45 @@ import Observation
     if slow != (pitch.playing && pitch.slow) { slow = pitch.playing && pitch.slow }
     if revision != pitch.revision { revision = pitch.revision }
   }
+  func enter(_ link: PitchLink, create: Bool) {
+    perform {
+      let defaults = UserDefaults.standard
+      let pitch = try OnlinePitch(
+        url: RoomsConfiguration.url, link: link, create: create,
+        name: defaults.string(forKey: "pitch.name") ?? "",
+        level: defaults.string(forKey: "pitch.level") ?? "club", appVersion: Self.version)
+      online = pitch
+      screen = .pitch
+      pitch.changed = { [weak self, weak pitch] in
+        guard let self, let pitch, online === pitch else { return }
+        if pitch.stage == .match {
+          if screen == .pitch { screen = .match }
+        } else {
+          screen = .pitch
+        }
+        onlineRevision += 1
+        refresh()
+      }
+      pitch.connect()
+    }
+  }
+  func join(_ text: String) {
+    guard let link = PitchLink(text) else {
+      screen = .invalidLink
+      return
+    }
+    enter(link, create: false)
+  }
   func home() {
+    if let online {
+      online.changed = nil
+      self.online = nil
+      report = nil
+      Task { await online.leave() }
+      screen = .home
+      refresh()
+      return
+    }
     perform {
       if pitch?.need?.kind == "over" { try save.clear() }
       try pitch?.practice()

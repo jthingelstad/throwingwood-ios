@@ -19,6 +19,12 @@ struct HomeCard: View {
         }
         .buttonStyle(WoodButton(accent: true))
         Button {
+          model.screen = .onlineEntry
+        } label: {
+          Text("PLAY ONLINE").frame(maxWidth: .infinity)
+        }
+        .buttonStyle(WoodButton())
+        Button {
           model.screen = .practice
         } label: {
           Text("PRACTICE").frame(maxWidth: .infinity)
@@ -177,9 +183,15 @@ struct MatchScreen: View {
         VStack(spacing: 8) {
           HStack {
             VStack(alignment: .leading, spacing: 1) {
-              Text(n.cpu == true ? "WATCH  ·  TURN \(n.turn ?? 1)" : "TURN \(n.turn ?? 1)")
-                .font(.caption2.bold()).tracking(1.4)
-              Text(n.setup?.thrower?.name ?? n.team ?? "Match").font(displayFont(27)).lineLimit(1)
+              Text(
+                n.cpu == true || (model.online != nil && !pitch.acceptsInput)
+                  ? "WATCH  ·  TURN \(n.turn ?? 1)" : "TURN \(n.turn ?? 1)"
+              )
+              .font(.caption2.bold()).tracking(1.4)
+              Text(
+                (model.online != nil && !playing && model.online?.turnLabel.isEmpty == false)
+                  ? model.online!.turnLabel : (n.setup?.thrower?.name ?? n.team ?? "Match")
+              ).font(displayFont(27)).lineLimit(1)
             }
             Spacer()
             VStack(alignment: .trailing) {
@@ -192,9 +204,15 @@ struct MatchScreen: View {
                 .font(.subheadline.bold())
               }
               if let counts = n.standing {
-                Text("You \(counts["A"] ?? 0)  ·  CPU \(counts["B"] ?? 0)")
-                  .font(.caption).accessibilityLabel(
-                    "Kubbs standing, you \(counts["A"] ?? 0), computer \(counts["B"] ?? 0)")
+                Text(
+                  model.online == nil
+                    ? "You \(counts["A"] ?? 0)  ·  CPU \(counts["B"] ?? 0)"
+                    : "A \(counts["A"] ?? 0)  ·  B \(counts["B"] ?? 0)"
+                )
+                .font(.caption).accessibilityLabel(
+                  model.online != nil
+                    ? "Kubbs standing, team A \(counts["A"] ?? 0), team B \(counts["B"] ?? 0)"
+                    : "Kubbs standing, you \(counts["A"] ?? 0), computer \(counts["B"] ?? 0)")
               }
             }
             Button {
@@ -210,14 +228,30 @@ struct MatchScreen: View {
           }
           if let result = model.result, n.kind == "throw" { Verdict(result: result) }
           Spacer()
-          if n.kind == "raise" || n.kind == "punish" {
+          if let online = model.online {
+            HStack {
+              Menu("SHOUT") {
+                ForEach(OnlinePitch.words, id: \.self) { w in Button(w) { online.shout(w) } }
+              }
+              .buttonStyle(WoodButton())
+              Spacer()
+              VStack(alignment: .trailing) {
+                ForEach(Array(online.shouts.enumerated()), id: \.offset) { _, s in
+                  Text(s).font(displayFont(20)).modifier(Plate(inset: 5))
+                }
+              }
+            }
+          }
+          if (n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput {
             placement(n)
           } else if !playing && pitch.canAim {
             plans
           } else if playing {
             HStack {
               Spacer()
-              tool("SKIP", label: "Skip playback") { try pitch.skipPlayback() }
+              tool("SKIP", label: "Skip playback") {
+                if let online = model.online { try online.skip() } else { try pitch.skipPlayback() }
+              }
             }
           }
         }.padding(.horizontal, 12)
@@ -319,9 +353,16 @@ struct MatchScreen: View {
           }
         }.frame(width: 62, height: 98)
       }
-      Button("THROW") { model.perform { pitch.dismissHandoff() } }.buttonStyle(
+      Button(model.online != nil && !pitch.acceptsInput ? "WATCH" : "THROW") {
+        model.perform { pitch.dismissHandoff() }
+      }.buttonStyle(
         WoodButton(accent: true))
     }.frame(maxWidth: .infinity, alignment: .leading)
+      .task(id: "\(c.turn)-\(pitch.acceptsInput)") {
+        guard model.online != nil, !pitch.acceptsInput else { return }
+        do { try await Task.sleep(for: .milliseconds(2500)) } catch { return }
+        if !pitch.acceptsInput { model.perform { pitch.dismissHandoff() } }
+      }
   }
 
   private func winner(_ n: MatchNeed, _ w: MatchNeed.Winner) -> some View {
@@ -335,7 +376,14 @@ struct MatchScreen: View {
         Text(minutes == 0 ? "Under a minute" : "\(minutes) min").font(.caption)
       }
       HStack {
-        Button("REMATCH") { model.screen = .options }.buttonStyle(WoodButton(accent: true))
+        if let online = model.online {
+          if online.isHost {
+            Button("REMATCH") { model.runOnline { try await online.rematch() } }.buttonStyle(
+              WoodButton(accent: true))
+          }
+        } else {
+          Button("REMATCH") { model.screen = .options }.buttonStyle(WoodButton(accent: true))
+        }
         Button("SCORE SHEET", action: model.showSheet).buttonStyle(WoodButton())
       }
       Button("HOME", action: model.home).font(.caption.bold()).padding(.vertical, 8)
