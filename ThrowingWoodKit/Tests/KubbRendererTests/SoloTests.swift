@@ -7,7 +7,7 @@ import Testing
 @MainActor struct SoloTests {
   // CPU on both sides exercises the same on-screen clock, release and playback as a solo CPU turn.
   // The reference advances independently. It never receives an action or snapshot from the app.
-  @Test func fullMatchAgreesAfterEveryRelease() throws {
+  @Test func fullMatchAgreesAfterEveryRelease() async throws {
     let setup =
       #"{"mode":"match","cpu":"both","seed":1001,"opening":"2-4-6","raising":"hand","start":{"year":2026,"month":11,"day":17,"hour":12,"min":0}}"#
     let app = try PitchSession(appVersion: "test")
@@ -25,6 +25,8 @@ import Testing
         releases += 1
         try #require(try app.engine.hash() == ref.hash(), "release \(releases)")
         try app.skipPlayback()
+        // Let the other main-actor Kit tests service their transports between throws.
+        await Task.yield()
       }
     }
     try #require(app.need?.winner != nil)
@@ -113,6 +115,27 @@ import Testing
         }
       }
     }
+  }
+
+  @Test func idlePlanChangesRefreshTheDialBeforeAnotherTouch() throws {
+    struct View: Decodable { let dial: DialState }
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(fixture("aim"), save: nil)
+    app.dismissHandoff()
+    let initial = app.dial
+    try app.adjustPlan(arc: true, step: 1)
+    let view: View = try app.read("view")
+    #expect(app.dial != initial)
+    #expect(app.dial == view.dial)
+  }
+
+  @Test func resignationOnOpeningTurnShowsWinnerImmediately() throws {
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(fixture("aim"), save: nil)
+    app.dismissHandoff()
+    try app.resign()
+    #expect(app.handoff == nil && app.need?.winner != nil)
+    #expect(try app.sheet().done)
   }
 
   @Test func optionsAndLocalStart() throws {

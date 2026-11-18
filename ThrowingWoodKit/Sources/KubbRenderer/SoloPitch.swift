@@ -92,8 +92,7 @@ extension PitchSession {
     levelOverride = level
     if !playing, need?.kind == "throw", need?.cpu == false {
       let args = try JSONEncoder().encode(["level": level])
-      let a: AimOutput = try read("setLevel", String(decoding: args, as: UTF8.self))
-      aim(a.aim, camera: a.camera)
+      try replan("setLevel", String(decoding: args, as: UTF8.self))
     }
     revision += 1
   }
@@ -120,15 +119,12 @@ extension PitchSession {
 
   public func stance(at point: CGPoint, size: CGSize) throws {
     guard canAim, let g = scene.projection(size, camera).ground(point) else { return }
-    let a: AimOutput = try read("setStance", #"{"x":\#(g.x),"y":\#(g.y)}"#)
-    aim(a.aim, camera: a.camera)
+    try replan("setStance", #"{"x":\#(g.x),"y":\#(g.y)}"#)
   }
 
   public func adjustPlan(arc: Bool, step: Int) throws {
     guard canAim else { return }
-    let a: AimOutput = try read(arc ? "stepArc" : "stepSide", #"{"step":\#(step)}"#)
-    aim(a.aim, camera: a.camera)
-    revision += 1
+    try replan(arc ? "stepArc" : "stepSide", #"{"step":\#(step)}"#)
   }
 
   public func raise(end: Int? = nil) throws {
