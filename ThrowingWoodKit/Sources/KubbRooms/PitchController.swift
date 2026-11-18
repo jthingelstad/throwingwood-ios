@@ -246,7 +246,7 @@ import KubbEngine
         }
         // Rejoins have no rider. A gap is deliberately adopted, never replayed twice.
         try synchronize(room.document)
-        if let match { try present?(.restore(match)) }
+        if state == .match, let match { try present?(.restore(match)) }
         try refreshSeat()
       case .members, .host:
         if room.members.contains(where: {

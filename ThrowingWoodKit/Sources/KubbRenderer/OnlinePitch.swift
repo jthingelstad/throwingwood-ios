@@ -175,7 +175,9 @@ public struct PitchMember: Identifiable, Equatable {
         }
         firstJoin = false
         try refreshRoom()
-      case .members, .host, .document:
+      case .document(_, _, let rider, _):
+        if room.status == .open { try refreshRoom(rider: rider) }
+      case .members, .host:
         if room.status == .open { try refreshRoom() }
       case .left: return
       case .message(let m):
@@ -208,7 +210,7 @@ public struct PitchMember: Identifiable, Equatable {
     } catch { fail(error) }
   }
 
-  private func refreshRoom() throws {
+  private func refreshRoom(rider: JSONText? = nil) throws {
     let hostChanged = isHost != room.isHost
     isHost = room.isHost
     if hostChanged { openKey = nil }
@@ -217,8 +219,24 @@ public struct PitchMember: Identifiable, Equatable {
     if let m = doc["match"], !m.isNull, doc["started"]?.bool == true {
       stage = .match
       if controller.state == .versionMismatch {
-        if displayedMatch != m["n"]?.int || displayedSeq != m["seq"]?.int { try restore(m) }
         try checkVersion(m["engine"]?.string, key: "match-\(m["n"]?.int ?? 0)")
+        // An incompatible spectator can try the same recording as the web.
+        // Only the display session sees it. The controller never grants a seat.
+        let newest = queue.last?.1["seq"]?.int ?? displayedSeq
+        if displayedMatch != m["n"]?.int || newest != m["seq"]?.int {
+          let local = JS.object([("n", displayedMatch.map(JS.int) ?? .null), ("seq", .int(newest))])
+          let d = try controller.roomCall(
+            "decide",
+            [
+              ("local", local), ("doc", .raw(room.document)),
+              ("with", rider.map(JS.raw) ?? .null),
+            ])
+          if d["kind"]?.string == "apply", let action = d["action"] {
+            try present(.apply(action: action.raw, match: m))
+          } else {
+            try restore(m)
+          }
+        }
       }
       if controller.state == .failed { throw RoomError("session") }
       return

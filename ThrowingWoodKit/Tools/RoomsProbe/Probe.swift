@@ -94,7 +94,7 @@ import KubbRooms
           response = .string(room.you)
         case "state":
           let p = p!
-          response = .object([
+          let display: [(String, JS)] = [
             ("display", screen.map { .string(String(describing: $0.stage)) } ?? .null),
             ("card", screen?.versionCard.map { .string($0.rawValue) } ?? .null),
             ("displayHash", screen.map { .string($0.displayedHash) } ?? .null),
@@ -102,17 +102,22 @@ import KubbRooms
             ("shownAims", .int(screen?.shownAims ?? 0)),
             ("shouts", .array((screen?.shouts ?? []).map(JS.string))),
             ("note", .string(screen?.note ?? "")),
+          ]
+          let authority: [(String, JS)] = [
             ("state", .string(p.state.rawValue)), ("status", .string(p.room.status.rawValue)),
             ("you", .string(p.room.you)), ("host", p.room.host.map(JS.string) ?? .null),
             ("v", .int(p.room.version)), ("doc", .raw(p.room.document)),
             ("members", p.room.membersJSON), ("seq", .int(p.sequence)),
+          ]
+          let checks: [(String, JS)] = [
             ("hash", p.state == .match ? .string(try p.engine.hash()) : .null),
             ("applied", .int(p.applied)), ("corrections", .int(p.corrections)),
             ("adoptions", .int(p.adoptions)),
             ("mayAct", .bool(p.mayAct)), ("need", .raw(p.need)), ("control", .raw(p.control)),
             ("error", p.lastError.map(JS.string) ?? .null),
             ("mismatch", p.mismatch.map(JS.raw) ?? .null),
-          ])
+          ]
+          response = .object(display + authority + checks)
         case "team":
           if let screen {
             try await screen.team(cmd["side"]?.string)
