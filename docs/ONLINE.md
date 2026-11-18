@@ -20,8 +20,8 @@ A seated guest checks the host's engine. START rechecks everyone in the lineup
 inside the document reducer. A refused start names the members who need a
 compatible version. A running match checks every member, including a watcher
 who might inherit host control. An incompatible member can dismiss the version
-card and watch a readable snapshot. The iPhone uses strict admission. The web
-still temporarily admits untagged older tabs.
+card and watch a readable snapshot. Both iPhone and web require an advertised
+compatible engine to play.
 
 ## One match, two clocks
 
