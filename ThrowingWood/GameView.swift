@@ -39,23 +39,46 @@ struct GameView: View {
         let live = model.screen == .practice || model.screen == .match
         PitchBoard(
           pitch: pitch, model: model, active: live && phase == .active && model.error == nil,
-          revision: model.revision, screen: model.screen
+          revision: model.revision + model.onlineRevision, screen: model.screen
         )
-        .ignoresSafeArea().allowsHitTesting(live)
-        switch model.screen {
-        case .home: HomeCard(model: model)
-        case .options: MatchOptionsCard(model: model)
-        case .practice: practice
-        case .match:
-          MatchScreen(model: model, pitch: pitch, revision: model.revision, playing: model.playing)
-        case .menu: MatchMenu(model: model, pitch: pitch)
-        case .sheet:
-          if let sheet = model.sheet {
-            SheetCard(sheet: sheet) { model.screen = model.sheetReturn }
+        .id(ObjectIdentifier(pitch)).ignoresSafeArea().allowsHitTesting(live)
+        if let version = model.online?.versionCard {
+          VersionNotice(version: version) { model.online?.watch() }
+        } else {
+          switch model.screen {
+          case .home: HomeCard(model: model)
+          case .options: MatchOptionsCard(model: model)
+          case .practice: practice
+          case .match:
+            MatchScreen(
+              model: model, pitch: pitch, revision: model.revision, playing: model.playing)
+          case .menu:
+            if let online = model.online {
+              OnlineMenu(model: model, online: online)
+            } else {
+              MatchMenu(model: model, pitch: pitch)
+            }
+          case .onlineEntry, .join, .pitch, .invalidLink: OnlineCards(model: model)
+          case .report:
+            if let online = model.online, let report = model.report {
+              ReportCard(model: model, online: online, report: report)
+            }
+          case .sheet:
+            if let sheet = model.sheet {
+              SheetCard(sheet: sheet) { model.screen = model.sheetReturn }
+            }
           }
         }
       }
     }
+    #if targetEnvironment(simulator)
+      .modifier(OnlineReview(model: model))
+    #endif
+    .onChange(of: phase) { _, phase in
+      if phase == .background { model.online?.background() }
+      if phase == .active { model.online?.connect() }
+    }
+    .onDisappear { model.online?.close() }
     .preferredColorScheme(.light)
     .alert(
       "Pitch unavailable",

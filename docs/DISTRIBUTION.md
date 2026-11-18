@@ -28,5 +28,24 @@ What to Test, review submissions).
 ## Outside testers and the App Store
 
 `scripts/testflight.sh --external` makes a build Apple can review for a
-public TestFlight group and for the App Store. App Privacy follows
-`ThrowingWood/PrivacyInfo.xcprivacy`: nothing collected, no tracking.
+public TestFlight group and for the App Store. Reconcile the privacy answers
+and manifest with the online data below before distribution.
+
+## Data that leaves the device during online play
+
+- The pitch code, persistent random room member ID, typed name, selected level,
+  connection presence and engine version travel to the rooms service. People on
+  the pitch can see names, levels, teams and connection state.
+- Team choices, match options, throw, raise and placement actions, scores,
+  snapshots and game history travel in the shared document and action riders.
+  The server retains match records, including typed names. It keeps an eligible
+  finished replay for people with the pitch link.
+- Current aim and selected shouts are relayed to the other members. An open
+  pitch publishes its code and aggregate listing on the website.
+- Choosing Send on a report transmits the two typed answers, room code and
+  document version, timing, build, viewport, engine version and replayable game
+  state. Reports can contain player names from the match. The report replaces
+  member identifiers in the captured state. The server stores reports privately.
+- The rooms handshake sends the app origin and versioned user agent. Private
+  recording and report tags identify the client and engine version. Sharing a
+  pitch through the system sheet sends its URL to the destination the user picks.

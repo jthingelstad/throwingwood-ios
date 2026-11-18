@@ -123,12 +123,19 @@ use synthetic checkpoints and both iOS 26.2 review phones. Run
 `python3 tools/solo-snapshots.py <simulator-app>` locally. Review changes to
 both the 16e and Pro Max pictures before replacing either set.
 
-## Rooms (headless)
+## Rooms and the online screen
 
 `KubbRooms` is the main-actor room client and headless pitch controller; its contract
 is `docs/ROOMS-CLIENT.md`. Lobby, seat and sync rules are exclusively the engine's
 `room.*` API. Keep engine JSON as raw text. Use the tagged record/report helpers.
 Close the controller/client when its owner ends.
+
+Read [docs/ONLINE.md](docs/ONLINE.md) for the screen, recording and lifecycle contract.
+OnlinePitch connects the authoritative controller to a separately paced PitchSession.
+Keep admission and seat decisions in room.*. Keep all simulator, script and review
+sockets on 127.0.0.1. Use the numeric ROOMS_DEV_PORT for simulator review.
+Run `python3 tools/online-snapshots.py <simulator-app> --web <web checkout>`
+on both review phones. Only invented names belong in these pictures.
 
 Local wire conformance and three complete cross-play matches run with
 `swift build --package-path ThrowingWoodKit --product RoomsProbe` then

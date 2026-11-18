@@ -93,6 +93,14 @@ import UIKit
     let dt = previous.map { now - $0 } ?? (now - link.timestamp)
     previous = now
     #if targetEnvironment(simulator)
+      if ProcessInfo.processInfo.environment["ONLINE_REVIEW"] == "flight", pitch.playing {
+        if !reviewReady {
+          reviewReady = true
+          run { for _ in 0..<22 { try model.online?.tick(1.0 / 60) } }
+        }
+        link.isPaused = true
+        return
+      }
       if let mode = matchReview, !bounds.isEmpty {
         if !reviewReady {
           reviewReady = true
@@ -124,7 +132,7 @@ import UIKit
       if reviewMode == "timing", pitch.result != nil { timing.finish() }
     #endif
     do {
-      if try pitch.tick(dt) {
+      if try model.online?.tick(dt) ?? pitch.tick(dt) {
         if pitch.playing { gesture = nil }
         model.refresh()
         setNeedsDisplay()
@@ -206,7 +214,7 @@ import UIKit
   }
 
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-    guard !pitch.playing, tracking == nil, let t = touches.first else { return }
+    guard pitch.acceptsInput, !pitch.playing, tracking == nil, let t = touches.first else { return }
     let p = t.location(in: self)
     startPoint = p
     moved = false
@@ -241,6 +249,10 @@ import UIKit
     pitch.sample(CGPoint(x: (p.x - hub.x) / radius, y: (p.y - hub.y) / radius))
   }
   override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+    guard pitch.acceptsInput else {
+      cancel()
+      return
+    }
     guard let t = tracking, touches.contains(t) else { return }
     let p = t.location(in: self)
     moved = moved || hypot(p.x - startPoint.x, p.y - startPoint.y) > 10
@@ -256,6 +268,10 @@ import UIKit
     }
   }
   override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+    guard pitch.acceptsInput else {
+      cancel()
+      return
+    }
     guard let t = tracking, touches.contains(t) else { return }
     switch gesture {
     case .dial:
