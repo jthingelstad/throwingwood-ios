@@ -10,7 +10,7 @@ physics and session that the Playdate and the web version
 
 ## Rules
 
-- **Private, kept clean as if public.** Never commit a team id, an email,
+- **This repository is public.** Never commit a team id, an email,
   a local path, keys or signing files. `Config/Signing.local.xcconfig` and
   `Config/AppStoreConnect.local` are ignored by git.
 - **Pull requests only** after the first commit. Codex reviews each one.
@@ -83,8 +83,7 @@ agrees. So:
 - The app: `xcodebuild -project ThrowingWood.xcodeproj -scheme ThrowingWood
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`.
 - `scripts/check-libm.sh`: no Apple libm in the engine's C, Debug and release.
-- CI (`.github/workflows/test.yml`) runs these on `macos-26`. macOS minutes
-  cost money on a private repo: add jobs only for a reason.
+- CI (`.github/workflows/test.yml`) runs these on `macos-26`. Add jobs only for a reason.
 
 ## Proving Apple's libm fails (manual, not CI)
 
