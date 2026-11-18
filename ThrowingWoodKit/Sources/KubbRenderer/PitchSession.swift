@@ -157,7 +157,8 @@ public final class PitchSession {
       if let levelOverride, v.need.kind == "throw", v.need.cpu == false {
         try useLevel(levelOverride)
       }
-      handoff = v.need.card?.handoff
+      // A resignation can retain the preceding informative card in the engine view.
+      handoff = v.need.kind == "throw" ? v.need.card?.handoff : nil
       placement = nil
       cursor = v.need.cursor
       try settleScene()
@@ -190,12 +191,24 @@ public final class PitchSession {
     guard let m = scene.marker, m.shown != false else { return nil }
     return scene.projection(size, camera).project(m.point)
   }
+  // Aim commands return the camera and plan. Only the session can supply the
+  // corresponding dial ranges and prompt. A stationary board may get no more frames.
+  func replan(_ method: String, _ args: String) throws {
+    struct DialView: Decodable { let dial: DialState }
+    let previousArc = arcDegrees
+    let previousSide = sideStep
+    let a: AimOutput = try read(method, args)
+    aim(a.aim, camera: a.camera)
+    let view: DialView = try read("view")
+    dial = view.dial
+    if arcDegrees != previousArc || sideStep != previousSide { revision += 1 }
+  }
+
   public func target(_ point: CGPoint, size: CGSize, snap: Bool, tap: Bool = false) throws {
     guard canAim, let g = scene.projection(size, camera).ground(point), !tap || g.y > 0.5 else {
       return
     }
-    let a: AimOutput = try read("setTarget", #"{"x":\#(g.x),"y":\#(g.y),"snap":\#(snap)}"#)
-    aim(a.aim, camera: a.camera)
+    try replan("setTarget", #"{"x":\#(g.x),"y":\#(g.y),"snap":\#(snap)}"#)
   }
   public func sample(_ point: CGPoint?) { if canAim && !plan { input.sample(point) } }
 
