@@ -99,7 +99,7 @@ function trace.encode(samples, n, event, result, sign, time)
 	end
 	-- every line written now comes from the crank as a clock, let-downs too
 	local out = '{"v":1,"time":' .. value(time or "") .. ',"sign":' .. num(sign or 1)
-		.. ',"release":"clock","event":' .. value(event or "") .. ',"samples":[' .. concat(parts, ",") .. "]"
+		.. ',"release":"clock","input":"crank","event":' .. value(event or "") .. ',"samples":[' .. concat(parts, ",") .. "]"
 	if result then
 		local r = {}
 		for _, k in ipairs(RESULT_KEYS) do

@@ -24,7 +24,7 @@ assert.equal(
     .version,
   "1.16.0",
 );
-const dir = join(root, "ThrowingWoodKit/Sources/KubbEngine/Engine");
+const dir = join(web, "vendor/engine");
 const manifest = JSON.parse(readFileSync(join(dir, "engine.json")));
 const sources = Object.fromEntries(
   Object.keys(manifest.files).map((p) => [
@@ -105,7 +105,7 @@ const server = await startRoomsServer({
 });
 const rooms = [];
 const engines = [];
-const room = async (code, id, engine = "0.3.0") => {
+const room = async (code, id, engine = manifest.version) => {
   const r = new Room({
     url: server.url,
     room: code,
@@ -178,7 +178,7 @@ try {
             happened: "test",
             should: "",
             client: "ios",
-            engine: "0.3.0",
+            engine: manifest.version,
           },
         },
       })
@@ -197,7 +197,7 @@ try {
             start: "-",
             actions: [],
             client: "ios",
-            engine: "0.3.0",
+            engine: manifest.version,
           },
         },
       })
@@ -386,7 +386,7 @@ try {
 
   // Native controller refuses a mixed-version START through engine room.startCheck.
   await connect("mismatch", "efghjkmnpq", "Native_Mismatch");
-  const old = await room("efghjkmnpq", "Web_Older", "0.2.0");
+  const old = await room("efghjkmnpq", "Web_Older", "0.3.0");
   await rpc({ op: "team", key: "mismatch", side: "A" });
   await old.update((d) => {
     d.teams.B = ["Web_Older"];

@@ -20,6 +20,7 @@
 import "core/tw"
 import "core/camera"
 import "core/swing"
+import "session/touch"
 import "core/flight"
 import "core/pitch"
 import "core/world"
@@ -397,7 +398,7 @@ local function markerHome(s)
 end
 
 local function resetSwing(s)
-	s.arm, s.armed, s.pointerDown = nil, false, false
+	s.arm, s.armed, s.pointerDown, s.touch = nil, false, false, nil
 	swing.reset(s.swing)
 end
 
@@ -673,10 +674,15 @@ function throw.aimFrame(s, inp)
 	local arm = inp.arm
 	if holdPlan then
 		-- while the plan view is held the dial does not throw (B on the Playdate)
-		if sw.phase ~= "idle" then swing.reset(sw) end
+		if s.touch or sw.phase ~= "idle" then resetSwing(s) end
 		s.armed = false
 		s.arm, s.pointerDown = arm, arm ~= nil
 		return nil, changed
+	end
+	if inp.touch or s.touch then
+		local ev = tw.web.touch.frame(s, inp.touch or {})
+		if sw.phase == "winding" then clearLast(s) end
+		return ev, changed, "touch"
 	end
 	if arm == nil then
 		-- the pointer is up

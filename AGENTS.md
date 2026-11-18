@@ -52,7 +52,7 @@ agrees. So:
   driver and corpus (`tests/golden/drive.lua`, `hashes.json`) into
   `Tests/KubbEngineTests/Fixtures/golden/`. `check` (in CI, no checkout
   needed) verifies every file against the engine's own `engine.json`, and
-  the version against the tag (0.3.0 explicitly retains the 0.2.0
+  the version against the tag (v0.4.0 explicitly retains the 0.2.0
   golden corpus; arbitrary older corpora are not accepted). Never edit the
   vendored files; a fix belongs
   in kubb-engine, then here by moving to its next tag. Never write in the

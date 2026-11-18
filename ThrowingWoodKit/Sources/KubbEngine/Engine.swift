@@ -23,7 +23,7 @@ public enum EngineError: Error, Equatable, CustomStringConvertible {
 /// kubb-engine release scripts/vendor-engine.sh copies).
 public struct EngineManifest: Decodable, Sendable, Equatable {
   public let name: String
-  /// The kubb-engine release, "0.2.0".
+  /// The kubb-engine release named by its bundled manifest.
   public let version: String
   /// "core/world.lua" to the file's SHA-256.
   public let files: [String: String]

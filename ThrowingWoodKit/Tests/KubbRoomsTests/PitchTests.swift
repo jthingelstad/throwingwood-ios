@@ -7,8 +7,8 @@ import Testing
 @Suite @MainActor struct PitchTests {
   func setup() async throws -> (PitchController, MockTransport) {
     let t = MockTransport()
-    let room = try makeClient { _ in t }
     let engine = try Engine(appVersion: "0.0-test")
+    let room = try makeClient({ _ in t }, engineVersion: engine.engineVersion)
     let p = try PitchController(room: room, engine: engine)
     t.onSend = { m in
       if m["t"]?.string == "join" { t.joined() }
@@ -20,7 +20,7 @@ import Testing
     try await room.ready()
     // Real member payloads make the strict engine START check meaningful.
     room.receive(
-      #"{"t":"member","rev":2,"member":{"id":"Native_Member","connected":true,"joined":1,"me":{"name":"Native","level":"pro","engine":"0.3.0"}}}"#
+      #"{"t":"member","rev":2,"member":{"id":"Native_Member","connected":true,"joined":1,"me":{"name":"Native","level":"pro","engine":"\#(engine.engineVersion)"}}}"#
     )
     return (p, t)
   }
