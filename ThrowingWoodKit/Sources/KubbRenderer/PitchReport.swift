@@ -50,6 +50,8 @@ public struct PitchReport {
   let trail: ReportTrail
   public let candidates: [ReportPiece]
   let pieces: [JS]
+  let practiceBefore: String?
+  let surface: String
   public func message(happened: String, should: String, selected: Set<String> = []) throws
     -> JSONText
   {
@@ -73,8 +75,14 @@ public struct PitchReport {
           ),
         ]
       } else {
-        contents.append(
-          ("practice", .object([("opts", .object([("surface", .string("grass"))])), ("ops", ops)])))
+        let initialSurface = pass > 0 && practiceBefore == nil ? surface : "grass"
+        var practice: [(String, JS)] = [("opts", .object([("surface", .string(initialSurface))]))]
+        if pass > 0, let practiceBefore {
+          practice += [("before", .string(practiceBefore)), ("ops", .null)]
+        } else {
+          practice.append(("ops", pass == 0 ? ops : .array([])))
+        }
+        contents.append(("practice", .object(practice)))
       }
       contents.append(("pieces", pass < 2 ? .array(pieces) : .null))
       let marked = candidates.filter { selected.contains($0.id) }.map(\.pose)
@@ -204,6 +212,8 @@ extension PitchSession {
       ? (rec["items"]?.items ?? []).compactMap(ReportPiece.init) : current
     return PitchReport(
       fields: fields, ids: ids.sorted { ($0.count, $0) > ($1.count, $1) },
-      trail: trail, candidates: candidates, pieces: current.map(\.pose))
+      trail: trail, candidates: candidates, pieces: current.map(\.pose),
+      practiceBefore: seq != nil && seq == rec["seq"]?.int ? rec["practiceBefore"]?.string : nil,
+      surface: view["surface"]?.string ?? "grass")
   }
 }

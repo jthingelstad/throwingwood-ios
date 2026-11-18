@@ -802,6 +802,27 @@ function Session:throwAction(L, how, info)
 	return a
 end
 
+-- A report needs only the practice pitch immediately before its throw. Keep the
+-- unrounded bodies in their solver order and the counters used for projectile IDs.
+-- The throw action supplies the launch, stance and target. Match snapshots use
+-- their own format; this checkpoint is only for replaying one practice throw.
+local function practiceCheckpoint(s)
+	local ts = s.ts
+	return json.encode { items = ts.items, surface = ts.surface, set = ts.set, level = throw.levelFor(ts),
+		drill = ts.drill, drillSeq = ts.drillSeq, baton = ts.practiceBaton,
+		throws = s.throws }
+end
+
+function session.restorePractice(text)
+	local c = json.decode(text)
+	local s = session.new { mode = "practice", surface = c.surface, set = c.set, level = c.level }
+	local ts = s.ts
+	ts.items, ts.drillSeq, ts.practiceBaton = c.items, c.drillSeq, c.baton
+	s.throws, ts.throws = c.throws, c.throws
+	throw.setDrill(ts, c.drill)
+	return s
+end
+
 -- Run a throw action: the same path for the actor and for every other
 -- browser (docs/SESSION.md "Determinism"). Returns the recording.
 function Session:applyThrow(a)
@@ -810,6 +831,7 @@ function Session:applyThrow(a)
 		assert(I(a.seq) == self.throws, "throw out of step: seq " .. tostring(a.seq) .. ", expected " .. self.throws)
 	end
 	local ts = self.ts
+	if self.kind == "practice" then self.practiceBefore = practiceCheckpoint(self) end
 	-- the frame this throw's recording is in (session/wide)
 	self.recSide = self.kind == "match" and self.setup.side or nil
 	local st, tg = a.stance or {}, a.target or {}
