@@ -27,7 +27,7 @@
 set -euo pipefail
 
 # The kubb-engine release this app runs.
-TAG=v0.5.0
+TAG=v0.5.1
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 source_dir=${KUBB_ENGINE_SOURCE:-$root/../kubb-engine}
@@ -102,6 +102,7 @@ case "${1:-}" in
       # Do not accept arbitrary older corpora when moving to another release.
       expected=$version
       [[ $version == 0.4.1 ]] && expected=0.2.0
+      [[ $version == 0.5.1 ]] && expected=0.5.0
       [[ $corpus == "$expected" ]] || fail "golden corpus is $corpus, expected $expected; run sync"
     fi
     [[ $status == 0 ]] && echo "engine: kubb-engine $TAG, $count files match engine.json, golden corpus recorded by $corpus"

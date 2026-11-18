@@ -77,6 +77,7 @@ function M.setClient(a) return { client = session.setClient(a and a.label) } end
 
 function M.new(a) R = nil; S = session.new(a or {}); return S:view() end
 function M.restore(text, raw) R = nil; S = session.restore(raw); return S:view() end
+function M.restorePractice(a) R = nil; S = session.restorePractice(a.checkpoint); return S:view() end
 function M.view() return need():view() end
 -- The view in the thrower's frame even while the wide view is on: what a report
 -- records, so tools/reports.mjs can compare it with a replay (not in WIDE).
@@ -155,7 +156,7 @@ function M.reportThrow()
 		items[i] = { id = it.id, kind = it.kind, team = it.team, x = b.x, y = b.y, z = b.z,
 			qw = b.qw, qx = b.qx, qy = b.qy, qz = b.qz, toppled = b.toppled }
 	end
-	return { seq = rec.seq, items = items, result = rec.result }
+	return { seq = rec.seq, items = items, result = rec.result, practiceBefore = s.practiceBefore }
 end
 
 function M.recording() return need().recording or json.object() end

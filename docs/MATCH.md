@@ -20,6 +20,9 @@ freezes the last throw’s rest positions, including pieces collected at the end
 turn. Send includes the selected IDs and poses, the written account and the replay
 state. A failed send keeps the draft open. Resuming a solo save starts its report
 history at that checkpoint.
+When practice history exceeds the report size limit, the report keeps the engine’s
+pre-throw checkpoint and the action. Replaying the checkpoint restores the surface,
+fallen kubbs and previously thrown batons with their full-precision poses.
 
 ## Differences from browser solo
 

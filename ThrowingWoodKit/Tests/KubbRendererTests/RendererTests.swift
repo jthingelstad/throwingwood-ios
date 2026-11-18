@@ -165,6 +165,17 @@ struct RendererTests {
     }
     let capture = try pitch.captureReport(size: CGSize(width: 390, height: 844), scale: 3)
     let id = playback.recording.projectile.id
+    // A long session that selected sand repeatedly before this throw.
+    let sand = try #require(pitch.trail.actions.first)
+    pitch.trail.actions.insert(contentsOf: Array(repeating: sand, count: 2500), at: 0)
+    let large = try pitch.captureReport(size: CGSize(width: 390, height: 844), scale: 3)
+    let compact = try JSONNode.parse(large.message(happened: "Stopped", should: "", selected: [id]))
+    let checkpoint = try #require(compact["practice"]?["before"]?.string)
+    #expect(compact["practice"]?["ops"]?.isNull == true)
+    let replay = try Engine(appVersion: "test")
+    _ = try replay.call("restorePractice", json: JS.object([("checkpoint", .string(checkpoint))]).json.text)
+    _ = try replay.call("apply", json: #require(compact["lastThrow"]?["action"]?.raw.text))
+    #expect(try replay.call("recording") == reference.call("recording"))
     try pitch.practice()
     let report = try JSONNode.parse(capture.message(happened: "Stopped", should: "", selected: [id, "king"]))
     #expect(report["mode"]?.string == "practice")
