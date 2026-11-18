@@ -19,6 +19,7 @@ import Observation
   var online: OnlinePitch?
   var onlineRevision = 0
   var report: PitchReport?
+  var reportReturn = Screen.match
   var joinInput = ""
   static let version =
     Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"

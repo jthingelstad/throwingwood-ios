@@ -3,6 +3,7 @@ import CryptoKit
 import Foundation
 import ImageIO
 import KubbEngine
+import KubbRooms
 import Testing
 import simd
 
@@ -162,6 +163,14 @@ struct RendererTests {
       let expected = SHA256.hash(data: Data(try reference.call(method).utf8))
       #expect(actual == expected)
     }
+    let capture = try pitch.captureReport(size: CGSize(width: 390, height: 844), scale: 3)
+    let id = playback.recording.projectile.id
+    try pitch.practice()
+    let report = try JSONNode.parse(capture.message(happened: "Stopped", should: "", selected: [id, "king"]))
+    #expect(report["mode"]?.string == "practice")
+    #expect(report["practice"]?["ops"]?.items.compactMap { $0["type"]?.string } == ["surface", "throw"])
+    #expect(Set(report["selectedPieces"]?.items.compactMap { $0["id"]?.string } ?? []) == [id, "king"])
+    #expect(report["room"] == nil)
   }
 
   @Test func reviewFlightShadow() throws {
@@ -180,9 +189,9 @@ struct RendererTests {
     let shadow = V3(piece.x + 0.55 * piece.z, piece.y - 0.3 * piece.z, 0)
     let reference = PitchProjection(size: CGSize(width: 400, height: 240), camera: pitch.camera)
     let old = try #require(reference.project(shadow))
-    // Reconstruct the centred 16e screenshot that prompted this regression.
-    #expect(abs(old.x * 0.975 - 314.68) < 1)
-    #expect(abs((old.y - 120) * 0.975 + 422 - 686.16) < 1)
+    // Check the 16e shadow in the original centred framing for the tuned release.
+    #expect(abs(old.x * 0.975 - 317.44) < 1)
+    #expect(abs((old.y - 120) * 0.975 + 422 - 684.96) < 1)
     let center = try #require(pitch.scene.projection(size, pitch.camera).project(shadow))
     var ground = pitch.scene
     ground.items.removeAll { $0.kind == "baton" }

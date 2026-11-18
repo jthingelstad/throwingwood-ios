@@ -33,6 +33,7 @@ autothrow.tune = {
 	level = "club",          -- the throw level it solves at (tw.plan.levels) when none is given
 	-- the swing's mistakes times this at each level (autothrow.cpuLevel); pro is
 	-- the recorded tournament games (Jamie, 2026-11-17), club and beginner below it
+	drillSpin = { beginner = 0, club = 1, pro = 2 }, -- taps of axial spin to steady the flight
 	swingScale = { beginner = 1.6, club = 1.3, pro = 1 },
 	batonShort = 0,          -- m the baton's target is short of the kubb's center: none, the
 	                         -- center, where a player's target snaps (measured 2026-11-15 with
@@ -301,7 +302,7 @@ for name, lv in pairs(plan.levels) do
 	local pro = plan.levels.pro
 	cpuLevels[name] = { powerHalf = pro.powerHalf, releaseHalf = pro.releaseHalf, inGain = pro.inGain,
 		shakeGain = pro.shakeGain, overGain = pro.overGain, nervesDeg = lv.nervesDeg,
-		nervesLen = lv.nervesLen, tumbleSd = lv.tumbleSd }
+		nervesLen = lv.nervesLen, tumbleTurns = lv.tumbleTurns, tumbleSd = lv.tumbleSd }
 end
 -- The computer's level table for a level name (tune.level when unknown).
 function autothrow.cpuLevel(name)
@@ -318,7 +319,7 @@ end
 function autothrow.choose(s, r, scale, level)
 	scale = scale or 1
 	local t = autothrow.tune
-	local lname = level or t.level
+	local lname = level or (s.thrower and s.thrower.level) or t.level
 	if type(lname) ~= "string" then lname = t.level end
 	scale = scale * (t.swingScale[lname] or 1)
 	local q = { level = autothrow.cpuLevel(lname), surface = s.surface }
@@ -326,6 +327,7 @@ function autothrow.choose(s, r, scale, level)
 	if s.kind == "toss" then
 		local side = autothrow.basket(s, r)
 		tx, ty = autothrow.spot(s, side)
+		q.spin = t.drillSpin[lname] or t.drillSpin[t.level]
 		q.projectile, arc = "kubb", plan.arcFor("drill")
 		py = s.lineY
 	else
@@ -380,7 +382,7 @@ function autothrow.choose(s, r, scale, level)
 	local sw = autothrow.swing(sol, r, scale, {})
 	-- the nerves are the player's (tw.plan.launch), drawn from this stream;
 	-- scale 0 is the clean throw, no nerves either
-	local L = plan.launch(sol, sw, { projectile = q.projectile, tilt = 0, spin = 0,
+	local L = plan.launch(sol, sw, { projectile = q.projectile, tilt = 0, spin = q.spin,
 		nerves = scale > 0 and r or nil }, {})
 	local a = { x = st.x, y = st.y, swivel = L.swivel, loftDeg = L.loft, speed = L.speed,
 		tumbleRate = L.tumble, tilt = L.tilt, legal = L.legal, plan = sol, swing = sw, launch = L }

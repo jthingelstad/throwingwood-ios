@@ -5,6 +5,7 @@ import KubbRooms
 extension PitchSession {
   public func practice() throws {
     resetPresentation()
+    trail = ReportTrail()
     need = nil
     save = nil
     try adopt(read("new", #"{"mode":"practice","surface":"grass"}"#))
@@ -40,6 +41,7 @@ extension PitchSession {
     let view: ViewOutput = try read(method, json)
     _ = try engine.call("setControl", json: #"{"sides":["A"],"cpu":true}"#)
     resetPresentation()
+    trail = ReportTrail(snapshot: try engine.call("snapshot"))
     self.save = save
     need = view.need
     try adopt(read("view"))
@@ -47,6 +49,16 @@ extension PitchSession {
 
   func checkpoint() throws {
     if let save { try save.write(engine.call("snapshot")) }
+  }
+
+  func committed(_ action: JSONText) throws {
+    if let onlineAction {
+      try onlineAction(action)
+    } else {
+      let snapshot = need != nil ? try engine.call("snapshot") : nil
+      trail.append(action, snapshot: snapshot)
+      if let save, let snapshot { try save.write(snapshot) }
+    }
   }
 
   public func dismissHandoff() {
@@ -100,10 +112,11 @@ extension PitchSession {
 
   public func resign() throws {
     guard need != nil, need?.kind != "over" else { return }
-    let r: PlacementCheck = try read("apply", #"{"type":"resign","side":"A"}"#)
+    let action = JSONText(#"{"type":"resign","side":"A"}"#)
+    let r: PlacementCheck = try read("apply", action.text)
     if r.ok {
       if !playing { try adopt(read("view")) }
-      try checkpoint()
+      try committed(action)
     }
   }
 
@@ -171,8 +184,7 @@ extension PitchSession {
       revision += 1
       return
     }
-    try onlineAction?(JSONText(json))
-    try checkpoint()
+    try committed(JSONText(json))
     try adopt(read("view"))
   }
 }

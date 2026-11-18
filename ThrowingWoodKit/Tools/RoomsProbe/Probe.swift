@@ -29,6 +29,15 @@ import KubbRooms
         let p = pitches[key]
         let screen = screens[key]
         switch op {
+        case "practiceReport":
+          let url = URL(string: cmd["url"]!.string!)!
+          guard url.host == "127.0.0.1", url.scheme == "ws" else { throw RoomError("local-only") }
+          let practice = try PitchSession(appVersion: "0.0-test")
+          let report = try practice.captureReport(size: CGSize(width: 390, height: 844), scale: 3)
+          let message = try report.message(
+            happened: "Synthetic contact", should: "Both pieces move", selected: ["king", "b1"])
+          try await RoomsClient.sendReport(message, url: url, appVersion: "0.0-test")
+          response = .bool(true)
         case "wireConnect":
           let url = URL(string: cmd["url"]!.string!)!
           guard url.host == "127.0.0.1", url.scheme == "ws" else { throw RoomError("local-only") }

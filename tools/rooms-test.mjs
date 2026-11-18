@@ -90,6 +90,8 @@ async function until(fn, label = "condition") {
 const iosVersion = JSON.parse(
   readFileSync(join(root, "ThrowingWoodKit/Sources/KubbEngine/Engine/engine.json")),
 ).version;
+const [major, minor] = iosVersion.split(".").map(Number);
+const compatible = `${major}.${minor}`;
 const report = {
   webCommit: execFileSync("git", ["-C", web, "rev-parse", "HEAD"], {
     encoding: "utf8",
@@ -149,6 +151,16 @@ const note = (s) => {
   console.log("conformance: " + s);
 };
 try {
+  // The local game's sender opens its own connection without a pitch or member.
+  await rpc({ op: "practiceReport", url: server.url });
+  const practice = JSON.parse(latestReport.report);
+  assert.equal(practice.mode, "practice");
+  assert.equal(practice.engine, iosVersion);
+  assert.equal(practice.client, "ios");
+  assert.equal(practice.room, undefined);
+  assert.deepEqual(practice.selectedPieces.map((p) => p.id).sort(), ["b1", "king"]);
+  note("standalone practice report delivers both marked pieces");
+
   // The actual Swift client receives and sends every ordinary room message.
   await connect("wire", "abcdefghjk", "Native_Wire");
   const peer = await room("abcdefghjk", "Web_Wire");
@@ -449,7 +461,7 @@ try {
   );
   for (const [version, card] of [
     ["0.3", "older"],
-    ["0.5", "newer"],
+    [`${major}.${minor+1}`, "newer"],
   ]) {
     const code = card === "older" ? "qrstuvwx" : "rstuvwxy";
     const host = await room(code, "Browser_Host", version);
@@ -737,7 +749,7 @@ try {
     );
     assert.equal(
       browser.members.find((m) => m.id === nativeID).me.engine,
-      "0.4",
+      compatible,
     );
     let nativeCommits = 0,
       webCommits = 0,

@@ -27,7 +27,7 @@
 set -euo pipefail
 
 # The kubb-engine release this app runs.
-TAG=v0.4.1
+TAG=v0.5.0
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 source_dir=${KUBB_ENGINE_SOURCE:-$root/../kubb-engine}

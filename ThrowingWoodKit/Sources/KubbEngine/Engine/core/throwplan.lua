@@ -97,22 +97,11 @@ plan.tune = {
 	-- A target not on a piece (an empty spot) is aimed at the ground, as before.
 	-- Drilled kubbs are not aimed this way (drill.solveAt has its own landing).
 	aimHeightShare = 0.5,
-	-- the baton's tumble (plan.tumbleFor, plan.launch; audit 5, 2026-11-16). Held by one end
-	-- and swung underarm, the baton turns with the hand: with a locked wrist at the arm's
-	-- rate, its centre's speed over armR (shoulder to the baton's centre). The wrist
-	-- checks or adds to that, up to wristShare of it either way, and a thrower uses it to
-	-- turn the baton about tumbleTurns over the flight, a habit. So the plan's rate is
-	-- tumbleTurns turns over the clean flight's time, held inside what the wrist can do
-	-- (a short lob cannot turn a whole turn; a long high one turns more than one). The
-	-- release then sets the rate the throw gets: the flick's share of it (a slow flick
-	-- is a slow hand and wrist), and with nerves a seeded draw of sd the level's
-	-- tumbleSd turns over the planned flight, times the swing's roughness and the
-	-- overpower, as the nerves. An early or late release changes the flight, not the
-	-- rate, so it changes the turns too.
-	tumbleTurns = 1.1,     -- turns over the flight a thrower's wrist aims for: about one, a little over
-	armR = 0.9,            -- m: shoulder to the baton's centre held by its end (arm 0.65,
-	                       -- hand 0.1, half the baton 0.15)
-	wristShare = 0.5,      -- the wrist can check or add this share of the arm's rate
+	-- The wrist checks the arm's rotation to aim for the level's tumbleTurns.
+	-- On longer throws the arm speed limits how much of that rotation can be
+	-- checked. A rough release adds seeded variation in turns (tumbleSd).
+	armR = 0.9,            -- m, shoulder to the centre of the baton
+	wristShare = 0.75,     -- maximum share the wrist can check or add
 	tumbleMin = 0,         -- rad/s: the drawn rate never goes under this (no backspin)
 	-- Nerves (2026-11-16): before this nothing but the shake put a throw
 	-- left or right, so a long throw was as true as a short one. Every
@@ -155,11 +144,11 @@ plan.tune = {
 --                swing's roughness and the overpower (plan.tune "the baton's tumble")
 plan.levels = {
 	beginner = { powerHalf = 15, releaseHalf = 30, inGain = 0.1, shakeGain = 0.5,  overGain = 0.5,
-		nervesDeg = 1.6, nervesLen = 0.06, tumbleSd = 0.2 },
+		nervesDeg = 1.6, nervesLen = 0.06, tumbleTurns = 0.62, tumbleSd = 0.10 },
 	club     = { powerHalf = 8,  releaseHalf = 18, inGain = 0.3, shakeGain = 0.75, overGain = 0.75,
-		nervesDeg = 0.8, nervesLen = 0.03, tumbleSd = 0.1 },
+		nervesDeg = 0.8, nervesLen = 0.03, tumbleTurns = 0.50, tumbleSd = 0.06 },
 	pro      = { powerHalf = 4,  releaseHalf = 10, inGain = 0.6, shakeGain = 1,    overGain = 1,
-		nervesDeg = 0.5, nervesLen = 0.02, tumbleSd = 0.06 },
+		nervesDeg = 0.5, nervesLen = 0.02, tumbleTurns = 0.50, tumbleSd = 0.035 },
 }
 plan.LEVELS = { "beginner", "club", "pro" }
 
@@ -257,12 +246,12 @@ function plan.flightTime(speed, loftDeg, z)
 	local _, _, T = flight.predict(0, 0, 0, loftDeg or plan.tune.refLoftDeg, speed, z)
 	return T
 end
-function plan.tumbleFor(speed, loftDeg, T)
+function plan.tumbleFor(speed, loftDeg, T, level)
 	local t = plan.tune
 	T = T or plan.flightTime(speed, loftDeg)
 	local arm = speed / t.armR
 	local lo, hi = arm * (1 - t.wristShare), arm * (1 + t.wristShare)
-	local r = T > 0 and 2 * pi * t.tumbleTurns / T or 0
+	local r = T > 0 and 2 * pi * (plan.level(level).tumbleTurns or plan.levels.club.tumbleTurns) / T or 0
 	if r < lo then r = lo elseif r > hi then r = hi end
 	return r
 end
@@ -286,7 +275,9 @@ end
 function plan.aimZFor(kind)
 	if not kind then return 0 end
 	local k = kind == "king" and body.kinds.king or body.kinds.kubb
-	return plan.tune.aimHeightShare * 2 * k.hz
+	-- At a half turn the lower end leads into the target. Give that end
+	-- clearance over the grass as the centre crosses the near face.
+	return plan.tune.aimHeightShare * 2 * k.hz + body.kinds.baton.hl
 end
 
 -- ---------------------------------------------------------------------------
@@ -351,7 +342,7 @@ function plan.solve(q, out)
 		out.swivel, out.dist, out.loft, out.aimZ = atan(dx, dy), d, loft, z
 		local speed, T = carrySpeed(d > 0.1 and d or 0.1, rad(loft), ft.handHeight - z)
 		out.speed = speed
-		out.tumble, out.flightT = plan.tumbleFor(speed, loft, T), T
+		out.tumble, out.flightT = plan.tumbleFor(speed, loft, T, lv), T
 	end
 	local back = plan.backForSpeed(out.speed)
 	out.back, out.powerLo, out.powerHi = back, back - lv.powerHalf, back + lv.powerHalf
@@ -581,9 +572,10 @@ function plan.launch(sol, r, opts, out)
 		if not rate then
 			local v, l = sol.speed or out.speed, sol.loft or out.loft
 			T = plan.flightTime(v, l, sol.aimZ)
-			rate = plan.tumbleFor(v, l, T)
+			rate = plan.tumbleFor(v, l, T, lv)
 		end
-		local sdT = (lv.tumbleSd or 0) * (1 + t.roughGain * shake) * m
+		local rangeFactor = math.min(1.5, math.max(0.5, (sol.dist or 8) / 8))
+		local sdT = (lv.tumbleSd or 0) * rangeFactor * (1 + t.roughGain * shake) * m
 		rate = rate * flick + (T and T > 0 and zt * sdT * 2 * pi / T or 0)
 		if rate < t.tumbleMin then rate = t.tumbleMin end
 		out.tumble, out.sdTurns = rate, sdT

@@ -100,6 +100,8 @@ public typealias PracticePitch = PitchSession
 
 @MainActor
 public final class PitchSession {
+  let appVersion: String
+  var trail = ReportTrail()
   let engine: Engine
   private let decoder = JSONDecoder()
   private var input: any ThrowInput
@@ -131,6 +133,7 @@ public final class PitchSession {
   public var playing: Bool { playback != nil }
 
   public init(appVersion: String, input: any ThrowInput = PointerDial()) throws {
+    self.appVersion = appVersion
     self.input = input
     engine = try Engine(appVersion: appVersion)
     options = try SoloOptions(engine: engine)
@@ -217,6 +220,7 @@ public final class PitchSession {
   public func surface(_ s: Surface) throws {
     guard !playing else { return }
     try adopt(read("setSurface", #"{"surface":"\#(s.rawValue)"}"#))
+    trail.append(JS.object([("type", .string("surface")), ("surface", .string(s.rawValue))]).json)
   }
   public func marker(in size: CGSize) -> CGPoint? {
     guard let m = scene.marker, m.shown != false else { return nil }
@@ -298,10 +302,7 @@ public final class PitchSession {
     }
     if let recording = a.recording {
       try beginPlayback(recording)
-      if let onlineAction, let action = try JSONNode.parse(text)["action"] {
-        try onlineAction(action.raw)
-      }
-      try checkpoint()
+      if let action = try JSONNode.parse(text)["action"] { try committed(action.raw) }
     }
     return true
   }

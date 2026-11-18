@@ -338,6 +338,7 @@ function Session:advance()
 		local n = m.game:need()
 		if (n.kind == "raise" or n.kind == "punish") and not isCpu(self, n.side) then
 			self.phase = "settle"
+			self.pitchFromMatch = true
 			if not self.settle then
 				self.settle = { raised = 0, placed = 0 }
 				-- PASS + PLAY: the attacker hands over to the defender first (no

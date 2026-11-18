@@ -160,6 +160,7 @@ struct MatchMenu: View {
       )
       .font(.subheadline)
       FeedbackSettings(feedback: model.feedback)
+      ReportButton(model: model).buttonStyle(WoodButton())
       Button("SCORE SHEET", action: model.showSheet).buttonStyle(WoodButton())
       HStack {
         Button("HOME", action: model.home)
