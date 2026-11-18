@@ -90,7 +90,5 @@ The phone uses the pointer dial, native sharing, pickers and a portrait HUD.
 Open-pitch discovery, archived replay playback, embeds, browser shortcuts,
 and the browser's full menu are outside this screen. The phone does
 not resume a room after process termination. A player can rejoin by link or
-code with the same member ID. Universal links will need an Associated Domains
-entitlement, the site's apple-app-site-association file binding /p/* to the
-Apple team and bundle ID, and an app activity handler calling the existing
-PitchLink entry point.
+code with the same member ID. An incoming pitch link uses the same join flow
+as a pasted link. See [Universal Links](UNIVERSAL-LINKS.md) for activation.

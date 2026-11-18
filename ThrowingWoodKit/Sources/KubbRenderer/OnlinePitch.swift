@@ -10,7 +10,8 @@ public struct PitchLink: Equatable, Sendable {
     let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
     var code = text
     if let url = URLComponents(string: text), url.scheme != nil {
-      guard url.scheme?.lowercased() == "https", url.host?.lowercased() == "throwingwood.com",
+      guard url.scheme?.lowercased() == "https", let host = url.host?.lowercased(),
+        ["throwingwood.com", "kubb.thingelstad.xyz"].contains(host),
         url.user == nil, url.password == nil, url.port == nil
       else { return nil }
       let path = url.path.split(separator: "/")

@@ -75,6 +75,10 @@ struct GameView: View {
     #if targetEnvironment(simulator)
       .modifier(OnlineReview(model: model))
     #endif
+    .onOpenURL { model.join($0.absoluteString) }
+    .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+      if let url = activity.webpageURL { model.join(url.absoluteString) }
+    }
     .onChange(of: phase, initial: true) { _, phase in
       model.feedback.setActive(phase == .active)
       if phase == .background { model.online?.background() }

@@ -121,6 +121,8 @@ import Observation
         url: RoomsConfiguration.url, link: link, create: create,
         name: defaults.string(forKey: "pitch.name") ?? "",
         level: defaults.string(forKey: "pitch.level") ?? "club", appVersion: Self.version)
+      if online != nil { leaveOnline() }
+      feedback.silence()
       feedback.attach(pitch.board)
       online = pitch
       screen = .pitch
@@ -142,17 +144,29 @@ import Observation
       screen = .invalidLink
       return
     }
+    if let online, online.link == link {
+      switch online.stage {
+      case .connecting, .reconnecting, .lobby, .match:
+        screen = online.stage == .match ? .match : .pitch
+        return
+      default: break
+      }
+    }
     enter(link, create: false)
+  }
+  private func leaveOnline() {
+    guard let online else { return }
+    online.changed = nil
+    online.board.onFeedback = nil
+    online.board.cancelFeedback = nil
+    self.online = nil
+    report = nil
+    Task { await online.leave() }
   }
   func home() {
     feedback.silence()
-    if let online {
-      online.changed = nil
-      online.board.onFeedback = nil
-      online.board.cancelFeedback = nil
-      self.online = nil
-      report = nil
-      Task { await online.leave() }
+    if online != nil {
+      leaveOnline()
       screen = .home
       refresh()
       return
