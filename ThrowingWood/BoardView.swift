@@ -26,7 +26,9 @@ import UIKit
     backgroundColor = .systemBackground
     contentMode = .redraw
     accessibilityLabel =
-      "Practice pitch. Drag the target to aim. Wind the dial back, flick forward and lift to throw."
+      pitch.exercise != nil
+      ? "Drag the wooden handle down to the power band, then push back through the line."
+      : "Practice pitch. Drag the target to aim. Wind the dial back, flick forward and lift to throw."
     isAccessibilityElement = true
   }
   required init?(coder: NSCoder) { nil }
@@ -149,6 +151,11 @@ import UIKit
     }
   }
 
+  private var strokeLength: CGFloat { min(150, bounds.width * 0.32, bounds.height * 0.29) }
+  private var strokeOrigin: CGPoint {
+    CGPoint(x: bounds.midX, y: bounds.maxY - safeAreaInsets.bottom - 30 - strokeLength)
+  }
+
   var radius: CGFloat { min(bounds.width * 0.22, bounds.height * 0.12, 114) }
   var hub: CGPoint {
     CGPoint(x: bounds.midX, y: bounds.maxY - safeAreaInsets.bottom - 42 - radius)
@@ -209,7 +216,14 @@ import UIKit
     if model.screen == .practice || model.screen == .match, !pitch.playing,
       pitch.handoff == nil, pitch.need == nil || pitch.need?.kind == "throw"
     {
-      hud.dial(pitch.dial, at: hub, radius: radius, showHint: model.screen == .practice)
+      if pitch.exercise != nil {
+        let offset =
+          gesture == .dial
+          ? lastDialPoint.map { CGPoint(x: $0.x - startPoint.x, y: $0.y - startPoint.y) } : nil
+        hud.stroke(pitch.dial, origin: strokeOrigin, length: strokeLength, offset: offset)
+      } else {
+        hud.dial(pitch.dial, at: hub, radius: radius, showHint: model.screen == .practice)
+      }
     }
   }
 
@@ -225,7 +239,10 @@ import UIKit
       run { try pitch.movePunishment(to: p, size: bounds.size) }
     } else if !pitch.canAim {
       return
-    } else if hypot(p.x - hub.x, p.y - hub.y) <= 1.25 * radius {
+    } else if pitch.exercise != nil
+      ? abs(p.x - strokeOrigin.x) <= 32 && abs(p.y - strokeOrigin.y) <= 24
+      : hypot(p.x - hub.x, p.y - hub.y) <= 1.25 * radius
+    {
       gesture = .dial
       pitch.beginDial()
       wake()
@@ -246,7 +263,12 @@ import UIKit
   }
   private func sampleDial(_ p: CGPoint) {
     lastDialPoint = p
-    pitch.sample(CGPoint(x: (p.x - hub.x) / radius, y: (p.y - hub.y) / radius))
+    if pitch.exercise != nil {
+      pitch.sample(
+        CGPoint(x: (p.x - startPoint.x) / strokeLength, y: (p.y - startPoint.y) / strokeLength))
+    } else {
+      pitch.sample(CGPoint(x: (p.x - hub.x) / radius, y: (p.y - hub.y) / radius))
+    }
   }
   override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
     guard pitch.acceptsInput else {
@@ -260,7 +282,13 @@ import UIKit
     case .walk:
       pitch.walk(drag: CGPoint(x: p.x - startPoint.x, y: p.y - startPoint.y))
       wake()
-    case .dial: sampleDial(p)
+    case .dial:
+      if pitch.exercise != nil {
+        for sample in event?.coalescedTouches(for: t) ?? [] {
+          sampleDial(sample.location(in: self))
+        }
+      }
+      if p != lastDialPoint { sampleDial(p) }
     case .target: run { try pitch.target(p, size: bounds.size, snap: false) }
     case .stance: run { try pitch.stance(at: p, size: bounds.size) }
     case .punishment: run { try pitch.movePunishment(to: p, size: bounds.size) }
