@@ -1,0 +1,5 @@
+# Opening a pitch from a link
+
+1. Set the plain GitHub Actions repository variable `APPLE_TEAM_ID` on the web repository to the signing team's identifier. Run its Check and deploy workflow on main. Fetch `https://throwingwood.com/.well-known/apple-app-site-association` without following redirects. Expect HTTP 200, `Content-Type: application/json`, and the app identifier ending in `.com.throwingwood.app` with only `/p/*` in its paths. Clearing the variable and deploying withdraws the file.
+2. Enable Associated Domains on the Apple Developer App ID for `com.throwingwood.app` and refresh the signing profile for the device build. The project already includes `applinks:throwingwood.com` in both configurations. Keep the team's signing settings local.
+3. Install the signed build on an iPhone. Tap a canonical pitch link from Messages or Notes. Check a cold launch and a tap with the app already open against a pitch you intend to join. Both should reach the same pitch as pasting the link. The old hostname redirects to the canonical website and the app accepts either form when pasted. Apple caches the association, so allow time for its CDN to refresh after publishing.
