@@ -245,7 +245,9 @@ import KubbRooms
           response = .bool(true)
         case "foreground":
           screen!.connect()
-          try await p!.room.ready()
+          if p!.room.status == .connecting || p!.room.status == .reconnecting {
+            try await p!.room.ready()
+          }
           response = .bool(true)
         case "dismiss":
           screen!.board.dismissHandoff()

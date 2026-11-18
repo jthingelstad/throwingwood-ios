@@ -255,6 +255,18 @@ try {
     "network drop/reconnect preserves member and joined time; replaced connection stops; leave/left",
   );
 
+  // A backgrounded, replaced screen must not take the seat back on foreground.
+  await connect("superseded", "vxwypqrs", "Replaced_Seat", true);
+  const activePeer = await room("vxwypqrs", "Replaced_Seat");
+  await until(
+    async () => (await state("superseded")).display === "replaced",
+    "replacement card",
+  );
+  await rpc({ op: "background", key: "superseded" });
+  await rpc({ op: "foreground", key: "superseded" });
+  assert.equal((await state("superseded")).display, "replaced");
+  assert.equal(activePeer.status, "open");
+
   // Full room and every documented server error code over native raw transport.
   // Raw probes deliberately bypass the public client validation to reach refusal paths.
   const wire = async (key, frames, untilType = "error") =>

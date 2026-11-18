@@ -116,6 +116,7 @@ public struct PitchMember: Identifiable, Equatable {
     controller.connect()
   }
   public func background() {
+    guard !ended else { return }
     suspended = true
     timeout?.cancel()
     room.close()
@@ -144,7 +145,7 @@ public struct PitchMember: Identifiable, Equatable {
         openKey = nil
         switch status {
         case .open: return
-        case .replaced: stage = .replaced
+        case .replaced: finish(.replaced)
         case .closed: stage = .unreachable
         case .connecting, .reconnecting:
           stage = status == .connecting ? .connecting : .reconnecting
@@ -157,9 +158,7 @@ public struct PitchMember: Identifiable, Equatable {
       case .state:
         if room.version == 0 && room.isHost && room.document == .null {
           if !create || !firstJoin {
-            stage = .notFound
-            ended = true
-            controller.close()
+            finish(.notFound)
             changed?()
             return
           }
@@ -183,8 +182,8 @@ public struct PitchMember: Identifiable, Equatable {
       case .message(let m):
         if m["t"]?.string == "error", m["re"]?.string == "join" {
           switch m["code"]?.string {
-          case "full": stage = .full
-          case "bad-room": stage = .notFound
+          case "full": finish(.full)
+          case "bad-room": finish(.notFound)
           case "busy": return
           default: stage = .unreachable
           }
@@ -503,6 +502,16 @@ public struct PitchMember: Identifiable, Equatable {
       try seat()
     }
     return drew
+  }
+  // A terminal join or replacement must survive a background/foreground cycle.
+  // Only a fresh entry from Home can make another attempt with this identity.
+  private func finish(_ reason: Stage) {
+    ended = true
+    timeout?.cancel()
+    stage = reason
+    board.acceptsInput = false
+    board.runsComputer = false
+    controller.close()
   }
   private func fail(_ error: Error) {
     note = String(describing: error)

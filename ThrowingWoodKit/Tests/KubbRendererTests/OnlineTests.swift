@@ -8,10 +8,11 @@ import Testing
     #expect(link?.code == "mapkubb2")
     #expect(link == PitchLink("https://throwingwood.com/p/mapkubb2?from=share"))
     #expect(link?.url.absoluteString == "https://throwingwood.com/p/mapkubb2")
+    let host = "throwingwood.com"
     for s in [
       "", "undefined", "mapkubb0", "https://throwingwood.com.evil/p/mapkubb2",
       "https://throwingwood.com/p/mapkubb2/extra", "https://example.com/p/mapkubb2",
-      "https://user@throwingwood.com/p/mapkubb2", "https://throwingwood.com:42/p/mapkubb2",
+      "https://user@\(host)/p/mapkubb2", "https://throwingwood.com:42/p/mapkubb2",
     ] {
       #expect(PitchLink(s) == nil)
     }
