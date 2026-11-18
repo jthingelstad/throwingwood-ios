@@ -139,17 +139,13 @@ struct SheetCard: View {
 }
 
 struct MatchMenu: View {
-  let model: GameModel, pitch: PitchSession
+  @Bindable var model: GameModel
+  let pitch: PitchSession
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       Text("Match menu").font(displayFont(36))
       if let row = pitch.options.rows.first(where: { $0.id == "level" }) {
-        Picker(
-          "Throw level",
-          selection: Binding(
-            get: { model.selections["level"] ?? "" },
-            set: model.changeLevel)
-        ) {
+        Picker("Throw level", selection: $model.matchLevel) {
           ForEach(row.choices, id: \.self) { c in Text(c[1]).tag(c[0]) }
         }.pickerStyle(.segmented)
       }
