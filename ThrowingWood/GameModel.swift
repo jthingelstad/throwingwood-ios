@@ -119,11 +119,14 @@ import Observation
       screen = .match
     }
   }
-  func changeLevel(_ level: String) {
-    perform {
-      try pitch?.useLevel(level)
-      selections["level"] = level
-      UserDefaults.standard.set(level, forKey: "solo.matchLevel")
+  var matchLevel: String {
+    get { selections["level"] ?? "" }
+    set {
+      perform {
+        try pitch?.useLevel(newValue)
+        selections["level"] = newValue
+        UserDefaults.standard.set(newValue, forKey: "solo.matchLevel")
+      }
     }
   }
   func showSheet() {
