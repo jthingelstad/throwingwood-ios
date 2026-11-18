@@ -54,15 +54,20 @@ public struct PointerDial: ThrowInput {
   public mutating func reset() { self = Self() }
 }
 
-private struct Aim: Decodable {
+struct Aim: Decodable {
+  struct Plan: Decodable { let loft: Double?, tilt, spin: Int? }
+  struct Wind: Decodable { let text: String }
+  let wind: Wind?, advText: String?
+  let plan: Plan?, mix: Double?, projectile: String?
   let marker, thrower: GroundMark?
   let arc: [WorldPoint]?, advY: Double?
 }
-private struct AimOutput: Decodable {
+struct AimOutput: Decodable {
   let aim: Aim, camera: Camera
   let dial: DialState?, recording: Recording?
 }
-private struct ViewOutput: Decodable {
+struct ViewOutput: Decodable {
+  let need: MatchNeed
   let aim: Aim, camera: Camera, items: [Piece], surface: Surface, set: String, dial: DialState
 }
 private struct Shown: Decodable {
@@ -71,26 +76,43 @@ private struct Shown: Decodable {
 
 public struct HitBurst {
   public let kind: String, age: Double
-  let anchor: V3
+  let anchor: V3, focusX: Double?
   public func point(size: CGSize, camera: Camera) -> CGPoint? {
-    PitchProjection(size: size, camera: camera).project(anchor)
+    PitchProjection(size: size, camera: camera, focusX: focusX ?? 200).project(anchor)
   }
 }
 
+public typealias PracticePitch = PitchSession
+
 @MainActor
-public final class PracticePitch {
+public final class PitchSession {
   let engine: Engine
   private let decoder = JSONDecoder()
   private var input: any ThrowInput
   private(set) var playback: Playback?
-  public private(set) var scene: PitchScene, camera: Camera, dial: DialState
+  public internal(set) var scene: PitchScene, camera: Camera, dial: DialState
   public private(set) var result: ThrowResult?, bursts: [HitBurst] = []
   private var resultAge = 0.0
+  public let options: SoloOptions
+  public internal(set) var need: MatchNeed?, handoff: MatchNeed.Handoff?, placement: PlacementCheck?
+  public internal(set) var revision = 0
+  public internal(set) var plan = false, walking = false
+  public private(set) var arcDegrees: Int?, sideStep: Int?
+  var mix = 0.0
+  var save: MatchSave?
+  var cursor: GroundMark?
+  public var canAim: Bool {
+    !playing && handoff == nil && (need == nil || (need?.kind == "throw" && need?.cpu == false))
+  }
+  public private(set) var windText: String?, advantageText: String?, slow = false
+  var walkAxis = CGPoint.zero
+  var levelOverride: String?
   public var playing: Bool { playback != nil }
 
   public init(appVersion: String, input: any ThrowInput = PointerDial()) throws {
     self.input = input
     engine = try Engine(appVersion: appVersion)
+    options = try SoloOptions(engine: engine)
     let v = try decoder.decode(
       ViewOutput.self,
       from: Data(
@@ -105,20 +127,59 @@ public final class PracticePitch {
     aim(v.aim, camera: v.camera)
   }
 
-  private func read<T: Decodable>(_ method: String, _ args: String = "") throws -> T {
+  func read<T: Decodable>(_ method: String, _ args: String = "") throws -> T {
     try decoder.decode(T.self, from: Data(engine.call(method, json: args).utf8))
   }
-  private func aim(_ a: Aim, camera c: Camera) {
+  func aim(_ a: Aim, camera c: Camera) {
+    windText = a.wind?.text
+    advantageText = a.advText
     camera = c
+    mix = a.mix ?? 0
+    arcDegrees = a.plan?.loft.map { Int($0.rounded()) }
+    sideStep = a.projectile == "kubb" ? a.plan?.spin : a.plan?.tilt
     scene.advantageY = a.advY
     scene.marker = a.marker
+    let reference = PitchProjection(size: CGSize(width: 400, height: 240), camera: c)
+    if let marker = a.marker, marker.shown != false, let p = reference.project(marker.point) {
+      scene.focusX = Double(p.x)
+    } else {
+      scene.focusX = nil
+    }
     scene.thrower = a.thrower
     scene.arc = a.arc?.map(\.vector)
   }
-  private func adopt(_ v: ViewOutput) {
+  func adopt(_ v: ViewOutput) throws {
     scene = PitchScene(surface: v.surface, set: v.set, items: v.items)
     dial = v.dial
     aim(v.aim, camera: v.camera)
+    if need != nil {
+      need = v.need
+      if let levelOverride, v.need.kind == "throw", v.need.cpu == false {
+        try useLevel(levelOverride)
+      }
+      handoff = v.need.card?.handoff
+      placement = nil
+      cursor = v.need.cursor
+      try settleScene()
+      revision += 1
+    }
+  }
+
+  func resetPresentation() {
+    input.reset()
+    playback = nil
+    result = nil
+    bursts = []
+    plan = false
+    walking = false
+    mix = 0
+    slow = false
+    walkAxis = .zero
+    levelOverride = nil
+    handoff = nil
+    placement = nil
+    cursor = nil
+    revision += 1
   }
 
   public func surface(_ s: Surface) throws {
@@ -127,21 +188,21 @@ public final class PracticePitch {
   }
   public func marker(in size: CGSize) -> CGPoint? {
     guard let m = scene.marker, m.shown != false else { return nil }
-    return PitchProjection(size: size, camera: camera).project(m.point)
+    return scene.projection(size, camera).project(m.point)
   }
-  public func target(_ point: CGPoint, size: CGSize, snap: Bool) throws {
-    guard !playing, let g = PitchProjection(size: size, camera: camera).ground(point) else {
+  public func target(_ point: CGPoint, size: CGSize, snap: Bool, tap: Bool = false) throws {
+    guard canAim, let g = scene.projection(size, camera).ground(point), !tap || g.y > 0.5 else {
       return
     }
     let a: AimOutput = try read("setTarget", #"{"x":\#(g.x),"y":\#(g.y),"snap":\#(snap)}"#)
     aim(a.aim, camera: a.camera)
   }
-  public func sample(_ point: CGPoint?) { if !playing { input.sample(point) } }
+  public func sample(_ point: CGPoint?) { if canAim && !plan { input.sample(point) } }
 
   public func cancelInput() throws {
     input.reset()
-    guard !playing else { return }
-    // v0.3's plan-held frame disarms even a forward swing. Ease immediately back to aim.
+    guard canAim else { return }
+    // The session's plan-held frame disarms even a forward swing. Ease immediately back to aim.
     let _: AimOutput = try read("frame", #"{"plan":true,"dt":0.001}"#)
     let a: AimOutput = try read("frame", #"{"dt":0.016666666666666666}"#)
     aim(a.aim, camera: a.camera)
@@ -163,11 +224,24 @@ public final class PracticePitch {
         changed = true
       }
     }
-    guard let args = input.frame(after: dt) else { return changed }
+    guard handoff == nil, need == nil || need?.kind == "throw" else { return changed }
+    let args: String
+    if walking && walkAxis != .zero {
+      args = #"{"dt":\#(dt),"plan":\#(plan),"walk":{"dx":\#(walkAxis.x),"dy":\#(walkAxis.y)}}"#
+    } else if !plan, let sample = input.frame(after: dt) {
+      args = sample
+    } else if (plan && mix < 1) || (!plan && mix > 0) || need?.cpu == true {
+      args = #"{"dt":\#(dt),"plan":\#(plan)}"#
+    } else {
+      return changed
+    }
     let a: AimOutput = try read("frame", args)
     aim(a.aim, camera: a.camera)
     if let d = a.dial { dial = d }
     if let recording = a.recording {
+      walkAxis = .zero
+      walking = false
+      plan = false
       input.reset()
       playback = Playback(recording)
       result = nil
@@ -175,8 +249,18 @@ public final class PracticePitch {
       scene.marker = nil
       scene.thrower = nil
       try play(0)
+      try checkpoint()
     }
     return true
+  }
+
+  public func skipPlayback() throws {
+    guard let p = playback else { return }
+    result = p.recording.result
+    resultAge = 0
+    bursts = []
+    playback = nil
+    try adopt(read("view"))
   }
 
   private func play(_ dt: Double) throws {
@@ -185,6 +269,7 @@ public final class PracticePitch {
       let t = min(p.nextTime, p.recording.duration)
       let shown: Shown = try read("showAt", #"{"t":\#(t)}"#)
       scene.items = p.pieces(at: t)
+      slow = shown.speed < 0.99
       camera = shown.camera
       dial = shown.dial
       for i in p.starts.indices
@@ -205,12 +290,12 @@ public final class PracticePitch {
       let b = p.recording.timeline.bursts[i]
       let age = p.realTime - start
       guard age < (b.kind == "double" ? 0.7 : 0.6) else { return nil }
-      return HitBurst(kind: b.kind, age: age, anchor: b.anchor.vector)
+      return HitBurst(kind: b.kind, age: age, anchor: b.anchor.vector, focusX: scene.focusX)
     }
     p.realTime += dt
     if p.rest >= 0.8 && bursts.isEmpty {
-      try adopt(read("view"))
       playback = nil
+      try adopt(read("view"))
     } else {
       playback = p
     }

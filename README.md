@@ -7,11 +7,14 @@ iPhone version.
 
 ## What's here
 
-The app opens onto a practice pitch. Choose grass, sand or snow, drag the circle
-onto a kubb, then press near the bottom of the dial. Wind up the left side into
-the orange power range, flick through the bottom and lift in the blue release
-range. The recording plays from flight to rest and the verdict describes the
-throw. Online play is tested headlessly with the web.
+Choose **Practice** or **Play the computer**. In practice, pick a surface and drag
+the circle onto a kubb. Wind back on the left of the dial, flick through six and
+lift inside the blue release range. The solo match adds the full turn order,
+plan and stance controls, raising, punishment placement and the computer's throws.
+At the end, open the Planet Kubb Notation score sheet or start a rematch.
+An interrupted match resumes on this iPhone. Online cross-play is tested headlessly.
+
+[How the match works](docs/MATCH.md) · [iPhone review pictures](docs/RENDER.md)
 
 - `ThrowingWoodKit/` is a Swift package. `KubbEngine` runs the game engine,
   a tagged release of [kubb-engine](https://github.com/jthingelstad/kubb-engine)

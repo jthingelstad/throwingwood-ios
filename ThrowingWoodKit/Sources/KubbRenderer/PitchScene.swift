@@ -29,6 +29,7 @@ public struct GroundMark: Decodable, Sendable {
   let x, y: Double
   let r, angle: Double?
   let chosen, allowed, shown: Bool?
+  var kind: String? = nil
   let facing: Int?
   var point: V3 { V3(x, y, 0) }
 }
@@ -40,6 +41,12 @@ public struct PitchScene: Decodable, Sendable {
   var advantageY: Double?
   var marker, thrower: GroundMark?
   var arc: [V3]?
+  // Release preserves the aim's projected x even as the camera starts tracking the throw.
+  var focusX: Double? = nil
+  var stillZoom: Double? = nil
+  func projection(_ size: CGSize, _ camera: Camera) -> PitchProjection {
+    PitchProjection(size: size, camera: camera, focusX: focusX ?? 200, stillZoom: stillZoom)
+  }
   var footprints, keepOut: [GroundMark]?
 }
 
@@ -52,11 +59,24 @@ public struct PitchProjection {
   let principal: V2
   static let near = 0.05
 
-  public init(size: CGSize, camera: Camera) {
+  public init(size: CGSize, camera: Camera, focusX: Double = 200, stillZoom: Double? = nil) {
     c = camera
     self.size = size
-    k = min(size.width / 400, size.height / 240)
-    origin = V2(size.width - 400 * k, size.height - 240 * k) * 0.5
+    if size.height > size.width * 1.05, size.width > 0 {
+      k = size.width / 400 * (stillZoom ?? 1.3)
+      if stillZoom != nil {
+        origin = V2(size.width / 2 - 200 * k, size.height * 0.42 - 120 * k)
+      } else {
+        let half = size.width / (2 * k)
+        let room = half - 40
+        let pan = max(focusX - room, min(focusX + room, 200))
+        let center = max(half, min(400 - half, pan))
+        origin = V2(size.width / 2 - center * k, size.height * 0.33 - 112 * k)
+      }
+    } else {
+      k = min(size.width / 400, size.height / 240)
+      origin = V2(size.width - 400 * k, size.height - 240 * k) * 0.5
+    }
     principal = origin + k * V2(c.cx, c.cy)
   }
 

@@ -83,7 +83,7 @@ public enum PitchRenderer {
     defer { context.restoreGState() }
     context.setLineJoin(.round)
     context.setLineCap(.round)
-    let p = Painter(ctx: context, projection: PitchProjection(size: size, camera: camera))
+    let p = Painter(ctx: context, projection: scene.projection(size, camera))
     p.ground(scene)
     p.marks(scene)
     p.pieces(scene)
