@@ -59,13 +59,13 @@ import Testing
 }
 @MainActor func makeClient(
   _ factory: @escaping RoomsClient.Factory, store: MemoryID = MemoryID(),
-  timing: RoomsClient.Timing? = nil
+  timing: RoomsClient.Timing? = nil, engineVersion: String = "0.4.0"
 ) throws -> RoomsClient {
   var fast = RoomsClient.Timing()
   fast.retry = .milliseconds(2)
   fast.retryMax = .milliseconds(5)
   return try RoomsClient(
-    url: URL(string: "ws://127.0.0.1:1")!, room: "abcdefghjk", engineVersion: "0.3.0",
+    url: URL(string: "ws://127.0.0.1:1")!, room: "abcdefghjk", engineVersion: engineVersion,
     appVersion: "0.0-test", store: store, timing: timing ?? fast, factory: factory)
 }
 
@@ -97,7 +97,7 @@ import Testing
     #expect(join["member"]?.string == room.you)
     #expect(join["me"]?["name"]?.string == "Å 🎯")
     #expect(join["me"]?["level"] == nil)
-    #expect(join["me"]?["engine"]?.string == "0.3.0")
+    #expect(join["me"]?["engine"]?.string == "0.4.0")
   }
 
   @Test func revisionsAndVersionsNeverGoBack() async throws {
@@ -246,7 +246,7 @@ import Testing
             let type = m["t"]!.string!
             let payload = m[type == "game" ? "g" : "r"]!
             #expect(payload["client"]?.string == "ios")
-            #expect(payload["engine"]?.string == "0.3.0")
+            #expect(payload["engine"]?.string == "0.4.0")
             t.push(
               "{\"t\":\"\(type == "game" ? "recorded" : "reported")\",\"id\":\(m["id"]!.int!)}")
           default: break  // the first set is deliberately never answered

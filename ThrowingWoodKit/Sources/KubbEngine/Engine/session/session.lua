@@ -770,6 +770,9 @@ function Session:setControl(c)
 	local sides = c.sides or { "A", "B" }
 	self.control = { A = false, B = false, cpu = c.cpu ~= false }
 	for _, side in ipairs(sides) do self.control[side] = true end
+	if self.ts.touch and self.setup and not self.control[self.setup.side] then
+		tw.web.touch.frame(self.ts, { { phase = "cancel" } })
+	end
 	return self:need()
 end
 
@@ -788,7 +791,7 @@ function Session:throwAction(L, how, info)
 		},
 		stance = { x = ts.playerX, y = ts.playerY, set = ts.stanceSet },
 		target = { x = ts.markerX, y = ts.markerY, set = ts.markerSet, on = ts.markerOnId },
-		scripted = info.scripted or false,
+		scripted = info.scripted or false, input = info.input,
 	}
 	if info.back then a.swing = { back = info.back, stop = info.stop } end
 	if info.verdicts then
@@ -850,6 +853,7 @@ function Session:applyThrow(a)
 		ts.watching = false
 		self:advance()
 	end
+	rec.input = a.input
 	rec.seq = self.throws - 1
 	self.recording = rec
 	return rec
@@ -901,12 +905,12 @@ function Session:frame(inp)
 		out.aim = self:aimView()
 		return out
 	else
-		local changed
-		ev, changed = throw.aimFrame(ts, inp)
+		local changed, input
+		ev, changed, input = throw.aimFrame(ts, inp)
 		if ev == "release" then
 			local r = ts.swing.result
 			L, how = throw.playerLaunch(ts, r)
-			info = { back = r.back, stop = r.releaseAngle, verdicts = L }
+			info = { input = input or "pointer", back = r.back, stop = r.releaseAngle, verdicts = L }
 		end
 	end
 	out.event = ev
