@@ -1,9 +1,12 @@
 # Distribution
 
-Throwing Wood is not distributed yet. Every upload, every tester group and the
-App Store are Jamie's call. When that day comes:
+Throwing Wood is in TestFlight: build 20 (0.1) went to the Internal group on
+2026-11-18, and the Beta group takes external builds once Apple's Beta App
+Review passes them. Every upload, every tester group and the App Store are
+Jamie's call. Jamie has given a standing go to upload an external build and
+submit it to Beta App Review for the Beta group whenever Jamie asks for one.
 
-## Once, before the first upload
+## Once, before the first upload (done 2026-11-18)
 
 - **The bundle id** `com.throwingwood.app` must be registered with Apple. An
   App Store Connect API key can't register a new bundle id or make its first
@@ -28,6 +31,11 @@ What to Test, review submissions).
 
 `scripts/testflight.sh --external` makes a build Apple can review for a
 public TestFlight group and for the App Store. Use the worksheet below for this build.
+
+A commit uploads once, so an external build needs a commit on main that has not
+been uploaded yet. Before the first submission, Beta App Review needs the
+review contact, a beta description, a feedback email and each build's What to
+Test, all set with `scripts/asc.swift`.
 
 ## Data that leaves the device during online play
 
