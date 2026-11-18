@@ -145,3 +145,28 @@ record/report collection policy, replay controls or physical network conditions 
 covered here. The wire carries open/list/replay and tagged game/report messages, but
 these product surfaces belong to the next phase. AWS origin filtering, stage throttles,
 TTL scheduling and real two-hour socket expiry are not exercised by rooms-dev.
+
+## Driving the pitch screen
+
+The optional presentation callbacks on PitchController run on the main actor.
+After the controller verifies a peer action, it passes the action and its
+committed match to the presentation. A gap, correction, new match or rejoin
+supplies an authoritative snapshot. Presence and document notifications reach
+the screen after the controller processes them. The 200 ms clock also drives
+changed aim casts, listing renewal and shout expiry.
+
+OnlinePitch in KubbRenderer owns the controller and a second Lua session
+for the board. The room can receive and verify several actions while the
+board is still playing the first recording through showAt. The board checks
+each action's hash and drains the queue in order. Its own release or placement
+goes through the same seat check and CAS commit as a scripted action.
+The screen announces room.constants.ENGINE in presence. Record and report
+tags use the full engine version.
+
+The local rooms test drives OnlinePitch with the web Room and wasm engine.
+It compares each displayed hash, the controller hash, and a replay of the
+server's kept log. It also checks peer-visible message shapes, round-trip
+aim and shouts, a real dial release after host succession, connection loss,
+background return, both directions of a version mismatch and a captured
+report on an unjoined socket. For a faster local run, build RoomsProbe with
+`-c release` and pass `--release` to the Node script.

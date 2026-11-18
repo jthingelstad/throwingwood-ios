@@ -34,7 +34,13 @@ const sources = Object.fromEntries(
 );
 const bin = execFileSync(
   "swift",
-  ["build", "--package-path", join(root, "ThrowingWoodKit"), "--show-bin-path"],
+  [
+    "build",
+    "--package-path",
+    join(root, "ThrowingWoodKit"),
+    ...(process.argv.includes("--release") ? ["-c", "release"] : []),
+    "--show-bin-path",
+  ],
   { encoding: "utf8" },
 ).trim();
 const child = spawn(join(bin, "RoomsProbe"), [], {
@@ -92,11 +98,17 @@ const report = {
   matches: [],
 };
 let now = Date.now();
-let failReport = false;
+let failReport = false,
+  latestReport;
+const recordedRooms = new Set();
 const server = await startRoomsServer({
   port: 0,
   now: () => now,
-  report: async () => {
+  record: async (entry) => {
+    recordedRooms.add(entry.room);
+  },
+  report: async (entry) => {
+    latestReport = entry;
     if (failReport) throw new Error("injected");
   },
   recordGame: async () => {
@@ -117,8 +129,16 @@ const room = async (code, id, engine = manifest.version) => {
   return r;
 };
 const state = (key) => rpc({ op: "state", key });
-const connect = (key, code, member) =>
-  rpc({ op: "connect", key, room: code, member, url: server.url });
+const connect = (key, code, member, screen = false, create = true) =>
+  rpc({
+    op: "connect",
+    key,
+    room: code,
+    member,
+    screen,
+    create,
+    url: server.url,
+  });
 const stamp = { year: 2026, month: 11, day: 17, hour: 12, min: 0 };
 const note = (s) => {
   report.conformance.push(s);
@@ -211,6 +231,11 @@ try {
   const joined = peer.members.find((m) => m.id === "Native_Wire").joined;
   const stored = await server.store.getRoom("abcdefghjk");
   server.drop(stored.members.Native_Wire.conn);
+  await until(async () => {
+    const c = (await server.store.getRoom("abcdefghjk")).members.Native_Wire
+      .conn;
+    return c && c !== stored.members.Native_Wire.conn;
+  }, "new connection after drop");
   await until(
     async () =>
       (await state("wire")).status === "open" &&
@@ -385,7 +410,7 @@ try {
   );
 
   // Native controller refuses a mixed-version START through engine room.startCheck.
-  await connect("mismatch", "efghjkmnpq", "Native_Mismatch");
+  await connect("mismatch", "efghjkmnpq", "Native_Mismatch", true);
   const old = await room("efghjkmnpq", "Web_Older", "0.3.0");
   await rpc({ op: "team", key: "mismatch", side: "A" });
   await old.update((d) => {
@@ -402,31 +427,71 @@ try {
   );
   assert.equal((await state("mismatch")).state, "versionMismatch");
   assert.equal(old.doc.started, false);
+  assert.equal(
+    (await state("mismatch")).note,
+    "Web_Older is on another version of Throwing Wood: reload to play.",
+  );
+  for (const [version, card] of [
+    ["0.3", "older"],
+    ["0.5", "newer"],
+  ]) {
+    const code = card === "older" ? "qrstuvwx" : "rstuvwxy";
+    const host = await room(code, "Browser_Host", version);
+    await host.update(() => ({ teams: { A: [], B: [] } }));
+    await connect(card, code, "Native_Seat", true, false);
+    await rpc({ op: "team", key: card, side: "B" });
+    await until(
+      async () => (await state(card)).card === card,
+      "version card " + card,
+    );
+    await rpc({ op: "close", key: card });
+    host.close();
+  }
   note("different engine major.minor refuses START without writing a match");
 
   // The real controller waits for host grace, claims and takes over the CPU.
-  await connect("handoverHost", "jkmnpqrstu", "Native_Host");
-  await connect("handoverGuest", "jkmnpqrstu", "Native_Successor");
-  await rpc({ op: "team", key: "handoverHost", side: "A" });
-  assert.equal(
-    await rpc({ op: "start", key: "handoverHost", seed: 99, at: stamp }),
-    true,
+  const handoverWeb = await room("jkmnpqrstu", "Web_Host");
+  await handoverWeb.update(() => ({ teams: { A: ["Web_Host"], B: [] } }));
+  await connect("handoverGuest", "jkmnpqrstu", "Native_Successor", true, false);
+  const hEngine = await Engine.create({ sources, client: "web test" });
+  engines.push(hEngine);
+  const callRoom = (name, args) => hEngine.call("room." + name, args).value;
+  const members = handoverWeb.members;
+  const lineup = callRoom("lineup", { doc: handoverWeb.doc, members });
+  const setup = callRoom("matchOptions", {
+    doc: handoverWeb.doc,
+    lineup,
+    seed: 99,
+    start: stamp,
+  });
+  hEngine.newMatch(setup);
+  await handoverWeb.update((doc) =>
+    callRoom("startMatch", {
+      doc,
+      snap: hEngine.snapshot(),
+      hash: hEngine.hash().hash,
+      players: lineup.players,
+      cpu: lineup.cpu,
+      host: handoverWeb.host,
+      setup,
+      members,
+    }),
   );
   await until(
     async () => (await state("handoverGuest")).state === "match",
     "handover start",
   );
-  await rpc({ op: "close", key: "handoverHost" });
+  handoverWeb.close();
   await until(
     async () =>
       (await state("handoverGuest")).members.some(
-        (m) => m.id === "Native_Host" && !m.connected,
+        (m) => m.id === "Web_Host" && !m.connected,
       ),
     "handover disconnect",
   );
   const clockNow = Date.now();
   await rpc({ op: "tick", key: "handoverGuest", now: clockNow });
-  assert.equal((await state("handoverGuest")).host, "Native_Host");
+  assert.equal((await state("handoverGuest")).host, "Web_Host");
   now += 16001;
   await rpc({ op: "tick", key: "handoverGuest", now: clockNow + 16001 });
   await until(
@@ -435,16 +500,26 @@ try {
   );
   assert.equal((await state("handoverGuest")).control.cpu, true);
   for (let i = 0; i < 10; i++) {
+    await rpc({ op: "skip", key: "handoverGuest" });
     if ((await state("handoverGuest")).need.cpu) break;
-    assert.equal(
-      (await rpc({ op: "computer", key: "handoverGuest" })).ok,
-      true,
+    const before = (await state("handoverGuest")).doc.match.seq;
+    if (i === 0)
+      assert.equal(await rpc({ op: "dialThrow", key: "handoverGuest" }), true);
+    else
+      assert.equal(
+        (await rpc({ op: "computer", key: "handoverGuest" })).ok,
+        true,
+      );
+    await until(
+      async () => (await state("handoverGuest")).doc.match.seq === before + 1,
+      "takeover action settled",
     );
   }
+  await rpc({ op: "dismiss", key: "handoverGuest" });
   const beforeCPU = await state("handoverGuest");
   assert.equal(beforeCPU.need.cpu, true);
   for (let i = 0; i < 200; i++) {
-    await rpc({ op: "frame", key: "handoverGuest", input: { dt: 0.1 } });
+    await rpc({ op: "displayFrame", key: "handoverGuest" });
     if ((await state("handoverGuest")).seq > beforeCPU.seq) break;
   }
   assert.equal((await state("handoverGuest")).seq, beforeCPU.seq + 1);
@@ -457,7 +532,7 @@ try {
   for (const [index, surface] of ["grass", "sand", "snow"].entries()) {
     const key = "match" + index,
       code = ["fghjkmnpqr", "ghjkmnpqrs", "hjkmnpqrst"][index];
-    const nativeID = await connect(key, code, "Native_Match_" + index);
+    const nativeID = await connect(key, code, "Native_Match_" + index, true);
     const browser = await room(code, "Web_Match_" + index);
     const engine = await Engine.create({ sources, client: "web 0.0-test" });
     engines.push(engine);
@@ -468,7 +543,38 @@ try {
       webApplied = 0,
       corrections = 0,
       started = false;
+    let previousDoc;
     browser.on("doc", ({ doc, with: w, mine }) => {
+      const before = previousDoc;
+      previousDoc = doc;
+      if (w && !mine) {
+        const m = doc.match;
+        const expected = lua("commitAction", {
+          doc: before,
+          n: m.n,
+          seq: m.seq,
+          snap: m.snap,
+          hash: m.hash,
+          action: w.a,
+          over: m.over,
+        });
+        assert.deepEqual(
+          doc,
+          expected,
+          "native document equals web reducer output",
+        );
+        assert.deepEqual(
+          { ...w, c: "web" },
+          lua("rider", {
+            n: m.n,
+            seq: m.seq,
+            action: w.a,
+            client: "web",
+            engine: engine.version,
+          }),
+        );
+        assert.equal(w.c, "ios");
+      }
       const d = lua("decide", { local, doc, with: w, mine });
       if (d.kind === "lobby" || d.kind === "old") return;
       if (d.kind === "start") {
@@ -489,24 +595,70 @@ try {
     await browser.update((d) =>
       lua("joinTeam", { doc: d, id: browser.you, side: "B" }),
     );
-    await rpc({
-      op: "reduce",
-      key,
-      name: "setOptions",
-      fields: {
-        options: {
-          surface,
-          wind: ["off", "light", "strong"][index],
-          raising: "hand",
-          opening: "six",
-        },
-      },
-    });
+    for (const [name, value] of Object.entries({
+      surface,
+      wind: ["off", "light", "strong"][index],
+      raising: "hand",
+      opening: "six",
+    })) {
+      await rpc({ op: "option", key, name, value });
+      await until(
+        () => browser.doc.options[name] === value,
+        "lobby option to web",
+      );
+    }
     assert.equal(
       await rpc({ op: "start", key, seed: 1001 + index, at: stamp }),
       true,
     );
     await until(() => started, "web start");
+    const initial = browser.doc.match;
+    const start = lua("startMatch", {
+      doc: { ...browser.doc, started: false, n: 0, match: null },
+      snap: initial.snap,
+      hash: initial.hash,
+      players: initial.players,
+      cpu: initial.cpu,
+      host: nativeID,
+      setup: initial.setup,
+      members: browser.members,
+    });
+    assert.deepEqual(
+      browser.doc,
+      start,
+      "native START document equals web reducer output",
+    );
+    const casts = [];
+    browser.on("cast", ({ d }) => casts.push(d));
+    let inboundAim = false;
+    await rpc({ op: "dismiss", key });
+    await until(
+      () => casts.some((d) => d.t === "aim"),
+      "native display casts aim",
+    );
+    assert.deepEqual(
+      Object.keys(casts.find((d) => d.t === "aim").s).sort(),
+      Object.keys(engine.aimState()).sort(),
+    );
+    await rpc({ op: "shout", key });
+    await until(() => casts.some((d) => d.t === "shout"), "native shout");
+    assert.deepEqual(
+      casts.find((d) => d.t === "shout"),
+      { t: "shout", w: "NICE!" },
+    );
+    browser.cast({ t: "shout", w: "TOK!" });
+    await until(
+      async () => (await state(key)).shouts.some((s) => s.endsWith("TOK!")),
+      "web shout shown",
+    );
+    assert.deepEqual(
+      Object.keys(browser.members.find((m) => m.id === nativeID).me).sort(),
+      ["engine", "level", "name"],
+    );
+    assert.equal(
+      browser.members.find((m) => m.id === nativeID).me.engine,
+      "0.4",
+    );
     let nativeCommits = 0,
       webCommits = 0,
       actions = 0,
@@ -535,6 +687,14 @@ try {
         await until(() => local.seq === actions + 1, "web applied native");
       } else {
         assert.equal(actor, browser.you);
+        if (!inboundAim && need.kind === "throw") {
+          browser.cast({ t: "aim", s: engine.aimState() });
+          await until(
+            async () => (await state(key)).shownAims > 0,
+            "web aim shown",
+          );
+          inboundAim = true;
+        }
         let action;
         if (need.kind === "raise") {
           action = { type: "raise" };
@@ -589,7 +749,56 @@ try {
         async () => (await state(key)).seq === actions,
         "native applied web",
       );
+      await rpc({ op: "skip", key });
       const native = await state(key);
+      assert.equal(
+        native.displayHash,
+        engine.hash().hash,
+        "screen hash " + actions,
+      );
+      assert.equal(native.displayCorrections, 0);
+      if (actions === 2) {
+        await rpc({ op: "report", key });
+        const captured = JSON.parse(latestReport.report);
+        assert.equal(captured.mode, "pitch");
+        assert.equal(captured.v, browser.v);
+        assert.equal(captured.match.seq, 2);
+        assert.equal(captured.client, "ios");
+        assert.equal(captured.engine, manifest.version);
+        assert.ok(
+          !latestReport.report.includes(nativeID) &&
+            !latestReport.report.includes(browser.you),
+        );
+      }
+      if (actions === 3) {
+        const joined = browser.members.find((m) => m.id === nativeID).joined;
+        await rpc({ op: "background", key });
+        await until(
+          () => !browser.members.find((m) => m.id === nativeID).connected,
+          "background",
+        );
+        await rpc({ op: "foreground", key });
+        assert.equal((await state(key)).displayHash, native.hash);
+        assert.equal(
+          browser.members.find((m) => m.id === nativeID).joined,
+          joined,
+        );
+      }
+      if (actions === 5) {
+        server.drop((await server.store.getRoom(code)).members[nativeID].conn);
+        await until(
+          () => !browser.members.find((m) => m.id === nativeID).connected,
+          "dropped",
+        );
+        await until(
+          () => browser.members.find((m) => m.id === nativeID).connected,
+          "rejoined",
+        );
+        await until(
+          async () => (await state(key)).display === "match",
+          "restored",
+        );
+      }
       assert.equal(native.error, null);
       assert.equal(
         native.hash,
@@ -624,6 +833,10 @@ try {
       webCommits,
       raises,
       punishments,
+      aimFromNative: casts.filter((d) => d.t === "aim").length,
+      aimFromWeb: Number(inboundAim),
+      shoutsFromNative: casts.filter((d) => d.t === "shout").length,
+      shoutsFromWeb: 1,
       hashAgreement: actions,
       corrections: 0,
       adoptions: 0,
@@ -631,6 +844,14 @@ try {
       replayVerified: actions,
       finish: engine.need().how,
     };
+    assert.ok(inboundAim);
+    assert.ok(recordedRooms.has(code), "rooms-dev recorded the shared match");
+    await rpc({ op: "rematch", key });
+    await until(
+      () => !browser.doc.started,
+      "host rematch returns web to lobby",
+    );
+    assert.deepEqual(browser.doc.teams, { A: [nativeID], B: [browser.you] });
     report.matches.push(result);
     console.log("cross-play: " + JSON.stringify(result));
     await rpc({ op: "close", key });

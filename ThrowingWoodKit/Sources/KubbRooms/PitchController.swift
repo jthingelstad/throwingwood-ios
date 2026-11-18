@@ -20,7 +20,14 @@ import KubbEngine
   public private(set) var control = JSONText.null
   public private(set) var need = JSONText.null
   public private(set) var lastCast: JSONText?
-  private var match: JSONNode?
+  public enum Presentation {
+    case restore(JSONNode)
+    case apply(action: JSONText, match: JSONNode)
+  }
+  public var present: ((Presentation) throws -> Void)?
+  public var didReceive: ((RoomsClient.Event) -> Void)?
+  public var onClock: ((Int) -> Void)?
+  public private(set) var match: JSONNode?
   private var observation: UUID?
   private var clock: Task<Void, Never>?
   private var hostGoneAt: Int?
@@ -71,9 +78,10 @@ import KubbEngine
   }
   public func setMe(name: String, level: String) throws {
     let clean = try roomCall("cleanName", [("name", .string(name))])
+    let version = try roomCall("constants")["ENGINE"]!.raw
     room.setMe([
       ("name", .raw(clean.raw)), ("level", .string(level)),
-      ("engine", .string(engine.engineVersion)),
+      ("engine", .raw(version)),
     ])
   }
 
@@ -101,7 +109,8 @@ import KubbEngine
   /// A fresh match is built inside the CAS reducer so a retry uses the current lineup
   /// and options. Strict version checks: no unknown or different player engine starts.
   @discardableResult public func start(seed: Int, at: JSONText) async throws -> Bool {
-    guard room.isHost, state == .lobby, !pending else { return false }
+    guard room.isHost, state == .lobby || (state == .versionMismatch && match == nil), !pending
+    else { return false }
     pending = true
     defer { pending = false }
     do {
@@ -148,6 +157,7 @@ import KubbEngine
         arrivedOver = nil
         kept = nil
         try refreshSeat()
+        try present?(.restore(m))
         return value.raw
       }
       if result == nil, state != .versionMismatch { try synchronize(room.document) }
@@ -171,6 +181,25 @@ import KubbEngine
       ),
     ])
   }
+  public var actorDescription: String {
+    guard let n = try? JSONNode.parse(need),
+      let actor = try? roomCall("shownActor", [("need", .raw(need)), ("ctx", context())]).string
+    else { return "" }
+    if actor == "cpu" { return "Computer throws" }
+    if mayAct {
+      switch n["kind"]?.string {
+      case "raise": return "Your raise"
+      case "punish": return "Place your kubb"
+      default: return "Your throw"
+      }
+    }
+    let name = room.members.first { $0["id"]?.string == actor }?["me"]?["name"]?.string
+    let verb =
+      n["kind"]?.string == "raise"
+      ? "raises" : n["kind"]?.string == "punish" ? "places a kubb" : "throws"
+    return "\(name?.isEmpty == false ? name! : "Someone") \(verb)"
+  }
+
   private func refreshSeat() throws {
     guard state == .match else {
       mayAct = false
@@ -195,6 +224,7 @@ import KubbEngine
   }
 
   private func receive(_ event: RoomsClient.Event) {
+    defer { didReceive?(event) }
     do {
       switch event {
       case .document(let v, let doc, let rider, let mine):
@@ -216,6 +246,7 @@ import KubbEngine
         }
         // Rejoins have no rider. A gap is deliberately adopted, never replayed twice.
         try synchronize(room.document)
+        if let match { try present?(.restore(match)) }
         try refreshSeat()
       case .members, .host:
         if room.members.contains(where: {
@@ -243,7 +274,9 @@ import KubbEngine
       case .message(let msg):
         if msg["t"]?.string == "cast" {
           lastCast = msg.raw
-          if msg["d"]?["t"]?.string == "aim", state == .match, let aim = msg["d"]?["s"] {
+          if present == nil, !mayAct, msg["d"]?["t"]?.string == "aim", state == .match,
+            let aim = msg["d"]?["s"]
+          {
             _ = try engine.call("showAim", json: aim.raw.text)
           }
         }
@@ -281,6 +314,7 @@ import KubbEngine
     let check = try roomCall(
       "mayPlay", [("engine", .string(engine.engineVersion)), ("match", .raw(m.raw))])
     guard check["ok"]?.bool == true else {
+      match = m
       state = .versionMismatch
       mismatch = check.raw
       mayAct = false
@@ -290,8 +324,10 @@ import KubbEngine
       state = .match
       mismatch = nil
     }
+    var presentation: Presentation?
     switch kind {
     case "start":
+      presentation = .restore(m)
       state = .match
       matchNumber = m["n"]?.int
       sequence = m["seq"]?.int ?? 0
@@ -307,25 +343,33 @@ import KubbEngine
       } catch { agrees = false }
       if agrees {
         applied += 1
+        presentation = .apply(action: decision["action"]!.raw, match: m)
       } else {
         corrections += 1
+        presentation = .restore(m)
         _ = try engine.call("restore", json: m["snap"]!.string!)
       }
       sequence = m["seq"]?.int ?? 0
     case "adopt":
       adoptions += 1
+      presentation = .restore(m)
       _ = try engine.call("restore", json: m["snap"]!.string!)
       sequence = m["seq"]?.int ?? 0
     case "same":
       if !pending, try engine.hash() != m["hash"]?.string {
         corrections += 1
+        presentation = .restore(m)
         _ = try engine.call("restore", json: m["snap"]!.string!)
       }
     default: break
     }
-    if kind == "start" || kind == "adopt" || kind == "apply" { control = .null }
+    if kind == "start" || kind == "adopt" || kind == "apply" {
+      control = .null
+      lastAim = nil
+    }
     match = m
     try refreshSeat()
+    if let presentation { try present?(presentation) }
   }
 
   private func keepReplay(_ doc: JSONText, version: Int) throws {
@@ -338,10 +382,16 @@ import KubbEngine
   }
 
   /// Take a user action only in this member's seat. The engine validates the action.
-  @discardableResult public func take(_ action: JSONText) async throws -> Bool {
+  @discardableResult public func take(_ action: JSONText, computer: Bool = false) async throws
+    -> Bool
+  {
     guard state == .match, room.status == .open, !pending else { return false }
     try refreshSeat()
-    guard mayAct else { return false }
+    let cpuThrow =
+      try computer && (JSONNode.parse(need))["cpu"]?.bool == true
+      && (JSONNode.parse(control))["cpu"]?.bool == true
+      && (JSONNode.parse(action))["type"]?.string == "throw"
+    guard mayAct || cpuThrow else { return false }
     let out = try call("apply", .raw(action))
     if out["ok"]?.bool == false { return false }
     return try await commit(action)
@@ -412,6 +462,7 @@ import KubbEngine
     guard room.status == .open else { return }
     do {
       if !pending { try refreshSeat() }
+      onClock?(now)
       if room.isHost {
         hostGoneAt = nil
         return
@@ -434,21 +485,27 @@ import KubbEngine
     } catch { lastError = String(describing: error) }
   }
 
-  public func castAim(now: Int = Int(Date().timeIntervalSince1970 * 1000)) throws {
+  public func castAim(
+    _ displayAim: JSONText? = nil, now: Int = Int(Date().timeIntervalSince1970 * 1000)
+  ) throws {
     guard state == .match, mayAct, !pending, now - lastAimAt >= 200 else { return }
-    let aim = try engine.call("aimState").asJSON
+    let aim = try displayAim ?? engine.call("aimState").asJSON
     if aim != lastAim, room.cast(JS.object([("t", .string("aim")), ("s", .raw(aim))]).json) {
       lastAim = aim
       lastAimAt = now
     }
   }
-  public func shout(_ word: String, now: Int = Int(Date().timeIntervalSince1970 * 1000)) {
+  @discardableResult public func shout(
+    _ word: String, now: Int = Int(Date().timeIntervalSince1970 * 1000)
+  ) -> Bool {
     guard ["NICE!", "OOH!", "TOK!", "UNLUCKY"].contains(word),
       lastShoutAt == nil || now - lastShoutAt! >= 700
-    else { return }
+    else { return false }
     if room.cast(JS.object([("t", .string("shout")), ("w", .string(word))]).json) {
       lastShoutAt = now
+      return true
     }
+    return false
   }
 }
 
