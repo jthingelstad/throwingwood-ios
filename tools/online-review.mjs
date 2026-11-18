@@ -30,9 +30,11 @@ const sources = Object.fromEntries(
 );
 const engine = await Engine.create({ sources, client: "web review" });
 const lua = (method, args) => engine.call("room." + method, args).value;
+const [major, minor] = manifest.version.split(".").map(Number);
+const compatible = `${major}.${minor}`;
 const peers = [];
 let timer;
-async function peer(id = "Review_Maple", version = "0.4") {
+async function peer(id = "Review_Maple", version = compatible) {
   const room = new Room({
     url: server.url,
     room: code,
@@ -71,7 +73,7 @@ try {
   if (needsPeer) {
     webRoom = await peer(
       undefined,
-      mode === "newer" ? "0.5" : mode === "older" ? "0.3" : "0.4",
+      mode === "newer" ? `${major}.${minor+1}` : mode === "older" ? "0.3" : compatible,
     );
     await webRoom.update((d) => lua("lobbyOf", { doc: d }));
   }

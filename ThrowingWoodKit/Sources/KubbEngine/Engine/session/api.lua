@@ -143,6 +143,21 @@ function M.replayInfo()
 end
 function M.replayEnd() R = nil; return json.object() end
 
+-- Frozen rest poses in the frame of the reported throw, including pieces
+-- picked up for the following turn. Avoid serializing the playback tracks.
+function M.reportThrow()
+	local s = need()
+	local rec = s.recording
+	if not rec then return json.object() end
+	local items = {}
+	for i, it in ipairs(rec.items) do
+		local b = s.ts.last.res.bodies[it.id]
+		items[i] = { id = it.id, kind = it.kind, team = it.team, x = b.x, y = b.y, z = b.z,
+			qw = b.qw, qx = b.qx, qy = b.qy, qz = b.qz, toppled = b.toppled }
+	end
+	return { seq = rec.seq, items = items, result = rec.result }
+end
+
 function M.recording() return need().recording or json.object() end
 function M.sheet() return need():sheet() or json.object() end
 

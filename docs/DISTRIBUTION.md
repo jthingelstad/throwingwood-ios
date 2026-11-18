@@ -48,9 +48,9 @@ Test, all set with `scripts/asc.swift`.
   finished replay for people with the pitch link.
 - Current aim and selected shouts are relayed to the other members. An open
   pitch publishes its code and aggregate listing on the website.
-- Choosing Send on a report transmits the two typed answers, room code and
-  document version, timing, build, viewport, engine version and replayable game
-  state. Reports can contain player names from the match. The report replaces
+- Choosing Send in practice, solo or online play transmits the answers, marked
+  pieces, timing, build, viewport, engine version and replayable game state.
+  Online reports also include the room code and document version. Reports can contain player names from the match. The report replaces
   member identifiers in the captured state. The server stores reports privately.
 - The rooms handshake sends the app origin and versioned user agent. Private
   recording and report tags identify the client and engine version. Sharing a
@@ -58,7 +58,7 @@ Test, all set with `scripts/asc.swift`.
 
 ## App Privacy worksheet
 
-Answer **Yes** to data collection and **No** to tracking for this build. There are no ad or analytics SDKs. Practice, the solo save, sound and haptic preferences stay on the phone. Multiplayer retains identifiable gameplay on the first-party service. The developer also uses the private game records to study throws and improve play. Apple's Analytics purpose covers that use of gameplay data.
+Answer **Yes** to data collection and **No** to tracking for this build. There are no ad or analytics SDKs. Practice and solo stay on the phone unless the player sends a throw report. Sound and haptic preferences stay on the phone. Multiplayer retains identifiable gameplay on the first-party service. The developer also uses the private game records to study throws and improve play. Apple's Analytics purpose covers that use of gameplay data.
 
 | App Store Connect type | Purpose | What travels or is kept |
 | --- | --- | --- |

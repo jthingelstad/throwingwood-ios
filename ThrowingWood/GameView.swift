@@ -35,42 +35,45 @@ struct GameView: View {
   @State private var model = GameModel()
   @Environment(\.scenePhase) private var phase
   var body: some View {
-    ZStack {
-      if let pitch = model.pitch {
-        let live = model.screen == .practice || model.screen == .match
-        PitchBoard(
-          pitch: pitch, model: model, active: live && phase == .active && model.error == nil,
-          revision: model.revision + model.onlineRevision, screen: model.screen
-        )
-        .id(ObjectIdentifier(pitch)).ignoresSafeArea().allowsHitTesting(live)
-        if let version = model.online?.versionCard {
-          VersionNotice(version: version) { model.online?.watch() }
-        } else {
-          switch model.screen {
-          case .home: HomeCard(model: model)
-          case .options: MatchOptionsCard(model: model)
-          case .practice: practice
-          case .match:
-            MatchScreen(
-              model: model, pitch: pitch, revision: model.revision, playing: model.playing)
-          case .menu:
-            if let online = model.online {
-              OnlineMenu(model: model, online: online)
-            } else {
-              MatchMenu(model: model, pitch: pitch)
-            }
-          case .onlineEntry, .join, .pitch, .invalidLink: OnlineCards(model: model)
-          case .report:
-            if let online = model.online, let report = model.report {
-              ReportCard(model: model, online: online, report: report)
-            }
-          case .sheet:
-            if let sheet = model.sheet {
-              SheetCard(sheet: sheet) { model.screen = model.sheetReturn }
+    GeometryReader { geometry in
+      ZStack {
+        if let pitch = model.pitch {
+          let live = model.screen == .practice || model.screen == .match
+          PitchBoard(
+            pitch: pitch, model: model, active: live && phase == .active && model.error == nil,
+            revision: model.revision + model.onlineRevision, screen: model.screen
+          )
+          .id(ObjectIdentifier(pitch)).ignoresSafeArea().allowsHitTesting(live)
+          if let version = model.online?.versionCard {
+            VersionNotice(version: version) { model.online?.watch() }
+          } else {
+            switch model.screen {
+            case .home: HomeCard(model: model)
+            case .options: MatchOptionsCard(model: model)
+            case .practice: practice
+            case .match:
+              MatchScreen(
+                model: model, pitch: pitch, revision: model.revision, playing: model.playing)
+            case .menu:
+              if let online = model.online {
+                OnlineMenu(model: model, online: online)
+              } else {
+                MatchMenu(model: model, pitch: pitch)
+              }
+            case .onlineEntry, .join, .pitch, .invalidLink: OnlineCards(model: model)
+            case .report:
+              if let report = model.report {
+                ReportCard(model: model, report: report)
+              }
+            case .sheet:
+              if let sheet = model.sheet {
+                SheetCard(sheet: sheet) { model.screen = model.sheetReturn }
+              }
             }
           }
         }
       }
+      .environment(\.reportViewport, geometry.size)
     }
     #if targetEnvironment(simulator)
       .modifier(OnlineReview(model: model))
@@ -129,9 +132,10 @@ struct GameView: View {
             }
           }
           .disabled(model.playing)
+          ReportButton(model: model)
           FeedbackSettings(feedback: model.feedback)
         } label: {
-          Label(model.surface.rawValue.capitalized, systemImage: "chevron.up.chevron.down")
+          Label("Menu", systemImage: "line.3.horizontal")
         }
       }.modifier(Plate(inset: 8))
       if let result = model.result { Verdict(result: result) }

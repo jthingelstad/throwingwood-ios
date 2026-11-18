@@ -70,16 +70,12 @@ public struct PitchMember: Identifiable, Equatable {
   private var queue: [(JSONText, JSONNode)] = []
   private var displayControl: JSONText?
   private var displayedMatch: Int?
-  private var displayedSeq = 0
+  private(set) var displayedSeq = 0
   private var writing = false
   private var openKey: JSONText?
   private var openAt = 0
   public private(set) var shownAims = 0
   public private(set) var displayCorrections = 0
-  var trailStart = ""
-  var trailBefore = ""
-  var trailNow = ""
-  var actions: [JSONText] = []
   public var displayedHash: String { (try? board.engine.hash()) ?? "" }
   public var room: RoomsClient { controller.room }
 
@@ -394,10 +390,7 @@ public struct PitchMember: Identifiable, Equatable {
     displayedSeq = m["seq"]?.int ?? 0
     displayControl = nil
     queue.removeAll()
-    actions.removeAll()
-    trailStart = snap
-    trailBefore = snap
-    trailNow = snap
+    board.trail = ReportTrail(snapshot: snap)
   }
   private func seat() throws {
     let current =
@@ -449,9 +442,7 @@ public struct PitchMember: Identifiable, Equatable {
     }
   }
   private func track(_ action: JSONText) {
-    trailBefore = trailNow
-    trailNow = (try? board.engine.call("snapshot")) ?? trailNow
-    actions.append(action)
+    board.trail.append(action, snapshot: (try? board.engine.call("snapshot")) ?? board.trail.now)
   }
   /// Scripted seats use the same release/placement submission as a gesture.
   public func act(_ action: JSONText) throws {

@@ -1,5 +1,6 @@
 import Foundation
 import KubbEngine
+import KubbRooms
 import Testing
 
 @testable import KubbRenderer
@@ -79,6 +80,13 @@ import Testing
     try #require(live.playing)
     let text = try #require(try save.read())
     #expect(try live.engine.call("snapshot") == text)
+    let capture = try live.captureReport(size: CGSize(width: 390, height: 844), scale: 3)
+    let report = try JSONNode.parse(capture.message(happened: "Stopped", should: "", selected: ["king"]))
+    let replay = try Engine(appVersion: "test")
+    _ = try replay.call("restore", json: #require(report["snapshots"]?["before"]?.string))
+    _ = try replay.call("apply", json: #require(report["last"]?.raw.text))
+    #expect(try replay.hash() == live.engine.hash())
+    #expect(report["mode"]?.string == "solo")
     let restored = try PitchSession(appVersion: "test")
     try restored.restore(text, save: save)
     try live.skipPlayback()

@@ -121,6 +121,7 @@ function throw.standUp(s)
 	local items = {}
 	for i, p in ipairs(s.layout) do items[i] = newItem(p) end
 	s.items = items
+	s.practiceBaton = 0
 end
 
 local function itemsFrom(pieces, debris)
@@ -157,7 +158,7 @@ local function updateTargets(s)
 					end
 				end
 			end
-		elseif not it.toppled and not it.drilled then
+		elseif not it.toppled and not it.drilled and it.kind ~= "baton" then
 			local king = it.kind == "king"
 			local far = it.y > s.lineY + 4
 			if far and not king then tg[#tg + 1] = it end
@@ -812,6 +813,9 @@ function throw.showAim(s, a)
 	s.playerX, s.playerY, s.swivel, s.loftDeg = a.x, a.y, a.swivel, a.loftDeg
 	local P = a.plan
 	s.cpuPlan, s.cpuSpeed = P, a.speed
+	if a.drill and a.drill.spin then
+		s.spin = (a.drill.spin - drill.tune.spiral) / plan.tune.spinPerStep
+	end
 	s.cpuTarget = P ~= nil and P.tx ~= nil
 	if s.cpuTarget then s.markerX, s.markerY = P.tx, P.ty end
 	aimCamera(s)
@@ -989,6 +993,15 @@ function throw.fire(s, L, how, info)
 	local tumble = drilling and 0 or (L.tumble or 0)
 	local tilt = kubb and 0 or (L.tilt or 0)
 	flight.launch(fl, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt)
+	-- In practice the six batons stay where they landed. Pick up the oldest
+	-- for the seventh throw, retaining every other body in the solver.
+	if not kubb and not s.projectileId then
+		s.practiceBaton = (s.practiceBaton or 0) % 6 + 1
+		id = s.practiceBaton == 1 and "baton" or ("baton" .. s.practiceBaton)
+		for i, it in ipairs(s.items) do
+			if it.id == id then table.remove(s.items, i); break end
+		end
+	end
 	local pieces = {}
 	for i, it in ipairs(s.items) do
 		pieces[i] = { id = it.id, kind = it.kind, x = it.x, y = it.y, z = it.z,
@@ -1004,7 +1017,7 @@ function throw.fire(s, L, how, info)
 			b = phys.launchKubb(w, id, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble)
 		end
 	else
-		b = phys.launchBaton(w, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt, s.projectileId)
+		b = phys.launchBaton(w, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt, id)
 	end
 	-- Listen after the solver. Keep one strike per unordered pair, taking
 	-- the strongest contact point of its first pressing step (N s).
@@ -1012,7 +1025,7 @@ function throw.fire(s, L, how, info)
 	w.onContact = function(time, a, other, impulse)
 		local strength = min(1, impulse / 2)
 		if not other then
-			if a.kind == "baton" then
+			if a == b and a.kind == "baton" then
 				if not batonLanding then
 					batonLanding = { t = time, surface = s.surface, strength = strength }
 				elseif batonLanding.t == time then
@@ -1070,7 +1083,11 @@ function throw.fire(s, L, how, info)
 	else
 		s.projItem = nil
 	end
-	s.lastFlightBaton = (not kubb) and res.bodies[b.id] or nil
+	if not kubb and not s.projectileId then
+		local resting = res.bodies[b.id]
+		resting.id = b.id
+		s.items[#s.items + 1] = newItem(resting)
+	end
 	local flag
 	if not legal then flag = "HELICOPTER"
 	elseif drilling then flag = nil

@@ -1,30 +1,85 @@
 import Foundation
 import KubbRooms
 
+struct ReportTrail {
+  var start: String?
+  var before: String?
+  var now: String?
+  var actions: [JSONText] = []
+
+  init(snapshot: String? = nil) {
+    start = snapshot
+    before = snapshot
+    now = snapshot
+  }
+
+  mutating func append(_ action: JSONText, snapshot: String? = nil) {
+    before = now
+    now = snapshot
+    actions.append(action)
+  }
+}
+
+public struct ReportPiece: Identifiable {
+  public let id, kind: String
+  public let x, y: Double
+  let pose: JS
+
+  init?(_ piece: JSONNode) {
+    guard let id = piece["id"]?.string, let kind = piece["kind"]?.string,
+      let x = piece["x"]?.double, let y = piece["y"]?.double
+    else { return nil }
+    self.id = id
+    self.kind = kind
+    self.x = x
+    self.y = y
+    var values = ["id", "kind", "team", "toppled"].compactMap { key in
+      piece[key].map { (key, JS.raw($0.raw)) }
+    }
+    for key in ["x", "y", "z", "qw", "qx", "qy", "qz"] {
+      if let n = piece[key]?.double { values.append((key, .number((n * 10000).rounded() / 10000))) }
+    }
+    pose = .object(values)
+  }
+}
+
 /// Capture on opening the card. Actions may keep arriving while the player types.
 public struct PitchReport {
-  let fields: [(String, JS)]
+  var fields: [(String, JS)]
   let ids: [String]
-  let start, before, now: String
-  let actions: [JSONText]
+  let trail: ReportTrail
+  public let candidates: [ReportPiece]
   let pieces: [JS]
-  public func message(happened: String, should: String) throws -> JSONText {
+  public func message(happened: String, should: String, selected: Set<String> = []) throws
+    -> JSONText
+  {
     guard
       ![happened, should].allSatisfy({ $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
     else { throw RoomError("empty-report") }
     var dropped: [String] = []
     for pass in 0...3 {
-      let snapshots = JS.object([
-        ("start", pass == 0 ? .string(start) : .null),
-        ("before", .string(before)), ("now", pass < 3 ? .string(now) : .null),
-      ])
-      var text = JS.object(
-        fields + [
-          ("snapshots", snapshots),
-          ("actions", pass == 0 ? .array(actions.map(JS.raw)) : .null),
-          ("pieces", pass < 2 ? .array(pieces) : .null),
+      var contents = fields
+      let ops = pass == 0 ? JS.array(trail.actions.map(JS.raw)) : .null
+      if let now = trail.now {
+        contents += [
+          ("actions", ops),
+          (
+            "snapshots",
+            .object([
+              ("start", pass == 0 ? trail.start.map(JS.string) ?? .null : .null),
+              ("before", trail.before.map(JS.string) ?? .null),
+              ("now", pass < 3 ? .string(now) : .null),
+            ])
+          ),
         ]
-      ).ascii
+      } else {
+        contents.append(
+          ("practice", .object([("opts", .object([("surface", .string("grass"))])), ("ops", ops)])))
+      }
+      contents.append(("pieces", pass < 2 ? .array(pieces) : .null))
+      let marked = candidates.filter { selected.contains($0.id) }.map(\.pose)
+      if !marked.isEmpty { contents.append(("selectedPieces", .array(marked))) }
+      var text = JS.object(contents).ascii
       for (i, id) in ids.enumerated() {
         text = text.replacingOccurrences(of: id, with: "member\(i+1)")
       }
@@ -45,7 +100,19 @@ public struct PitchReport {
 
 extension OnlinePitch {
   public func captureReport(size: CGSize, scale: Double) throws -> PitchReport {
-    let view = try JSONNode.parse(board.engine.call("frameView"))
+    try board.captureReport(size: size, scale: scale, online: self)
+  }
+}
+
+extension PitchSession {
+  public func captureReport(size: CGSize, scale: Double) throws -> PitchReport {
+    try captureReport(size: size, scale: scale, online: nil)
+  }
+
+  fileprivate func captureReport(size: CGSize, scale: Double, online: OnlinePitch?) throws
+    -> PitchReport
+  {
+    let view = try JSONNode.parse(engine.call("frameView"))
     let need = view["need"]
     let keys = [
       "kind", "side", "turn", "throws", "cpu", "practice", "drill", "surface", "winner", "how",
@@ -55,17 +122,18 @@ extension OnlinePitch {
       need?[k].flatMap { $0.isNull ? nil : (k, .raw($0.raw)) }
     }
     if let last = need?["last"]?["text"] { summary.append(("last", .raw(last.raw))) }
-    let rec = try JSONNode.parse(board.engine.call("recording"))
-    let lastThrow = actions.last { (try? JSONNode.parse($0)["type"]?.string) == "throw" }
+    let rec = try JSONNode.parse(engine.call("reportThrow"))
+    let lastThrow = trail.actions.last { (try? JSONNode.parse($0)["type"]?.string) == "throw" }
     let phase =
-      board.playing
+      playing
       ? "play"
-      : (board.need?.kind == "throw"
+      : (need?["kind"]?.string == "throw"
         ? "aim"
-        : (board.acceptsInput || board.need?.kind == "over" ? board.need?.kind ?? "wait" : "wait"))
-    let fields: [(String, JS)] = [
-      ("mode", .string("pitch")), ("client", .string("ios")),
-      ("engine", .string(room.engineVersion)),
+        : (acceptsInput || self.need?.kind == "over" ? self.need?.kind ?? "wait" : "wait"))
+    var fields: [(String, JS)] = [
+      ("mode", .string(online != nil ? "pitch" : (trail.now == nil ? "practice" : "solo"))),
+      ("client", .string("ios")),
+      ("engine", .string(engine.engineVersion)),
       ("at", .int(Int(Date().timeIntervalSince1970 * 1000))),
       (
         "build",
@@ -85,13 +153,9 @@ extension OnlinePitch {
           ("dpr", .number(scale)),
         ])
       ),
-      ("phase", .string(phase)), ("need", .object(summary)), ("level", .string(level)),
-      ("room", .string(room.code)), ("v", .int(room.version)),
-      (
-        "match",
-        .object([("n", .int(controller.matchNumber ?? 0)), ("seq", .int(controller.sequence))])
-      ),
-      ("last", .raw(actions.last ?? .null)),
+      ("phase", .string(phase)), ("need", .object(summary)),
+      ("level", .raw(view["aim"]?["plan"]?["level"]?.raw ?? .null)),
+      ("last", .raw(trail.actions.last ?? .null)),
       (
         "lastThrow",
         lastThrow.map {
@@ -101,29 +165,45 @@ extension OnlinePitch {
           ])
         } ?? .null
       ),
-      ("options", .raw(try JSONNode.parse(trailNow)["opts"]?.raw ?? .null)),
     ]
-    var ids = Set(room.members.compactMap { $0["id"]?.string })
-    for team in try JSONNode.parse(trailNow)["opts"]?["teams"]?.members ?? [] {
-      for player in team.value["players"]?.items ?? [] {
-        if let id = player["key"]?.string,
-          id.range(of: "^[A-Za-z0-9_-]{8,40}$", options: .regularExpression) != nil
-        {
-          ids.insert(id)
+    var ids = Set<String>()
+    if let online {
+      let room = online.room
+      fields += [
+        ("room", .string(room.code)), ("v", .int(room.version)),
+        (
+          "match",
+          .object([
+            ("n", .int(online.controller.matchNumber ?? 0)), ("seq", .int(online.displayedSeq)),
+          ])
+        ),
+      ]
+      ids = Set(room.members.compactMap { $0["id"]?.string })
+      ids.insert(room.you)
+    }
+    if let snapshot = trail.now {
+      fields.append(("options", .raw(try JSONNode.parse(snapshot)["opts"]?.raw ?? .null)))
+      if online != nil {
+        for snap in Set([trail.start, trail.before, trail.now].compactMap { $0 }) {
+          for team in try JSONNode.parse(snap)["opts"]?["teams"]?.members ?? [] {
+            for player in team.value["players"]?.items ?? [] {
+              if let id = player["key"]?.string,
+                id.range(of: "^[A-Za-z0-9_-]{8,40}$", options: .regularExpression) != nil
+              {
+                ids.insert(id)
+              }
+            }
+          }
         }
       }
     }
-    let pieces: [JS] = (view["items"]?.items ?? []).map { p in
-      var values = ["id", "kind", "team", "toppled"].compactMap { k in
-        p[k].map { (k, JS.raw($0.raw)) }
-      }
-      for k in ["x", "y", "z", "qw", "qx", "qy", "qz"] {
-        if let v = p[k]?.double { values.append((k, .number((v * 10000).rounded() / 10000))) }
-      }
-      return .object(values)
-    }
+    let current = (view["items"]?.items ?? []).compactMap(ReportPiece.init)
+    let seq = try lastThrow.flatMap { try JSONNode.parse($0)["seq"]?.int }
+    let candidates =
+      seq != nil && seq == rec["seq"]?.int
+      ? (rec["items"]?.items ?? []).compactMap(ReportPiece.init) : current
     return PitchReport(
       fields: fields, ids: ids.sorted { ($0.count, $0) > ($1.count, $1) },
-      start: trailStart, before: trailBefore, now: trailNow, actions: actions, pieces: pieces)
+      trail: trail, candidates: candidates, pieces: current.map(\.pose))
   }
 }

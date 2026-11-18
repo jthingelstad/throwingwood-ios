@@ -127,11 +127,14 @@ import Foundation
     try await withCheckedThrowingContinuation { afterJoin.append($0) }
   }
 
-  private func newTransport() -> any RoomsTransport {
+  private static func socketRequest(url: URL, appVersion: String) -> URLRequest {
     var request = URLRequest(url: url)
     request.setValue("https://app.throwingwood.com", forHTTPHeaderField: "Origin")
     request.setValue("ThrowingWood/\(appVersion) (ios)", forHTTPHeaderField: "User-Agent")
-    return factory(request)
+    return request
+  }
+  private func newTransport() -> any RoomsTransport {
+    factory(Self.socketRequest(url: url, appVersion: appVersion))
   }
   private func open() {
     guard !stopped else { return }
@@ -413,21 +416,28 @@ import Foundation
   /// Reports use an unjoined socket. There is no member identity on this request.
   private var reportSockets: [UUID: any RoomsTransport] = [:]
   public func sendPitchReport(_ report: JSONText) async throws {
-    let message = try JS.object([("t", .string("report")), ("id", .int(1)), ("r", tagged(report))])
-      .ascii
-    guard message.utf8.count <= 65536 else { throw RoomError("too-big") }
-    let id = UUID()
     let transport = newTransport()
+    let id = UUID()
     reportSockets[id] = transport
+    defer { reportSockets[id] = nil }
+    try await Self.deliverReport(tagged(report), transport: transport, timing: timing)
+  }
+
+  /// Practice and solo use this sender without joining a room or creating a member ID.
+  public static func sendReport(_ report: JSONText, url: URL, appVersion: String) async throws {
+    let request = socketRequest(url: url, appVersion: appVersion)
+    try await deliverReport(.raw(report), transport: WebSocketTransport(request: request), timing: Timing())
+  }
+
+  private static func deliverReport(_ report: JS, transport: any RoomsTransport, timing: Timing) async throws {
+    defer { transport.close() }
+    let message = JS.object([("t", .string("report")), ("id", .int(1)), ("r", report)]).ascii
+    guard message.utf8.count <= 65536 else { throw RoomError("too-big") }
     let deadline = Task { [timing] in
       do { try await Task.sleep(for: timing.answer) } catch { return }
       transport.close()
     }
-    defer {
-      deadline.cancel()
-      transport.close()
-      reportSockets[id] = nil
-    }
+    defer { deadline.cancel() }
     for part in Frames.split(message) { try await transport.send(part) }
     var parts = Frames.Reassembler()
     while true {

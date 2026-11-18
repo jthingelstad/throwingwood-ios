@@ -1089,14 +1089,15 @@ function world.step(w)
 						else capsuleCapsule(a, b, margin) end
 					end
 					if C.n > before then
-						-- wake a sleeper that an awake, moving body touches
+						-- Pieces carried from an earlier throw participate even in a slow
+						-- nudge. Once disturbed, retain the sleep hysteresis for resting stacks.
 						local o, s = nil, 0
 						if not a.awake and not a.static then
-							if b.vx * b.vx + b.vy * b.vy + b.vz * b.vz > wakeLin2
+							if not a.everAwake or b.vx * b.vx + b.vy * b.vy + b.vz * b.vz > wakeLin2
 								or b.wx * b.wx + b.wy * b.wy + b.wz * b.wz > wakeAng2
 								or b.wokeStep == stamp then o, s = a, i end
 						elseif not b.awake and not b.static then
-							if a.vx * a.vx + a.vy * a.vy + a.vz * a.vz > wakeLin2
+							if not b.everAwake or a.vx * a.vx + a.vy * a.vy + a.vz * a.vz > wakeLin2
 								or a.wx * a.wx + a.wy * a.wy + a.wz * a.wz > wakeAng2
 								or a.wokeStep == stamp then o, s = b, j end
 						end

@@ -236,57 +236,14 @@ struct VersionNotice: View {
 
 struct OnlineMenu: View {
   let model: GameModel, online: OnlinePitch
-  @Environment(\.displayScale) var scale
-  var body: some View {
-    GeometryReader { geo in
-      VStack(alignment: .leading, spacing: 12) {
-        Text("Pitch menu").font(displayFont(36))
-        FeedbackSettings(feedback: model.feedback).fixedSize(horizontal: true, vertical: false)
-        Button("SCORE SHEET", action: model.showSheet)
-        Button("REPORT A THROW") {
-          model.perform {
-            model.report = try online.captureReport(size: geo.size, scale: scale)
-            model.screen = .report
-          }
-        }
-        Button("BACK TO MATCH") { model.screen = .match }
-        Button("HOME", action: model.home)
-      }.buttonStyle(WoodButton()).modifier(Plate()).frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-  }
-}
-
-struct ReportCard: View {
-  let model: GameModel, online: OnlinePitch, report: PitchReport
-  @State private var happened = ""
-  @State private var should = ""
-  @State private var sending = false
-  @State private var status = ""
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text("Report a throw").font(displayFont(36))
-      Text("What happened?").font(.subheadline.bold())
-      TextField("", text: $happened, axis: .vertical).lineLimit(2...5).accessibilityLabel(
-        "What happened?")
-      Text("What should have happened?").font(.subheadline.bold())
-      TextField("", text: $should, axis: .vertical).lineLimit(2...5).accessibilityLabel(
-        "What should have happened?")
-      if !status.isEmpty { Text(status) }
-      HStack {
-        Button("CANCEL") { model.screen = .match }.disabled(sending)
-        Button(sending ? "SENDING…" : "SEND") {
-          sending = true
-          Task {
-            defer { sending = false }
-            do {
-              try await online.room.sendPitchReport(
-                report.message(happened: happened, should: should))
-              if model.online === online && model.screen == .report { model.screen = .match }
-            } catch { status = "The report could not be sent." }
-          }
-        }.disabled(
-          sending || (happened + should).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-      }.buttonStyle(WoodButton())
-    }.textFieldStyle(.roundedBorder).modifier(Plate()).padding(18)
+      Text("Pitch menu").font(displayFont(36))
+      FeedbackSettings(feedback: model.feedback).fixedSize(horizontal: true, vertical: false)
+      Button("SCORE SHEET", action: model.showSheet)
+      ReportButton(model: model)
+      Button("BACK TO MATCH") { model.screen = .match }
+      Button("HOME", action: model.home)
+    }.buttonStyle(WoodButton()).modifier(Plate()).frame(maxWidth: .infinity, maxHeight: .infinity)
   }
 }

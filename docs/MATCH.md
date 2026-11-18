@@ -12,6 +12,15 @@ The home screen opens practice or a match against the computer. PLAY THE COMPUTE
 - An over need shows the winner even if a resignation retained a previous handoff in the session. The end card takes its winner, reason and statistics from `need`. The sheet displays `sheet().shown` by default. Show positions, COPY and SAVE use the complete Planet Kubb Notation text returned by the session. SAVE uses the session's filename and the iOS file picker.
 - The app writes the opaque UTF-8 snapshot atomically in Application Support at match start and after each committed action. A cold launch restores the session and reestablishes control. During flight the committed throw is already in that file. Cold restoration opens at the next decision. An ordinary background/foreground cycle preserves the in-memory camera and pauses display time. Home keeps an unfinished save for the next PLAY THE COMPUTER. Home after a win clears the finished save.
 
+## Throw reports
+
+Practice and solo both offer Report a Throw in the menu. The player can tap several
+pieces on the overhead pitch or choose their names when pieces overlap. The card
+freezes the last throw’s rest positions, including pieces collected at the end of a
+turn. Send includes the selected IDs and poses, the written account and the replay
+state. A failed send keeps the draft open. Resuming a solo save starts its report
+history at that checkpoint.
+
 ## Differences from browser solo
 
 Both clients use the same pointer tune, options, computer, rules, raises, punishments and notation. Native controls use a paused match menu, native option pickers, a compact turn rail with batons left and both sides' standing counts, numbered end labels and a smaller schematic minimap. The winner shows hits as a fraction. The sheet exports through Files. The touch name field counts extended grapheme clusters. The browser counts UTF-16 code units.
