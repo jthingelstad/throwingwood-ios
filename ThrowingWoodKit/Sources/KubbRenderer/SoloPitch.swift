@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import KubbRooms
 
 extension PitchSession {
   public func practice() throws {
@@ -128,7 +129,7 @@ extension PitchSession {
   }
 
   public func raise(end: Int? = nil) throws {
-    guard need?.kind == "raise" else { return }
+    guard acceptsInput, need?.kind == "raise" else { return }
     if let end {
       guard need?.ends?.contains(where: { $0.which == end && $0.ok == true }) == true,
         let index = need?.choices?.firstIndex(where: { $0.which == end })
@@ -149,14 +150,17 @@ extension PitchSession {
   }
 
   public func movePunishment(to point: CGPoint, size: CGSize) throws {
-    guard let b = need?.bounds, let g = scene.projection(size, camera).ground(point) else { return }
+    guard acceptsInput, let b = need?.bounds, let g = scene.projection(size, camera).ground(point)
+    else { return }
     cursor = GroundMark(x: max(b.xMin, min(b.xMax, g.x)), y: max(b.yMin, min(b.yMax, g.y)))
     try settleScene()
     revision += 1
   }
 
   public func placePunishment() throws {
-    guard need?.kind == "punish", placement?.ok == true, let c = cursor else { return }
+    guard acceptsInput, need?.kind == "punish", placement?.ok == true, let c = cursor else {
+      return
+    }
     try applyPlacement(#"{"type":"punish","x":\#(c.x),"y":\#(c.y)}"#)
   }
 
@@ -167,6 +171,7 @@ extension PitchSession {
       revision += 1
       return
     }
+    try onlineAction?(JSONText(json))
     try checkpoint()
     try adopt(read("view"))
   }

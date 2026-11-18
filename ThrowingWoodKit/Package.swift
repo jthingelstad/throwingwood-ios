@@ -58,10 +58,10 @@ let package = Package(
     // The game engine: a kubb-engine release (Engine/, vendored byte for
     // byte by scripts/vendor-engine.sh) behind kubbCall.
     .target(name: "KubbEngine", dependencies: ["CLua"], resources: [.copy("Engine")]),
-    .target(name: "KubbRenderer", dependencies: ["KubbEngine"]),
+    .target(name: "KubbRenderer", dependencies: ["KubbEngine", "KubbRooms"]),
     .testTarget(name: "KubbRendererTests", dependencies: ["KubbRenderer"], resources: [.copy("Fixtures")]),
     .target(name: "KubbRooms", dependencies: ["KubbEngine"]),
-    .executableTarget(name: "RoomsProbe", dependencies: ["KubbRooms"], path: "Tools/RoomsProbe"),
+    .executableTarget(name: "RoomsProbe", dependencies: ["KubbRooms", "KubbRenderer"], path: "Tools/RoomsProbe"),
     .testTarget(
       name: "KubbRoomsTests", dependencies: ["KubbRooms"], resources: [.copy("Fixtures")]),
     // kubb-engine's golden matches, played here and compared hash by hash

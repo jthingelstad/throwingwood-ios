@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import KubbEngine
+import KubbRooms
 
 public struct DialState: Decodable, Equatable, Sendable {
   public let phase: String
@@ -101,8 +102,12 @@ public final class PitchSession {
   var mix = 0.0
   var save: MatchSave?
   var cursor: GroundMark?
+  var onlineAction: ((JSONText) throws -> Void)?
+  public internal(set) var acceptsInput = true
+  var runsComputer = true
   public var canAim: Bool {
-    !playing && handoff == nil && (need == nil || (need?.kind == "throw" && need?.cpu == false))
+    acceptsInput && !playing && handoff == nil
+      && (need == nil || (need?.kind == "throw" && need?.cpu == false))
   }
   public private(set) var windText: String?, advantageText: String?, slow = false
   var walkAxis = CGPoint.zero
@@ -212,6 +217,11 @@ public final class PitchSession {
   }
   public func sample(_ point: CGPoint?) { if canAim && !plan { input.sample(point) } }
 
+  func resetContact() {
+    input.reset()
+    walkAxis = .zero
+  }
+
   public func cancelInput() throws {
     input.reset()
     guard canAim else { return }
@@ -237,6 +247,7 @@ public final class PitchSession {
         changed = true
       }
     }
+    guard acceptsInput || (need?.cpu == true && runsComputer) else { return changed }
     guard handoff == nil, need == nil || need?.kind == "throw" else { return changed }
     let args: String
     if walking && walkAxis != .zero {
@@ -248,23 +259,31 @@ public final class PitchSession {
     } else {
       return changed
     }
-    let a: AimOutput = try read("frame", args)
+    let text = try engine.call("frame", json: args)
+    let a = try decoder.decode(AimOutput.self, from: Data(text.utf8))
     aim(a.aim, camera: a.camera)
     if let d = a.dial { dial = d }
     if let recording = a.recording {
-      walkAxis = .zero
-      walking = false
-      plan = false
-      input.reset()
-      playback = Playback(recording)
-      result = nil
-      scene.arc = nil
-      scene.marker = nil
-      scene.thrower = nil
-      try play(0)
+      try beginPlayback(recording)
+      if let onlineAction, let action = try JSONNode.parse(text)["action"] {
+        try onlineAction(action.raw)
+      }
       try checkpoint()
     }
     return true
+  }
+
+  func beginPlayback(_ recording: Recording) throws {
+    walkAxis = .zero
+    walking = false
+    plan = false
+    input.reset()
+    playback = Playback(recording)
+    result = nil
+    scene.arc = nil
+    scene.marker = nil
+    scene.thrower = nil
+    try play(0)
   }
 
   public func skipPlayback() throws {

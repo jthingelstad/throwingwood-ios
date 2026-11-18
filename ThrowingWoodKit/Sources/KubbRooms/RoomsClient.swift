@@ -96,7 +96,8 @@ import Foundation
     {
       you = id
     } else {
-      you = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+      let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
+      you = String((0..<16).map { _ in alphabet.randomElement()! })
       store.save(you)
     }
   }
@@ -126,15 +127,18 @@ import Foundation
     try await withCheckedThrowingContinuation { afterJoin.append($0) }
   }
 
+  private func newTransport() -> any RoomsTransport {
+    var request = URLRequest(url: url)
+    request.setValue("https://app.throwingwood.com", forHTTPHeaderField: "Origin")
+    request.setValue("ThrowingWood/\(appVersion) (ios)", forHTTPHeaderField: "User-Agent")
+    return factory(request)
+  }
   private func open() {
     guard !stopped else { return }
     generation += 1
     let gen = generation
     setStatus(joinedOnce ? .reconnecting : .connecting)
-    var request = URLRequest(url: url)
-    request.setValue("https://app.throwingwood.com", forHTTPHeaderField: "Origin")
-    request.setValue("ThrowingWood/\(appVersion) (ios)", forHTTPHeaderField: "User-Agent")
-    let transport = factory(request)
+    let transport = newTransport()
     socket = transport
     reader = Task { [weak self] in
       do {
@@ -406,6 +410,34 @@ import Foundation
     try await request("report", fields: [("r", tagged(report))])
   }
 
+  /// Reports use an unjoined socket. There is no member identity on this request.
+  private var reportSockets: [UUID: any RoomsTransport] = [:]
+  public func sendPitchReport(_ report: JSONText) async throws {
+    let message = try JS.object([("t", .string("report")), ("id", .int(1)), ("r", tagged(report))])
+      .ascii
+    guard message.utf8.count <= 65536 else { throw RoomError("too-big") }
+    let id = UUID()
+    let transport = newTransport()
+    reportSockets[id] = transport
+    let deadline = Task { [timing] in
+      do { try await Task.sleep(for: timing.answer) } catch { return }
+      transport.close()
+    }
+    defer {
+      deadline.cancel()
+      transport.close()
+      reportSockets[id] = nil
+    }
+    for part in Frames.split(message) { try await transport.send(part) }
+    var parts = Frames.Reassembler()
+    while true {
+      guard let text = parts.accept(try await transport.receive()) else { continue }
+      let reply = try JSONNode.parse(text)
+      if reply["t"]?.string == "reported", reply["id"]?.int == 1 { return }
+      throw RoomError(reply["code"]?.string ?? "unexpected-reply")
+    }
+  }
+
   public func setMe(_ fields: [(String, JS)]) {
     for (key, value) in fields {
       me.removeAll { $0.0 == key }
@@ -432,6 +464,7 @@ import Foundation
   }
   public func close() { close(as: .closed, error: RoomError("closed")) }
   private func close(as status: Status, error: RoomError) {
+    for report in reportSockets.values { report.close() }
     stopped = true
     joined = false
     generation += 1

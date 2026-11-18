@@ -2,6 +2,7 @@
 // exercise the public Swift client/controller over a real Foundation WebSocket.
 import Foundation
 import KubbEngine
+import KubbRenderer
 import KubbRooms
 
 @MainActor final class FixedID: MemberIDStore {
@@ -14,6 +15,7 @@ import KubbRooms
 @main struct Probe {
   @MainActor static func main() async throws {
     var pitches: [String: PitchController] = [:]
+    var screens: [String: OnlinePitch] = [:]
     var events: [String: [JSONText]] = [:]
     var wires: [String: WebSocketTransport] = [:]
     var wireParts: [String: Frames.Reassembler] = [:]
@@ -25,6 +27,7 @@ import KubbRooms
         let key = cmd["key"]?.string ?? "a"
         let op = cmd["op"]!.string!
         let p = pitches[key]
+        let screen = screens[key]
         switch op {
         case "wireConnect":
           let url = URL(string: cmd["url"]!.string!)!
@@ -64,22 +67,41 @@ import KubbRooms
           var timing = RoomsClient.Timing()
           timing.retry = .milliseconds(10)
           timing.retryMax = .milliseconds(50)
-          let room = try RoomsClient(
-            url: url, room: cmd["room"]!.string!, engineVersion: engine.engineVersion,
-            appVersion: "0.0-test", me: [("name", .string(key)), ("level", .string("pro"))],
-            store: FixedID(cmd["member"]?.string), timing: timing)
+          let pitch: PitchController
+          let room: RoomsClient
+          if cmd["screen"]?.bool == true {
+            let screen = try OnlinePitch(
+              url: url, link: PitchLink(cmd["room"]!.string!)!, create: cmd["create"]?.bool ?? true,
+              name: key, level: "pro", appVersion: "0.0-test",
+              store: FixedID(cmd["member"]?.string), timing: timing)
+            screens[key] = screen
+            pitch = screen.controller
+            room = screen.room
+          } else {
+            room = try RoomsClient(
+              url: url, room: cmd["room"]!.string!, engineVersion: engine.engineVersion,
+              appVersion: "0.0-test", me: [("name", .string(key)), ("level", .string("pro"))],
+              store: FixedID(cmd["member"]?.string), timing: timing)
+            pitch = try PitchController(room: room, engine: engine)
+          }
           events[key] = []
           room.observe { event in
             if case .message(let node) = event { events[key, default: []].append(node.raw) }
           }
-          let pitch = try PitchController(room: room, engine: engine)
           pitches[key] = pitch
-          pitch.connect()
+          if let screen = screens[key] { screen.connect() } else { pitch.connect() }
           try await room.ready()
           response = .string(room.you)
         case "state":
           let p = p!
           response = .object([
+            ("display", screen.map { .string(String(describing: $0.stage)) } ?? .null),
+            ("card", screen?.versionCard.map { .string($0.rawValue) } ?? .null),
+            ("displayHash", screen.map { .string($0.displayedHash) } ?? .null),
+            ("displayCorrections", .int(screen?.displayCorrections ?? 0)),
+            ("shownAims", .int(screen?.shownAims ?? 0)),
+            ("shouts", .array((screen?.shouts ?? []).map(JS.string))),
+            ("note", .string(screen?.note ?? "")),
             ("state", .string(p.state.rawValue)), ("status", .string(p.room.status.rawValue)),
             ("you", .string(p.room.you)), ("host", p.room.host.map(JS.string) ?? .null),
             ("v", .int(p.room.version)), ("doc", .raw(p.room.document)),
@@ -92,7 +114,11 @@ import KubbRooms
             ("mismatch", p.mismatch.map(JS.raw) ?? .null),
           ])
         case "team":
-          try await p!.joinTeam(cmd["side"]?.string)
+          if let screen {
+            try await screen.team(cmd["side"]?.string)
+          } else {
+            try await p!.joinTeam(cmd["side"]?.string)
+          }
           response = .bool(true)
         case "reduce":
           response = .bool(
@@ -100,7 +126,11 @@ import KubbRooms
               cmd["name"]!.string!,
               fields: cmd["fields"]?.members.map { ($0.key, .raw($0.value.raw)) } ?? []))
         case "start":
-          response = .bool(try await p!.start(seed: cmd["seed"]!.int!, at: cmd["at"]!.raw))
+          if let screen {
+            response = .bool(try await screen.start(seed: cmd["seed"]!.int!, at: cmd["at"]!.raw))
+          } else {
+            response = .bool(try await p!.start(seed: cmd["seed"]!.int!, at: cmd["at"]!.raw))
+          }
         case "setMe":
           p!.room.setMe(cmd["fields"]!.members.map { ($0.key, .raw($0.value.raw)) })
           response = .bool(true)
@@ -159,8 +189,65 @@ import KubbRooms
             guard let planned else { throw RoomError("no-computer-action") }
             action = planned
           }
-          let ok = try await p!.take(action)
+          let ok: Bool
+          if let screen {
+            try screen.act(action)
+            ok = true
+          } else {
+            ok = try await p!.take(action)
+          }
           response = .object([("ok", .bool(ok)), ("action", .raw(action))])
+        case "report":
+          let report = try screen!.captureReport(size: CGSize(width: 390, height: 844), scale: 3)
+          try await p!.room.sendPitchReport(
+            report.message(happened: "Synthetic throw", should: "Synthetic result"))
+          response = .bool(true)
+        case "rematch":
+          try await screen!.rematch()
+          response = .bool(true)
+        case "dialThrow":
+          guard let screen else { throw RoomError("no-screen") }
+          let board = screen.board
+          board.dismissHandoff()
+          let dt = 1.0 / 60
+          let back = ((board.dial.powerHi ?? 100) + (board.dial.powerLo ?? 80)) / 2
+          let stop = ((board.dial.releaseHi ?? 48) + (board.dial.releaseLo ?? 32)) / 2
+          func feed(_ deg: Double) throws {
+            board.sample(CGPoint(x: sin(deg * .pi / 180), y: cos(deg * .pi / 180)))
+            try screen.tick(dt)
+          }
+          try feed(0)
+          var a = -5.0
+          try feed(a)
+          while a > -back {
+            a = max(-back, a - 400 * dt)
+            try feed(a)
+          }
+          while a < stop {
+            a = min(stop, a + 2400 * dt)
+            try feed(a)
+          }
+          board.sample(nil)
+          try screen.tick(dt)
+          response = .bool(board.playing)
+        case "displayFrame":
+          response = .bool(try screen!.tick(0.05))
+        case "skip":
+          try screen!.skip()
+          response = .bool(true)
+        case "background":
+          screen!.background()
+          response = .bool(true)
+        case "foreground":
+          screen!.connect()
+          try await p!.room.ready()
+          response = .bool(true)
+        case "dismiss":
+          screen!.board.dismissHandoff()
+          response = .bool(true)
+        case "option":
+          try await screen!.option(cmd["name"]!.string!, cmd["value"]!.string!)
+          response = .bool(true)
         case "tick":
           p!.tick(now: cmd["now"]!.int!)
           response = .bool(true)
@@ -168,14 +255,14 @@ import KubbRooms
           try p!.castAim()
           response = .bool(true)
         case "shout":
-          p!.shout("NICE!")
+          if let screen { screen.shout("NICE!") } else { p!.shout("NICE!") }
           response = .bool(true)
         case "leave":
           await p!.room.leave()
           p!.close()
           response = .bool(true)
         case "close":
-          p!.close()
+          if let screen { screen.close() } else { p!.close() }
           response = .bool(true)
         default: throw RoomError("bad-op")
         }
