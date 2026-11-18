@@ -39,9 +39,16 @@ struct Recording: Decodable {
     let id: String, start, frames: Int, poses: [Int]
   }
   struct Burst: Decodable {
-    let start: Double, kind: String, anchor: WorldPoint
+    let start: Double, kind: String, anchor: WorldPoint, takenBack: Bool?
   }
-  struct Timeline: Decodable { let bursts: [Burst] }
+  struct Projectile: Decodable { let id: String }
+  struct Touch: Decodable { let t: Double, id, kind: String }
+  struct Contact: Decodable { let t, strength: Double, a, b, idA, idB: String }
+  struct Landing: Decodable { let t, strength: Double, surface: Surface }
+  struct Timeline: Decodable {
+    let bursts: [Burst], touches: [Touch]?, contacts: [Contact]?, batonLanding: Landing?
+  }
+  let projectile: Projectile
   let frameDt, duration, poseScale: Double
   let items: [Piece], bodies: [Body], timeline: Timeline, result: ThrowResult
 }
@@ -51,10 +58,13 @@ struct Playback {
   let recording: Recording
   private let tracks: [(index: Int, body: Recording.Body)]
   var nextTime = 0.0, rest = 0.0, realTime = 0.0
+  let feedback: [TimedFeedback]
+  var nextCue = 0
   var finished = false
   var starts: [Double?]
   init(_ r: Recording) {
     recording = r
+    feedback = r.timeline.feedback(projectileID: r.projectile.id)
     let indices = Dictionary(uniqueKeysWithValues: r.items.enumerated().map { ($1.id, $0) })
     tracks = r.bodies.compactMap { b in indices[b.id].map { ($0, b) } }
     starts = Array(repeating: nil, count: r.timeline.bursts.count)

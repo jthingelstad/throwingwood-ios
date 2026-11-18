@@ -19,7 +19,7 @@
 #                                    says, byte for byte, no file missing or
 #                                    extra, the corpus recorded by this engine
 #                                    version or an earlier one (a hash-neutral
-#                                    release keeps its corpus: 0.4.0 carries
+#                                    release keeps its corpus: 0.4.1 carries
 #                                    0.2.0's, kubb-engine docs/VERSIONING.md).
 #                                    Needs no kubb-engine checkout (CI runs it)
 #
@@ -27,7 +27,7 @@
 set -euo pipefail
 
 # The kubb-engine release this app runs.
-TAG=v0.4.0
+TAG=v0.4.1
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 source_dir=${KUBB_ENGINE_SOURCE:-$root/../kubb-engine}
@@ -98,10 +98,10 @@ case "${1:-}" in
     for f in "${golden_files[@]}"; do [[ -s $golden/$f ]] || fail "missing: Fixtures/golden/$f"; done
     if [[ -s $golden/hashes.json ]]; then
       corpus=$(json_version "$golden/hashes.json")
-      # 0.4.0 is explicitly hash-neutral and ships 0.2.0's exact corpus.
+      # 0.4.1 is explicitly hash-neutral and ships 0.2.0's exact corpus.
       # Do not accept arbitrary older corpora when moving to another release.
       expected=$version
-      [[ $version == 0.4.0 ]] && expected=0.2.0
+      [[ $version == 0.4.1 ]] && expected=0.2.0
       [[ $corpus == "$expected" ]] || fail "golden corpus is $corpus, expected $expected; run sync"
     fi
     [[ $status == 0 ]] && echo "engine: kubb-engine $TAG, $count files match engine.json, golden corpus recorded by $corpus"

@@ -52,7 +52,7 @@ agrees. So:
   driver and corpus (`tests/golden/drive.lua`, `hashes.json`) into
   `Tests/KubbEngineTests/Fixtures/golden/`. `check` (in CI, no checkout
   needed) verifies every file against the engine's own `engine.json`, and
-  the version against the tag (v0.4.0 explicitly retains the 0.2.0
+  the version against the tag (v0.4.1 explicitly retains the 0.2.0
   golden corpus; arbitrary older corpora are not accepted). Never edit the
   vendored files; a fix belongs
   in kubb-engine, then here by moving to its next tag. Never write in the
@@ -144,3 +144,12 @@ client and rooms-dev read-only, binds an ephemeral 127.0.0.1 port and writes onl
 `build/rooms-results.json` here. Never point tests at production. Regenerate wire
 vectors with `node tools/room-vectors.mjs`; committed vectors and injected Swift tests
 run in the existing macOS CI job, without an additional cross-repository checkout.
+
+
+## Sound and haptics
+
+Read [docs/FEEL.md](docs/FEEL.md) for engine events, sample provenance,
+pattern values and the simulator timing probe. Keep input cues on ThrowInput,
+recording cues on the shown-time clock and match cues on the presented need.
+Keep SOUND and HAPTICS independent. Measure warm mixer onset on the simulator
+after changing the audio graph. Actual haptic feel requires a physical phone.

@@ -241,6 +241,7 @@ struct OnlineMenu: View {
     GeometryReader { geo in
       VStack(alignment: .leading, spacing: 12) {
         Text("Pitch menu").font(displayFont(36))
+        FeedbackSettings(feedback: model.feedback).fixedSize(horizontal: true, vertical: false)
         Button("SCORE SHEET", action: model.showSheet)
         Button("REPORT A THROW") {
           model.perform {

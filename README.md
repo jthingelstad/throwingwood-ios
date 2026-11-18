@@ -15,6 +15,11 @@ At the end, open the Planet Kubb Notation score sheet or start a rematch.
 An interrupted solo match resumes on this iPhone. Online, share a pitch link or join
 by link or code. Pick a team or watch from the same lobby as friends playing on the web.
 
+The dial ticks as your arm crosses a target band. Wood knocks on impact and
+the king rings when it falls. Sound follows the silent switch and mixes with
+other audio. Sound and haptics have independent switches in the match menu
+and the practice surface menu. Both start on. [Sound and haptics](docs/FEEL.md).
+
 [Online pitches](docs/ONLINE.md) · [How the match works](docs/MATCH.md) · [iPhone review pictures](docs/RENDER.md)
 
 - `ThrowingWoodKit/` is a Swift package. `KubbEngine` runs the game engine,

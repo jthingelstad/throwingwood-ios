@@ -1,0 +1,93 @@
+{
+  "action": {
+    "how": "baton",
+    "launch": {
+      "legal": true,
+      "loft": 32,
+      "speed": 9.199820129935214,
+      "swivel": 0,
+      "tilt": 0,
+      "tumble": 6.4071532358007595
+    },
+    "scripted": false,
+    "seq": 0,
+    "stance": {
+      "set": false,
+      "x": 0,
+      "y": 0
+    },
+    "target": {
+      "on": "b3",
+      "set": false,
+      "x": 0,
+      "y": 8
+    },
+    "type": "throw"
+  },
+  "down": 1,
+  "duration": 1.7333333333333334,
+  "projectile": {
+    "how": "baton",
+    "id": "baton",
+    "kind": "baton"
+  },
+  "timeline": {
+    "batonLanding": {
+      "strength": 0.14823098943332164,
+      "surface": "grass",
+      "t": 1.0666666666666642
+    },
+    "bursts": [
+      {
+        "anchor": {
+          "x": 0,
+          "y": 7.948390434562166,
+          "z": 0.1563403086672668
+        },
+        "id": "b3",
+        "kind": "clean",
+        "start": 1.0666666666666642,
+        "sure": true,
+        "takenBack": false
+      }
+    ],
+    "contacts": [
+      {
+        "a": "baton",
+        "b": "kubb",
+        "idA": "baton",
+        "idB": "b3",
+        "strength": 1,
+        "t": 1.0666666666666642
+      }
+    ],
+    "firstContact": {
+      "t": 1.0666666666666642,
+      "with": "b3",
+      "x": 0,
+      "y": 7.948390434562166,
+      "z": 0.1563403086672668
+    },
+    "firstHit": {
+      "t": 1.0666666666666642,
+      "with": "b3",
+      "x": 0,
+      "y": 7.948390434562166,
+      "z": 0.1563403086672668
+    },
+    "slow": {
+      "from": 0.9666666666666642,
+      "full": 1.1866666666666643,
+      "hit": 1.0666666666666642,
+      "rate": 0.3,
+      "to": 1.3366666666666642
+    },
+    "touches": [
+      {
+        "id": "b3",
+        "kind": "kubb",
+        "t": 1.0666666666666642
+      }
+    ]
+  }
+}

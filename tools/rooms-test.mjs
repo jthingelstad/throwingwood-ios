@@ -87,11 +87,15 @@ async function until(fn, label = "condition") {
   }
   throw new Error("timed out: " + label);
 }
+const iosVersion = JSON.parse(
+  readFileSync(join(root, "ThrowingWoodKit/Sources/KubbEngine/Engine/engine.json")),
+).version;
 const report = {
   webCommit: execFileSync("git", ["-C", web, "rev-parse", "HEAD"], {
     encoding: "utf8",
   }).trim(),
   engine: manifest.version,
+  iosEngine: iosVersion,
   stack:
     "web src/engine/index.js + wasmoon 1.16.0 + src/net/room.js; Swift RoomsClient + PitchController + native Lua/musl",
   conformance: [],
@@ -636,16 +640,15 @@ try {
           "native document equals web reducer output",
         );
         assert.deepEqual(
-          { ...w, c: "web" },
+          w,
           lua("rider", {
             n: m.n,
             seq: m.seq,
             action: w.a,
-            client: "web",
-            engine: engine.version,
+            client: "ios",
+            engine: iosVersion,
           }),
         );
-        assert.equal(w.c, "ios");
       }
       const d = lua("decide", { local, doc, with: w, mine });
       if (d.kind === "lobby" || d.kind === "old") return;
@@ -849,7 +852,7 @@ try {
         assert.equal(captured.v, browser.v);
         assert.equal(captured.match.seq, 2);
         assert.equal(captured.client, "ios");
-        assert.equal(captured.engine, manifest.version);
+        assert.equal(captured.engine, iosVersion);
         assert.ok(
           !latestReport.report.includes(nativeID) &&
             !latestReport.report.includes(browser.you),

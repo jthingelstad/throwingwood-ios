@@ -14,6 +14,8 @@ import Testing
     let ref = try Engine(appVersion: "test")
     try app.openMatch("new", json: setup, save: nil)
     _ = try ref.call("new", json: setup)
+    var cues: [PitchHaptic] = []
+    app.onFeedback = { if let h = $0.haptic { cues.append(h) } }
     var releases = 0
     for _ in 0..<40_000 {
       if app.need?.kind == "over" { break }
@@ -30,6 +32,8 @@ import Testing
       }
     }
     try #require(app.need?.winner != nil)
+    #expect(!cues.contains(.band) && !cues.contains(.release))
+    #expect(cues.filter { $0 == .win }.count == (app.need?.winner?.winner == "A" ? 1 : 0))
     #expect(releases > 10)
     #expect(try app.engine.call("sheet") == ref.call("sheet"))
     print("solo controller \(releases)/\(releases) hashes, final \(try ref.hash())")
@@ -39,6 +43,30 @@ import Testing
     let file = try #require(
       Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/solo"))
     return try String(contentsOf: file, encoding: .utf8)
+  }
+
+  @Test func matchFeedbackUsesTheDisplayedCardAndPlayingSide() throws {
+    let aim = try fixture("aim"), over = try fixture("over")
+    for membership in ["winner", "loser", "watcher"] {
+      let board = try PitchSession(appVersion: "test")
+      var heard: [PitchHaptic] = []
+      board.onFeedback = { if let pulse = $0.haptic { heard.append(pulse) } }
+      try board.restore(aim, save: nil)
+      try board.adopt(board.read("view"))
+      #expect(heard == [.handoff])
+      let final: ViewOutput = try board.read("restore", over)
+      let won = try #require(final.need.winner?.winner)
+      board.playerSide = {
+        switch membership {
+        case "winner": won
+        case "loser": won == "A" ? "B" : "A"
+        default: nil
+        }
+      }
+      try board.adopt(final)
+      try board.adopt(final)
+      #expect(heard == (membership == "winner" ? [.handoff, .win] : [.handoff]))
+    }
   }
 
   @Test func restoreDuringFlightCommitsExactlyOneThrow() throws {

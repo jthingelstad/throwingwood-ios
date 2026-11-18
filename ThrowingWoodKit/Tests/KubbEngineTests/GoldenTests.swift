@@ -91,8 +91,8 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
 
   @Test func corpusIsForTheVendoredEngine() throws {
     let engine = try Engine(appVersion: testAppVersion)
-    // 0.4.0 explicitly retains the exact 0.2.0 corpus (hash-neutral release).
-    let expected = engine.engineVersion == "0.4.0" ? "0.2.0" : engine.engineVersion
+    // 0.4.1 explicitly retains the exact 0.2.0 corpus (hash-neutral release).
+    let expected = engine.engineVersion == "0.4.1" ? "0.2.0" : engine.engineVersion
     #expect(corpus.version == expected, "run scripts/vendor-engine.sh sync")
     #expect(corpus.tune == Engine.tune)
     #expect(corpus.matches.count == 12)

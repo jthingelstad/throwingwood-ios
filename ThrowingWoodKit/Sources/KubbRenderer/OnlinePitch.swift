@@ -102,6 +102,7 @@ public struct PitchMember: Identifiable, Equatable {
       appVersion: appVersion, store: store, timing: timing)
     controller = try PitchController(room: room, engine: engine)
     try controller.setMe(name: self.name, level: level)
+    board.playerSide = { [weak controller] in controller?.playingSide }
     board.acceptsInput = false
     board.runsComputer = false
     board.onlineAction = { [weak self] in try self?.submit($0) }

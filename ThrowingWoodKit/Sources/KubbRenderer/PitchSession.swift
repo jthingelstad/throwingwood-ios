@@ -7,6 +7,10 @@ public struct DialState: Decodable, Equatable, Sendable {
   public let phase: String
   public let arm, crank, back, deadDeg, overDeg: Double
   public let powerLo, powerHi, releaseLo, releaseHi, lastBack, lastStop: Double?
+  public struct Crossing: Decodable, Equatable, Sendable {
+    public let band, edge: String
+  }
+  public let crossings: [Crossing]?
   public let prompt: String?
 }
 
@@ -16,6 +20,15 @@ public protocol ThrowInput {
   mutating func sample(_ point: CGPoint?)
   mutating func frame(after dt: Double) -> String?
   mutating func reset()
+  func feedback(crossings: [DialState.Crossing], released: Bool) -> [PitchFeedback]
+}
+
+extension ThrowInput {
+  public func feedback(crossings: [DialState.Crossing], released: Bool) -> [PitchFeedback] {
+    var events = crossings.map { _ in PitchFeedback(haptic: .band) }
+    if released { events.append(PitchFeedback(haptic: .release)) }
+    return events
+  }
 }
 
 public struct PointerDial: ThrowInput {
@@ -65,7 +78,7 @@ struct Aim: Decodable {
 }
 struct AimOutput: Decodable {
   let aim: Aim, camera: Camera
-  let dial: DialState?, recording: Recording?
+  let dial: DialState?, recording: Recording?, event: String?
 }
 struct ViewOutput: Decodable {
   let need: MatchNeed
@@ -105,6 +118,9 @@ public final class PitchSession {
   var onlineAction: ((JSONText) throws -> Void)?
   public internal(set) var acceptsInput = true
   var runsComputer = true
+  var playerSide: () -> String? = { "A" } // solo seat; online asks room.playingSide at the win
+  public var onFeedback: ((PitchFeedback) -> Void)?
+  public var cancelFeedback: (() -> Void)?
   public var canAim: Bool {
     acceptsInput && !playing && handoff == nil
       && (need == nil || (need?.kind == "throw" && need?.cpu == false))
@@ -158,12 +174,21 @@ public final class PitchSession {
     dial = v.dial
     aim(v.aim, camera: v.camera)
     if need != nil {
+      let previous = need
+      let previousHandoff = handoff
       need = v.need
       if let levelOverride, v.need.kind == "throw", v.need.cpu == false {
         try useLevel(levelOverride)
       }
       // A resignation can retain the preceding informative card in the engine view.
       handoff = v.need.kind == "throw" ? v.need.card?.handoff : nil
+      if let handoff, handoff.turn != previousHandoff?.turn || handoff.toName != previousHandoff?.toName {
+        onFeedback?(PitchFeedback(haptic: .handoff))
+      }
+      if v.need.kind == "over", previous?.kind != "over",
+        let winner = v.need.winner?.winner, winner == playerSide() {
+        onFeedback?(PitchFeedback(haptic: .win))
+      }
       placement = nil
       cursor = v.need.cursor
       try settleScene()
@@ -172,6 +197,7 @@ public final class PitchSession {
   }
 
   func resetPresentation() {
+    cancelFeedback?()
     input.reset()
     playback = nil
     result = nil
@@ -250,10 +276,12 @@ public final class PitchSession {
     guard acceptsInput || (need?.cpu == true && runsComputer) else { return changed }
     guard handoff == nil, need == nil || need?.kind == "throw" else { return changed }
     let args: String
+    var inputFrame = false
     if walking && walkAxis != .zero {
       args = #"{"dt":\#(dt),"plan":\#(plan),"walk":{"dx":\#(walkAxis.x),"dy":\#(walkAxis.y)}}"#
     } else if !plan, let sample = input.frame(after: dt) {
       args = sample
+      inputFrame = canAim
     } else if (plan && mix < 1) || (!plan && mix > 0) || need?.cpu == true {
       args = #"{"dt":\#(dt),"plan":\#(plan)}"#
     } else {
@@ -263,6 +291,11 @@ public final class PitchSession {
     let a = try decoder.decode(AimOutput.self, from: Data(text.utf8))
     aim(a.aim, camera: a.camera)
     if let d = a.dial { dial = d }
+    if inputFrame, let onFeedback {
+      for cue in input.feedback(crossings: a.dial?.crossings ?? [], released: a.event == "release") {
+        onFeedback(cue)
+      }
+    }
     if let recording = a.recording {
       try beginPlayback(recording)
       if let onlineAction, let action = try JSONNode.parse(text)["action"] {
@@ -288,6 +321,7 @@ public final class PitchSession {
 
   public func skipPlayback() throws {
     guard let p = playback else { return }
+    cancelFeedback?()
     result = p.recording.result
     resultAge = 0
     bursts = []
@@ -304,6 +338,10 @@ public final class PitchSession {
       slow = shown.speed < 0.99
       camera = shown.camera
       dial = shown.dial
+      while p.nextCue < p.feedback.count && p.feedback[p.nextCue].time <= t {
+        onFeedback?(p.feedback[p.nextCue].cue)
+        p.nextCue += 1
+      }
       for i in p.starts.indices
       where p.starts[i] == nil && t >= p.recording.timeline.bursts[i].start {
         p.starts[i] = p.realTime

@@ -1,0 +1,93 @@
+{
+  "action": {
+    "how": "baton",
+    "launch": {
+      "legal": true,
+      "loft": 27,
+      "speed": 6.409091241785196,
+      "swivel": 0,
+      "tilt": 0,
+      "tumble": 9.62550883113755
+    },
+    "scripted": false,
+    "seq": 0,
+    "stance": {
+      "set": false,
+      "x": 0,
+      "y": 0
+    },
+    "target": {
+      "on": "king",
+      "set": false,
+      "x": 0,
+      "y": 4
+    },
+    "type": "throw"
+  },
+  "down": 1,
+  "duration": 1.3333333333333333,
+  "projectile": {
+    "how": "baton",
+    "id": "baton",
+    "kind": "baton"
+  },
+  "timeline": {
+    "batonLanding": {
+      "strength": 0.1451845266485351,
+      "surface": "grass",
+      "t": 0.8333333333333316
+    },
+    "bursts": [
+      {
+        "anchor": {
+          "x": 0,
+          "y": 3.931957011107238,
+          "z": 0.3045058033378131
+        },
+        "id": "king",
+        "kind": "king",
+        "start": 0.6958333333333321,
+        "sure": true,
+        "takenBack": false
+      }
+    ],
+    "contacts": [
+      {
+        "a": "baton",
+        "b": "king",
+        "idA": "baton",
+        "idB": "king",
+        "strength": 0.5689355442720453,
+        "t": 0.6958333333333321
+      }
+    ],
+    "firstContact": {
+      "t": 0.6958333333333321,
+      "with": "king",
+      "x": 0,
+      "y": 3.931957011107238,
+      "z": 0.3045058033378131
+    },
+    "firstHit": {
+      "t": 0.6958333333333321,
+      "with": "king",
+      "x": 0,
+      "y": 3.931957011107238,
+      "z": 0.3045058033378131
+    },
+    "slow": {
+      "from": 0.5958333333333321,
+      "full": 0.8158333333333321,
+      "hit": 0.6958333333333321,
+      "rate": 0.3,
+      "to": 0.9658333333333321
+    },
+    "touches": [
+      {
+        "id": "king",
+        "kind": "king",
+        "t": 0.6958333333333321
+      }
+    ]
+  }
+}

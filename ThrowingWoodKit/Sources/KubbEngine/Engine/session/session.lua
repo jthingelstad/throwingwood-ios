@@ -876,7 +876,7 @@ function Session:frame(inp)
 		return out
 	end
 	local cpu = self.kind == "match" and isCpu(self, self.setup.side)
-	local ev, L, how, info
+	local ev, L, how, info, crossings
 	if cpu then
 		if ts.mode == "aim" then
 			-- the computer's throw: its aim shows (cpuThink), then its arm plays on the dial
@@ -907,6 +907,7 @@ function Session:frame(inp)
 	else
 		local changed, input
 		ev, changed, input = throw.aimFrame(ts, inp)
+		crossings, ts.crossings = ts.crossings, nil
 		if ev == "release" then
 			local r = ts.swing.result
 			L, how = throw.playerLaunch(ts, r)
@@ -923,6 +924,7 @@ function Session:frame(inp)
 		out.need = self:need()
 	end
 	out.dial = throw.dial(ts, not L)
+	out.dial.crossings = crossings
 	out.camera = ts.aimCam
 	out.aim = self:aimView()
 	return out
