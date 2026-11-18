@@ -1,3 +1,4 @@
+import AVFAudio
 import KubbRenderer
 import SwiftUI
 
@@ -74,11 +75,23 @@ struct GameView: View {
     #if targetEnvironment(simulator)
       .modifier(OnlineReview(model: model))
     #endif
-    .onChange(of: phase) { _, phase in
+    .onChange(of: phase, initial: true) { _, phase in
+      model.feedback.setActive(phase == .active)
       if phase == .background { model.online?.background() }
       if phase == .active { model.online?.connect() }
     }
-    .onDisappear { model.online?.close() }
+    .onReceive(NotificationCenter.default.publisher(for: .AVAudioEngineConfigurationChange).receive(on: RunLoop.main)) { _ in
+      model.feedback.prepare()
+    }
+    .onReceive(NotificationCenter.default.publisher(for: AVAudioSession.interruptionNotification).receive(on: RunLoop.main)) { note in
+      if note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt == AVAudioSession.InterruptionType.ended.rawValue {
+        model.feedback.prepare()
+      }
+    }
+    .onDisappear {
+      model.feedback.setActive(false)
+      model.online?.close()
+    }
     .preferredColorScheme(.light)
     .alert(
       "Pitch unavailable",
@@ -111,10 +124,11 @@ struct GameView: View {
               }
             }
           }
+          .disabled(model.playing)
+          FeedbackSettings(feedback: model.feedback)
         } label: {
           Label(model.surface.rawValue.capitalized, systemImage: "chevron.up.chevron.down")
         }
-        .disabled(model.playing)
       }.modifier(Plate(inset: 8))
       if let result = model.result { Verdict(result: result) }
       Spacer()

@@ -181,6 +181,9 @@ import KubbEngine
       ),
     ])
   }
+  public var playingSide: String? {
+    try? roomCall("playingSide", [("ctx", context()), ("me", .string(room.you))]).string
+  }
   public var actorDescription: String {
     guard let n = try? JSONNode.parse(need),
       let actor = try? roomCall("shownActor", [("need", .raw(need)), ("ctx", context())]).string

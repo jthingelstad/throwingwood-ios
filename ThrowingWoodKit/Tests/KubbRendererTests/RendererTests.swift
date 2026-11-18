@@ -119,6 +119,8 @@ struct RendererTests {
 
   @Test func dialToRestAgreesWithIndependentEngine() throws {
     let pitch = try PracticePitch(appVersion: "test")
+    var inputCues: [PitchHaptic] = []
+    pitch.onFeedback = { if let h = $0.haptic { inputCues.append(h) } }
     let reference = try Engine(appVersion: "test")
     _ = try reference.call("new", json: #"{"mode":"practice","drill":false,"surface":"grass"}"#)
     try pitch.surface(.sand)
@@ -132,6 +134,7 @@ struct RendererTests {
     pitch.sample(nil)
     try pitch.tick(dt)
     _ = try reference.call("frame", json: #"{"dt":\#(dt)}"#)
+    #expect(inputCues == [.band, .band, .band, .release])
     let playback = try #require(pitch.playback)
     #expect(playback.recording.duration > 0.5)
     struct Frame: Decodable { let items: [Piece], camera: Camera }

@@ -219,6 +219,7 @@ function swing.update(s, delta, dt, held)
 		s.pending = p
 		if p >= t.startBackDeg then
 			s.phase = "winding"
+			if s.onArm then s.onArm(0, -p) end
 			s.arm = -p
 			s.back = (p < t.backswingMaxDeg) and p or t.backswingMaxDeg
 			s.far, s.n = -p, 0
@@ -233,6 +234,7 @@ function swing.update(s, delta, dt, held)
 			-- and this frame is the flick's first: on to swinging below
 		else
 			local a = s.arm + fwd
+			if s.onArm then s.onArm(s.arm, a) end
 			s.arm = a
 			if -a > s.back then
 				s.back = (-a < t.backswingMaxDeg) and -a or t.backswingMaxDeg
@@ -253,6 +255,7 @@ function swing.update(s, delta, dt, held)
 		s.n = n
 	end
 	local a = s.arm + fwd
+	if s.onArm then s.onArm(s.arm, a) end
 	s.arm = a
 	if a > s.far then s.far = a end
 	if s.far >= t.skyDeg then return release(s, "sky") end

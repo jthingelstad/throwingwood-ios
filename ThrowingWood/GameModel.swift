@@ -5,7 +5,15 @@ import Observation
 @MainActor @Observable final class GameModel {
   enum Screen {
     case home, options, practice, match, menu, sheet, onlineEntry, join, pitch, report, invalidLink
+
+    var usesFeedback: Bool {
+      switch self {
+      case .options, .practice, .match, .pitch, .menu: true
+      default: false
+      }
+    }
   }
+  let feedback = GameFeedback()
   let offline: PitchSession?
   var pitch: PitchSession? { online?.board ?? offline }
   var online: OnlinePitch?
@@ -15,7 +23,9 @@ import Observation
   static let version =
     Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
 
-  var screen = Screen.home
+  var screen = Screen.home {
+    didSet { feedback.onPitch = screen.usesFeedback }
+  }
   var error: String?
   var surface = Surface.grass
   var result: ThrowResult?
@@ -38,7 +48,9 @@ import Observation
       self.error = String(describing: error)
       return
     }
+    defer { feedback.onPitch = screen.usesFeedback }
     guard let pitch = offline else { return }
+    feedback.attach(pitch)
     let defaults = UserDefaults.standard
     selections = pitch.options.defaults
     for row in pitch.options.rows {
@@ -109,6 +121,7 @@ import Observation
         url: RoomsConfiguration.url, link: link, create: create,
         name: defaults.string(forKey: "pitch.name") ?? "",
         level: defaults.string(forKey: "pitch.level") ?? "club", appVersion: Self.version)
+      feedback.attach(pitch.board)
       online = pitch
       screen = .pitch
       pitch.changed = { [weak self, weak pitch] in
@@ -132,8 +145,11 @@ import Observation
     enter(link, create: false)
   }
   func home() {
+    feedback.silence()
     if let online {
       online.changed = nil
+      online.board.onFeedback = nil
+      online.board.cancelFeedback = nil
       self.online = nil
       report = nil
       Task { await online.leave() }

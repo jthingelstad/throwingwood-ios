@@ -402,6 +402,23 @@ local function resetSwing(s)
 	swing.reset(s.swing)
 end
 
+-- A fast sample can traverse both edges of a band. Report them in travel
+-- order, including the last real movement before release or a let-down.
+local function edge(s, name, direction)
+	s.crossings = s.crossings or {}
+	s.crossings[#s.crossings + 1] = { band = name, edge = direction }
+end
+
+local function bandEdges(s, a, b, lo, hi, name)
+	if a < b then
+		if a < lo and b >= lo then edge(s, name, "enter") end
+		if a <= hi and b > hi then edge(s, name, "exit") end
+	elseif a > b then
+		if a > hi and b <= hi then edge(s, name, "enter") end
+		if a >= lo and b < lo then edge(s, name, "exit") end
+	end
+end
+
 function throw.new(opts)
 	opts = opts or {}
 	local s = {
@@ -432,6 +449,16 @@ function throw.new(opts)
 		watching = false,
 		railName = "PRACTICE",
 	}
+	s.swing.onArm = function(a, b)
+		local p = s.sol
+		if b > a then
+			bandEdges(s, a, b, -p.powerHi, -p.powerLo, "power")
+			bandEdges(s, a, b, p.releaseLo, p.releaseHi, "release")
+		elseif b < a then
+			bandEdges(s, a, b, p.releaseLo, p.releaseHi, "release")
+			bandEdges(s, a, b, -p.powerHi, -p.powerLo, "power")
+		end
+	end
 	throw.standUp(s)
 	updateTargets(s)
 	retarget(s, false)
@@ -979,8 +1006,34 @@ function throw.fire(s, L, how, info)
 	else
 		b = phys.launchBaton(w, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt, s.projectileId)
 	end
+	-- Listen after the solver. Keep one strike per unordered pair, taking
+	-- the strongest contact point of its first pressing step (N s).
+	local contacts, pairsSeen, batonLanding = {}, {}, nil
+	w.onContact = function(time, a, other, impulse)
+		local strength = min(1, impulse / 2)
+		if not other then
+			if a.kind == "baton" then
+				if not batonLanding then
+					batonLanding = { t = time, surface = s.surface, strength = strength }
+				elseif batonLanding.t == time then
+					batonLanding.strength = max(batonLanding.strength, strength)
+				end
+			end
+			return
+		end
+		local key = min(a.index, other.index) * w.n + max(a.index, other.index)
+		local e = pairsSeen[key]
+		if not e then
+			e = { t = time, a = a.kind, b = other.kind, idA = a.id, idB = other.id, strength = strength }
+			pairsSeen[key] = e
+			contacts[#contacts + 1] = e
+		elseif e.t == time then
+			e.strength = max(e.strength, strength)
+		end
+	end
 	local pb = playback.new(w, wt.frameDt)
 	playback.finish(pb)
+	w.onContact = nil
 	s.throws = s.throws + 1
 	local legal = L.legal ~= false
 	-- landed (scenes/throw.lua): the result, the distance, the rest distance
@@ -1127,6 +1180,7 @@ function throw.fire(s, L, how, info)
 		timeline = {
 			firstContact = point(w.firstContact), firstHit = point(w.firstHit),
 			touches = touches, bursts = bursts, slow = slow,
+			contacts = contacts, batonLanding = batonLanding,
 		},
 		marker = drilling and { x = s.markerX, y = s.markerY, r = t.markerRadius } or nil,
 	}

@@ -159,6 +159,7 @@ struct MatchMenu: View {
         "Drag the circle to aim. Wind back on the left of the dial, flick through six and lift on the right."
       )
       .font(.subheadline)
+      FeedbackSettings(feedback: model.feedback)
       Button("SCORE SHEET", action: model.showSheet).buttonStyle(WoodButton())
       HStack {
         Button("HOME", action: model.home)

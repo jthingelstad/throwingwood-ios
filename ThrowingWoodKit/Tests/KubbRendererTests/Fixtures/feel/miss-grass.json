@@ -1,0 +1,50 @@
+{
+  "action": {
+    "how": "baton",
+    "launch": {
+      "legal": true,
+      "loft": 27,
+      "speed": 7.15274012599089,
+      "swivel": 0,
+      "tilt": 0,
+      "tumble": 8.540323368232492
+    },
+    "scripted": false,
+    "seq": 0,
+    "stance": {
+      "set": false,
+      "x": 0.62,
+      "y": 0
+    },
+    "target": {
+      "set": true,
+      "x": 0.62,
+      "y": 5
+    },
+    "type": "throw"
+  },
+  "down": 0,
+  "duration": 1.5166666666666666,
+  "projectile": {
+    "how": "baton",
+    "id": "baton",
+    "kind": "baton"
+  },
+  "timeline": {
+    "batonLanding": {
+      "strength": 0.3686926930467786,
+      "surface": "grass",
+      "t": 0.7749999999999985
+    },
+    "bursts": [],
+    "contacts": [],
+    "firstContact": {
+      "t": 0.7749999999999985,
+      "with": "ground",
+      "x": 0.62,
+      "y": 4.75250539429458,
+      "z": 0.011457867510395674
+    },
+    "touches": []
+  }
+}

@@ -1736,6 +1736,9 @@ function world.step(w)
 			end
 			a.gStamp[k], a.gN[k], a.gT1[k], a.gT2[k] = stamp, ln, l1, l2
 			a.groundImpulse = a.groundImpulse + ln
+			if w.onContact and a == proj and r[K_LNMAX] > 0 then
+				w.onContact(w.time, a, nil, r[K_LNMAX])
+			end
 			if r[K_LNMAX] > 0 and a == proj and not w.firstContact then
 				noteContact(w, a, nil, cPx[idx], cPy[idx], cPz[idx])
 			end
@@ -1758,6 +1761,7 @@ function world.step(w)
 			end
 			local other = cB[idx]
 			local first = cA[idx]
+			if w.onContact then w.onContact(w.time, first, other, r[K_LNMAX]) end
 			first.touched, other.touched = true, true
 			-- the first moment each body is struck (render/burst: the burst and
 			-- knock come at the impact); one test a contact, no arithmetic

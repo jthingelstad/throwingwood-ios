@@ -50,7 +50,7 @@ public struct MatchNeed: Decodable {
   }
   public struct Card: Decodable { public let handoff: Handoff? }
   public struct Winner: Decodable {
-    public let winnerName: String, turns: Int, hits, thrown, minutes: Int?
+    public let winner, winnerName: String, turns: Int, hits, thrown, minutes: Int?
   }
   public struct Pose: Decodable { let x, y: Double, angle: Double?, standing: Bool? }
   public struct End: Decodable {
