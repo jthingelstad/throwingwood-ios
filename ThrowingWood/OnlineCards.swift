@@ -108,7 +108,7 @@ struct LobbyCard: View {
         .onAppear { draft = online.name }.onSubmit { profile(online.level) }
         .onChange(of: editing) { _, focused in if !focused { profile(online.level) } }
       if let levels = online.board.options.rows.first(where: { $0.id == "level" }) {
-        Picker("Level", selection: Binding(get: { online.level }, set: profile)) {
+        Picker("Level", selection: Binding(get: { online.level }, set: { level in profile(level) })) {
           ForEach(levels.choices, id: \.self) { c in Text(c[1]).tag(c[0]) }
         }
       }
