@@ -1,0 +1,72 @@
+import CoreGraphics
+import simd
+
+extension GroundMark {
+  init(x: Double, y: Double, angle: Double? = nil, allowed: Bool = true, chosen: Bool = false) {
+    self.init(
+      x: x, y: y, r: nil, angle: angle, chosen: chosen, allowed: allowed, shown: true, facing: nil)
+  }
+}
+
+extension Camera {
+  fileprivate static func looking(from eye: V3, at target: V3, focal: Double) -> Camera {
+    let forward = normalize(target - eye)
+    let right = normalize(cross(forward, V3(0, 0, 1)))
+    let up = cross(right, forward)
+    return Camera(
+      px: eye.x, py: eye.y, pz: eye.z, fx: forward.x, fy: forward.y, fz: forward.z,
+      rx: right.x, ry: right.y, rz: right.z, ux: up.x, uy: up.y, uz: up.z,
+      f: focal, cx: 200, cy: 120)
+  }
+}
+
+extension MatchNeed.Pose {
+  fileprivate func piece(id: String, king: Bool = false) -> Piece {
+    let down = standing == false
+    var rotation = simd_quatd(angle: (angle ?? 0) - (down ? .pi / 2 : 0), axis: V3(0, 0, 1))
+    if down { rotation *= simd_quatd(angle: -.pi / 2, axis: V3(1, 0, 0)) }
+    let team = id.first == "a" ? "A" : id.first == "b" ? "B" : nil
+    return Piece(
+      id: id, kind: king ? "king" : "kubb", team: team, x: x, y: y,
+      z: down ? 0.035 : (king ? 0.15 : 0.075), qw: rotation.real,
+      qx: rotation.imag.x, qy: rotation.imag.y, qz: rotation.imag.z)
+  }
+}
+
+extension PitchSession {
+  func settleScene() throws {
+    guard let n = need, n.kind != "throw" else { return }
+    scene.arc = nil
+    scene.marker = nil
+    scene.thrower = nil
+    scene.advantageY = nil
+    scene.focusX = nil
+    guard n.kind == "raise" || n.kind == "punish", let id = n.kubb else { return }
+    scene.items = (n.others ?? []).map { $0.pose.piece(id: $0.id) }
+    if let king = n.king { scene.items.append(king.piece(id: "king", king: true)) }
+    if let p = n.pose, n.kind == "raise" {
+      let a = p.angle ?? 0
+      var normal = V3(-sin(a), cos(a), 0)
+      if normal.y > 0.05 || (abs(normal.y) <= 0.05 && normal.x * p.x > 0) { normal = -normal }
+      let spot = V3(p.x, p.y, 0)
+      camera = .looking(
+        from: spot + normal * 1.15 + V3(0, 0, 1.05), at: spot + normal * 0.12, focal: 520)
+      scene.stillZoom = 1.8
+      scene.items.append(p.piece(id: id))
+      scene.footprints = n.ends?.map {
+        GroundMark(x: $0.pose.x, y: $0.pose.y, angle: $0.pose.angle, allowed: $0.ok == true)
+      }
+    } else if let c = cursor {
+      camera = .looking(from: V3(0, -2.6, 5.4), at: V3(0, 1.05, 0), focal: 300)
+      scene.stillZoom = 1
+      scene.keepOut = n.keepOut
+      if let k = n.keepOut?.first(where: { $0.kind == "king" }) {
+        scene.items.append(
+          MatchNeed.Pose(x: k.x, y: k.y, angle: 0, standing: true).piece(id: "king", king: true))
+      }
+      placement = try read("checkPunish", #"{"x":\#(c.x),"y":\#(c.y)}"#)
+      scene.items.append(MatchNeed.Pose(x: c.x, y: c.y, angle: 0, standing: true).piece(id: id))
+      scene.footprints = [GroundMark(x: c.x, y: c.y, allowed: placement?.ok == true, chosen: true)]
+    }
+  }
+}

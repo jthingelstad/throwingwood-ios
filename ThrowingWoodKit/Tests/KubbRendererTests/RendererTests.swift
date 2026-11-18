@@ -66,6 +66,26 @@ struct RendererTests {
     }
   }
 
+  @Test func portraitScaleAndPanKeepFarTargetsVisible() throws {
+    let f = try fixture("grass")
+    for size in [CGSize(width: 390, height: 844), CGSize(width: 440, height: 956)] {
+      let reference = PitchProjection(size: CGSize(width: 400, height: 240), camera: f.camera)
+      for kubb in f.scene.items where kubb.kind == "kubb" && kubb.y == 8 {
+        let base = V3(kubb.x, kubb.y, 0)
+        let fx = try #require(reference.project(base)).x
+        let p = PitchProjection(size: size, camera: f.camera, focusX: Double(fx))
+        let bottom = try #require(p.project(base))
+        let top = try #require(p.project(base + V3(0, 0, 0.15)))
+        #expect(CGRect(origin: .zero, size: size).insetBy(dx: 12, dy: 14).contains(top))
+        let g = try #require(p.ground(bottom))
+        #expect(simd_distance(g, base) < 1e-9)
+        let height = bottom.y - top.y
+        #expect(height > 10 && height < 23)
+        if kubb.x == 0 { print("Far base kubb at", size, "points high", height) }
+      }
+    }
+  }
+
   @Test func projectionRoundTripsAcrossAspectRatios() throws {
     let f = try fixture("plan")
     for size in [CGSize(width: 320, height: 700), CGSize(width: 800, height: 280)] {
@@ -139,6 +159,51 @@ struct RendererTests {
       let expected = SHA256.hash(data: Data(try reference.call(method).utf8))
       #expect(actual == expected)
     }
+  }
+
+  @Test func reviewFlightShadow() throws {
+    let pitch = try PracticePitch(appVersion: "test")
+    let size = CGSize(width: 390, height: 844)
+    let m = try #require(pitch.marker(in: size))
+    try pitch.target(CGPoint(x: m.x + size.width * 0.22, y: m.y), size: size, snap: true)
+    for p in try armPoints(pitch.dial) {
+      pitch.sample(p)
+      try pitch.tick(dt)
+    }
+    pitch.sample(nil)
+    try pitch.tick(dt)
+    for _ in 0..<22 { try pitch.tick(dt) }
+    let piece = try #require(pitch.scene.items.first { $0.kind == "baton" })
+    let shadow = V3(piece.x + 0.55 * piece.z, piece.y - 0.3 * piece.z, 0)
+    let reference = PitchProjection(size: CGSize(width: 400, height: 240), camera: pitch.camera)
+    let old = try #require(reference.project(shadow))
+    // Reconstruct the centred 16e screenshot that prompted this regression.
+    #expect(abs(old.x * 0.975 - 314.68) < 1)
+    #expect(abs((old.y - 120) * 0.975 + 422 - 686.16) < 1)
+    let center = try #require(pitch.scene.projection(size, pitch.camera).project(shadow))
+    var ground = pitch.scene
+    ground.items.removeAll { $0.kind == "baton" }
+    func raster(_ scene: PitchScene) -> CGContext {
+      let ctx = bitmap(390, 844)
+      ctx.translateBy(x: 0, y: 844)
+      ctx.scaleBy(x: 1, y: -1)
+      PitchRenderer.draw(in: ctx, size: size, camera: pitch.camera, scene: scene)
+      return ctx
+    }
+    let withBaton = raster(pitch.scene)
+    let without = raster(ground)
+    let a = withBaton.data!.assumingMemoryBound(to: UInt8.self)
+    let b = without.data!.assumingMemoryBound(to: UInt8.self)
+    var shadowPixels = 0
+    for y in 400..<844 {
+      for x in 0..<390 {
+        let i = (y * 390 + x) * 4
+        if a[i] == b[i] && a[i + 1] == b[i + 1] { continue }
+        shadowPixels += 1
+        try #require(hypot(Double(x) - center.x, Double(y) - center.y) < 60)
+      }
+    }
+    #expect(shadowPixels > 20)
   }
 
   @Test func cancellingAWindupLeavesTheDialReady() throws {

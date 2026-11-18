@@ -68,7 +68,7 @@ agrees. So:
 - **Starting the engine.** `Engine(appVersion:)` boots through
   `session/api`, then makes the host's calls before any match:
   `engineVersion` (it must equal `engine.json`'s), `useTune {name =
-  "pointer"}` (until the engine has a touch tune) and `setClient {label =
+  "pointer"}` (the iPhone dial) and `setClient {label =
   "ios <app version>"}`.
 - **The maths probe.** `Fixtures/math-probe.json` holds arguments where
   Apple's libm and musl's differ in the last bit, with the web's answers;
@@ -105,15 +105,23 @@ differ, 75 of 453 actions agree before each match's first difference, the
 same as kubb-engine measures with desktop Lua). It is not in CI because a
 new Apple libm could round these arguments musl's way.
 
-## Pitch renderer and practice
+## Pitch renderer, practice and solo
 
 `KubbRenderer` owns the pure Core Graphics picture, the shared projection for hit
-testing, and main-actor `PracticePitch`. Keep physics, cameras, slow motion and
+testing, and main-actor `PitchSession` (also exposed as `PracticePitch`). Keep physics, cameras, slow motion and
 verdicts in the tagged session. Read [docs/RENDER.md](docs/RENDER.md) before
 changing projection, recording interpolation, input or review fixtures. The app
 uses the pointer dial through `ThrowInput`. Compare all five snapshots and the
 independent practice throw locally with the usual Kit tests. The web checkout is
 read-only when generating review pictures. Keep synthetic scenes free of names.
+
+Read [docs/MATCH.md](docs/MATCH.md) before changing solo flow or persistence.
+The six option lists come from the pinned engine. Store the raw snapshot after
+each action, including a release before the throw has finished playing.
+The solo host uses the pointer dial. The simulator-only card and HUD tests
+use synthetic checkpoints and both iOS 26.2 review phones. Run
+`python3 tools/solo-snapshots.py <simulator-app>` locally. Review changes to
+both the 16e and Pro Max pictures before replacing either set.
 
 ## Rooms (headless)
 

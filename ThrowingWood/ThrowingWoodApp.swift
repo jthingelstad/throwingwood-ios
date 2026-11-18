@@ -4,7 +4,7 @@ import SwiftUI
 struct ThrowingWoodApp: App {
   var body: some Scene {
     WindowGroup {
-      PracticeView()
+      GameView()
     }
   }
 }

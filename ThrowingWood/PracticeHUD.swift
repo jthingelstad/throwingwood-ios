@@ -45,7 +45,7 @@ import UIKit
     (word as NSString).draw(in: rect, withAttributes: attributes)
   }
 
-  func dial(_ d: DialState, at c: CGPoint, radius r: Double, playing: Bool) {
+  func dial(_ d: DialState, at c: CGPoint, radius r: Double, showHint: Bool) {
     context.saveGState()
     defer { context.restoreGState() }
     context.setLineCap(.round)
@@ -89,14 +89,18 @@ import UIKit
     disk(c, r * 0.07, ink)
     disk(knob, r * 0.145, ink)
     disk(knob, r * 0.115, UIColor(red: 0.95, green: 0.89, blue: 0.75, alpha: 1))
-    if !playing, let prompt = d.prompt {
+    if let prompt = d.prompt {
       text(prompt, at: CGPoint(x: c.x, y: c.y - r - 20), size: 20, color: ink, plate: true)
     }
-    if !playing {
+    if showHint {
       text(
         "Drag target to aim · Circle dial to throw", at: CGPoint(x: c.x, y: c.y + r + 24), size: 16,
         color: ink, plate: true)
     }
+  }
+
+  func endLabel(_ which: Int, at p: CGPoint) {
+    text(String(which), at: CGPoint(x: p.x, y: p.y + 26), size: 16, color: ink, plate: true)
   }
 
   func burst(_ b: HitBurst, at anchor: CGPoint) {
