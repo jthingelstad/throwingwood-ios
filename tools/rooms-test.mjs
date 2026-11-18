@@ -444,6 +444,66 @@ try {
       async () => (await state(card)).card === card,
       "version card " + card,
     );
+    const watcherRef = await Engine.create({ sources, client: "web test" });
+    engines.push(watcherRef);
+    const r = (method, args) => watcherRef.call("room." + method, args).value;
+    const lineup = r("lineup", { doc: host.doc, members: host.members });
+    const setup = r("matchOptions", {
+      doc: host.doc,
+      lineup,
+      seed: 99,
+      start: stamp,
+    });
+    watcherRef.newMatch(setup);
+    // Reproduce an already-running pitch with a different version stamp.
+    await host.update((doc) => {
+      const next = r("startMatch", {
+        doc,
+        snap: watcherRef.snapshot(),
+        hash: watcherRef.hash().hash,
+        setup,
+        players: lineup.players,
+        cpu: lineup.cpu,
+        host: host.you,
+        members: host.members,
+      });
+      next.match.engine = version;
+      return next;
+    });
+    await until(
+      async () => (await state(card)).display === "match",
+      "version in play",
+    );
+    assert.equal((await state(card)).mayAct, false);
+    assert.equal((await state(card)).card, card);
+    const action = { type: "resign", side: "A" };
+    watcherRef.apply(action);
+    await host.update(
+      (doc) =>
+        r("commitAction", {
+          doc,
+          n: 1,
+          seq: 1,
+          action,
+          snap: watcherRef.snapshot(),
+          hash: watcherRef.hash().hash,
+          over: true,
+        }),
+      {
+        with: r("rider", {
+          n: 1,
+          seq: 1,
+          action,
+          client: "web",
+          engine: version,
+        }),
+      },
+    );
+    await until(
+      async () => (await state(card)).displayHash === watcherRef.hash().hash,
+      "read-only version watch",
+    );
+    assert.equal((await state(card)).mayAct, false);
     await rpc({ op: "close", key: card });
     host.close();
   }
@@ -628,6 +688,11 @@ try {
       start,
       "native START document equals web reducer output",
     );
+    if (index === 0) {
+      await connect("sleepingWatcher", code, "Sleeping_Watcher", true, false);
+      assert.equal((await state("sleepingWatcher")).mayAct, false);
+      await rpc({ op: "background", key: "sleepingWatcher" });
+    }
     const casts = [];
     browser.on("cast", ({ d }) => casts.push(d));
     let inboundAim = false;
@@ -757,6 +822,14 @@ try {
         "screen hash " + actions,
       );
       assert.equal(native.displayCorrections, 0);
+      if (actions === 2 && index === 0) {
+        await rpc({ op: "foreground", key: "sleepingWatcher" });
+        const watcher = await state("sleepingWatcher");
+        assert.equal(watcher.seq, actions);
+        assert.equal(watcher.displayHash, native.hash);
+        assert.equal(watcher.mayAct, false);
+        await rpc({ op: "close", key: "sleepingWatcher" });
+      }
       if (actions === 2) {
         await rpc({ op: "report", key });
         const captured = JSON.parse(latestReport.report);
