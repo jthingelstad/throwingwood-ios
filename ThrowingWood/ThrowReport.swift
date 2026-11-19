@@ -102,7 +102,11 @@ struct ReportCard: View {
             Button("CANCEL", action: close).disabled(sending)
           }.buttonStyle(WoodButton())
         }
-      }.modifier(Plate()).padding(16)
+      }.modifier(Plate())
+        // an iPad's: the web's .report, min(560px, 100%), centred; a phone keeps
+        // its whole width, as before
+        .frame(maxWidth: UIDevice.current.userInterfaceIdiom == .pad ? 560 : .infinity)
+        .padding(16).frame(maxWidth: .infinity)
     }.scrollDismissesKeyboard(.interactively)
   }
 
