@@ -35,7 +35,7 @@ struct FitOrScroll: ViewModifier {
   func body(content: Content) -> some View {
     ViewThatFits(in: .vertical) {
       content
-      ScrollView { content }.scrollBounceBehavior(.basedOnSize)
+      ScrollView { content }.scrollBounceBehavior(.basedOnSize).defaultScrollAnchor(.top)
     }
   }
 }

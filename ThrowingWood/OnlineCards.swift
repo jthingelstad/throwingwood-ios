@@ -32,37 +32,37 @@ extension GameModel {
 struct OnlineCards: View {
   @Bindable var model: GameModel
   var body: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 12) {
-        switch model.screen {
-        case .onlineEntry:
-          Text("Play online").font(displayFont(42))
-          Button("START A PITCH") { model.enter(.fresh(), create: true) }.buttonStyle(
-            WoodButton(accent: true))
-          Button("JOIN A PITCH") {
-            model.joinInput = ""
-            model.screen = .join
-          }.buttonStyle(WoodButton())
-        case .join:
-          Text("Join a pitch").font(displayFont(42))
-          TextField("Pitch link or code", text: $model.joinInput)
-            .textFieldStyle(.roundedBorder).textInputAutocapitalization(.never)
-            .autocorrectionDisabled().submitLabel(.go).onSubmit { model.join(model.joinInput) }
-          Button("JOIN") { model.join(model.joinInput) }.buttonStyle(WoodButton(accent: true))
-            .disabled(model.joinInput.isEmpty)
-        case .invalidLink: connection(.notFound)
-        default:
-          if let online = model.online {
-            if online.stage == .lobby {
-              LobbyCard(model: model, online: online)
-            } else {
-              connection(online.stage)
-            }
+    VStack(alignment: .leading, spacing: 12) {
+      switch model.screen {
+      case .onlineEntry:
+        Text("Play online").font(displayFont(42))
+        Button("START A PITCH") { model.enter(.fresh(), create: true) }.buttonStyle(
+          WoodButton(accent: true))
+        Button("JOIN A PITCH") {
+          model.joinInput = ""
+          model.screen = .join
+        }.buttonStyle(WoodButton())
+      case .join:
+        Text("Join a pitch").font(displayFont(42))
+        TextField("Pitch link or code", text: $model.joinInput)
+          .textFieldStyle(.roundedBorder).textInputAutocapitalization(.never)
+          .autocorrectionDisabled().submitLabel(.go).onSubmit { model.join(model.joinInput) }
+        Button("JOIN") { model.join(model.joinInput) }.buttonStyle(WoodButton(accent: true))
+          .disabled(model.joinInput.isEmpty)
+      case .invalidLink: connection(.notFound)
+      default:
+        if let online = model.online {
+          if online.stage == .lobby {
+            LobbyCard(model: model, online: online)
+          } else {
+            connection(online.stage)
           }
         }
-        Button("HOME", action: model.home).font(.headline).padding(.vertical, 5)
-      }.frame(maxWidth: 400, alignment: .leading).modifier(Plate()).padding(16)
-    }.scrollBounceBehavior(.basedOnSize).defaultScrollAnchor(.center, for: .alignment)
+      }
+      Button("HOME", action: model.home).font(.headline).padding(.vertical, 5)
+    }.frame(maxWidth: 400, alignment: .leading).modifier(Plate()).padding(16)
+      // centred when it fits; a lobby on a phone on its side scrolls from its title
+      .frame(maxWidth: .infinity, maxHeight: .infinity).modifier(FitOrScroll())
   }
   @ViewBuilder private func connection(_ stage: OnlinePitch.Stage) -> some View {
     switch stage {
@@ -246,6 +246,7 @@ struct OnlineMenu: View {
       ReportButton(model: model)
       Button("BACK TO MATCH") { model.screen = .match }
       Button("HOME", action: model.home)
-    }.buttonStyle(WoodButton()).modifier(Plate()).frame(maxWidth: .infinity, maxHeight: .infinity)
+    }.buttonStyle(WoodButton()).modifier(Plate()).padding(18)
+      .frame(maxWidth: .infinity, maxHeight: .infinity).modifier(FitOrScroll())
   }
 }
