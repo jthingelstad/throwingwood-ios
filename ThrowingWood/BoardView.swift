@@ -88,6 +88,10 @@ import UIKit
     display?.invalidate()
     display = nil
     previous = nil
+    // time away (the menu, the app in the background) is not time spent stuck
+    nudgeWake?.invalidate()
+    nudgeWake = nil
+    nudgeClock = nil
     cancel()
     pitch.cancelSlide()
   }
@@ -171,6 +175,12 @@ import UIKit
         sampleDial(q)
         if pendingLift { pitch.sample(nil) }
         pendingLift = false
+      }
+      if gesture == .dial, nudgeEnd == nil, pitch.playing {
+        // the engine let go with the finger still down (a stop on the mark, or the
+        // sky angle): that is a throw too, and the lift that follows is no press
+        nudgeEnd = 0
+        gesture = nil
       }
       if let n = nudgeEnd, pendingDial == nil {
         // the press has ended: a throw if the engine has one in flight within a few frames
