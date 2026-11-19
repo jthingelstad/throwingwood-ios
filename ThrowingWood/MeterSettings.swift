@@ -34,8 +34,7 @@ struct MeterSettings: View {
     if card {
       // labelled as the menu's Raising is, the labels one width so the pickers line up
       VStack(alignment: .leading, spacing: 6) {
-        HStack {
-          Text("Meter").font(.subheadline.weight(.semibold)).frame(width: 72, alignment: .leading)
+        MenuRow("Meter") {
           Picker("Meter", selection: $meter.kind) {
             Text("Clock").tag(MeterKind.clock)
             Text("Linear").tag(MeterKind.linear)
@@ -43,12 +42,11 @@ struct MeterSettings: View {
         }
         if meter.kind == .linear {
           // Jamie, 2026-11-19: "Left and right handed folks may want it on one side or the other"
-          HStack {
-            Text("Side").font(.subheadline.weight(.semibold)).frame(width: 72, alignment: .leading)
-            Picker("Side", selection: $meter.side) {
+          MenuRow("Meter side") {
+            Picker("Meter side", selection: $meter.side) {
               Text("Left").tag(MeterSide.left)
               Text("Right").tag(MeterSide.right)
-            }.pickerStyle(.segmented).accessibilityLabel("Side")
+            }.pickerStyle(.segmented).accessibilityLabel("Meter side")
           }
         }
       }
@@ -57,7 +55,7 @@ struct MeterSettings: View {
         Text("Clock").tag(MeterKind.clock)
         Text("Linear").tag(MeterKind.linear)
       }.pickerStyle(.menu)
-      Picker("Side", selection: $meter.side) {
+      Picker("Meter side", selection: $meter.side) {
         Text("Left").tag(MeterSide.left)
         Text("Right").tag(MeterSide.right)
       }.pickerStyle(.menu).disabled(meter.kind != .linear)
