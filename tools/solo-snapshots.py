@@ -11,7 +11,8 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 MODES = {
     "home": None, "options": None, "menu": "aim", "verdict": "aim", "handoff": "aim", "aim": "aim", "plan": "aim",
-    "flight": "aim", "raise": "raise", "punish": "punish", "computer": "computer",
+    "arc": "aim", "tilt": "aim", "flight": "aim", "raise": "raise", "raisemany": "raise-many",
+    "raiseauto": "raise-many", "raiserest": "raise-many", "punish": "punish", "computer": "computer",
     "winner": "over", "sheet": "over",
 }
 APP = "com.throwingwood.app"
