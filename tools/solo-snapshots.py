@@ -15,6 +15,21 @@ MODES = {
     "raiseauto": "raise-many", "raiserest": "raise-many", "punish": "punish", "computer": "computer",
     "winner": "over", "sheet": "over",
 }
+# The match with the linear meter (and the nudge) beside the plan's sliders:
+# name: (MATCH_REVIEW mode, fixture, meter, side). The meter is a launch
+# argument, never saved; every other shot runs with the clock.
+METER_SHOTS = {
+    "linear-right-aim": ("aim", "aim", "linear", "right"),
+    "linear-right-arc": ("arc", "aim", "linear", "right"),
+    "linear-right-tilt": ("tilt", "aim", "linear", "right"),
+    "linear-left-aim": ("aim", "aim", "linear", "left"),
+    "linear-left-arc": ("arc", "aim", "linear", "left"),
+    "linear-left-tilt": ("tilt", "aim", "linear", "left"),
+    "linear-right-nudge": ("nudge", "aim", "linear", "right"),
+    "linear-left-nudge": ("nudge", "aim", "linear", "left"),
+    "clock-nudge": ("nudge", "aim", "clock", "right"),
+}
+SHOTS = {**{m: (m, f, "clock", "right") for m, f in MODES.items()}, **METER_SHOTS}
 APP = "com.throwingwood.app"
 
 
@@ -38,13 +53,14 @@ def capture(phone, args):
         tmp = Path(sim("get_app_container", udid, APP, "data", capture_output=True,
                        text=True).stdout.strip()) / "tmp"
         prefix = phone.lower().replace(" ", "-")
-        for mode, fixture in MODES.items():
+        for shot, (mode, fixture, meter, side) in SHOTS.items():
             ready = tmp / "review-ready"
             ready.unlink(missing_ok=True)
             if fixture:
                 src = ROOT / "ThrowingWoodKit/Tests/KubbRendererTests/Fixtures/solo" / (fixture + ".json")
                 shutil.copyfile(src, tmp / "review-solo.json")
             sim("launch", "--terminate-running-process", udid, APP,
+                "-pitch.meter", meter, "-pitch.meterSide", side,
                 env={**os.environ, "SIMCTL_CHILD_MATCH_REVIEW": mode}, stdout=subprocess.DEVNULL)
             deadline = time.monotonic() + 30
             while not ready.exists() or ready.read_text() != mode:
@@ -52,9 +68,9 @@ def capture(phone, args):
                     raise RuntimeError(f"{phone} did not reach {mode}")
                 time.sleep(0.1)
             time.sleep(0.7)  # allow the launch transition and SwiftUI transaction to finish
-            file = args.out / f"{prefix}-{mode}.png"
+            file = args.out / f"{prefix}-{shot}.png"
             sim("io", udid, "screenshot", str(file), capture_output=True)
-            print(f"{phone} {mode}", flush=True)
+            print(f"{phone} {shot}", flush=True)
     finally:
         sim("status_bar", udid, "clear")
         subprocess.run(["xcrun", "simctl", "terminate", udid, APP], capture_output=True)
@@ -75,4 +91,4 @@ if __name__ == "__main__":
     if not args.capture_only:
         subprocess.run(["swift", str(ROOT / "tools/check-snapshots.swift"), str(ROOT / "docs/review"),
                         str(args.out), *[f"{p.lower().replace(' ', '-')}-{m}.png"
-                                       for p in phones for m in MODES]], check=True)
+                                       for p in phones for m in SHOTS]], check=True)
