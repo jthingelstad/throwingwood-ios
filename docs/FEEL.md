@@ -10,7 +10,7 @@ silent switch. [Apple's ambient audio category](https://developer.apple.com/docu
 
 An input frame can deliver several ordered band edges, including both edges of a
 band. Only local human input goes through `ThrowInput.feedback`. Aiming,
-walking, cancelling, remote aim casts and the computer's wind-up stay quiet.
+standing, cancelling, remote aim casts and the computer's wind-up stay quiet.
 Once the baton leaves, recording cues are delivered on the first displayed
 `showAt(t)` frame that reaches their engine timestamp. This includes slow
 motion. A spectator's cues follow the visible pitch even when the next network

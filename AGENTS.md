@@ -115,6 +115,8 @@ independent practice throw locally with the usual Kit tests. The web checkout is
 read-only when generating review pictures. Keep synthetic scenes free of names.
 
 Read [docs/MATCH.md](docs/MATCH.md) before changing solo flow or persistence.
+Where the thrower stands is STAND, a plate in the plan (`StandPad.swift`, the
+web's stand-pad.js numbers and words); WALK, the Playdate's held A, is gone.
 A raise is a touch on the kubb (`RaiseTouch.swift`, the web's raise-touch.js
 numbers), and Raising (by hand or automatic) is the match's choice, never a
 device setting. SEND FEEDBACK sends a throw report (`kind: "throw"`) or
