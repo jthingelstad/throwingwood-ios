@@ -124,7 +124,9 @@ struct SheetCard: View {
         Button("SAVE") { exporting = true }.buttonStyle(WoodButton())
         Button("BACK", action: done).buttonStyle(WoodButton(accent: true))
       }
-    }.modifier(Plate()).padding(16)
+    }.modifier(Plate())
+      // the web's .sheet, min(640px, 100%): a phone keeps its whole width
+      .frame(maxWidth: 640).padding(16)
       .fileExporter(
         isPresented: $exporting, document: NotationFile(sheet.text),
         contentType: .plainText, defaultFilename: sheet.name
@@ -388,7 +390,8 @@ struct MatchScreen: View {
 
   @ViewBuilder private func bottom(_ n: MatchNeed) -> some View {
     if (n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput {
-      placement(n)
+      // the web's .panel, min(520px, 100% - 24px), centred: an iPad's is not a strip
+      placement(n).frame(maxWidth: 520)
     } else if !playing && pitch.canAim {
       plans.padding(meterRoom.edge, meterRoom.width)
     } else if playing {

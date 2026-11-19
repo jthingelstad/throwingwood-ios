@@ -100,6 +100,8 @@ struct GameView: View {
       .environment(\.meterRoom, meterRoom(geometry))
       .environment(\.screenGeometry, screen(geometry))
     }
+    // clear of an iPad window's controls (WindowControls.swift)
+    .background(WindowControlsRoom().ignoresSafeArea())
     #if targetEnvironment(simulator)
       .modifier(OnlineReview(model: model))
     #endif
