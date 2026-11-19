@@ -231,10 +231,11 @@ import UIKit
   private func stepNudge() {
     let now = CACurrentMediaTime()
     let eligible = nudgeEligible
-    // Only time that began eligible counts. The link may have slept through an
-    // interval the nudge had no business in (the side view open): the first step
-    // after it would otherwise hand all of that to the trigger as time stuck.
-    let dt = nudgeWasEligible && eligible ? nudgeClock.map { now - $0 } ?? 0 : 0
+    // The trigger counts time only while eligible, and fades the ghost out on
+    // the time it is given while it is not. The link may have slept through an
+    // interval the nudge had no business in (the side view open): the first
+    // eligible step after it would otherwise count all of that as time stuck.
+    let dt = eligible && !nudgeWasEligible ? 0 : nudgeClock.map { now - $0 } ?? 0
     nudgeClock = now
     nudgeWasEligible = eligible
     // a held slider (SIDE VIEW) is input, and keeps the nudge off the meter
