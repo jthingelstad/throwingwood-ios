@@ -75,6 +75,7 @@ struct Aim: Decodable {
   let plan: Plan?, mix: Double?, projectile: String?
   let marker, thrower: GroundMark?
   let arc: [WorldPoint]?, advY: Double?
+  let lineY, forwardY, halfWidth, backMax: Double?
 }
 struct AimOutput: Decodable {
   let aim: Aim, camera: Camera
@@ -115,7 +116,7 @@ public final class PitchSession {
   public let options: SoloOptions
   public internal(set) var need: MatchNeed?, handoff: MatchNeed.Handoff?, placement: PlacementCheck?
   public internal(set) var revision = 0
-  public internal(set) var plan = false, walking = false
+  public internal(set) var plan = false
   public private(set) var arcDegrees: Int?, sideStep: Int?
   /// The planned release on the clock (degrees) and the side in the engine's steps.
   public private(set) var release: Double?, sideSteps = 0, projectile: String?
@@ -123,6 +124,10 @@ public final class PitchSession {
   public internal(set) var held: PlanSlider?, heldFraction: Double?
   var pendingSlide: (PlanSlider, Double)?
   var peekLeft = 0.0
+  /// STAND held (StandPad.swift), and its caption's second after it is let go.
+  var standDrag: StandDrag?
+  var standPeekLeft = 0.0
+  public internal(set) var standAim = StandAim()
   var autoRaise = AutoRaise()
   /// The raise screen's touch (RaiseTouch.swift): the kubb being tipped up, the end lit
   /// past half way, and the allowed end lit (for `left` seconds) after a refused one.
@@ -143,7 +148,6 @@ public final class PitchSession {
       && (need == nil || (need?.kind == "throw" && need?.cpu == false))
   }
   public private(set) var windText: String?, advantageText: String?, slow = false
-  var walkAxis = CGPoint.zero
   var levelOverride: String?
   public var playing: Bool { playback != nil }
 
@@ -178,6 +182,9 @@ public final class PitchSession {
     sideStep = a.projectile == "kubb" ? a.plan?.spin : a.plan?.tilt
     release = a.plan?.release
     projectile = a.projectile
+    standAim = StandAim(
+      projectile: a.projectile, lineY: a.lineY ?? 0, forwardY: a.forwardY,
+      halfWidth: a.halfWidth ?? 2.5, backMax: a.backMax ?? 3)
     sideSteps = PlanScale.steps(of: sideStep ?? 0, kubb: a.projectile == "kubb")
     scene.advantageY = a.advY
     scene.marker = a.marker
@@ -228,11 +235,10 @@ public final class PitchSession {
     result = nil
     bursts = []
     plan = false
-    walking = false
     endSlide()
+    endStand()
     mix = 0
     slow = false
-    walkAxis = .zero
     levelOverride = nil
     handoff = nil
     placement = nil
@@ -275,7 +281,6 @@ public final class PitchSession {
 
   func resetContact() {
     input.reset()
-    walkAxis = .zero
   }
 
   public func cancelInput() throws {
@@ -296,7 +301,15 @@ public final class PitchSession {
       return true
     }
     var changed = try applySlide()
+    if try applyStand() { changed = true }
     if held == nil && peekLeft > 0 { peekLeft = max(0, peekLeft - dt) }
+    if standDrag == nil && standPeekLeft > 0 {
+      standPeekLeft = max(0, standPeekLeft - dt)
+      if standPeekLeft == 0 {
+        revision += 1
+        changed = true
+      }
+    }
     if try raiseHintTick(dt) { changed = true }
     if try autoRaiseTick(dt) { return true }
     if result != nil {
@@ -311,9 +324,7 @@ public final class PitchSession {
     let args: String
     var inputFrame = false
     let side = showsSide
-    if walking && walkAxis != .zero {
-      args = #"{"dt":\#(dt),"plan":\#(side),"walk":{"dx":\#(walkAxis.x),"dy":\#(walkAxis.y)}}"#
-    } else if !side, let sample = input.frame(after: dt) {
+    if !side, let sample = input.frame(after: dt) {
       args = sample
       inputFrame = canAim
     } else if (side && mix < 1) || (!side && mix > 0) || need?.cpu == true {
@@ -343,10 +354,9 @@ public final class PitchSession {
   /// `local`: the throw was made on this device (its verdicts are the player's).
   func beginPlayback(_ recording: Recording, local: Bool = false) throws {
     playbackLocal = local
-    walkAxis = .zero
-    walking = false
     plan = false
     endSlide()
+    endStand()
     input.reset()
     playback = Playback(recording)
     result = nil
