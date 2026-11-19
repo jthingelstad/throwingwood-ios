@@ -41,6 +41,7 @@ extension PitchSession {
     let view: ViewOutput = try read(method, json)
     _ = try engine.call("setControl", json: #"{"sides":["A"],"cpu":true}"#)
     resetPresentation()
+    autoRaise = AutoRaise()
     trail = ReportTrail(snapshot: try engine.call("snapshot"))
     self.save = save
     need = view.need
@@ -120,13 +121,6 @@ extension PitchSession {
     }
   }
 
-  public func endLabels(in size: CGSize) -> [(Int, CGPoint)] {
-    let p = scene.projection(size, camera)
-    return (need?.ends ?? []).compactMap { e in
-      p.project(V3(e.pose.x, e.pose.y, 0)).map { (e.which, $0) }
-    }
-  }
-
   public func stancePoint(in size: CGSize) -> CGPoint? {
     scene.thrower.flatMap { scene.projection(size, camera).project($0.point) }
   }
@@ -145,22 +139,13 @@ extension PitchSession {
   @discardableResult public func raise(end: Int? = nil) throws -> Bool {
     guard acceptsInput, need?.kind == "raise" else { return false }
     if let end {
-      guard need?.ends?.contains(where: { $0.which == end && $0.ok == true }) == true,
+      guard need?.ends?.contains(where: { $0.which == end && $0.ok != false }) == true,
         let index = need?.choices?.firstIndex(where: { $0.which == end })
       else { return false }
       return try applyPlacement(#"{"type":"raise","choice":\#(index+1)}"#)
     } else {
       return try applyPlacement(#"{"type":"raise"}"#)
     }
-  }
-
-  public func raise(at point: CGPoint, size: CGSize) throws {
-    let projection = scene.projection(size, camera)
-    let hits = (need?.ends ?? []).compactMap { end -> (Int, Double)? in
-      guard let p = projection.project(V3(end.pose.x, end.pose.y, 0)) else { return nil }
-      return (end.which, p.distance(to: point))
-    }
-    if let hit = hits.min(by: { $0.1 < $1.1 }), hit.1 <= 44 { try raise(end: hit.0) }
   }
 
   public func movePunishment(to point: CGPoint, size: CGSize) throws {

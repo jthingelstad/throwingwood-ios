@@ -92,9 +92,10 @@ extension PitchSession {
   public var showsSide: Bool { plan || held != nil || peekLeft > 0 }
 
   /// True while the display must keep ticking with nothing else moving: a slider
-  /// held or easing out of its peek, or an automatic raise waiting its turn.
+  /// held or easing out of its peek, an automatic raise waiting its turn, or a raise's
+  /// allowed end lit for its second.
   public var wantsFrames: Bool {
-    held != nil || peekLeft > 0 || pendingSlide != nil || autoRaise.waiting
+    held != nil || peekLeft > 0 || pendingSlide != nil || autoRaise.waiting || raiseHint != nil
   }
 
   /// A kubb is in the hand (SPIN), not a baton (TILT).

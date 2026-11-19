@@ -38,13 +38,12 @@ import Observation
   var sheet: ScoreSheet?
   var selections = [String: String]()
   var name = "You"
-  /// The menu's Raising (Jamie, 2026-11-19): every kubb of this device's raised
-  /// by the engine's choice, for this match and later ones.
-  var raiseAutomatically = UserDefaults.standard.string(forKey: "raise") == "auto" {
-    didSet {
-      UserDefaults.standard.set(raiseAutomatically ? "auto" : "hand", forKey: "raise")
-      offline?.raiseAutomatically = raiseAutomatically
-      online?.board.raiseAutomatically = raiseAutomatically
+  /// The menu's Raising (Jamie, 2026-11-19): every kubb of this device's raised by the
+  /// engine's choice for the rest of this match (AutoRaise). Not kept on the device.
+  var raiseAutomatically: Bool {
+    get { pitch?.raiseAutomatically ?? false }
+    set {
+      pitch?.raiseAutomatically = newValue
       refresh()
     }
   }
@@ -63,7 +62,6 @@ import Observation
     defer { feedback.onPitch = screen.usesFeedback }
     guard let pitch = offline else { return }
     feedback.attach(pitch)
-    pitch.raiseAutomatically = raiseAutomatically
     let defaults = UserDefaults.standard
     selections = pitch.options.defaults
     for row in pitch.options.rows {
@@ -139,7 +137,6 @@ import Observation
       if online != nil { leaveOnline() }
       feedback.silence()
       feedback.attach(pitch.board)
-      pitch.board.raiseAutomatically = raiseAutomatically
       online = pitch
       screen = .pitch
       pitch.changed = { [weak self, weak pitch] in
@@ -227,9 +224,8 @@ import Observation
       }
     }
   }
-  /// BY HAND on the raise card: the setting off, and AUTO ALL ended.
+  /// BY HAND on the raise panel: back to choosing the ends.
   func raiseByHand() {
-    if raiseAutomatically { raiseAutomatically = false }
     pitch?.raiseByHand()
     refresh()
   }

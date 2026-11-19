@@ -295,19 +295,32 @@ struct MatchScreen: View {
       if n.kind == "raise" && (pitch.raiseAutomatically || pitch.raisingRest) {
         Text(
           pitch.raiseAutomatically
-            ? "Raising automatically (menu, Raising)." : "Raising the rest automatically."
+            ? "Raising automatically for the rest of the game." : "Raising the rest automatically."
         ).font(.subheadline)
-        Button("BY HAND") { model.raiseByHand() }.buttonStyle(WoodButton())
-          .accessibilityHint("Choose the end for each kubb again")
-      } else if n.kind == "raise" {
-        Text("Tap the end to stand it on. The menu's Raising does it for you.").font(
-          .subheadline)
         HStack(spacing: 6) {
-          ForEach(n.ends ?? [], id: \.which) { e in
-            Button("END \(e.which)") { model.perform { try pitch.raise(end: e.which) } }
-              .disabled(e.ok != true).opacity(e.ok == true ? 1 : 0.45).accessibilityHint(
-                e.why ?? "")
+          Button("BY HAND") { model.raiseByHand() }
+            .accessibilityHint("Choose the end for each kubb again")
+          if !pitch.raiseAutomatically {
+            Button("REST OF GAME") { model.raiseAutomatically = true }
+              .accessibilityHint("Raise every kubb automatically for the rest of this match")
           }
+        }.buttonStyle(WoodButton())
+      } else if n.kind == "raise" {
+        // The kubb on the pitch is the control (RaiseTouch): END 1 and END 2 stay for
+        // VoiceOver only, as actions on this text, which names the end on each side.
+        let ends = pitch.raiseEndNames()
+        Text(
+          "Touch the kubb or drag it to the end to stand it on. The menu's Raising does it for the rest of the game."
+        ).font(.subheadline)
+          .accessibilityLabel(
+            "A kubb lying, to be stood up: \(ends.map(\.name).joined(separator: ", ")). Tap the kubb nearer the end to stand it on, or use the actions."
+          )
+          .accessibilityActions {
+            ForEach(ends.filter(\.ok), id: \.index) { e in
+              Button("Stand it on \(e.name)") { model.perform { try pitch.raise(end: e.which) } }
+            }
+          }
+        HStack(spacing: 6) {
           Button("AUTO") { model.perform { try pitch.raise() } }
             .accessibilityHint("Stand this kubb on the end the game chooses")
           if (n.n ?? 1) < (n.of ?? 1) {
@@ -392,16 +405,20 @@ struct MatchScreen: View {
   }
 }
 
-/// The menu's Raising: By hand or Automatic, kept on this device.
+/// The menu's Raising: By hand or Automatic, for the rest of this match. Shown once this
+/// device has been asked to raise in the match (the web's menu-raise): a match whose own
+/// Raising option is Automatic never asks.
 struct RaisingSetting: View {
   @Bindable var model: GameModel
   var body: some View {
-    HStack {
-      Text("Raising").font(.subheadline.weight(.semibold)).frame(width: 72, alignment: .leading)
-      Picker("Raising", selection: $model.raiseAutomatically) {
-        Text("By hand").tag(false)
-        Text("Automatic").tag(true)
-      }.pickerStyle(.segmented)
+    if model.pitch?.raiseSeen == true {
+      HStack {
+        Text("Raising").font(.subheadline.weight(.semibold)).frame(width: 72, alignment: .leading)
+        Picker("Raising", selection: $model.raiseAutomatically) {
+          Text("By hand").tag(false)
+          Text("Automatic").tag(true)
+        }.pickerStyle(.segmented)
+      }
     }
   }
 }
