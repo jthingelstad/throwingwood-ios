@@ -177,6 +177,9 @@ extension PitchSession {
     guard canAim else { return false }
     let g = d.span.ground(fx: d.fx, fy: d.fy)
     try replan("setStance", #"{"x":\#(g.x),"y":\#(g.y)}"#)
+    // the plate's ring and caption read the thrower: a stance alone changes no
+    // arc, tilt or release, so replan leaves the revision where it was
+    revision += 1
     return true
   }
 }

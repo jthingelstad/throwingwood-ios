@@ -69,7 +69,11 @@ import Testing
     let before = try #require(app.scene.thrower)
     app.stand(fx: 0.1, fy: 0.95, phase: .move)
     #expect(try #require(app.scene.thrower).x == before.x)
+    // the frame that moves the thrower tells the controls: a finger held still
+    // sends no more events, and the ring must not wait for one
+    let drawn = app.revision
     try app.tick(1.0 / 60)
+    #expect(app.revision > drawn)
     let want = span.ground(fx: 0.1, fy: 0.95)
     let t = try #require(app.scene.thrower)
     #expect(abs(t.x - want.x) < 1e-6 && abs(t.y - want.y) < 1e-6)
