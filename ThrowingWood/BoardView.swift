@@ -23,7 +23,7 @@ import UIKit
   private var nudge = NudgeTrigger(thrown: UserDefaults.standard.integer(forKey: "pitch.throwsMade"))
   private var nudgeClock: CFTimeInterval?
   private var nudgeShow = (show: false, t: 0.0, alpha: 0.0)
-  private var nudgeAim = false, nudgeEnd: Int?
+  private var nudgeAim = false, nudgeWasEligible = false, nudgeEnd: Int?
   private var nudgeWake: Timer?
   #if targetEnvironment(simulator)
     private var reviewNudge: Double?
@@ -92,6 +92,7 @@ import UIKit
     nudgeWake?.invalidate()
     nudgeWake = nil
     nudgeClock = nil
+    nudgeWasEligible = false
     cancel()
     pitch.cancelSlide()
   }
@@ -229,15 +230,20 @@ import UIKit
   /// Time passing for the nudge, on the wall clock (the display link sleeps).
   private func stepNudge() {
     let now = CACurrentMediaTime()
-    let dt = nudgeClock.map { now - $0 } ?? 0
+    let eligible = nudgeEligible
+    // Only time that began eligible counts. The link may have slept through an
+    // interval the nudge had no business in (the side view open): the first step
+    // after it would otherwise hand all of that to the trigger as time stuck.
+    let dt = nudgeWasEligible && eligible ? nudgeClock.map { now - $0 } ?? 0 : 0
     nudgeClock = now
+    nudgeWasEligible = eligible
     // a held slider (SIDE VIEW) is input, and keeps the nudge off the meter
     if pitch.held != nil { nudge.input() }
     let aim = nudgeAimWanted
     if aim && !nudgeAim { nudge.aimBegan() }
     nudgeAim = aim
     let was = nudgeShow
-    nudgeShow = nudge.step(dt, eligible: nudgeEligible)
+    nudgeShow = nudge.step(dt, eligible: eligible)
     if nudgeShow.show || was.show { setNeedsDisplay() }
   }
 
