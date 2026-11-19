@@ -239,7 +239,7 @@ struct OnlineMenu: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Pitch menu").font(displayFont(36))
-      FeedbackSettings(feedback: model.feedback).fixedSize(horizontal: true, vertical: false)
+      FeedbackSettings(feedback: model.feedback, card: true).frame(maxWidth: 300)
       RaisingSetting(model: model).frame(maxWidth: 300)
       MeterSettings(meter: model.meter, card: true).frame(maxWidth: 300)
       Button("SCORE SHEET", action: model.showSheet)

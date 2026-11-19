@@ -151,9 +151,11 @@ struct MatchMenu: View {
     VStack(alignment: .leading, spacing: 14) {
       Text("Match menu").font(displayFont(36))
       if let row = pitch.options.rows.first(where: { $0.id == "level" }) {
-        Picker("Throw level", selection: $model.matchLevel) {
-          ForEach(row.choices, id: \.self) { c in Text(c[1]).tag(c[0]) }
-        }.pickerStyle(.segmented)
+        MenuRow("Your level") {
+          Picker("Your level", selection: $model.matchLevel) {
+            ForEach(row.choices, id: \.self) { c in Text(c[1]).tag(c[0]) }
+          }.pickerStyle(.segmented).accessibilityLabel("Your level")
+        }
       }
       Text(
         model.meter.kind == .linear
@@ -161,7 +163,7 @@ struct MatchMenu: View {
           : "Tap the pitch to aim, or drag anywhere to move the circle. Wind back on the left of the dial, flick through six and lift on the right."
       )
       .font(.subheadline)
-      FeedbackSettings(feedback: model.feedback)
+      FeedbackSettings(feedback: model.feedback, card: true)
       RaisingSetting(model: model)
       MeterSettings(meter: model.meter, card: true)
       ReportButton(model: model).buttonStyle(WoodButton())
@@ -414,8 +416,7 @@ struct RaisingSetting: View {
   @Bindable var model: GameModel
   var body: some View {
     if model.pitch?.raiseSeen == true {
-      HStack {
-        Text("Raising").font(.subheadline.weight(.semibold)).frame(width: 72, alignment: .leading)
+      MenuRow("Raising") {
         Picker("Raising", selection: $model.raiseAutomatically) {
           Text("By hand").tag(false)
           Text("Automatic").tag(true)

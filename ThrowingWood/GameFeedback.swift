@@ -72,10 +72,43 @@ import SwiftUI
   }
 }
 
+/// Sound and Haptics as rows that show their value, On or Off (the web's menu
+/// row, which was once a SOUND: ON button that read as its own state): segmented
+/// on a card, a picker in practice's menu.
 struct FeedbackSettings: View {
   @Bindable var feedback: GameFeedback
+  var card = false
   var body: some View {
-    Toggle("SOUND", isOn: $feedback.sound)
-    Toggle("HAPTICS", isOn: $feedback.haptics)
+    if card {
+      VStack(alignment: .leading, spacing: 6) {
+        MenuRow("Sound") { onOff("Sound", $feedback.sound).pickerStyle(.segmented) }
+        MenuRow("Haptics") { onOff("Haptics", $feedback.haptics).pickerStyle(.segmented) }
+      }
+    } else {
+      onOff("Sound", $feedback.sound).pickerStyle(.menu)
+      onOff("Haptics", $feedback.haptics).pickerStyle(.menu)
+    }
+  }
+  private func onOff(_ title: String, _ value: Binding<Bool>) -> some View {
+    Picker(title, selection: value) {
+      Text("On").tag(true)
+      Text("Off").tag(false)
+    }.accessibilityLabel(title)
+  }
+}
+
+/// A menu card's row: the label (one width, so the controls line up) and its control.
+struct MenuRow<Control: View>: View {
+  let label: String
+  @ViewBuilder let control: () -> Control
+  init(_ label: String, @ViewBuilder control: @escaping () -> Control) {
+    self.label = label
+    self.control = control
+  }
+  var body: some View {
+    HStack {
+      Text(label).font(.subheadline.weight(.semibold)).frame(width: 84, alignment: .leading)
+      control()
+    }
   }
 }

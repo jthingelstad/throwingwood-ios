@@ -150,18 +150,16 @@ struct GameView: View {
         Text("Practice pitch").font(displayFont(28))
         Spacer()
         Menu {
-          ForEach(Surface.allCases, id: \.self) { s in
-            Button {
-              model.perform { try model.pitch?.surface(s) }
-            } label: {
-              if s == model.surface {
-                Label(s.rawValue.capitalized, systemImage: "checkmark")
-              } else {
-                Text(s.rawValue.capitalized)
-              }
-            }
+          // each row says what it sets and shows its value (the web's menu)
+          Picker(
+            "Surface",
+            selection: Binding(
+              get: { model.surface },
+              set: { s in model.perform { try model.pitch?.surface(s) } })
+          ) {
+            ForEach(Surface.allCases, id: \.self) { s in Text(s.rawValue.capitalized).tag(s) }
           }
-          .disabled(model.playing)
+          .pickerStyle(.menu).disabled(model.playing)
           ReportButton(model: model)
           FeedbackSettings(feedback: model.feedback)
           MeterSettings(meter: model.meter)
