@@ -123,6 +123,9 @@ public final class PitchSession {
   /// The plan slider a finger holds, where it is (0...1), and the place not yet sent.
   public internal(set) var held: PlanSlider?, heldFraction: Double?
   var pendingSlide: (PlanSlider, Double)?
+  /// A slider let go by `cancelHeld` (the screen turned under the finger): the
+  /// rest of that drag is ignored until the finger lifts or presses again.
+  var slideLetGo = false
   var peekLeft = 0.0
   /// STAND held (StandPad.swift), and its caption's second after it is let go.
   var standDrag: StandDrag?

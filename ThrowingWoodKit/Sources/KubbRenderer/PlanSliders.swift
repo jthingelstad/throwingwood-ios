@@ -109,6 +109,14 @@ extension PitchSession {
       cancelSlide()
       return
     }
+    if slideLetGo {
+      // the drag `cancelHeld` let go: nothing more until a new press
+      guard phase == .down else {
+        if phase == .up { slideLetGo = false }
+        return
+      }
+      slideLetGo = false
+    }
     guard canAim || (phase == .up && held != nil) else { return }
     let f = PlanScale.clamp01(f)
     switch phase {
@@ -136,6 +144,15 @@ extension PitchSession {
     heldFraction = nil
     pendingSlide = nil
     revision += 1
+  }
+
+  /// The screen changed under the finger (it turned, or the plan moved): let go of
+  /// any slider and STAND without sending what the finger was doing, and ignore
+  /// the rest of that drag. The next press starts afresh.
+  public func cancelHeld() {
+    if held != nil { slideLetGo = true }
+    cancelSlide()
+    stand(fx: 0, fy: 0, phase: .cancel)
   }
 
   /// A step from VoiceOver's adjustable action.
