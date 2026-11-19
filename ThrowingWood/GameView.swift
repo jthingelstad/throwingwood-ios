@@ -117,29 +117,9 @@ struct GameView: View {
       HStack {
         Button(action: model.home) { Image(systemName: "house.fill").frame(width: 36, height: 36) }
           .accessibilityLabel("Home")
-        Text(model.trial?.exercise?.title ?? "Practice pitch").font(displayFont(28))
+        Text("Practice pitch").font(displayFont(28))
         Spacer()
         Menu {
-          Menu("Straight throw practice") {
-            ForEach(PracticeExercise.allCases, id: \.self) { exercise in
-              Button(exercise.title) { model.startExercise(exercise) }
-            }
-          }
-          if let pitch = model.trial, let exercise = pitch.exercise {
-            Button("Reset this shot") { model.startExercise(exercise) }
-            Menu("Throw plan") {
-              Button("Lower arc") { model.perform { try pitch.adjustPlan(arc: true, step: -1) } }
-              Button("Higher arc") { model.perform { try pitch.adjustPlan(arc: true, step: 1) } }
-              let axis = exercise == .pile ? "Spin" : "Tilt"
-              Button(axis + " left") {
-                model.perform { try pitch.adjustPlan(arc: false, step: -1) }
-              }
-              Button(axis + " right") {
-                model.perform { try pitch.adjustPlan(arc: false, step: 1) }
-              }
-              Button("Walk") { model.perform { try pitch.toggleWalk() } }
-            }
-          }
           ForEach(Surface.allCases, id: \.self) { s in
             Button {
               model.perform { try model.pitch?.surface(s) }
@@ -152,20 +132,13 @@ struct GameView: View {
             }
           }
           .disabled(model.playing)
-          if model.trial == nil { ReportButton(model: model) }
+          ReportButton(model: model)
           FeedbackSettings(feedback: model.feedback)
         } label: {
           Label("Menu", systemImage: "line.3.horizontal")
         }
       }.modifier(Plate(inset: 8))
-      if let result = model.result {
-        Verdict(result: result)
-      } else if let pitch = model.trial, let exercise = pitch.exercise, !model.playing {
-        Text(
-          "Arc \(pitch.arcDegrees ?? 0)°   ·   \(exercise == .pile ? "Spin" : "Tilt") \(pitch.sideStep ?? 0)"
-        )
-        .font(.caption.bold()).modifier(Plate(inset: 4)).allowsHitTesting(false)
-      }
+      if let result = model.result { Verdict(result: result) }
       Spacer()
     }.padding(.horizontal, 14)
   }

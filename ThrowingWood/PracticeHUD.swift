@@ -45,33 +45,6 @@ import UIKit
     (word as NSString).draw(in: rect, withAttributes: attributes)
   }
 
-  func stroke(_ dial: DialState, origin: CGPoint, length: CGFloat, offset: CGPoint?) {
-    let plate = CGRect(x: origin.x - 76, y: origin.y - 35, width: 152, height: length + 49)
-    paper.setFill()
-    context.fill(plate)
-    ink.setStroke()
-    context.setLineWidth(2)
-    context.stroke(plate)
-    text(
-      (offset != nil && dial.back >= (dial.powerLo ?? 180)) ? "PUSH THROUGH ↑" : "PULL TO BAND ↓",
-      at: CGPoint(x: origin.x, y: origin.y - 20), size: 16, color: ink)
-    let x = origin.x
-    let y = origin.y
-    line(origin, CGPoint(x: x, y: y + length), ink, 2)
-    let low = CGFloat(dial.powerLo ?? 0) / 180 * length
-    let high = CGFloat(dial.powerHi ?? 0) / 180 * length
-    context.setFillColor(UIColor.systemOrange.cgColor)
-    context.fill(CGRect(x: x - 61, y: y + low, width: 122, height: max(3, high - low)))
-    line(CGPoint(x: x - 61, y: y), CGPoint(x: x + 61, y: y), ink, 2)
-    line(CGPoint(x: x - length * 0.08, y: y), CGPoint(x: x + length * 0.08, y: y), ink, 6)
-    let grip = CGRect(
-      x: x + min(56, max(-56, offset?.x ?? 0)) - 17,
-      y: y + min(length, max(-6, offset?.y ?? 0)) - 5, width: 34, height: 10)
-    context.setFillColor(UIColor(red: 0.93, green: 0.83, blue: 0.63, alpha: 1).cgColor)
-    context.fill(grip)
-    context.stroke(grip)
-  }
-
   func dial(_ d: DialState, at c: CGPoint, radius r: Double, showHint: Bool) {
     context.saveGState()
     defer { context.restoreGState() }

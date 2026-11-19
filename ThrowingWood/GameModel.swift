@@ -15,8 +15,7 @@ import Observation
   }
   let feedback = GameFeedback()
   let offline: PitchSession?
-  var trial: PitchSession?
-  var pitch: PitchSession? { online?.board ?? trial ?? offline }
+  var pitch: PitchSession? { online?.board ?? offline }
   var online: OnlinePitch?
   var onlineRevision = 0
   var report: PitchReport?
@@ -65,12 +64,6 @@ import Observation
     name = defaults.string(forKey: "solo.name") ?? "You"
     perform {
       #if targetEnvironment(simulator)
-        if let name = ProcessInfo.processInfo.environment["PRACTICE_EXERCISE"],
-          let exercise = PracticeExercise(rawValue: name)
-        {
-          startExercise(exercise)
-          return
-        }
         if let mode = ProcessInfo.processInfo.environment["ONLINE_REVIEW"] {
           beginReview(mode)
           return
@@ -123,7 +116,6 @@ import Observation
     if revision != pitch.revision { revision = pitch.revision }
   }
   func enter(_ link: PitchLink, create: Bool) {
-    trial = nil
     perform {
       let defaults = UserDefaults.standard
       let pitch = try OnlinePitch(
@@ -172,19 +164,8 @@ import Observation
     report = nil
     Task { await online.leave() }
   }
-  func startExercise(_ exercise: PracticeExercise) {
-    perform {
-      let board = try PitchSession(appVersion: Self.version, exercise: exercise)
-      try board.surface(surface)
-      feedback.attach(board)
-      trial = board
-      screen = .practice
-    }
-  }
   func home() {
     feedback.silence()
-    trial = nil
-    if let offline { feedback.attach(offline) }
     if online != nil {
       leaveOnline()
       screen = .home

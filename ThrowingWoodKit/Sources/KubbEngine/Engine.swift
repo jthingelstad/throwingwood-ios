@@ -1,5 +1,4 @@
 import CLua
-import CryptoKit
 import Foundation
 
 /// A failed engine call. `call` is the engine's own refusal (`kubbCall`'s
@@ -51,28 +50,6 @@ public final class Engine {
   /// game files the engine writes (`[Scored by "Throwing Wood ios 0.1"]`).
   public convenience init(appVersion: String) throws {
     try self.init(directory: Self.bundled(), appVersion: appVersion)
-  }
-
-  /// The practice trial has its own tagged bundle so a shared pitch always opens
-  /// with the same regular engine as the web, even while the trial is installed.
-  public static func straightPractice(appVersion: String) throws -> Engine {
-    guard let dir = Bundle.module.url(forResource: "StraightPractice", withExtension: nil) else {
-      throw EngineError.missingSources("straight practice")
-    }
-    let data = try Data(contentsOf: dir.appending(path: "sources.json"))
-    let info = try Data(contentsOf: dir.appending(path: "engine.json"))
-    let manifest = try JSONDecoder().decode(EngineManifest.self, from: info)
-    struct Pin: Decodable {
-      struct BundleHash: Decodable { let sha256: String }
-      let bundle: BundleHash
-    }
-    let pin = try JSONDecoder().decode(Pin.self, from: info)
-    let hash = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-    guard manifest.version == "0.6.0", hash == pin.bundle.sha256 else {
-      throw EngineError.load("straight practice bundle differs from its release")
-    }
-    let sources = try JSONDecoder().decode([String: String].self, from: data)
-    return try Engine(sources: sources, manifest: manifest, appVersion: appVersion)
   }
 
   /// The label `setClient` gets: "ios" and the app's version.
