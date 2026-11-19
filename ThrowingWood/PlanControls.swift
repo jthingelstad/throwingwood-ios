@@ -51,12 +51,33 @@ private func knob(_ ctx: GraphicsContext, at p: CGPoint, radius r: CGFloat) {
   disk(r * 0.2, .woodInk)
 }
 
+extension View {
+  /// A drag that the system cancels (the app leaves the foreground, the controls
+  /// go away under the finger) never reaches `onEnded`: the gesture state
+  /// resetting, or the view going, with the drag still open is that cancel.
+  fileprivate func heldSliderCancels(
+    touching: Bool, dragging: Binding<Bool>, cancel: @escaping () -> Void
+  ) -> some View {
+    onChange(of: touching) { _, now in
+      guard !now, dragging.wrappedValue else { return }
+      dragging.wrappedValue = false
+      cancel()
+    }
+    .onDisappear {
+      guard dragging.wrappedValue else { return }
+      dragging.wrappedValue = false
+      cancel()
+    }
+  }
+}
+
 struct ArcSlider: View {
   let release: Double?, loft: Int?, held: Double?
   let enabled: Bool
   let slide: (Double, SlidePhase) -> Void
   let step: (Int) -> Void
   @State private var dragging = false
+  @GestureState private var touching = false
   private let width: CGFloat = 84, height: CGFloat = 124, inset: CGFloat = 18
   var body: some View {
     SliderPlate(title: PlanScale.arcLabel(loft: loft), width: width, height: height) {
@@ -89,11 +110,13 @@ struct ArcSlider: View {
             slide(1 - (v.location.y - inset) / (height - inset * 2), dragging ? .move : .down)
             dragging = true
           }
+          .updating($touching) { _, on, _ in on = true }
           .onEnded { v in
             dragging = false
             slide(1 - (v.location.y - inset) / (height - inset * 2), .up)
           })
     }
+    .heldSliderCancels(touching: touching, dragging: $dragging) { slide(0, .cancel) }
     .opacity(enabled ? 1 : 0.5)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel("Arc")
@@ -115,6 +138,7 @@ struct SideSlider: View {
   let slide: (Double, SlidePhase) -> Void
   let step: (Int) -> Void
   @State private var dragging = false
+  @GestureState private var touching = false
   private let width: CGFloat = 96, height: CGFloat = 64, inset: CGFloat = 16
   var body: some View {
     SliderPlate(title: PlanScale.sideLabel(value, kubb: kubb), width: width, height: height) {
@@ -141,11 +165,13 @@ struct SideSlider: View {
             slide((v.location.x - inset) / (width - inset * 2), dragging ? .move : .down)
             dragging = true
           }
+          .updating($touching) { _, on, _ in on = true }
           .onEnded { v in
             dragging = false
             slide((v.location.x - inset) / (width - inset * 2), .up)
           })
     }
+    .heldSliderCancels(touching: touching, dragging: $dragging) { slide(0, .cancel) }
     .animation(.easeOut(duration: 0.12), value: held == nil)
     .opacity(enabled ? 1 : 0.5)
     .accessibilityElement(children: .ignore)

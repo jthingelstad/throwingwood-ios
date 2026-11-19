@@ -107,6 +107,23 @@ import simd
     #expect(app.sideStep == 10)
   }
 
+  @Test func aHeldSliderThatIsCancelledLetsTheSideViewGo() throws {
+    let app = try aiming()
+    app.slide(.arc, to: 0.6, phase: .down)
+    try app.tick(1.0 / 60)
+    let kept = try #require(app.release)
+    #expect(app.held == .arc && app.showsSide && app.wantsFrames)
+    // the menu opened under the finger, or the app left the foreground: no release comes
+    app.slide(.arc, to: 0, phase: .cancel)
+    #expect(app.held == nil && app.heldFraction == nil)
+    #expect(!app.showsSide && !app.wantsFrames)
+    try app.tick(1.0 / 60)
+    // the plan stays where the last frame left it
+    #expect(app.release == kept)
+    app.cancelSlide()
+    #expect(!app.showsSide)
+  }
+
   @Test func slidersAreIgnoredWhenTheThrowIsNotOurs() throws {
     let app = try PitchSession(appVersion: "test")
     try app.restore(fixture("aim"), save: nil)
