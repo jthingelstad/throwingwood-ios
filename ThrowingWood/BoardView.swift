@@ -6,7 +6,7 @@ import UIKit
   private let model: GameModel
   private var display: CADisplayLink?, previous: CFTimeInterval?
   private var active = false
-  private enum Gesture { case aim, dial, body, stance, walk, raise, punishment }
+  private enum Gesture { case aim, dial, body, zone, track, stance, walk, raise, punishment }
   private var gesture: Gesture?
   private var tracking: UITouch?
   private var startPoint = CGPoint.zero, moved = false
@@ -14,6 +14,11 @@ import UIKit
   private var lastDialPoint: CGPoint?
   /// The linear meter's grab: the press's offset from the knob's home.
   private var meterGrab: CGFloat = 0
+  /// A finger turning the clock from beside its ring (drawn as a spoke to it).
+  private var besideRing = false
+  /// A stroke from the throw zone or beside the ring: the engine takes the
+  /// press on one frame, then this, the finger, on the next.
+  private var pendingDial: CGPoint?, pendingLift = false
   #if targetEnvironment(simulator)
     private var reviewReady = false, signalled = false
     private let reviewMode = ProcessInfo.processInfo.environment["PITCH_REVIEW"]
@@ -80,6 +85,9 @@ import UIKit
     if gesture == .dial { run { try pitch.cancelInput() } }
     tracking = nil
     gesture = nil
+    besideRing = false
+    pendingDial = nil
+    pendingLift = false
   }
   private func run(_ action: () throws -> Void) {
     do {
@@ -141,14 +149,22 @@ import UIKit
       if reviewMode == "timing", pitch.result != nil { timing.finish() }
     #endif
     do {
-      if try model.online?.tick(dt) ?? pitch.tick(dt) {
+      let ticked = try model.online?.tick(dt) ?? pitch.tick(dt)
+      let fed = pendingDial != nil
+      if let q = pendingDial {
+        pendingDial = nil
+        sampleDial(q)
+        if pendingLift { pitch.sample(nil) }
+        pendingLift = false
+      }
+      if ticked {
         if pitch.playing { gesture = nil }
         model.refresh()
         setNeedsDisplay()
         #if targetEnvironment(simulator)
           if reviewMode == "timing", pitch.playing, pitch.result == nil { timing.tick(start) }
         #endif
-      } else if gesture == nil && !pitch.playing && pitch.result == nil && !pitch.wantsFrames {
+      } else if gesture == nil && !fed && !pitch.playing && pitch.result == nil && !pitch.wantsFrames {
         link.isPaused = true
         previous = nil
       }
@@ -233,7 +249,8 @@ import UIKit
       let hint = model.screen == .practice
       switch meter {
       case .clock(let c):
-        hud.dial(pitch.dial, at: c.center, radius: c.radius, showHint: hint)
+        let finger = gesture == .dial && besideRing ? lastDialPoint : nil
+        hud.dial(pitch.dial, at: c.center, radius: c.radius, showHint: hint, finger: finger)
       case .linear(let m):
         hud.linear(pitch.dial, m, held: gesture == .dial, prompt: linearWords(pitch.dial.prompt))
         if hint { hud.linearHint(m, safeBottom: safeAreaInsets.bottom) }
@@ -246,6 +263,7 @@ import UIKit
     let p = t.location(in: self)
     startPoint = p
     moved = false
+    besideRing = false
     if pitch.need?.kind == "raise" {
       gesture = .raise
     } else if pitch.need?.kind == "punish" {
@@ -270,6 +288,18 @@ import UIKit
       hypot(p.x - stance.x, p.y - stance.y) < 44
     {
       gesture = .stance
+    } else if let claim = meter.after(p, in: bounds.size, aimable: pitch.tapCouldAim(p, size: bounds.size)) {
+      switch claim {
+      case .beside:  // nothing to aim at under it: the arm turns at once
+        gesture = .dial
+        meterGrab = 0
+        besideRing = true
+        pitch.beginDial()
+        wake()
+        sampleDial(p)
+      case .besidePending: gesture = .track  // a tap still aims; a drag turns the arm
+      default: gesture = .zone  // a tap still aims; a drag strokes the knob
+      }
     } else {
       // A tap puts the circle there; a drag anywhere moves it from where it is (AimDrag).
       gesture = .aim
@@ -288,14 +318,30 @@ import UIKit
     }
     guard let t = tracking, touches.contains(t) else { return }
     let p = t.location(in: self)
-    let slop = gesture == .aim ? AimDrag.slop : 10
+    let slop = gesture == .aim ? AimDrag.slop : MeterLayout.tapSlop
     let crossed = !moved && hypot(p.x - startPoint.x, p.y - startPoint.y) > slop
     moved = moved || crossed
     switch gesture {
     case .walk:
       pitch.walk(drag: CGPoint(x: p.x - startPoint.x, y: p.y - startPoint.y))
       wake()
-    case .dial: sampleDial(p)
+    case .dial:
+      if pendingDial != nil { pendingDial = p } else { sampleDial(p) }
+    case .zone where moved, .track where moved:
+      // a drag after all: the press is where the stroke starts (the knob's home
+      // for the zone), fed this frame, and the finger the next, as a grab is
+      if gesture == .zone, let m = meter.linear {
+        meterGrab = startPoint.y - m.yHome
+      } else {
+        meterGrab = 0
+        besideRing = true
+      }
+      gesture = .dial
+      pitch.beginDial()
+      wake()
+      sampleDial(startPoint)
+      pendingDial = p
+      setNeedsDisplay()
     case .aim:
       // The slop is not travel: the circle starts moving from where the drag became one.
       if crossed { lastAimPoint = p }
@@ -305,7 +351,7 @@ import UIKit
       run { try pitch.nudgeAim(by: d) }
     case .stance: run { try pitch.stance(at: p, size: bounds.size) }
     case .punishment: run { try pitch.movePunishment(to: p, size: bounds.size) }
-    case .raise, .body, nil: break
+    case .zone, .track, .raise, .body, nil: break
     }
   }
   override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -317,12 +363,22 @@ import UIKit
     switch gesture {
     case .dial:
       let p = t.location(in: self)
-      if p != lastDialPoint { sampleDial(p) }
-      pitch.sample(nil)
+      if pendingDial != nil {
+        pendingDial = p
+        pendingLift = true
+      } else {
+        if p != lastDialPoint { sampleDial(p) }
+        pitch.sample(nil)
+      }
     case .aim:
       if moved {
         run { try pitch.settleAim() }
       } else {
+        run { try pitch.tapAim(at: t.location(in: self), size: bounds.size) }
+      }
+    case .zone, .track:
+      // a tap in the throw zone or beside the ring aims as a tap on the pitch does
+      if !moved {
         run { try pitch.tapAim(at: t.location(in: self), size: bounds.size) }
       }
     case .raise:
@@ -332,13 +388,14 @@ import UIKit
     }
     tracking = nil
     gesture = nil
+    besideRing = false
   }
   override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) { cancel() }
 
   #if targetEnvironment(simulator)
     /// Review stills use the actual pitch, dial input, clock and drawing layers.
     private func prepareReview(_ mode: String) throws {
-      guard ["aim", "flight", "rest", "timing", "wind", "marks"].contains(mode) else { return }
+      guard ["aim", "flight", "rest", "timing", "wind", "beside", "marks"].contains(mode) else { return }
       let dt = 1.0 / 60
       // Snap the circle one kubb to the right of its initial target.
       if let m = pitch.marker(in: bounds.size) {
@@ -360,9 +417,14 @@ import UIKit
         a = max(-back, a - 400 * dt)
         try arm(a)
       }
-      if mode == "wind" {
-        // Held at the back of the swing: the meter mid-throw, the finger still down.
+      if mode == "wind" || mode == "beside" {
+        // Held at the back of the swing: the meter mid-throw, the finger still down
+        // (beside: on the clock from 1.7 radii out, its spoke drawn).
         gesture = .dial
+        if mode == "beside", let c = meter.clock {
+          besideRing = true
+          lastDialPoint = c.point(arm: -back, radius: c.radius * 1.7)
+        }
         return
       }
       while a < stop {
