@@ -6,10 +6,11 @@ import UIKit
   private let model: GameModel
   private var display: CADisplayLink?, previous: CFTimeInterval?
   private var active = false
-  private enum Gesture { case target, tap, dial, stance, walk, raise, punishment }
+  private enum Gesture { case aim, dial, stance, walk, raise, punishment }
   private var gesture: Gesture?
   private var tracking: UITouch?
   private var startPoint = CGPoint.zero, moved = false
+  private var lastAimPoint = CGPoint.zero
   private var lastDialPoint: CGPoint?
   #if targetEnvironment(simulator)
     private var reviewReady = false, signalled = false
@@ -26,7 +27,7 @@ import UIKit
     backgroundColor = .systemBackground
     contentMode = .redraw
     accessibilityLabel =
-      "Practice pitch. Drag the target to aim. Wind the dial back, flick forward and lift to throw."
+      "Practice pitch. Tap to aim, or drag anywhere to move the circle. Wind the dial back, flick forward and lift to throw."
     isAccessibilityElement = true
   }
   required init?(coder: NSCoder) { nil }
@@ -112,6 +113,11 @@ import UIKit
               for _ in 0..<90 { try pitch.tick(1.0 / 60) }
             }
             if mode == "computer" { for _ in 0..<32 { try pitch.tick(1.0 / 60) } }
+            if mode == "arc" || mode == "tilt" {
+              // A finger held on the slider three quarters along: the side view eases in.
+              pitch.slide(mode == "arc" ? .arc : .side, to: 0.75, phase: .down)
+              for _ in 0..<90 { try pitch.tick(1.0 / 60) }
+            }
           }
         }
         link.isPaused = true
@@ -139,7 +145,7 @@ import UIKit
         #if targetEnvironment(simulator)
           if reviewMode == "timing", pitch.playing, pitch.result == nil { timing.tick(start) }
         #endif
-      } else if gesture == nil && !pitch.playing && pitch.result == nil {
+      } else if gesture == nil && !pitch.playing && pitch.result == nil && !pitch.wantsFrames {
         link.isPaused = true
         previous = nil
       }
@@ -174,6 +180,9 @@ import UIKit
           case "menu": model.screen == .menu
           case "verdict": pitch.result != nil
           case "plan": pitch.plan
+          case "arc": pitch.held == .arc
+          case "tilt": pitch.held == .side
+          case "raisemany", "raiseauto", "raiserest": pitch.need?.kind == "raise"
           case "flight": pitch.playing
           case "handoff": pitch.handoff != nil
           case "raise", "punish": pitch.need?.kind == mode
@@ -200,6 +209,9 @@ import UIKit
           rect: CGRect(x: x, y: safeAreaInsets.top + 75, width: width, height: width * 1.65))
       }
       for (end, p) in pitch.endLabels(in: bounds.size) { hud.endLabel(end, at: p) }
+      if pitch.held == .side, !pitch.throwsKubb, let circle = pitch.marker(in: bounds.size) {
+        hud.leaningBaton(at: circle, tiltDegrees: Double(pitch.sideStep ?? 0))
+      }
     }
     for burst in pitch.bursts {
       if let point = burst.point(size: bounds.size, camera: pitch.camera) {
@@ -233,14 +245,14 @@ import UIKit
     } else if pitch.walking {
       gesture = .walk
       wake()
-    } else if let mark = pitch.marker(in: bounds.size), hypot(p.x - mark.x, p.y - mark.y) < 56 {
-      gesture = .target
     } else if let stance = pitch.stancePoint(in: bounds.size),
       hypot(p.x - stance.x, p.y - stance.y) < 44
     {
       gesture = .stance
     } else {
-      gesture = .tap
+      // A tap puts the circle there; a drag anywhere moves it from where it is (AimDrag).
+      gesture = .aim
+      lastAimPoint = p
     }
     tracking = t
   }
@@ -255,16 +267,24 @@ import UIKit
     }
     guard let t = tracking, touches.contains(t) else { return }
     let p = t.location(in: self)
-    moved = moved || hypot(p.x - startPoint.x, p.y - startPoint.y) > 10
+    let slop = gesture == .aim ? AimDrag.slop : 10
+    let crossed = !moved && hypot(p.x - startPoint.x, p.y - startPoint.y) > slop
+    moved = moved || crossed
     switch gesture {
     case .walk:
       pitch.walk(drag: CGPoint(x: p.x - startPoint.x, y: p.y - startPoint.y))
       wake()
     case .dial: sampleDial(p)
-    case .target: run { try pitch.target(p, size: bounds.size, snap: false) }
+    case .aim:
+      // The slop is not travel: the circle starts moving from where the drag became one.
+      if crossed { lastAimPoint = p }
+      guard moved, p != lastAimPoint else { break }
+      let d = CGVector(dx: p.x - lastAimPoint.x, dy: p.y - lastAimPoint.y)
+      lastAimPoint = p
+      run { try pitch.nudgeAim(by: d) }
     case .stance: run { try pitch.stance(at: p, size: bounds.size) }
     case .punishment: run { try pitch.movePunishment(to: p, size: bounds.size) }
-    case .tap, .raise, nil: break
+    case .raise, nil: break
     }
   }
   override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -278,10 +298,11 @@ import UIKit
       let p = t.location(in: self)
       if p != lastDialPoint { sampleDial(p) }
       pitch.sample(nil)
-    case .target: run { try pitch.target(t.location(in: self), size: bounds.size, snap: true) }
-    case .tap:
-      if !moved {
-        run { try pitch.target(t.location(in: self), size: bounds.size, snap: true, tap: true) }
+    case .aim:
+      if moved {
+        run { try pitch.settleAim() }
+      } else {
+        run { try pitch.tapAim(at: t.location(in: self), size: bounds.size) }
       }
     case .raise:
       if !moved { run { try pitch.raise(at: t.location(in: self), size: bounds.size) } }

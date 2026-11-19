@@ -37,6 +37,16 @@ import Observation
   var sheet: ScoreSheet?
   var selections = [String: String]()
   var name = "You"
+  /// The menu's Raising (Jamie, 2026-11-19): every kubb of this device's raised
+  /// by the engine's choice, for this match and later ones.
+  var raiseAutomatically = UserDefaults.standard.string(forKey: "raise") == "auto" {
+    didSet {
+      UserDefaults.standard.set(raiseAutomatically ? "auto" : "hand", forKey: "raise")
+      offline?.raiseAutomatically = raiseAutomatically
+      online?.board.raiseAutomatically = raiseAutomatically
+      refresh()
+    }
+  }
   let save = MatchSave(file: URL.applicationSupportDirectory.appending(path: "solo-match.json"))
 
   init() {
@@ -52,6 +62,7 @@ import Observation
     defer { feedback.onPitch = screen.usesFeedback }
     guard let pitch = offline else { return }
     feedback.attach(pitch)
+    pitch.raiseAutomatically = raiseAutomatically
     let defaults = UserDefaults.standard
     selections = pitch.options.defaults
     for row in pitch.options.rows {
@@ -81,6 +92,8 @@ import Observation
           try pitch.restore(snapshot, save: nil)
           screen = .match
           if mode != "handoff" { pitch.dismissHandoff() }
+          raiseAutomatically = mode == "raiseauto"
+          if mode == "raiserest" { pitch.raiseRest() }
           if mode == "menu" { screen = .menu }
           if mode == "sheet" { showSheet() }
           return
@@ -125,6 +138,7 @@ import Observation
       if online != nil { leaveOnline() }
       feedback.silence()
       feedback.attach(pitch.board)
+      pitch.board.raiseAutomatically = raiseAutomatically
       online = pitch
       screen = .pitch
       pitch.changed = { [weak self, weak pitch] in
@@ -211,6 +225,12 @@ import Observation
         UserDefaults.standard.set(newValue, forKey: "solo.matchLevel")
       }
     }
+  }
+  /// BY HAND on the raise card: the setting off, and AUTO ALL ended.
+  func raiseByHand() {
+    if raiseAutomatically { raiseAutomatically = false }
+    pitch?.raiseByHand()
+    refresh()
   }
   func showSheet() {
     sheetReturn = screen
