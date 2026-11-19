@@ -10,11 +10,13 @@ enum SnapshotError: Error {
 }
 
 func pixels(_ url: URL) throws -> (Int, Int, [UInt8]) {
+  // the review iPads are @2x, the phones @3x
+  let scale = url.lastPathComponent.hasPrefix("ipad-") ? 2 : 3
   guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
     let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
   else { throw SnapshotError.image(url.lastPathComponent) }
-  let w = image.width / 3
-  let h = image.height / 3
+  let w = image.width / scale
+  let h = image.height / scale
   var data = [UInt8](repeating: 0, count: w * h * 4)
   try data.withUnsafeMutableBytes { bytes in
     guard
