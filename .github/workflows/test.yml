@@ -35,11 +35,13 @@ jobs:
       - name: Version arithmetic
         run: scripts/version.sh test
       # The golden tests: every hash the same as kubb-engine's golden corpus.
+      # test-watch.sh prints where a stalled run is stuck: swift test holds its
+      # output until the process ends.
       - name: ThrowingWoodKit tests
-        run: swift test --package-path ThrowingWoodKit
+        run: scripts/test-watch.sh swift test --package-path ThrowingWoodKit
       # TestFlight builds are optimized; the hashes must hold there too.
       - name: ThrowingWoodKit tests, optimized
-        run: swift test -c release -Xswiftc -enable-testing --package-path ThrowingWoodKit
+        run: scripts/test-watch.sh swift test -c release -Xswiftc -enable-testing --package-path ThrowingWoodKit
       # Neither build of the engine's C calls Apple's libm.
       - name: No Apple libm in CLua or CMusl
         run: scripts/check-libm.sh
