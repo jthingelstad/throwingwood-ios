@@ -114,7 +114,13 @@ import Testing
   @Test func uprightAndTallerScreensKeepTheirFraming() throws {
     let app = try PitchSession(appVersion: "test")
     try app.restore(fixture("punish"), save: nil)
-    for size in [CGSize(width: 390, height: 844), CGSize(width: 440, height: 956), CGSize(width: 1180, height: 820)] {
+    // the phones upright, a tablet, and the review iPads either way (a tall iPad keeps the panel)
+    for size in [
+      CGSize(width: 390, height: 844), CGSize(width: 440, height: 956), CGSize(width: 1180, height: 820),
+      CGSize(width: 744, height: 1133), CGSize(width: 1133, height: 744),
+      CGSize(width: 1032, height: 1376), CGSize(width: 1376, height: 1032),
+    ] {
+      #expect(!WideLayout.isShort(size))
       app.stillFloor = nil
       let before = try #require(app.scene.projection(size, app.camera).project(V3(0, 0, 0)))
       app.stillFloor = 300
