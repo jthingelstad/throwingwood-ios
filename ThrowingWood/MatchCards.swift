@@ -397,7 +397,7 @@ struct RaisingSetting: View {
   @Bindable var model: GameModel
   var body: some View {
     HStack {
-      Text("Raising").font(.subheadline.weight(.semibold))
+      Text("Raising").font(.subheadline.weight(.semibold)).frame(width: 72, alignment: .leading)
       Picker("Raising", selection: $model.raiseAutomatically) {
         Text("By hand").tag(false)
         Text("Automatic").tag(true)
@@ -407,30 +407,42 @@ struct RaisingSetting: View {
 }
 
 /// ARC over SIDE VIEW on the left of the dial, TILT or SPIN over WALK on the
-/// right, their feet level.
+/// right, their feet level. With the linear meter on the left the two swap, so
+/// the shorter TILT column sits beside the meter, under its prompt tab.
 struct PlanControls: View {
   let model: GameModel, pitch: PitchSession, revision: Int
+  @Environment(\.meterRoom) private var meterRoom
   var body: some View {
-    let enabled = pitch.canAim
+    let mirrored = meterRoom.width > 0 && meterRoom.edge == .leading
     HStack(alignment: .bottom) {
-      VStack(spacing: 12) {
-        ArcSlider(
-          release: pitch.release, loft: pitch.arcDegrees,
-          held: pitch.held == .arc ? pitch.heldFraction : nil, enabled: enabled,
-          slide: { f, phase in model.perform { pitch.slide(.arc, to: f, phase: phase) } },
-          step: { s in model.perform { try pitch.stepPlan(.arc, by: s) } })
-        tool("SIDE VIEW", label: "Side view", on: pitch.plan) { try pitch.togglePlan() }
-      }
+      if mirrored { side } else { arc }
       Spacer()
-      VStack(spacing: 12) {
-        SideSlider(
-          value: pitch.sideStep ?? 0, kubb: pitch.throwsKubb,
-          held: pitch.held == .side ? pitch.heldFraction : nil, enabled: enabled,
-          slide: { f, phase in model.perform { pitch.slide(.side, to: f, phase: phase) } },
-          step: { s in model.perform { try pitch.stepPlan(.side, by: s) } })
-        tool("WALK", label: "Walk by dragging on the pitch", on: pitch.walking) {
-          try pitch.toggleWalk()
-        }
+      if mirrored { arc } else { side }
+    }
+  }
+
+  private var arc: some View {
+    let enabled = pitch.canAim
+    return VStack(spacing: 12) {
+      ArcSlider(
+        release: pitch.release, loft: pitch.arcDegrees,
+        held: pitch.held == .arc ? pitch.heldFraction : nil, enabled: enabled,
+        slide: { f, phase in model.perform { pitch.slide(.arc, to: f, phase: phase) } },
+        step: { s in model.perform { try pitch.stepPlan(.arc, by: s) } })
+      tool("SIDE VIEW", label: "Side view", on: pitch.plan) { try pitch.togglePlan() }
+    }
+  }
+
+  private var side: some View {
+    let enabled = pitch.canAim
+    return VStack(spacing: 12) {
+      SideSlider(
+        value: pitch.sideStep ?? 0, kubb: pitch.throwsKubb,
+        held: pitch.held == .side ? pitch.heldFraction : nil, enabled: enabled,
+        slide: { f, phase in model.perform { pitch.slide(.side, to: f, phase: phase) } },
+        step: { s in model.perform { try pitch.stepPlan(.side, by: s) } })
+      tool("WALK", label: "Walk by dragging on the pitch", on: pitch.walking) {
+        try pitch.toggleWalk()
       }
     }
   }

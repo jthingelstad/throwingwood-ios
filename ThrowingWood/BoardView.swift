@@ -143,6 +143,8 @@ import UIKit
               for _ in 0..<90 { try pitch.tick(1.0 / 60) }
             }
             if mode == "computer" { for _ in 0..<32 { try pitch.tick(1.0 / 60) } }
+            // the nudge frozen a second in, the draw back, beside the plan's sliders
+            if mode == "nudge" { reviewNudge = 1.0 }
             if mode == "arc" || mode == "tilt" {
               // A finger held on the slider three quarters along: the side view eases in.
               pitch.slide(mode == "arc" ? .arc : .side, to: 0.75, phase: .down)
@@ -221,7 +223,7 @@ import UIKit
     (model.screen == .practice || model.screen == .match) && pitch.canAim && pitch.handoff == nil
   }
   private var nudgeEligible: Bool {
-    nudgeAimWanted && !pitch.plan && tracking == nil && pendingDial == nil && nudgeEnd == nil
+    nudgeAimWanted && !pitch.showsSide && tracking == nil && pendingDial == nil && nudgeEnd == nil
       && pitch.dial.phase == "idle"
   }
   /// Time passing for the nudge, on the wall clock (the display link sleeps).
@@ -229,6 +231,8 @@ import UIKit
     let now = CACurrentMediaTime()
     let dt = nudgeClock.map { now - $0 } ?? 0
     nudgeClock = now
+    // a held slider (SIDE VIEW) is input, and keeps the nudge off the meter
+    if pitch.held != nil { nudge.input() }
     let aim = nudgeAimWanted
     if aim && !nudgeAim { nudge.aimBegan() }
     nudgeAim = aim
@@ -264,7 +268,7 @@ import UIKit
           switch mode {
           case "home": model.screen == .home
           case "options": model.screen == .options
-          case "aim": model.screen == .match && pitch.canAim
+          case "aim", "nudge": model.screen == .match && pitch.canAim
           case "menu": model.screen == .menu
           case "verdict": pitch.result != nil
           case "plan": pitch.plan
@@ -340,7 +344,7 @@ import UIKit
       if let ghost {
         hud.nudge(
           ghost, swing: NudgeSwing(pitch.dial), on: meter, safeLeft: safeAreaInsets.left,
-          safeRight: safeAreaInsets.right)
+          safeRight: safeAreaInsets.right, besideFree: model.screen == .practice)
       }
     }
   }

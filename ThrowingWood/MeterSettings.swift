@@ -32,17 +32,24 @@ struct MeterSettings: View {
   var card = false
   var body: some View {
     if card {
+      // labelled as the menu's Raising is, the labels one width so the pickers line up
       VStack(alignment: .leading, spacing: 6) {
-        Picker("Meter", selection: $meter.kind) {
-          Text("Clock").tag(MeterKind.clock)
-          Text("Linear").tag(MeterKind.linear)
-        }.pickerStyle(.segmented).accessibilityLabel("Meter")
+        HStack {
+          Text("Meter").font(.subheadline.weight(.semibold)).frame(width: 72, alignment: .leading)
+          Picker("Meter", selection: $meter.kind) {
+            Text("Clock").tag(MeterKind.clock)
+            Text("Linear").tag(MeterKind.linear)
+          }.pickerStyle(.segmented).accessibilityLabel("Meter")
+        }
         if meter.kind == .linear {
           // Jamie, 2026-11-19: "Left and right handed folks may want it on one side or the other"
-          Picker("Side", selection: $meter.side) {
-            Text("Left").tag(MeterSide.left)
-            Text("Right").tag(MeterSide.right)
-          }.pickerStyle(.segmented).accessibilityLabel("Side")
+          HStack {
+            Text("Side").font(.subheadline.weight(.semibold)).frame(width: 72, alignment: .leading)
+            Picker("Side", selection: $meter.side) {
+              Text("Left").tag(MeterSide.left)
+              Text("Right").tag(MeterSide.right)
+            }.pickerStyle(.segmented).accessibilityLabel("Side")
+          }
         }
       }
     } else {

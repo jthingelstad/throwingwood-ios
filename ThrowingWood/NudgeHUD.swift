@@ -15,17 +15,20 @@ enum NudgePaint {
   static let shadow: CGFloat = 0.22  // its hard shadow when down, of its radius
   static let zoneGap: CGFloat = 12  // pt between the prompt tab and the fingertip's path
   static let beside: CGFloat = 1.6  // the clock's fingertip: radii out, beside the ring
+  static let onKnob: CGFloat = 0.82  // the clock's fingertip on the knob, where the sliders cover the band
 }
 
 extension PracticeHUD {
   /// Where the fingertip is for `arm` on this meter.
+  /// `besideFree`: nothing covers the band beside the clock's ring. In a match
+  /// the plan's sliders sit there, so the fingertip presses the knob instead.
   static func nudgeFinger(
     _ meter: MeterLayout, arm: Double, swing: NudgeSwing, size: CGSize, safeLeft: CGFloat,
-    safeRight: CGFloat
+    safeRight: CGFloat, besideFree: Bool = true
   ) -> CGPoint {
     switch meter {
     case .clock(let c):
-      return c.point(arm: arm, radius: c.radius * NudgePaint.beside)
+      return c.point(arm: arm, radius: c.radius * (besideFree ? NudgePaint.beside : NudgePaint.onKnob))
     case .linear(let g):
       let z = nudgePath(g, swing: swing, size: size, safeLeft: safeLeft, safeRight: safeRight)
       return CGPoint(x: z.x, y: z.y0 + (g.y(arm: clampArm(arm)) - g.yHome))
@@ -61,7 +64,8 @@ extension PracticeHUD {
   }
 
   func nudge(
-    _ f: NudgeFrame, swing: NudgeSwing, on meter: MeterLayout, safeLeft: CGFloat, safeRight: CGFloat
+    _ f: NudgeFrame, swing: NudgeSwing, on meter: MeterLayout, safeLeft: CGFloat, safeRight: CGFloat,
+    besideFree: Bool = true
   ) {
     guard f.alpha > 0 else { return }
     context.saveGState()
@@ -72,7 +76,8 @@ extension PracticeHUD {
     context.setLineCap(.round)
     context.setLineJoin(.round)
     let finger = Self.nudgeFinger(
-      meter, arm: f.arm, swing: swing, size: size, safeLeft: safeLeft, safeRight: safeRight)
+      meter, arm: f.arm, swing: swing, size: size, safeLeft: safeLeft, safeRight: safeRight,
+      besideFree: besideFree)
     switch meter {
     case .clock(let c):
       let r = c.radius
