@@ -44,13 +44,17 @@ METER_SHOTS = {
 # shots show the clock in that corner: no iPhone on its side has the track's room.
 LANDSCAPE = [
     "home", "options", "handoff", "aim", "plan", "arc", "tilt", "stand", "flight", "verdict",
-    "raise", "raisedrag", "raiserest", "punish", "computer", "menu", "winner", "sheet",
+    "raise", "raisemany", "raiseauto", "raiserest", "raisedrag", "raiserefused", "punish", "computer", "menu", "winner", "sheet",
     "linear-left-aim", "linear-right-aim", "linear-left-tilt", "clock-nudge", "linear-left-nudge",
     "coach", "coach-slow", "linear-left-coach",
 ]
 # Shots taken only on a phone on its side: STAND held with the clock at the left
-# (the plan block at the right edge).
-LANDSCAPE_ONLY = {"clock-left-stand": ("stand", "aim", "clock", "left")}
+# (the plan block at the right edge), and the punishment bar with a refused
+# spot's reason.
+LANDSCAPE_ONLY = {
+    "clock-left-stand": ("stand", "aim", "clock", "left"),
+    "punishwhy": ("punishwhy", "punish", "clock", "right"),
+}
 LANDSCAPE += list(LANDSCAPE_ONLY)
 # every other shot is a device that has learned the throw (no coach line)
 LEARNING = {"coach", "coachslow"}
