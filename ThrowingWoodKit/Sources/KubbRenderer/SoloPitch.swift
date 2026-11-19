@@ -75,26 +75,8 @@ extension PitchSession {
     revision += 1
   }
 
-  public func toggleWalk() throws {
-    guard canAim else { return }
-    try cancelInput()
-    walking.toggle()
-    walkAxis = .zero
-    revision += 1
-  }
-
-  public func walk(drag: CGPoint) {
-    func axis(_ delta: CGFloat) -> CGFloat {
-      guard abs(delta) > 8 else { return 0 }
-      return (delta < 0 ? -1 : 1) * min(1, (abs(delta) - 8) / 60)
-    }
-    walkAxis = CGPoint(x: axis(drag.x), y: -axis(drag.y))
-  }
-
   public func beginDial() {
     plan = false
-    walking = false
-    walkAxis = .zero
     revision += 1
   }
 

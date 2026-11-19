@@ -245,7 +245,7 @@ public enum MeterLayout: Equatable, Sendable {
   /// What a press claims for the throw. The host asks in two steps, so the
   /// claims merge with whatever else the pitch takes:
   ///
-  /// 1. `first(_:)`, before anything else (WALK's drag, the target circle, the
+  /// 1. `first(_:)`, before anything else (the target circle, the
   ///    thrower): the clock's ring (within 1.25 radii), the linear meter's knob
   ///    (46 pt up or down from home, across the body), then the rest of its body,
   ///    which takes the press and does nothing.

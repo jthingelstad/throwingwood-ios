@@ -205,13 +205,13 @@ import Testing
     app.dismissHandoff()
     #expect(app.canAim)
     try app.togglePlan()
-    try app.toggleWalk()
     for _ in 0..<60 { try app.tick(1.0 / 60) }
-    #expect(app.walking && app.plan)
+    #expect(app.plan)
     let prior = try #require(app.scene.thrower)
-    app.walk(drag: CGPoint(x: -68, y: 0))
-    for _ in 0..<20 { try app.tick(1.0 / 60) }
-    app.walk(drag: .zero)
+    // STAND: a press on the plate's left quarter puts the thrower there
+    app.stand(fx: 0.25, fy: 0.5, phase: .down)
+    try app.tick(1.0 / 60)
+    app.stand(fx: 0.25, fy: 0.5, phase: .up)
     #expect(try #require(app.scene.thrower).x < prior.x)
     try app.adjustPlan(arc: true, step: 1)
     try app.adjustPlan(arc: false, step: 1)
