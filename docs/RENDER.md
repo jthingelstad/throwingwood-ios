@@ -32,6 +32,18 @@ Jamie, 2026-11-19: "Given we have a widescreen view for web, can we extend that 
 
 Where the web has the room and the phone does not, the phone differs, knowingly: the practice hint sits level with the ring's foot on the screen's inner side, not under the ring, and the coach's SLOW FLICK lead sits beside its line, not over it, which would reach MENU. Cards that are taller than the 390 pt screen (the options, the menus, a lobby) scroll from their titles. Turning the screen while a finger is down lets go cleanly: the dial or aim drag is cancelled with no throw, a held slider or STAND lets go where it was and the rest of that drag is ignored (`PitchSession.cancelHeld`), so nothing is stranded or mapped through the old layout.
 
+## An iPad
+
+Jamie: "Please take a moment to consider if now would be an okay time for us to build out an iPad version. We have our iPhone version, and I would definitely like to make one that is sized for iPad as well. I believe that our plate controls are well established and how the various landscape and portrait modes work. The idea of an iPad version would just be to give us a little bit bigger screen." So the app is universal and an iPad plays the same game on a bigger screen: no new controls, no other camera, no split views.
+
+- **Orientations.** An iPad turns all four ways; an iPhone keeps portrait and landscape left and right. iPadOS 26 resizes every app's window (`UIRequiresFullScreen` is deprecated and ignored), so the app takes any window size and one scene (`UIApplicationSupportsMultipleScenes` false).
+- **The same two rules.** A window taller than 1.05 times its width is laid out as the upright phone; any other is the web's wide arrangement above (`WideLayout`), both from the window's own size, never the device's. Upright the clock reaches its cap (radius 114) and the linear meter its 450 pt. On its side the clock is the web's S = min(0.28 W, 0.46 H, 380) (radius 137.7 pt on the iPad mini, 164.9 on the iPad Pro 13-inch) and the linear meter goes at its edge at 450 pt, the room no phone on its side has. The plan block is at the far edge, mirrored for Meter side Left; where the window is too narrow for the block and the minimap to keep 24 pt off the throwing line (wide windows about 600 pt across or less) the block goes back beside the meter, as on the web. The raise and punishment bar is shown only in a wide window 460 pt high or less; taller windows keep the panel. Controls, plates and type keep their phone sizes; the pitch alone grows.
+- **A window's controls.** In a window smaller than the screen iPadOS 26 puts close, minimise and full screen at the top leading corner and gives an app built for it no safe area for them. The app reads the safe area adapted to the window's corners (`UIView.edgeInsets(for: .safeArea(cornerAdaptation: .vertical))`) and adds its extra at the top to the root view controller's safe area (`WindowControls.swift`), so the rail and the cards sit clear of them (safe top 10 to 53 pt in a 700 × 486 window). Full screen and every iPhone add nothing.
+- **Cards.** They keep the web's widths and stay centred: the score sheet min(640, 100%) (the web's `.sheet`), the tall raise and punishment panel 520 (`.panel`), Send feedback 560 (`.report`), the rest 330 as before. A phone keeps its sheet and feedback at full width, as before. A card taller than the window scrolls from its title (`FitOrScroll`), and the score sheet's notation starts at the top left of its box, not in its middle.
+- **Turning or resizing mid-gesture** lets go as on a phone (`BoardView.layoutSubviews`, `PitchSession.cancelHeld`).
+
+`WideLayoutTests` check both review iPads full screen, upright and on their side, both meters and both sides, and sweep window sizes (480 to 1400 pt wide and 380 to 1040 high, three sets of insets) for frames inside the safe area, nothing overlapping and the linear meter's room; `StillBarTests` and `ControlsTests` hold the bar and the raise touch on the iPads.
+
 ## Review pictures
 
 Each image is a real iOS 26.2 simulator capture of the app with a synthetic match. The five original 640 × 384 landscape renderer PNGs remain byte-identical. The portrait suite covers the HUD and cards on both screen sizes, and the landscape suite the same on each phone on its side.
@@ -111,6 +123,23 @@ On its side the 16e is turned right and the Pro Max left, so both ways are cover
 | Practice, clock left | [16e](review/iphone-16e-landscape-practice-left.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-practice-left.png) |
 | Practice, the coach | [16e](review/iphone-16e-landscape-clock-coach-wind.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-clock-coach-wind.png) |
 | Practice, a press beside the ring | [16e](review/iphone-16e-landscape-clock-beside.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-clock-beside.png) |
+
+The iPads are the iPad mini (A17 Pro) and the iPad Pro 13-inch (M5) under iOS 26.2, full screen, named `ipad-mini-*` and `ipad-pro-13-*`, upright and on their side (turned left; an iPad turns as a device, `tools/review_turn.py`). Every solo shot above has its iPad pictures (the practice pictures of `tools/meter-snapshots.py` take an iPad by `--device` and `--prefix`); a selection:
+
+| iPad | mini | mini on its side | Pro 13-inch | Pro 13-inch on its side |
+| --- | --- | --- | --- | --- |
+| Home | [mini](review/ipad-mini-home.png) | [turned](review/ipad-mini-landscape-home.png) | [Pro](review/ipad-pro-13-home.png) | [turned](review/ipad-pro-13-landscape-home.png) |
+| Options | [mini](review/ipad-mini-options.png) | [turned](review/ipad-mini-landscape-options.png) | [Pro](review/ipad-pro-13-options.png) | [turned](review/ipad-pro-13-landscape-options.png) |
+| Aim, clock right | [mini](review/ipad-mini-aim.png) | [turned](review/ipad-mini-landscape-aim.png) | [Pro](review/ipad-pro-13-aim.png) | [turned](review/ipad-pro-13-landscape-aim.png) |
+| Linear, left, aim | [mini](review/ipad-mini-linear-left-aim.png) | [turned](review/ipad-mini-landscape-linear-left-aim.png) | [Pro](review/ipad-pro-13-linear-left-aim.png) | [turned](review/ipad-pro-13-landscape-linear-left-aim.png) |
+| Linear, right, aim | [mini](review/ipad-mini-linear-right-aim.png) | [turned](review/ipad-mini-landscape-linear-right-aim.png) | [Pro](review/ipad-pro-13-linear-right-aim.png) | [turned](review/ipad-pro-13-landscape-linear-right-aim.png) |
+| STAND held | [mini](review/ipad-mini-stand.png) | [turned](review/ipad-mini-landscape-stand.png) | [Pro](review/ipad-pro-13-stand.png) | [turned](review/ipad-pro-13-landscape-stand.png) |
+| Flight | [mini](review/ipad-mini-flight.png) | [turned](review/ipad-mini-landscape-flight.png) | [Pro](review/ipad-pro-13-flight.png) | [turned](review/ipad-pro-13-landscape-flight.png) |
+| Raise, two to go | [mini](review/ipad-mini-raisemany.png) | [turned](review/ipad-mini-landscape-raisemany.png) | [Pro](review/ipad-pro-13-raisemany.png) | [turned](review/ipad-pro-13-landscape-raisemany.png) |
+| Punishment | [mini](review/ipad-mini-punish.png) | [turned](review/ipad-mini-landscape-punish.png) | [Pro](review/ipad-pro-13-punish.png) | [turned](review/ipad-pro-13-landscape-punish.png) |
+| Menu | [mini](review/ipad-mini-menu.png) | [turned](review/ipad-mini-landscape-menu.png) | [Pro](review/ipad-pro-13-menu.png) | [turned](review/ipad-pro-13-landscape-menu.png) |
+| Winner | [mini](review/ipad-mini-winner.png) | [turned](review/ipad-mini-landscape-winner.png) | [Pro](review/ipad-pro-13-winner.png) | [turned](review/ipad-pro-13-landscape-winner.png) |
+| Sheet | [mini](review/ipad-mini-sheet.png) | [turned](review/ipad-mini-landscape-sheet.png) | [Pro](review/ipad-pro-13-sheet.png) | [turned](review/ipad-pro-13-landscape-sheet.png) |
 
 ### Drawing details
 
