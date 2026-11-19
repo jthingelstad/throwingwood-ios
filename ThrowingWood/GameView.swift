@@ -41,7 +41,8 @@ struct GameView: View {
           let live = model.screen == .practice || model.screen == .match
           PitchBoard(
             pitch: pitch, model: model, active: live && phase == .active && model.error == nil,
-            revision: model.revision + model.onlineRevision, screen: model.screen
+            revision: model.revision + model.onlineRevision, screen: model.screen,
+            meter: model.meter.kind, side: model.meter.side
           )
           .id(ObjectIdentifier(pitch)).ignoresSafeArea().allowsHitTesting(live)
           if let version = model.online?.versionCard {
@@ -74,6 +75,7 @@ struct GameView: View {
         }
       }
       .environment(\.reportViewport, geometry.size)
+      .environment(\.meterRoom, meterRoom(geometry))
     }
     #if targetEnvironment(simulator)
       .modifier(OnlineReview(model: model))
@@ -112,6 +114,20 @@ struct GameView: View {
     }
   }
 
+  /// The room the linear meter takes, in the safe area's coordinates: the
+  /// plan's buttons keep out of it.
+  private func meterRoom(_ g: GeometryProxy) -> MeterRoom {
+    let i = g.safeAreaInsets
+    let full = CGRect(x: 0, y: 0, width: g.size.width + i.leading + i.trailing, height: g.size.height + i.top + i.bottom)
+    let safe = UIEdgeInsets(top: i.top, left: i.leading, bottom: i.bottom, right: i.trailing)
+    guard let m = model.meter.layout(bounds: full, safe: safe).linear else { return MeterRoom() }
+    // the screens pad their rows 12 from the safe area's edge; leave 8 more
+    if m.side == .right {
+      return MeterRoom(edge: .trailing, width: max(0, full.width - i.trailing - m.left - 12 + 8))
+    }
+    return MeterRoom(edge: .leading, width: max(0, m.right + m.shadow - i.leading - 12 + 8))
+  }
+
   private var practice: some View {
     VStack(spacing: 10) {
       HStack {
@@ -134,6 +150,7 @@ struct GameView: View {
           .disabled(model.playing)
           ReportButton(model: model)
           FeedbackSettings(feedback: model.feedback)
+          MeterSettings(meter: model.meter)
         } label: {
           Label("Menu", systemImage: "line.3.horizontal")
         }
@@ -163,6 +180,7 @@ struct Verdict: View {
 
 private struct PitchBoard: UIViewRepresentable {
   let pitch: PitchSession, model: GameModel, active: Bool, revision: Int, screen: GameModel.Screen
+  let meter: MeterKind, side: MeterSide
   func makeUIView(context: Context) -> BoardView { BoardView(pitch: pitch, model: model) }
   func updateUIView(_ view: BoardView, context: Context) {
     view.setActive(active)

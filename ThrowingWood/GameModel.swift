@@ -14,6 +14,7 @@ import Observation
     }
   }
   let feedback = GameFeedback()
+  let meter = MeterChoice()
   let offline: PitchSession?
   var pitch: PitchSession? { online?.board ?? offline }
   var online: OnlinePitch?
