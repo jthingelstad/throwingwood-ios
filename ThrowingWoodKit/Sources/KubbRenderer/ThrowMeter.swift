@@ -14,7 +14,8 @@ import Foundation
 
 public enum MeterKind: String, CaseIterable, Sendable { case clock, linear }
 
-/// The screen edge the linear meter sits at (MENU, Side). The clock stays centred.
+/// The screen edge the linear meter sits at (MENU, Meter side), and the bottom corner a
+/// wide screen's clock takes. A tall screen's clock stays centred.
 public enum MeterSide: String, CaseIterable, Sendable { case left, right }
 
 /// The arm (degrees) as the unit point `ThrowInput.sample` takes: the point on a
@@ -26,7 +27,8 @@ public func meterPoint(arm: Double) -> CGPoint {
 
 // MARK: - The clock
 
-/// The clock (the dial): lower centre, the same place and size as it has always had.
+/// The clock (the dial): lower centre on a tall screen, the same place and size as it
+/// has always had; lower left or right on a wide one (`WideLayout.clock`).
 public struct ClockMeter: Equatable, Sendable {
   /// A press within this many radii of the centre is on the ring.
   public static let grabSlop: CGFloat = 1.25
@@ -183,21 +185,33 @@ public struct LinearMeter: Equatable, Sendable {
   }
 
   /// The linear meter on a screen, or nil where its track would be shorter than
-  /// `minTravel` (then the clock is shown). `top` is the highest the box may
-  /// start (under the HUD's header and the minimap).
+  /// `minTravel` (then the clock is shown). On a tall screen the box starts under
+  /// the HUD's header and the minimap; on a wide one under the rail or MENU.
   public static func layout(
     size: CGSize, safeTop: CGFloat, safeBottom: CGFloat, safeLeft: CGFloat = 0,
     safeRight: CGFloat = 0, side: MeterSide, tune t: Tune = LinearMeter.tune
   ) -> LinearMeter? {
-    guard size.height > size.width * 1.05 else { return nil }  // a tall screen only
     let w = max(t.widthMin, min(t.widthMax, size.width * t.widthShare))
     let bottom = size.height - safeBottom - t.margin
-    // the header plate and the minimap (BoardView: top + 75, 1.65 of its width)
-    let mapW = min(74, size.width * 0.18)
-    let ceiling = safeTop + 75 + mapW * 1.65 + 10
-    // the web's (layout.js linearBox): 0.47 of the height, never under
-    // `heightMin` where there is the room nor over `heightMax`
-    let h = min(bottom - ceiling, max(size.height * t.heightShare, t.heightMin), t.heightMax)
+    let h: CGFloat
+    if WideLayout.isWide(size) {
+      // a phone on its side (layout.js linearBox, a wide canvas): under the
+      // rail on the left, under MENU's row on the right, at most `heightMax`.
+      // No iPhone on its side gives that `minTravel`, so there it is the clock.
+      let safe = ScreenInsets(top: safeTop, left: safeLeft, bottom: safeBottom, right: safeRight)
+      let ceiling =
+        side == .left
+        ? WideLayout.rail(size: size, safe: safe).maxY + WideLayout.margin * 0.7
+        : WideLayout.menu(size: size, safe: safe).maxY + WideLayout.margin * 1.5
+      h = min(bottom - ceiling, t.heightMax)
+    } else {
+      // the header plate and the minimap (BoardView: top + 75, 1.65 of its width)
+      let mapW = min(74, size.width * 0.18)
+      let ceiling = safeTop + 75 + mapW * 1.65 + 10
+      // the web's (layout.js linearBox): 0.47 of the height, never under
+      // `heightMin` where there is the room nor over `heightMax`
+      h = min(bottom - ceiling, max(size.height * t.heightShare, t.heightMin), t.heightMax)
+    }
     guard h > 0 else { return nil }
     let x = side == .left ? safeLeft + t.margin : size.width - safeRight - t.margin - w
     let meter = LinearMeter(box: CGRect(x: x, y: bottom - h, width: w, height: h), side: side, tune: t)
@@ -229,6 +243,11 @@ public enum MeterLayout: Equatable, Sendable {
         safeRight: safeRight, side: side)
     {
       return .linear(m)
+    }
+    if WideLayout.isWide(bounds.size) {
+      // lower left or right by Meter side, the minimap in the other corner
+      let safe = ScreenInsets(top: safeTop, left: safeLeft, bottom: safeBottom, right: safeRight)
+      return .clock(WideLayout.clock(size: bounds.size, safe: safe, side: side))
     }
     return .clock(ClockMeter(bounds: bounds, bottomInset: safeBottom))
   }
