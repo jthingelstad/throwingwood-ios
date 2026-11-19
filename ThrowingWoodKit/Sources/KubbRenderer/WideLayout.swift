@@ -167,4 +167,52 @@ public enum WideLayout {
       block: CGRect(x: x, y: beside.minY, width: block.width, height: block.height), edge: edge,
       minimap: map)
   }
+
+  // MARK: The raise and punishment bar
+
+  /// A wide screen no taller than this shows the raise and punishment panel as a
+  /// bar along the bottom (the web's tune.stillShort, game.css max-height 460px).
+  public static let stillShort: CGFloat = 460
+  /// pt inside the safe area at the sides, and above its bottom (game.css .panel).
+  public static let barSide: CGFloat = 12
+  public static let barLift: CGFloat = 8
+  /// The bar's widest, centred between its sides.
+  public static let barMaxWidth: CGFloat = 760
+  /// pt the scene's lowest ground the player works on stays above the bar's top
+  /// (tune.stillClear).
+  public static let stillClear: CGFloat = 8
+
+  /// The app's bar as measured on the review phones (the review's layout dump,
+  /// 2026-11-19, both phones alike): one line of words, and two (raising by
+  /// hand); its plate's shadow takes 4 pt of the 8 under it. The app reports its own
+  /// height to the scene, so a third line from a larger text size still holds.
+  public static let barOneLine: CGFloat = 53
+  public static let barTwoLines: CGFloat = 65.3
+
+  /// A phone on its side: the raise and punishment panel is a bar.
+  public static func isShort(_ size: CGSize) -> Bool {
+    isWide(size) && size.height <= stillShort
+  }
+
+  /// The bar of `height` pt (the app measures it: the words may wrap).
+  public static func bar(height: CGFloat, size: CGSize, safe: ScreenInsets) -> CGRect {
+    let left = safe.left + barSide, right = size.width - safe.right - barSide
+    let w = max(0, min(barMaxWidth, right - left))
+    return CGRect(
+      x: left + (right - left - w) / 2, y: size.height - safe.bottom - barLift - height,
+      width: w, height: height)
+  }
+
+  /// How far the raise or punishment scene moves up so its lowest point stays
+  /// `stillClear` above a bar whose top is `floor` pt above the screen's foot:
+  /// `lowest` is a frame y (the 400 x 240 frame) and `pad` screen points below
+  /// it (an end number's circle). The projection's wide rule, the same scale;
+  /// 0 where the scene is clear already (the web's stillFit, its `over`).
+  public static func stillLift(size: CGSize, lowest: Double, pad: Double = 0, floor: Double) -> Double {
+    guard isShort(size) else { return 0 }
+    let k = min(size.width / 400, size.height / 240)
+    let oy = (size.height - 240 * k) / 2
+    let over = oy + k * lowest + pad - (size.height - floor - stillClear)
+    return max(0, over)
+  }
 }

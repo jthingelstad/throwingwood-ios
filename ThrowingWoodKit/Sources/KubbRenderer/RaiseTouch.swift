@@ -15,6 +15,7 @@ public enum RaiseTouch {
   public static let travelK: CGFloat = 1.1  // the full tip: this times the kubb's drawn length
   public static let stand = 0.5  // let go past this part of the way up and it stands
   public static let hint = 1.0  // s the allowed end is lit after a tap on a refused one
+  public static let numberR: CGFloat = 17  // pt: an end's number's circle (the web's r 17)
 
   static let halfSide = 0.035  // a kubb: half its side and half its length
   static let halfLength = 0.075
@@ -90,6 +91,28 @@ public enum RaiseTouch {
       caps.append(p)
     }
     return Geometry(outline: hull(outline), caps: caps)
+  }
+
+  /// The lowest frame y (the 400 x 240 frame) of the raise scene's working parts: the
+  /// lying kubb's corners, both footprints and both numbers' centres. Lowest on the
+  /// screen; a number's circle reaches `numberR` pt below its centre.
+  static func lowest(_ need: MatchNeed, camera: Camera) -> Double? {
+    guard let pose = need.pose, let id = need.kubb, let ends = need.ends else { return nil }
+    let frame = PitchProjection(size: CGSize(width: 400, height: 240), camera: camera)
+    let piece = pose.piece(id: id)
+    let r = piece.rotation
+    let x = r.act(V3(1, 0, 0)), y = r.act(V3(0, 1, 0)), z = r.act(V3(0, 0, 1))
+    var points: [V3] = (0..<8).map { k in
+      piece.center + (k & 1 == 0 ? -halfSide : halfSide) * x
+        + (k & 2 == 0 ? -halfSide : halfSide) * y + (k & 4 == 0 ? -halfLength : halfLength) * z
+    }
+    for e in ends {
+      let d = V2(e.pose.x - pose.x, e.pose.y - pose.y)
+      let l = simd_length(d) == 0 ? 1 : simd_length(d)
+      points.append(V3(e.pose.x, e.pose.y, 0))
+      points.append(V3(e.pose.x + d.x / l * 0.07, e.pose.y + d.y / l * 0.07, 0))
+    }
+    return points.compactMap { frame.project($0).map { Double($0.y) } }.max()
   }
 
   /// How far `p` is outside a convex polygon: 0 inside.
