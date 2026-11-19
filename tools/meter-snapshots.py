@@ -25,6 +25,16 @@ SHOTS = {
     "linear-right-marks": ("marks", "linear", "right", {}),
     "linear-left-idle": ("aim", "linear", "left", {}),
     "linear-left-wind": ("wind", "linear", "left", {}),
+    # the nudge, frozen: the press, the slow draw back, the beat, the fast flick
+    "clock-nudge-press": ("nudge", "clock", "right", {"NUDGE_AT": "0.25"}),
+    "clock-nudge-back": ("nudge", "clock", "right", {"NUDGE_AT": "1.0"}),
+    "clock-nudge-flick": ("nudge", "clock", "right", {"NUDGE_AT": "1.7"}),
+    "clock-nudge-still": ("nudge", "clock", "right", {"NUDGE_STILL": "1"}),
+    "linear-right-nudge-press": ("nudge", "linear", "right", {"NUDGE_AT": "0.25"}),
+    "linear-right-nudge-back": ("nudge", "linear", "right", {"NUDGE_AT": "1.0"}),
+    "linear-right-nudge-flick": ("nudge", "linear", "right", {"NUDGE_AT": "1.7"}),
+    "linear-right-nudge-still": ("nudge", "linear", "right", {"NUDGE_STILL": "1"}),
+    "linear-left-nudge-back": ("nudge", "linear", "left", {"NUDGE_AT": "1.4"}),
 }
 
 

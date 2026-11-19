@@ -19,6 +19,15 @@ import UIKit
   /// A stroke from the throw zone or beside the ring: the engine takes the
   /// press on one frame, then this, the finger, on the next.
   private var pendingDial: CGPoint?, pendingLift = false
+  /// The nudge (ThrowNudge.swift): when the player is stuck on their own throw.
+  private var nudge = NudgeTrigger(thrown: UserDefaults.standard.integer(forKey: "pitch.throwsMade"))
+  private var nudgeClock: CFTimeInterval?
+  private var nudgeShow = (show: false, t: 0.0, alpha: 0.0)
+  private var nudgeAim = false, nudgeEnd: Int?
+  private var nudgeWake: Timer?
+  #if targetEnvironment(simulator)
+    private var reviewNudge: Double?
+  #endif
   #if targetEnvironment(simulator)
     private var reviewReady = false, signalled = false
     private let reviewMode = ProcessInfo.processInfo.environment["PITCH_REVIEW"]
@@ -63,6 +72,8 @@ import UIKit
     display = link
   }
   func wake() {
+    nudgeWake?.invalidate()
+    nudgeWake = nil
     #if targetEnvironment(simulator)
       if reviewReady && (matchReview != nil || (reviewMode != nil && reviewMode != "timing")) {
         return
@@ -82,7 +93,11 @@ import UIKit
   }
   private func cancel() {
     if gesture == .walk { pitch.walk(drag: .zero) }
-    if gesture == .dial { run { try pitch.cancelInput() } }
+    if gesture == .dial {
+      run { try pitch.cancelInput() }
+      nudgeEnd = 0
+    }
+    if gesture == .body { nudge.pressEnded(thrown: false) }
     tracking = nil
     gesture = nil
     besideRing = false
@@ -157,7 +172,18 @@ import UIKit
         if pendingLift { pitch.sample(nil) }
         pendingLift = false
       }
-      if ticked {
+      if let n = nudgeEnd, pendingDial == nil {
+        // the press has ended: a throw if the engine has one in flight within a few frames
+        if pitch.playing || n >= 6 {
+          nudgeEnd = nil
+          nudge.pressEnded(thrown: pitch.playing)
+          if pitch.playing { UserDefaults.standard.set(nudge.thrown, forKey: "pitch.throwsMade") }
+        } else {
+          nudgeEnd = n + 1
+        }
+      }
+      stepNudge()
+      if ticked || nudgeShow.show || nudgeEnd != nil {
         if pitch.playing { gesture = nil }
         model.refresh()
         setNeedsDisplay()
@@ -167,11 +193,38 @@ import UIKit
       } else if gesture == nil && !fed && !pitch.playing && pitch.result == nil && !pitch.wantsFrames {
         link.isPaused = true
         previous = nil
+        // sleep until the nudge would start
+        if nudgeEligible {
+          nudgeWake = Timer.scheduledTimer(withTimeInterval: max(0.05, nudge.untilWanted), repeats: false) {
+            [weak self] _ in MainActor.assumeIsolated { self?.wake() }
+          }
+        }
       }
     } catch {
       model.error = error.localizedDescription
       stop()
     }
+  }
+
+  /// Is the player's own throw waiting, with nothing between them and the meter?
+  private var nudgeAimWanted: Bool {
+    (model.screen == .practice || model.screen == .match) && pitch.canAim && pitch.handoff == nil
+  }
+  private var nudgeEligible: Bool {
+    nudgeAimWanted && !pitch.plan && tracking == nil && pendingDial == nil && nudgeEnd == nil
+      && pitch.dial.phase == "idle"
+  }
+  /// Time passing for the nudge, on the wall clock (the display link sleeps).
+  private func stepNudge() {
+    let now = CACurrentMediaTime()
+    let dt = nudgeClock.map { now - $0 } ?? 0
+    nudgeClock = now
+    let aim = nudgeAimWanted
+    if aim && !nudgeAim { nudge.aimBegan() }
+    nudgeAim = aim
+    let was = nudgeShow
+    nudgeShow = nudge.step(dt, eligible: nudgeEligible)
+    if nudgeShow.show || was.show { setNeedsDisplay() }
   }
 
   /// The meter on the screen: the player's choice where it has its room.
@@ -247,13 +300,37 @@ import UIKit
       pitch.handoff == nil, pitch.need == nil || pitch.need?.kind == "throw"
     {
       let hint = model.screen == .practice
+      let meter = meter
+      var ghost: NudgeFrame?
+      var show = nudgeShow
+      #if targetEnvironment(simulator)
+        if let t = reviewNudge { show = (true, t, 1) }
+      #endif
+      if show.show {
+        var f = NudgeFrame.at(
+          show.t, swing: NudgeSwing(pitch.dial),
+          reduced: UIAccessibility.isReduceMotionEnabled
+            || ProcessInfo.processInfo.environment["NUDGE_STILL"] != nil)
+        f.alpha *= show.alpha
+        ghost = f
+      }
+      // the ghost's words on the plate while the engine still says WIND BACK
+      let caption = pitch.dial.prompt == "WIND BACK" ? ghost?.caption : nil
       switch meter {
       case .clock(let c):
         let finger = gesture == .dial && besideRing ? lastDialPoint : nil
-        hud.dial(pitch.dial, at: c.center, radius: c.radius, showHint: hint, finger: finger)
+        hud.dial(
+          pitch.dial, at: c.center, radius: c.radius, showHint: hint, finger: finger,
+          prompt: caption.map { Optional($0) })
       case .linear(let m):
-        hud.linear(pitch.dial, m, held: gesture == .dial, prompt: linearWords(pitch.dial.prompt))
+        hud.linear(
+          pitch.dial, m, held: gesture == .dial, prompt: linearWords(caption ?? pitch.dial.prompt))
         if hint { hud.linearHint(m, safeBottom: safeAreaInsets.bottom) }
+      }
+      if let ghost {
+        hud.nudge(
+          ghost, swing: NudgeSwing(pitch.dial), on: meter, safeLeft: safeAreaInsets.left,
+          safeRight: safeAreaInsets.right)
       }
     }
   }
@@ -264,6 +341,8 @@ import UIKit
     startPoint = p
     moved = false
     besideRing = false
+    stepNudge()
+    nudge.input()
     if pitch.need?.kind == "raise" {
       gesture = .raise
     } else if pitch.need?.kind == "punish" {
@@ -272,6 +351,7 @@ import UIKit
     } else if !pitch.canAim {
       return
     } else if let claim = meter.first(p) {
+      nudge.meterPressed()
       if case .meter(let grab) = claim {
         gesture = .dial
         meterGrab = grab
@@ -289,6 +369,7 @@ import UIKit
     {
       gesture = .stance
     } else if let claim = meter.after(p, in: bounds.size, aimable: pitch.tapCouldAim(p, size: bounds.size)) {
+      if claim == .beside { nudge.meterPressed() } else { nudge.zonePressed() }
       switch claim {
       case .beside:  // nothing to aim at under it: the arm turns at once
         gesture = .dial
@@ -337,6 +418,7 @@ import UIKit
         besideRing = true
       }
       gesture = .dial
+      nudge.meterPressed()
       pitch.beginDial()
       wake()
       sampleDial(startPoint)
@@ -362,6 +444,8 @@ import UIKit
     guard let t = tracking, touches.contains(t) else { return }
     switch gesture {
     case .dial:
+      nudgeEnd = 0
+      wake()
       let p = t.location(in: self)
       if pendingDial != nil {
         pendingDial = p
@@ -384,7 +468,8 @@ import UIKit
     case .raise:
       if !moved { run { try pitch.raise(at: t.location(in: self), size: bounds.size) } }
     case .walk: pitch.walk(drag: .zero)
-    case .stance, .punishment, .body, nil: break
+    case .body: nudge.pressEnded(thrown: false)
+    case .stance, .punishment, nil: break
     }
     tracking = nil
     gesture = nil
@@ -395,7 +480,7 @@ import UIKit
   #if targetEnvironment(simulator)
     /// Review stills use the actual pitch, dial input, clock and drawing layers.
     private func prepareReview(_ mode: String) throws {
-      guard ["aim", "flight", "rest", "timing", "wind", "beside", "marks"].contains(mode) else { return }
+      guard ["aim", "flight", "rest", "timing", "wind", "beside", "marks", "nudge"].contains(mode) else { return }
       let dt = 1.0 / 60
       // Snap the circle one kubb to the right of its initial target.
       if let m = pitch.marker(in: bounds.size) {
@@ -403,6 +488,11 @@ import UIKit
           CGPoint(x: m.x + bounds.width * 0.22, y: m.y), size: bounds.size, snap: true)
       }
       if mode == "aim" { return }
+      if mode == "nudge" {
+        // the nudge frozen at NUDGE_AT s into its loop (NUDGE_STILL: reduced motion)
+        reviewNudge = Double(ProcessInfo.processInfo.environment["NUDGE_AT"] ?? "") ?? 1.0
+        return
+      }
       let back = ((pitch.dial.powerHi ?? 100) + (pitch.dial.powerLo ?? 80)) / 2
       let stop = ((pitch.dial.releaseHi ?? 48) + (pitch.dial.releaseLo ?? 32)) / 2
       func arm(_ angle: Double) throws {
