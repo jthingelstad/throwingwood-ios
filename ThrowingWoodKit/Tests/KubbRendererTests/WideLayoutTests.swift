@@ -7,16 +7,21 @@ import Testing
 /// A phone on its side (WideLayout.swift): the web's wide arrangement on both
 /// review phones held either way, with both meters and both sides.
 @MainActor struct WideLayoutTests {
-  /// The review phones on their side: the points and the safe area iOS gives
-  /// them in landscape (the sensor housing's inset on both sides, the home
-  /// indicator's at the bottom, no status bar).
+  /// The review phones on their side, turned left and turned right: the points
+  /// and the safe area the iOS 26.2 simulator gives the app (the review's
+  /// layout dump, 2026-11-19). The sensor housing's inset is on both sides
+  /// whichever way the phone is turned, the home indicator's at the bottom, and
+  /// there is no status bar.
   static let phones: [(name: String, size: CGSize, safe: ScreenInsets)] = [
-    ("iPhone 16e", CGSize(width: 844, height: 390), ScreenInsets(top: 0, left: 47, bottom: 21, right: 47)),
-    ("iPhone 17 Pro Max", CGSize(width: 956, height: 440), ScreenInsets(top: 0, left: 62, bottom: 20, right: 62)),
+    ("iPhone 16e turned left", CGSize(width: 844, height: 390), ScreenInsets(top: 0, left: 47, bottom: 20, right: 47)),
+    ("iPhone 16e turned right", CGSize(width: 844, height: 390), ScreenInsets(top: 0, left: 47, bottom: 20, right: 47)),
+    ("iPhone 17 Pro Max turned left", CGSize(width: 956, height: 440), ScreenInsets(top: 0, left: 62, bottom: 20, right: 62)),
+    ("iPhone 17 Pro Max turned right", CGSize(width: 956, height: 440), ScreenInsets(top: 0, left: 62, bottom: 20, right: 62)),
+    // a phone whose housing is on one side only, in case iOS ever reports it so
+    ("a lopsided phone", CGSize(width: 844, height: 390), ScreenInsets(top: 0, left: 59, bottom: 21, right: 0)),
   ]
-  /// The plan block as the app draws it (ARC over SIDE VIEW beside TILT over
-  /// STAND, shadows included), rounded up.
-  static let block = CGSize(width: 206, height: 212)
+  /// The plan block as the app frames it.
+  static let block = WideLayout.planBlock
 
   @Test func aPhoneOnItsSideIsWideAndUprightIsNot() {
     for p in Self.phones {
@@ -59,7 +64,7 @@ import Testing
     let r = WideLayout.clockBox(size: p.size, safe: p.safe, side: .right)
     // S = min(0.28 W, 0.5 H, 380) = 195, 1.2 S tall, 14 in, its foot 7 over the safe area
     #expect(abs(r.width - 195) < 1e-9 && abs(r.height - 234) < 1e-9)
-    #expect(r.maxX == p.size.width - 47 - 14 && r.maxY == p.size.height - 21 - 7)
+    #expect(r.maxX == p.size.width - 47 - 14 && r.maxY == p.size.height - p.safe.bottom - 7)
     let c = WideLayout.clock(size: p.size, safe: p.safe, side: .right)
     #expect(abs(c.radius - (195 - 2 * 7.8) / 2.12) < 1e-9)
     let l = WideLayout.clock(size: p.size, safe: p.safe, side: .left)
@@ -83,9 +88,9 @@ import Testing
             ("rail", WideLayout.rail(size: p.size, safe: s)),
             ("menu", WideLayout.menu(size: p.size, safe: s)),
             ("caption", WideLayout.caption(size: p.size, safe: s)),
-            ("minimap", WideLayout.minimap(size: p.size, safe: s, side: side)),
+            ("minimap", WideLayout.plan(meter: meter, size: p.size, safe: s, side: side).minimap),
             ("meter", WideLayout.meterBox(meter, size: p.size, safe: s, side: side)),
-            ("plans", WideLayout.plans(block: Self.block, meter: meter, size: p.size, safe: s, side: side)),
+            ("plans", WideLayout.plan(meter: meter, size: p.size, safe: s, side: side).block),
           ]
           let what = "\(p.name) \(kind) \(side)"
           for (name, f) in frames {
@@ -103,16 +108,80 @@ import Testing
             #expect(c.center.y + c.radius * 1.12 <= p.size.height - s.bottom)
             #expect(c.center.x - c.radius * 1.12 >= s.left && c.center.x + c.radius * 1.12 <= p.size.width - s.right)
           }
-          // the plan block is on the meter's inner side, its foot above the meter's
-          let plans = WideLayout.plans(block: Self.block, meter: meter, size: p.size, safe: s, side: side)
+          // the plan block is at the screen's edge away from the meter, 8 in from
+          // the safe area, its foot 10 above the meter's box's foot
+          let plan = WideLayout.plan(meter: meter, size: p.size, safe: s, side: side)
           let box = WideLayout.meterBox(meter, size: p.size, safe: s, side: side)
-          #expect(side == .right ? plans.maxX < box.minX : plans.minX > box.maxX)
-          #expect(plans.maxY == box.maxY - WideLayout.planLift)
-          let anchor = WideLayout.plansAnchor(meter: meter, size: p.size, safe: s, side: side)
-          #expect(side == .right ? anchor.edge == p.size.width - plans.maxX : anchor.edge == plans.minX)
-          #expect(anchor.bottom == p.size.height - plans.maxY)
+          #expect(plan.edge == (side == .right ? .left : .right), "\(what)")
+          #expect(
+            side == .right
+              ? plan.block.minX == s.left + 8 : plan.block.maxX == p.size.width - s.right - 8, "\(what)")
+          #expect(plan.block.maxY == box.maxY - WideLayout.planLift)
+          // the minimap keeps its corner's y and size, 12 from the block's inner side
+          let corner = WideLayout.minimap(size: p.size, safe: s, side: side)
+          #expect(plan.minimap.size == corner.size && plan.minimap.minY == corner.minY)
+          #expect(
+            side == .right
+              ? plan.minimap.minX == plan.block.maxX + 12 : plan.minimap.maxX == plan.block.minX - 12)
+          // nothing on the throwing line: the block and the minimap stop 24 short
+          // of the screen's centre, the meter is on the other half
+          let centre = p.size.width / 2
+          for f in [plan.block, plan.minimap] {
+            #expect(side == .right ? f.maxX <= centre - 24 : f.minX >= centre + 24, "\(what): \(f)")
+          }
+          #expect(side == .right ? box.minX > centre : box.maxX < centre)
+          // and clear of the clock's outer touch zone (a press beside the ring)
+          if let c = meter.clock {
+            for f in [plan.block, plan.minimap] {
+              #expect(
+                distance(c.center, f) > c.radius * ClockMeter.touchReach, "\(what): \(f) in the clock's reach")
+            }
+          }
+          // the meter has not moved for it
+          #expect(meter == MeterLayout.make(
+            kind: kind, side: side, bounds: CGRect(origin: .zero, size: p.size), safeTop: s.top,
+            safeBottom: s.bottom, safeLeft: s.left, safeRight: s.right))
+          if let c = meter.clock { #expect(c == WideLayout.clock(size: p.size, safe: s, side: side)) }
         }
       }
+    }
+  }
+
+  /// The nearest a rect comes to a point.
+  private func distance(_ p: CGPoint, _ r: CGRect) -> CGFloat {
+    hypot(max(r.minX - p.x, 0, p.x - r.maxX), max(r.minY - p.y, 0, p.y - r.maxY))
+  }
+
+  @Test func theBlockIsTheWebsAtTheFarEdgeMirroredForAClockAtTheLeft() {
+    // the web's rects (planAt) for its 202 x 168 block, its insets 59 a side and
+    // 21 at the bottom: x and the foot are the same rule
+    let web = CGSize(width: 202, height: 168)
+    let safe = ScreenInsets(top: 0, left: 59, bottom: 21, right: 59)
+    func at(_ size: CGSize, _ side: MeterSide) -> WideLayout.Plan {
+      let m = MeterLayout.clock(WideLayout.clock(size: size, safe: safe, side: side))
+      return WideLayout.plan(block: web, meter: m, size: size, safe: safe, side: side)
+    }
+    func near(_ a: CGFloat, _ b: CGFloat) -> Bool { abs(a - b) < 0.05 }
+    let right = at(CGSize(width: 852, height: 393), .right)
+    #expect(right.edge == .left && right.block == CGRect(x: 67, y: 187, width: 202, height: 168))
+    #expect(near(right.minimap.minX, 281) && near(right.minimap.width, 62.9))
+    let left = at(CGSize(width: 852, height: 393), .left)
+    #expect(left.edge == .right && left.block == CGRect(x: 583, y: 187, width: 202, height: 168))
+    #expect(near(left.minimap.minX, 508.1))
+    let big = at(CGSize(width: 932, height: 430), .right)
+    #expect(big.block == CGRect(x: 67, y: 224, width: 202, height: 168))
+    #expect(near(big.minimap.minX, 281) && near(big.minimap.width, 68.8))
+  }
+
+  @Test func aScreenTooNarrowForTheBlockAndMinimapOffTheLineKeepsItBesideTheMeter() {
+    // just wide (H = W), the block and minimap would cross the centre
+    let size = CGSize(width: 420, height: 420)
+    for side in MeterSide.allCases {
+      let m = MeterLayout.clock(WideLayout.clock(size: size, safe: ScreenInsets(), side: side))
+      let plan = WideLayout.plan(meter: m, size: size, safe: ScreenInsets(), side: side)
+      #expect(plan.edge == nil)
+      #expect(plan.block == WideLayout.plans(block: Self.block, meter: m, size: size, safe: ScreenInsets(), side: side))
+      #expect(plan.minimap == WideLayout.minimap(size: size, safe: ScreenInsets(), side: side))
     }
   }
 

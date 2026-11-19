@@ -4,9 +4,9 @@ import Foundation
 // A phone on its side (Jamie, 2026-11-19: "Given we have a widescreen view for
 // web, can we extend that to support iPhone rotated display?"). The web's wide
 // arrangement (src/game/layout.js, its numbers): the clock lower right or lower
-// left by Meter side, the minimap in the other bottom corner, the plan (TILT,
-// STAND, ARC, SIDE VIEW) in one block beside the meter with ARC next to it, the
-// turn rail top left and MENU top right. The linear meter goes at its edge only
+// left by Meter side, the plan (TILT, STAND, ARC, SIDE VIEW) in one block at the
+// other edge with TILT and STAND at the screen's edge, the minimap on the
+// block's inner side (`plan`), the turn rail top left and MENU top right. The linear meter goes at its edge only
 // where its track has `LinearMeter.Tune.minTravel`, which no iPhone on its side
 // has, so there the clock is shown, as on the web. The camera is the thrower's
 // view as ever: the projection's wide rule (the 400 x 240 frame fitted whole).
@@ -115,13 +115,56 @@ public enum WideLayout {
     return CGRect(x: x, y: b.maxY - planLift - block.height, width: block.width, height: block.height)
   }
 
-  /// The plan block's distance in from the screen's edge on the meter's side,
-  /// and from the bottom to its foot: how the app pads it.
-  public static func plansAnchor(meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide)
-    -> (edge: CGFloat, bottom: CGFloat)
-  {
-    let b = meterBox(meter, size: size, safe: safe, side: side)
-    let edge = side == .left ? b.maxX + planGap : size.width - (b.minX - planGap)
-    return (edge, size.height - (b.maxY - planLift))
+  // MARK: The plan block at the far edge
+
+  /// The plan block as the app draws it: TILT over STAND beside ARC over SIDE
+  /// VIEW, 10 pt apart, the plates' shadows included (the app frames the block
+  /// to this size; the web's is 202 x 168 CSS px).
+  public static let planBlock = CGSize(width: 206, height: 212)
+  /// pt inside the safe area at the screen's edge (the web's tune.planEdge).
+  public static let planEdge: CGFloat = 8
+  /// pt between the block and the minimap on its inner side (tune.planGap).
+  public static let planMapGap: CGFloat = 12
+  /// The block and the minimap keep this many pt short of the throwing line,
+  /// the screen's centre, or the block stays beside the meter (tune.planClear).
+  public static let planClear: CGFloat = 24
+
+  /// Where the plan block and the minimap go on a phone on its side.
+  public struct Plan: Equatable, Sendable {
+    /// The block's rect.
+    public var block: CGRect
+    /// The screen edge the block is at, away from the meter; nil where it sits
+    /// beside the meter instead (a screen too narrow to keep it and the
+    /// minimap off the throwing line).
+    public var edge: MeterSide?
+    /// The minimap: the same y and size as in its corner, on the block's inner
+    /// side when the block is at the edge, else in its corner.
+    public var minimap: CGRect
+  }
+
+  /// The plan block at the screen's edge away from the meter, `planEdge` inside
+  /// the safe area, its foot where it was beside the meter, so one hand sets the
+  /// plan and the other throws (Jamie, 2026-11-19: "in landscape the tilt, arc,
+  /// stand controls should be pushed to the left hand side of the screen so the
+  /// user can control those with the left hand and the throw with the right
+  /// hand"). The web's planAt (src/game/layout.js) with the app's block size.
+  public static func plan(
+    block: CGSize = planBlock, meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide
+  ) -> Plan {
+    let beside = plans(block: block, meter: meter, size: size, safe: safe, side: side)
+    let corner = minimap(size: size, safe: safe, side: side)
+    // the block's edge is the one away from the meter
+    let edge: MeterSide = side == .right ? .left : .right
+    let x = edge == .left ? safe.left + planEdge : size.width - safe.right - planEdge - block.width
+    let mx = edge == .left ? x + block.width + planMapGap : x - planMapGap - corner.width
+    let inner = edge == .left ? mx + corner.width : size.width - mx
+    if inner > size.width / 2 - planClear {
+      return Plan(block: beside, edge: nil, minimap: corner)
+    }
+    var map = corner
+    map.origin.x = mx
+    return Plan(
+      block: CGRect(x: x, y: beside.minY, width: block.width, height: block.height), edge: edge,
+      minimap: map)
   }
 }
