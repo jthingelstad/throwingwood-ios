@@ -67,7 +67,7 @@ import UIKit
       context.strokePath()
     }
     sector(-180, 180, UIColor(red: 0.94, green: 0.91, blue: 0.82, alpha: 1))
-    sector(-180, -d.overDeg, .systemRed)
+    sector(-180, -overStart(d), .systemRed)  // never over the power target
     sector(-d.deadDeg, 0, .systemGray3)
     sector(
       d.powerHi.map { -$0 }, d.powerLo.map { -$0 },
@@ -78,9 +78,13 @@ import UIKit
       let angle = Double(h) * 30
       line(at(angle, r * 0.76), at(angle, r * (major ? 0.58 : 0.66)), ink, major ? 3 : 1.7)
     }
+    // the last throw's peak and stop: ghosts of the knob where it was, never rings
+    // (a tester read the rings as targets)
     for angle in [d.lastBack.map { -$0 }, d.lastStop].compactMap({ $0 }) {
-      disk(at(angle, r * 0.85), r * 0.057, ink)
-      disk(at(angle, r * 0.85), r * 0.035, paper)
+      ghostKnob(at(angle, r * 0.82), r * 0.145) { p, kr in
+        disk(p, kr, ink)
+        disk(p, kr * 0.115 / 0.145, UIColor(red: 0.95, green: 0.89, blue: 0.75, alpha: 1))
+      }
     }
     context.setLineCap(.round)
     let knob = at(d.phase == "idle" ? d.crank : d.arm, r * 0.82)

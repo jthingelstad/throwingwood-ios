@@ -4,6 +4,10 @@ import UIKit
 /// The meters' colours: the web's HUD palette (src/render/palette.js), so the
 /// linear meter is the same instrument on a phone and in a browser.
 enum MeterPaint {
+  /// The last throw's marks: a faded ghost of the knob, about 60% of its size at
+  /// about 45% opacity, where the knob was (the same on the web).
+  static let ghostSize: CGFloat = 0.6
+  static let ghostAlpha: CGFloat = 0.45
   static func hex(_ v: UInt32, _ a: CGFloat = 1) -> UIColor {
     UIColor(
       red: CGFloat((v >> 16) & 0xff) / 255, green: CGFloat((v >> 8) & 0xff) / 255,
@@ -225,7 +229,7 @@ extension PracticeHUD {
           cornerWidth: stW / 2, cornerHeight: stW / 2, transform: nil))
       ctx.fillPath()
     }
-    linearMarks(d, g, lane: lane, live: live, lw: lw)
+    linearMarks(d, g, lane: lane, knob: (kc, kr), live: live, lw: lw)
     ctx.restoreGState()  // the body's clip
 
     // the knob: a little baton end, wood with an ink rim and end-grain rings
@@ -305,23 +309,36 @@ extension PracticeHUD {
     max(d.overDeg, d.powerHi ?? 0)
   }
 
-  /// The last throw's peak and stop, and the live peak.
-  private func linearMarks(_ d: DialState, _ g: LinearMeter, lane: (CGFloat, CGFloat), live: Bool, lw: CGFloat) {
+  /// A last-throw mark on either meter: the knob's own shape at `MeterPaint.ghostSize`
+  /// of its size and `MeterPaint.ghostAlpha`, where the knob was.
+  func ghostKnob(_ c: CGPoint, _ kr: CGFloat, _ draw: (CGPoint, CGFloat) -> Void) {
+    context.saveGState()
+    context.setAlpha(MeterPaint.ghostAlpha)
+    context.beginTransparencyLayer(auxiliaryInfo: nil)
+    draw(c, kr * MeterPaint.ghostSize)
+    context.endTransparencyLayer()
+    context.restoreGState()
+  }
+
+  /// The last throw's peak and stop: ghosts of the knob where it was, so they
+  /// read as "where your last throw went" and never as targets. And the live
+  /// peak, a dot in the lane.
+  private func linearMarks(
+    _ d: DialState, _ g: LinearMeter, lane: (CGFloat, CGFloat), knob: (x: CGFloat, r: CGFloat), live: Bool,
+    lw: CGFloat
+  ) {
+    for a in [d.lastBack.map { -$0 }, d.lastStop].compactMap({ $0 }) {
+      ghostKnob(CGPoint(x: knob.x, y: g.y(arm: max(-180, min(180, a)))), knob.r) { c, r in
+        woodKnob(c, r, held: false, lw: lw * 0.6)
+      }
+    }
     let laneC = (lane.0 + lane.1) / 2
     let dr = g.laneWidth * 0.26
     func dot(_ a: Double, solid: Bool) {
       let p = CGPoint(x: laneC, y: g.y(arm: max(-180, min(180, a))))
       disk(p, dr + lw, paper)
-      if solid {
-        disk(p, dr - lw * 0.5, ink)
-      } else {
-        context.setStrokeColor(ink.cgColor)
-        context.setLineWidth(lw * 1.4)
-        context.strokeEllipse(in: CGRect(x: p.x - dr, y: p.y - dr, width: 2 * dr, height: 2 * dr))
-      }
+      disk(p, dr - lw * 0.5, ink)
     }
-    if let b = d.lastBack { dot(-b, solid: false) }
-    if let s = d.lastStop { dot(s, solid: false) }
     if live && d.back > 0 { dot(-min(180, d.back), solid: true) }
   }
 }
