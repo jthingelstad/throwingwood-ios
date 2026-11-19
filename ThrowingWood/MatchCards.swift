@@ -38,48 +38,48 @@ struct HomeCard: View {
 struct MatchOptionsCard: View {
   @Bindable var model: GameModel
   var body: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 14) {
-        Text("Play the computer").font(displayFont(37))
-        TextField("Your name", text: $model.name)
-          .textFieldStyle(.roundedBorder).accessibilityLabel("Your name")
-          .onChange(of: model.name) { _, value in
-            model.name = String(value.prefix(model.pitch?.options.nameLimit ?? value.count))
-          }
-        ForEach(model.pitch?.options.rows ?? []) { row in
-          HStack {
-            Text(row.label).font(.subheadline.weight(.semibold))
-            Spacer()
-            Menu {
-              ForEach(row.choices, id: \.self) { choice in
-                Button {
-                  model.selections[row.id] = choice[0]
-                } label: {
-                  if model.selections[row.id] == choice[0] {
-                    Label(choice[1], systemImage: "checkmark")
-                  } else {
-                    Text(choice[1])
-                  }
+    VStack(alignment: .leading, spacing: 14) {
+      Text("Play the computer").font(displayFont(37))
+      TextField("Your name", text: $model.name)
+        .textFieldStyle(.roundedBorder).accessibilityLabel("Your name")
+        .onChange(of: model.name) { _, value in
+          model.name = String(value.prefix(model.pitch?.options.nameLimit ?? value.count))
+        }
+      ForEach(model.pitch?.options.rows ?? []) { row in
+        HStack {
+          Text(row.label).font(.subheadline.weight(.semibold))
+          Spacer()
+          Menu {
+            ForEach(row.choices, id: \.self) { choice in
+              Button {
+                model.selections[row.id] = choice[0]
+              } label: {
+                if model.selections[row.id] == choice[0] {
+                  Label(choice[1], systemImage: "checkmark")
+                } else {
+                  Text(choice[1])
                 }
               }
-            } label: {
-              let value = row.choices.first { $0[0] == model.selections[row.id] }?.last ?? ""
-              HStack {
-                Text(value)
-                Image(systemName: "chevron.up.chevron.down").font(.caption)
-              }
-              .frame(minWidth: 100, minHeight: 32, alignment: .trailing)
-            }.accessibilityLabel(row.label)
-          }
-          Divider()
+            }
+          } label: {
+            let value = row.choices.first { $0[0] == model.selections[row.id] }?.last ?? ""
+            HStack {
+              Text(value)
+              Image(systemName: "chevron.up.chevron.down").font(.caption)
+            }
+            .frame(minWidth: 100, minHeight: 32, alignment: .trailing)
+          }.accessibilityLabel(row.label)
         }
-        HStack {
-          Button("HOME", action: model.home).buttonStyle(WoodButton())
-          Spacer()
-          Button("START", action: model.start).buttonStyle(WoodButton(accent: true))
-        }
-      }.modifier(Plate(inset: 20)).padding(18)
-    }.scrollBounceBehavior(.basedOnSize).defaultScrollAnchor(.center)
+        Divider()
+      }
+      HStack {
+        Button("HOME", action: model.home).buttonStyle(WoodButton())
+        Spacer()
+        Button("START", action: model.start).buttonStyle(WoodButton(accent: true))
+      }
+    }.modifier(Plate(inset: 20)).frame(maxWidth: 560).padding(18)
+      // centred when it fits; on a phone on its side it scrolls from its title
+      .frame(maxWidth: .infinity, maxHeight: .infinity).modifier(FitOrScroll())
   }
 }
 
@@ -180,98 +180,194 @@ struct MatchMenu: View {
       }.buttonStyle(WoodButton())
       Button("BACK TO MATCH") { model.screen = .match }.buttonStyle(WoodButton(accent: true))
     }.frame(maxWidth: 330, alignment: .leading).modifier(Plate(inset: 20)).padding(20)
+      .modifier(FitOrScroll())
   }
 }
 
 struct MatchScreen: View {
   let model: GameModel, pitch: PitchSession, revision: Int, playing: Bool
   @Environment(\.meterRoom) private var meterRoom
+  @Environment(\.screenGeometry) private var screen
   var body: some View {
     if let n = pitch.need {
       ZStack {
-        VStack(spacing: 8) {
-          HStack {
-            VStack(alignment: .leading, spacing: 1) {
-              Text(
-                n.cpu == true || (model.online != nil && !pitch.acceptsInput)
-                  ? "WATCH  ·  TURN \(n.turn ?? 1)" : "TURN \(n.turn ?? 1)"
-              )
-              .font(.caption2.bold()).tracking(1.4)
-              Text(
-                (model.online != nil && !playing && model.online?.turnLabel.isEmpty == false)
-                  ? model.online!.turnLabel : (n.setup?.thrower?.name ?? n.team ?? "Match")
-              ).font(displayFont(27)).lineLimit(1)
-            }
-            Spacer()
-            VStack(alignment: .trailing) {
-              if let s = n.setup {
-                let left = s.of - s.n + (playing ? 0 : 1)
-                Text(
-                  s.projectile == "baton"
-                    ? "\(left) \(left == 1 ? "baton" : "batons") left" : "Kubb \(s.n) of \(s.of)"
-                )
-                .font(.subheadline.bold())
-              }
-              if let counts = n.standing {
-                Text(
-                  model.online == nil
-                    ? "You \(counts["A"] ?? 0)  ·  CPU \(counts["B"] ?? 0)"
-                    : "A \(counts["A"] ?? 0)  ·  B \(counts["B"] ?? 0)"
-                )
-                .font(.caption).accessibilityLabel(
-                  model.online != nil
-                    ? "Kubbs standing, team A \(counts["A"] ?? 0), team B \(counts["B"] ?? 0)"
-                    : "Kubbs standing, you \(counts["A"] ?? 0), computer \(counts["B"] ?? 0)")
-              }
-            }
-            Button {
-              model.screen = .menu
-            } label: {
-              Image(systemName: "ellipsis.circle").font(.title2).frame(width: 35, height: 38)
-            }.accessibilityLabel("Match menu")
-          }.modifier(Plate(inset: 9))
-          if model.slow {
-            Text("SLOW MOTION").font(.caption.bold()).modifier(Plate(inset: 5))
-          } else if let stand = pitch.standCaption, n.kind == "throw" {
-            SliderCaption(text: stand)
-          } else if let held = pitch.held, n.kind == "throw" {
-            SliderCaption(text: PlanScale.caption(held, kubb: pitch.throwsKubb))
-          } else if let wind = pitch.windText, n.kind == "throw" {
-            Text(wind).font(.caption.bold()).modifier(Plate(inset: 5))
-          }
-          if let result = model.result, n.kind == "throw" { Verdict(result: result) }
-          Spacer()
-          if let online = model.online {
-            HStack {
-              Menu("SHOUT") {
-                ForEach(OnlinePitch.words, id: \.self) { w in Button(w) { online.shout(w) } }
-              }
-              .buttonStyle(WoodButton())
-              Spacer()
-              VStack(alignment: .trailing) {
-                ForEach(Array(online.shouts.enumerated()), id: \.offset) { _, s in
-                  Text(s).font(displayFont(20)).modifier(Plate(inset: 5))
-                }
-              }
-            }.padding(meterRoom.edge, !playing && pitch.canAim ? meterRoom.width : 0)
-          }
-          if (n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput {
-            placement(n)
-          } else if !playing && pitch.canAim {
-            plans.padding(meterRoom.edge, meterRoom.width)
-          } else if playing {
-            HStack {
-              Spacer()
-              tool("SKIP", label: "Skip playback") {
-                if let online = model.online { try online.skip() } else { try pitch.skipPlayback() }
-              }
-            }
-          }
-        }.padding(.horizontal, 12)
+        if screen.wide {
+          wide(n)
+        } else {
+          tall(n)
+        }
         if let c = pitch.handoff {
           modal { handoff(c) }
         } else if let w = n.winner {
           modal { winner(n, w) }
+        }
+      }
+    }
+  }
+
+  /// A phone held upright: the rail across the top, the plan along the bottom.
+  private func tall(_ n: MatchNeed) -> some View {
+    VStack(spacing: 8) {
+      HStack {
+        rail(n)
+        menuButton
+      }.modifier(Plate(inset: 9))
+      captions(n)
+      Spacer()
+      if let online = model.online {
+        HStack {
+          shoutButton(online)
+          Spacer()
+          shouts(online)
+        }.padding(meterRoom.edge, !playing && pitch.canAim ? meterRoom.width : 0)
+      }
+      bottom(n)
+    }.padding(.horizontal, 12)
+  }
+
+  /// A phone on its side (WideLayout, the web's wide screen): the rail top
+  /// left, SHOUT and MENU top right, the captions between them, the plan in one
+  /// block beside the clock, the panels and SKIP in the clock's corner.
+  private func wide(_ n: MatchNeed) -> some View {
+    let size = screen.size, safe = screen.safe
+    let side = model.meter.side
+    let railBox = WideLayout.rail(size: size, safe: safe)
+    let menuBox = WideLayout.menu(size: size, safe: safe)
+    let tray: CGFloat = model.online == nil ? 0 : 96
+    let captionBox = WideLayout.caption(size: size, safe: safe, trayWidth: tray)
+    let meter = model.meter.layout(
+      bounds: CGRect(origin: .zero, size: size),
+      safe: UIEdgeInsets(top: safe.top, left: safe.left, bottom: safe.bottom, right: safe.right))
+    let anchor = WideLayout.plansAnchor(meter: meter, size: size, safe: safe, side: side)
+    let corner: Alignment = side == .left ? .bottomLeading : .bottomTrailing
+    let edge: Edge.Set = side == .left ? .leading : .trailing
+    return ZStack(alignment: .topLeading) {
+      Color.clear
+      HStack { rail(n) }.modifier(Plate(inset: 9))
+        .frame(width: railBox.width, alignment: .leading)
+        .offset(x: railBox.minX, y: railBox.minY)
+      menuButton.modifier(Plate(inset: 4))
+        .frame(width: menuBox.width, height: menuBox.height)
+        .offset(x: menuBox.minX, y: menuBox.minY)
+      captions(n)
+        .frame(width: captionBox.width, alignment: .top)
+        .offset(x: captionBox.minX, y: captionBox.minY)
+      if let online = model.online {
+        // the tray beside MENU, the shouts under it
+        VStack(alignment: .trailing, spacing: 6) {
+          shoutButton(online)
+          shouts(online)
+        }
+        .frame(width: 220, alignment: .trailing)
+        .offset(x: menuBox.minX - 8 - 220, y: menuBox.minY)
+      }
+      Group {
+        if (n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput {
+          placement(n).frame(maxWidth: 360)
+            .padding(edge, (side == .left ? safe.left : safe.right) + WideLayout.margin)
+            .padding(.bottom, safe.bottom + 8)
+        } else if !playing && pitch.canAim {
+          plans.padding(edge, anchor.edge).padding(.bottom, anchor.bottom)
+        } else if playing {
+          tool("SKIP", label: "Skip playback") {
+            if let online = model.online { try online.skip() } else { try pitch.skipPlayback() }
+          }
+          .padding(edge, (side == .left ? safe.left : safe.right) + WideLayout.margin)
+          .padding(.bottom, safe.bottom + 10)
+        }
+      }
+      .frame(width: size.width, height: size.height, alignment: corner)
+    }
+    .frame(width: size.width, height: size.height, alignment: .topLeading)
+    .ignoresSafeArea()
+  }
+
+  private func rail(_ n: MatchNeed) -> some View {
+    Group {
+      VStack(alignment: .leading, spacing: 1) {
+        Text(
+          n.cpu == true || (model.online != nil && !pitch.acceptsInput)
+            ? "WATCH  ·  TURN \(n.turn ?? 1)" : "TURN \(n.turn ?? 1)"
+        )
+        .font(.caption2.bold()).tracking(1.4)
+        Text(
+          (model.online != nil && !playing && model.online?.turnLabel.isEmpty == false)
+            ? model.online!.turnLabel : (n.setup?.thrower?.name ?? n.team ?? "Match")
+        ).font(displayFont(27)).lineLimit(1)
+      }
+      Spacer()
+      VStack(alignment: .trailing) {
+        if let s = n.setup {
+          let left = s.of - s.n + (playing ? 0 : 1)
+          Text(
+            s.projectile == "baton"
+              ? "\(left) \(left == 1 ? "baton" : "batons") left" : "Kubb \(s.n) of \(s.of)"
+          )
+          .font(.subheadline.bold())
+        }
+        if let counts = n.standing {
+          Text(
+            model.online == nil
+              ? "You \(counts["A"] ?? 0)  ·  CPU \(counts["B"] ?? 0)"
+              : "A \(counts["A"] ?? 0)  ·  B \(counts["B"] ?? 0)"
+          )
+          .font(.caption).accessibilityLabel(
+            model.online != nil
+              ? "Kubbs standing, team A \(counts["A"] ?? 0), team B \(counts["B"] ?? 0)"
+              : "Kubbs standing, you \(counts["A"] ?? 0), computer \(counts["B"] ?? 0)")
+        }
+      }
+    }
+  }
+
+  private var menuButton: some View {
+    Button {
+      model.screen = .menu
+    } label: {
+      Image(systemName: "ellipsis.circle").font(.title2).frame(width: 35, height: 38)
+    }.accessibilityLabel("Match menu")
+  }
+
+  @ViewBuilder private func captions(_ n: MatchNeed) -> some View {
+    VStack(spacing: 8) {
+      if model.slow {
+        Text("SLOW MOTION").font(.caption.bold()).modifier(Plate(inset: 5))
+      } else if let stand = pitch.standCaption, n.kind == "throw" {
+        SliderCaption(text: stand)
+      } else if let held = pitch.held, n.kind == "throw" {
+        SliderCaption(text: PlanScale.caption(held, kubb: pitch.throwsKubb))
+      } else if let wind = pitch.windText, n.kind == "throw" {
+        Text(wind).font(.caption.bold()).modifier(Plate(inset: 5))
+      }
+      if let result = model.result, n.kind == "throw" { Verdict(result: result) }
+    }
+  }
+
+  private func shoutButton(_ online: OnlinePitch) -> some View {
+    Menu("SHOUT") {
+      ForEach(OnlinePitch.words, id: \.self) { w in Button(w) { online.shout(w) } }
+    }
+    .buttonStyle(WoodButton())
+  }
+
+  private func shouts(_ online: OnlinePitch) -> some View {
+    VStack(alignment: .trailing) {
+      ForEach(Array(online.shouts.enumerated()), id: \.offset) { _, s in
+        Text(s).font(displayFont(20)).modifier(Plate(inset: 5))
+      }
+    }
+  }
+
+  @ViewBuilder private func bottom(_ n: MatchNeed) -> some View {
+    if (n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput {
+      placement(n)
+    } else if !playing && pitch.canAim {
+      plans.padding(meterRoom.edge, meterRoom.width)
+    } else if playing {
+      HStack {
+        Spacer()
+        tool("SKIP", label: "Skip playback") {
+          if let online = model.online { try online.skip() } else { try pitch.skipPlayback() }
         }
       }
     }
@@ -347,7 +443,7 @@ struct MatchScreen: View {
   private func modal<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
     ZStack {
       Color.black.opacity(0.26).ignoresSafeArea()
-      content().frame(maxWidth: 330).modifier(Plate(inset: 20)).padding(22)
+      content().frame(maxWidth: 330).modifier(Plate(inset: 20)).padding(22).modifier(FitOrScroll())
     }
   }
 
@@ -428,16 +524,31 @@ struct RaisingSetting: View {
 
 /// ARC over SIDE VIEW on the left of the dial, TILT or SPIN over STAND on the
 /// right, their feet level. With the linear meter on the left the two swap, so
-/// the shorter TILT column sits beside the meter, under its prompt tab.
+/// the shorter TILT column sits beside the meter, under its prompt tab. On a
+/// phone on its side the two are one block beside the clock, ARC next to it
+/// (the web's wide `.plans`).
 struct PlanControls: View {
   let model: GameModel, pitch: PitchSession, revision: Int
   @Environment(\.meterRoom) private var meterRoom
+  @Environment(\.screenGeometry) private var screen
   var body: some View {
-    let mirrored = meterRoom.width > 0 && meterRoom.edge == .leading
-    HStack(alignment: .bottom) {
-      if mirrored { reported(side, 1) } else { reported(arc, 0) }
-      Spacer()
-      if mirrored { reported(arc, 0) } else { reported(side, 1) }
+    if screen.wide {
+      HStack(alignment: .bottom, spacing: 10) {
+        if model.meter.side == .left {
+          reported(arc, 0)
+          reported(side, 1)
+        } else {
+          reported(side, 1)
+          reported(arc, 0)
+        }
+      }
+    } else {
+      let mirrored = meterRoom.width > 0 && meterRoom.edge == .leading
+      HStack(alignment: .bottom) {
+        if mirrored { reported(side, 1) } else { reported(arc, 0) }
+        Spacer()
+        if mirrored { reported(arc, 0) } else { reported(side, 1) }
+      }
     }
   }
 

@@ -55,7 +55,9 @@ extension PracticeHUD {
     }
   }
 
-  func coach(_ c: Coach.Line, _ p: CoachPlace, left: CGFloat, width: CGFloat) {
+  /// `beside`: on a phone on its side the stack would rise into MENU, so the
+  /// lead goes level with the line, on that side of it (.left or .right).
+  func coach(_ c: Coach.Line, _ p: CoachPlace, left: CGFloat, width: CGFloat, beside: CoachAlign? = nil) {
     guard width > 40 else { return }
     let font = UIFont.systemFont(ofSize: 13, weight: .heavy)
     let lineHeight: CGFloat = 13 * 1.25
@@ -64,24 +66,32 @@ extension PracticeHUD {
     style.maximumLineHeight = lineHeight
     style.alignment = p.align == .center ? .center : (p.align == .right ? .right : .left)
     var y = p.bottom
-    // drawn from the foot up: the line, then the lead over it
+    var lineBox = CGRect.null
+    // drawn from the foot up: the line, then the lead over it (or beside it)
     for (text, inverted) in [(c.line, false), (c.lead, true)] {
       guard let text else { continue }
+      let leadBeside = inverted && beside != nil && !lineBox.isNull
       let attributes: [NSAttributedString.Key: Any] = [
         .font: font, .kern: 13 * 0.04, .paragraphStyle: style,
         .foregroundColor: inverted ? paper : ink,
       ]
-      let inner = width - 20  // 8 padding and 2 border each side
+      let inner = (leadBeside ? Self.coachMax / 2 : width) - 20  // 8 padding and 2 border each side
       let s = Self.balanced(text.uppercased() as NSString, attributes, inner, lineHeight)
       let w = s.width + 20
       let h = s.height + 3 + 4 + 4
       let x =
-        switch p.align {
-        case .center: left + (width - w) / 2
-        case .right: left + width - w
-        case .left: left
+        if leadBeside {
+          beside == .right ? lineBox.maxX + 1 + 6 : lineBox.minX - 1 - 6 - w
+        } else {
+          switch p.align {
+          case .center: left + (width - w) / 2
+          case .right: left + width - w
+          case .left: left
+          }
         }
+      if leadBeside { y = p.bottom }
       let box = CGRect(x: x, y: y - h, width: w, height: h).insetBy(dx: 1, dy: 1)
+      if !inverted { lineBox = box }
       let path = UIBezierPath(roundedRect: box, cornerRadius: 4)
       ink.setFill()
       UIBezierPath(roundedRect: box.offsetBy(dx: 2, dy: 2), cornerRadius: 4).fill()

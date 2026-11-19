@@ -96,7 +96,7 @@ import UIKit
     nudgeClock = nil
     nudgeWasEligible = false
     cancel()
-    pitch.cancelSlide()
+    pitch.cancelHeld()
   }
   private func cancel() {
     if gesture == .dial {
@@ -140,6 +140,8 @@ import UIKit
         return
       }
       if let mode = matchReview, !bounds.isEmpty {
+        // a landscape review prepares nothing until the screen has turned
+        if !ReviewOrientation.settled(bounds.size) { return }
         if !reviewReady {
           reviewReady = true
           run {
@@ -181,6 +183,7 @@ import UIKit
         return
       }
       if let mode = reviewMode, !bounds.isEmpty {
+        if !ReviewOrientation.settled(bounds.size) { return }
         if !reviewReady {
           reviewReady = true
           run { try prepareReview(mode) }
@@ -276,9 +279,27 @@ import UIKit
 
   /// The meter on the screen: the player's choice where it has its room.
   var meter: MeterLayout { model.meter.layout(bounds: bounds, safe: safeAreaInsets) }
-  var clock: ClockMeter { ClockMeter(bounds: bounds, bottomInset: safeAreaInsets.bottom) }
-  var radius: CGFloat { clock.radius }
-  var hub: CGPoint { clock.center }
+  var insets: ScreenInsets {
+    let i = safeAreaInsets
+    return ScreenInsets(top: i.top, left: i.left, bottom: i.bottom, right: i.right)
+  }
+
+  /// The screen turned (or was resized) under a finger: drawing and hit testing
+  /// both follow the new size at once, so a held gesture would map its next move
+  /// to another place. Let go of it cleanly instead, sending nothing more.
+  private var laidOut = CGSize.zero
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    guard bounds.size != laidOut else { return }
+    let first = laidOut == .zero
+    laidOut = bounds.size
+    if !first {
+      cancel()
+      pitch.cancelHeld()
+      model.refresh()
+    }
+    setNeedsDisplay()
+  }
 
   override func draw(_ rect: CGRect) {
     guard let ctx = UIGraphicsGetCurrentContext() else { return }
@@ -291,12 +312,14 @@ import UIKit
       in: ctx, size: bounds.size, camera: pitch.camera,
       scene: backdrop ? pitch.scene.scenery : pitch.scene)
     #if targetEnvironment(simulator)
-      if let mode = reviewMode, matchReview == nil, reviewReady, !signalled, model.error == nil {
+      if let mode = reviewMode, matchReview == nil, reviewReady, !signalled, model.error == nil,
+        ReviewOrientation.settled(bounds.size)
+      {
         signalled = true
         try? Data(mode.utf8).write(
           to: URL.temporaryDirectory.appending(path: "review-ready"), options: .atomic)
       }
-      if let mode = matchReview, !signalled, model.error == nil {
+      if let mode = matchReview, !signalled, model.error == nil, ReviewOrientation.settled(bounds.size) {
         let ready =
           switch mode {
           case "home": model.screen == .home
@@ -327,12 +350,18 @@ import UIKit
     let hud = PracticeHUD(context: ctx, size: bounds.size)
     if model.screen == .match, pitch.handoff == nil {
       if pitch.need?.kind == "throw" {
-        let width = min(74, bounds.width * 0.18)
-        let left = (pitch.marker(in: bounds.size)?.x ?? 0) > bounds.midX
-        let x = left ? 14 : bounds.width - width - 14
-        pitch.scene.drawMap(
-          in: ctx,
-          rect: CGRect(x: x, y: safeAreaInsets.top + 75, width: width, height: width * 1.65))
+        if WideLayout.isWide(bounds.size) {
+          // on its side: the bottom corner the clock leaves (the web's wide minimap)
+          pitch.scene.drawMap(
+            in: ctx, rect: WideLayout.minimap(size: bounds.size, safe: insets, side: model.meter.side))
+        } else {
+          let width = min(74, bounds.width * 0.18)
+          let left = (pitch.marker(in: bounds.size)?.x ?? 0) > bounds.midX
+          let x = left ? 14 : bounds.width - width - 14
+          pitch.scene.drawMap(
+            in: ctx,
+            rect: CGRect(x: x, y: safeAreaInsets.top + 75, width: width, height: width * 1.65))
+        }
       }
       for e in pitch.raiseEnds(in: bounds.size) { hud.endLabel(e) }
       if pitch.held == .side, !pitch.throwsKubb, let circle = pitch.marker(in: bounds.size) {
@@ -369,7 +398,8 @@ import UIKit
         let finger = gesture == .dial && besideRing ? lastDialPoint : nil
         hud.dial(
           pitch.dial, at: c.center, radius: c.radius, showHint: hint, finger: finger,
-          prompt: caption.map { Optional($0) })
+          prompt: caption.map { Optional($0) },
+          hintBeside: WideLayout.isWide(bounds.size) ? model.meter.side : nil)
       case .linear(let m):
         hud.linear(
           pitch.dial, m, held: gesture == .dial, prompt: linearWords(caption ?? pitch.dial.prompt))
@@ -389,7 +419,10 @@ import UIKit
         let room = PracticeHUD.coachWidth(
           place, screen: bounds.size, safeLeft: safeAreaInsets.left, safeRight: safeAreaInsets.right,
           plans: plans)
-        hud.coach(line, place, left: room.left, width: room.width)
+        // on a phone on its side the lead sits level with the line, toward the middle
+        let beside: PracticeHUD.CoachAlign? =
+          WideLayout.isWide(bounds.size) ? (place.anchor > bounds.midX ? .left : .right) : nil
+        hud.coach(line, place, left: room.left, width: room.width, beside: beside)
       }
       if let ghost {
         hud.nudge(

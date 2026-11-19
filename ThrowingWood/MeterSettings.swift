@@ -26,10 +26,12 @@ import SwiftUI
   }
 }
 
-/// Meter and Side in a menu (practice) or on a card (the match menus).
+/// Meter and Side in a menu (practice) or on a card (the match menus). Side is
+/// always shown, as on the web: on a wide screen it moves the clock too.
 struct MeterSettings: View {
   @Bindable var meter: MeterChoice
   var card = false
+  @Environment(\.screenGeometry) private var screen
   var body: some View {
     if card {
       // labelled as the menu's Raising is, the labels one width so the pickers line up
@@ -40,14 +42,19 @@ struct MeterSettings: View {
             Text("Linear").tag(MeterKind.linear)
           }.pickerStyle(.segmented).accessibilityLabel("Meter")
         }
-        if meter.kind == .linear {
-          // Jamie, 2026-11-19: "Left and right handed folks may want it on one side or the other"
-          MenuRow("Meter side") {
-            Picker("Meter side", selection: $meter.side) {
-              Text("Left").tag(MeterSide.left)
-              Text("Right").tag(MeterSide.right)
-            }.pickerStyle(.segmented).accessibilityLabel("Meter side")
-          }
+        if meter.kind == .linear && !shown(.linear) {
+          note("This screen is too short for the linear meter, so the clock is shown.")
+        }
+        // Jamie, 2026-11-19: "Left and right handed folks may want it on one side or the other"
+        MenuRow("Meter side") {
+          Picker("Meter side", selection: $meter.side) {
+            Text("Left").tag(MeterSide.left)
+            Text("Right").tag(MeterSide.right)
+          }.pickerStyle(.segmented).accessibilityLabel("Meter side")
+        }
+        // a tall screen's clock is in the middle: the side is the linear meter's there
+        if !screen.wide && !shown(.linear) {
+          note("On a screen held upright the clock stays in the middle; the side moves the linear meter.")
         }
       }
     } else {
@@ -58,8 +65,22 @@ struct MeterSettings: View {
       Picker("Meter side", selection: $meter.side) {
         Text("Left").tag(MeterSide.left)
         Text("Right").tag(MeterSide.right)
-      }.pickerStyle(.menu).disabled(meter.kind != .linear)
+      }.pickerStyle(.menu)
     }
+  }
+
+  /// Whether this screen shows the meter of `kind` (the linear one only where it has its room).
+  private func shown(_ kind: MeterKind) -> Bool {
+    guard screen.size.width > 0 else { return kind == meter.kind }
+    let s = screen.safe
+    let m = MeterLayout.make(
+      kind: meter.kind, side: meter.side, bounds: CGRect(origin: .zero, size: screen.size),
+      safeTop: s.top, safeBottom: s.bottom, safeLeft: s.left, safeRight: s.right)
+    return (m.linear != nil) == (kind == .linear)
+  }
+
+  private func note(_ words: String) -> some View {
+    Text(words).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
   }
 }
 
@@ -77,5 +98,24 @@ extension EnvironmentValues {
   var meterRoom: MeterRoom {
     get { self[MeterRoomKey.self] }
     set { self[MeterRoomKey.self] = newValue }
+  }
+}
+
+/// The whole screen (safe area included) and its safe area: a phone on its side
+/// lays the match out on `WideLayout`'s frames, which are in these coordinates.
+struct ScreenGeometry: Equatable {
+  var size = CGSize.zero
+  var safe = ScreenInsets()
+  var wide: Bool { WideLayout.isWide(size) }
+}
+
+private struct ScreenGeometryKey: EnvironmentKey {
+  static let defaultValue = ScreenGeometry()
+}
+
+extension EnvironmentValues {
+  var screenGeometry: ScreenGeometry {
+    get { self[ScreenGeometryKey.self] }
+    set { self[ScreenGeometryKey.self] = newValue }
   }
 }

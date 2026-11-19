@@ -45,8 +45,10 @@ import UIKit
     (word as NSString).draw(in: rect, withAttributes: attributes)
   }
 
+  /// `hintBeside`: on a phone on its side there is no room under the ring, so
+  /// the practice hint goes level with its foot on the screen's inner side.
   func dial(_ d: DialState, at c: CGPoint, radius r: Double, showHint: Bool, finger: CGPoint? = nil,
-    prompt: String?? = nil
+    prompt: String?? = nil, hintBeside: MeterSide? = nil
   ) {
     context.saveGState()
     defer { context.restoreGState() }
@@ -109,9 +111,15 @@ import UIKit
       text(prompt, at: CGPoint(x: c.x, y: c.y - r - 20), size: 20, color: ink, plate: true)
     }
     if showHint {
-      text(
-        "Tap or drag to aim · Circle dial to throw", at: CGPoint(x: c.x, y: c.y + r + 24), size: 16,
-        color: ink, plate: true)
+      let words = "Tap or drag to aim · Circle dial to throw"
+      var at = CGPoint(x: c.x, y: c.y + r + 24)
+      if let side = hintBeside {
+        let font = UIFont(name: "LondrinaSolid-Black", size: 16) ?? .boldSystemFont(ofSize: 16)
+        let half = (words as NSString).size(withAttributes: [.font: font]).width / 2 + 6
+        let off = r * 1.12 + 12 + half
+        at = CGPoint(x: side == .right ? c.x - off : c.x + off, y: c.y + r * 0.85)
+      }
+      text(words, at: at, size: 16, color: ink, plate: true)
     }
   }
 
