@@ -45,7 +45,9 @@ import UIKit
     (word as NSString).draw(in: rect, withAttributes: attributes)
   }
 
-  func dial(_ d: DialState, at c: CGPoint, radius r: Double, showHint: Bool, finger: CGPoint? = nil) {
+  func dial(_ d: DialState, at c: CGPoint, radius r: Double, showHint: Bool, finger: CGPoint? = nil,
+    prompt: String?? = nil
+  ) {
     context.saveGState()
     defer { context.restoreGState() }
     context.setLineCap(.round)
@@ -103,7 +105,7 @@ import UIKit
     disk(c, r * 0.07, ink)
     disk(knob, r * 0.145, ink)
     disk(knob, r * 0.115, UIColor(red: 0.95, green: 0.89, blue: 0.75, alpha: 1))
-    if let prompt = d.prompt {
+    if let prompt = prompt ?? d.prompt {
       text(prompt, at: CGPoint(x: c.x, y: c.y - r - 20), size: 20, color: ink, plate: true)
     }
     if showHint {
