@@ -264,8 +264,23 @@ struct MatchScreen: View {
         .frame(width: 220, alignment: .trailing)
         .offset(x: menuBox.minX - 8 - 220, y: menuBox.minY)
       }
+      if (n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput && WideLayout.isShort(size) {
+        // a bar along the bottom (WideLayout.bar); its measured height keeps the
+        // scene's working parts above it (PitchSession.stillFloor)
+        let bar = WideLayout.bar(height: 0, size: size, safe: safe)
+        placementBar(n)
+          .frame(width: bar.width)
+          .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { h in
+            pitch.stillFloor = Double(safe.bottom + WideLayout.barLift + h)
+            model.refresh()
+          }
+          .onDisappear { pitch.stillFloor = nil; model.refresh() }
+          .padding(.leading, bar.minX)
+          .padding(.bottom, safe.bottom + WideLayout.barLift)
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+      }
       Group {
-        if (n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput {
+        if (n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput && !WideLayout.isShort(size) {
           placement(n).frame(maxWidth: 360)
             .padding(edge, (side == .left ? safe.left : safe.right) + WideLayout.margin)
             .padding(.bottom, safe.bottom + 8)
@@ -403,54 +418,110 @@ struct MatchScreen: View {
 
   private func placement(_ n: MatchNeed) -> some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text("\(n.kind == "raise" ? "Raise" : "Punishment kubb") \(n.n ?? 1) of \(n.of ?? 1)")
-        .font(displayFont(28))
-      if n.kind == "raise" && (pitch.raiseAutomatically || pitch.raisingRest) {
-        Text(
-          pitch.raiseAutomatically
-            ? "Raising automatically for the rest of the game." : "Raising the rest automatically."
-        ).font(.subheadline)
-        HStack(spacing: 6) {
-          Button("BY HAND") { model.raiseByHand() }
-            .accessibilityHint("Choose the end for each kubb again")
-          if !pitch.raiseAutomatically {
-            Button("REST OF GAME") { model.raiseAutomatically = true }
-              .accessibilityHint("Raise every kubb automatically for the rest of this match")
-          }
-        }.buttonStyle(WoodButton())
-      } else if n.kind == "raise" {
-        // The kubb on the pitch is the control (RaiseTouch): END 1 and END 2 stay for
-        // VoiceOver only, as actions on this text, which names the end on each side.
-        let ends = pitch.raiseEndNames()
-        Text(
-          "Touch the kubb or drag it to the end to stand it on. The menu's Raising does it for the rest of the game."
-        ).font(.subheadline)
-          .accessibilityLabel(
-            "A kubb lying, to be stood up: \(ends.map(\.name).joined(separator: ", ")). Tap the kubb nearer the end to stand it on, or use the actions."
-          )
-          .accessibilityActions {
-            ForEach(ends.filter(\.ok), id: \.index) { e in
-              Button("Stand it on \(e.name)") { model.perform { try pitch.raise(end: e.which) } }
-            }
-          }
-        HStack(spacing: 6) {
-          Button("AUTO") { model.perform { try pitch.raise() } }
-            .accessibilityHint("Stand this kubb on the end the game chooses")
-          if (n.n ?? 1) < (n.of ?? 1) {
-            Button { model.perform { pitch.raiseRest() } } label: {
-              Text("AUTO ALL").lineLimit(1).fixedSize()
-            }
-              .accessibilityHint("Stand this kubb and the rest of this turn's on the ends the game chooses")
-          }
-        }.buttonStyle(WoodButton())
-        if let why = pitch.placement?.label { Text(why).font(.caption.bold()) }
+      Text(placementTitle(n)).font(displayFont(28))
+      if n.kind == "punish" {
+        Text(pitch.placement?.label ?? "Drag or tap a spot clear of the circles.").font(.subheadline)
+        placementButtons(n)
       } else {
-        Text(pitch.placement?.label ?? "Drag or tap a spot clear of the circles.").font(
-          .subheadline)
-        Button("PLACE IT") { model.perform { try pitch.placePunishment() } }
-          .buttonStyle(WoodButton(accent: true)).disabled(pitch.placement?.ok != true)
+        placementWords(n)
+        placementButtons(n)
+        if !raisingAuto, let why = pitch.placement?.label { Text(why).font(.caption.bold()) }
       }
     }.frame(maxWidth: .infinity, alignment: .leading).modifier(Plate())
+  }
+
+  /// A phone on its side (WideLayout.bar, the web's game.css .panel): the kicker
+  /// on the first row with a refused spot's reason beside it, the words under it,
+  /// the buttons in one row at the right across both rows. It covers grass only:
+  /// the scene keeps its lowest working point 8 pt above it (WideLayout.stillLift).
+  private func placementBar(_ n: MatchNeed) -> some View {
+    HStack(alignment: .center, spacing: 12) {
+      VStack(alignment: .leading, spacing: 2) {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          Text(placementTitle(n).uppercased()).font(.caption.bold()).tracking(1.4)
+            .lineLimit(1)
+          Spacer(minLength: 0)
+          if let why = barWhy(n) {
+            Text(why).font(displayFont(15)).foregroundStyle(.white).lineLimit(1)
+              .padding(.horizontal, 8).padding(.vertical, 1)
+              .background(Color(red: 0.86, green: 0.25, blue: 0.22), in: RoundedRectangle(cornerRadius: 3))
+          }
+        }
+        if n.kind == "punish" {
+          Text("Drag or tap a spot clear of the circles.").font(.subheadline)
+        } else {
+          placementWords(n)
+        }
+      }
+      placementButtons(n, gap: 8).fixedSize()
+    }
+    .padding(.horizontal, 12).padding(.top, 5).padding(.bottom, 6)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .modifier(Plate(inset: 0))
+  }
+
+  private func placementTitle(_ n: MatchNeed) -> String {
+    "\(n.kind == "raise" ? "Raise" : "Punishment kubb") \(n.n ?? 1) of \(n.of ?? 1)"
+  }
+
+  private var raisingAuto: Bool { pitch.raiseAutomatically || pitch.raisingRest }
+
+  /// The bar's reason chip: a refused spot (punishment) or a refused end (raise).
+  private func barWhy(_ n: MatchNeed) -> String? {
+    if n.kind == "punish" { return pitch.placement?.ok == false ? pitch.placement?.label : nil }
+    return raisingAuto ? nil : pitch.placement?.label
+  }
+
+  @ViewBuilder private func placementWords(_ n: MatchNeed) -> some View {
+    if raisingAuto {
+      Text(
+        pitch.raiseAutomatically
+          ? "Raising automatically for the rest of the game." : "Raising the rest automatically."
+      ).font(.subheadline)
+    } else {
+      // The kubb on the pitch is the control (RaiseTouch): END 1 and END 2 stay for
+      // VoiceOver only, as actions on this text, which names the end on each side.
+      let ends = pitch.raiseEndNames()
+      Text(
+        "Touch the kubb or drag it to the end to stand it on. The menu's Raising does it for the rest of the game."
+      ).font(.subheadline)
+        .accessibilityLabel(
+          "A kubb lying, to be stood up: \(ends.map(\.name).joined(separator: ", ")). Tap the kubb nearer the end to stand it on, or use the actions."
+        )
+        .accessibilityActions {
+          ForEach(ends.filter(\.ok), id: \.index) { e in
+            Button("Stand it on \(e.name)") { model.perform { try pitch.raise(end: e.which) } }
+          }
+        }
+    }
+  }
+
+  /// `gap`: 6 pt on the panel, 8 in the bar (the web's .panel .row).
+  @ViewBuilder private func placementButtons(_ n: MatchNeed, gap: CGFloat = 6) -> some View {
+    if n.kind == "punish" {
+      Button("PLACE IT") { model.perform { try pitch.placePunishment() } }
+        .buttonStyle(WoodButton(accent: true)).disabled(pitch.placement?.ok != true)
+    } else if raisingAuto {
+      HStack(spacing: gap) {
+        Button("BY HAND") { model.raiseByHand() }
+          .accessibilityHint("Choose the end for each kubb again")
+        if !pitch.raiseAutomatically {
+          Button("REST OF GAME") { model.raiseAutomatically = true }
+            .accessibilityHint("Raise every kubb automatically for the rest of this match")
+        }
+      }.buttonStyle(WoodButton())
+    } else {
+      HStack(spacing: gap) {
+        Button("AUTO") { model.perform { try pitch.raise() } }
+          .accessibilityHint("Stand this kubb on the end the game chooses")
+        if (n.n ?? 1) < (n.of ?? 1) {
+          Button { model.perform { pitch.raiseRest() } } label: {
+            Text("AUTO ALL").lineLimit(1).fixedSize()
+          }
+          .accessibilityHint("Stand this kubb and the rest of this turn's on the ends the game chooses")
+        }
+      }.buttonStyle(WoodButton())
+    }
   }
 
   private func modal<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {

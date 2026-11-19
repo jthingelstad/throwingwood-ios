@@ -163,6 +163,10 @@ import UIKit
               try pitch.raiseDrag(
                 g, from: from, to: CGPoint(x: from.x + (b.x - a.x) / l * go, y: from.y + (b.y - a.y) / l * go))
             }
+            if mode == "punishwhy", let at = pitch.groundPoint(x: 2.4, y: 0.15, in: bounds.size) {
+              // the kubb dragged beside the near right stake: refused, with the reason
+              try pitch.movePunishment(to: at, size: bounds.size)
+            }
             if mode == "raiserefused", let i = pitch.need?.ends?.firstIndex(where: { $0.ok == false }) {
               // a tap on the end the rules refuse: nothing sent, the allowed end lit
               try pitch.raiseTap(i)
@@ -320,6 +324,11 @@ import UIKit
         "block": r(plan.block), "edge": plan.edge?.rawValue ?? "beside", "minimap": r(plan.minimap),
       ]
       if let c = meter.clock { json["clock"] = [Double(c.center.x), Double(c.center.y), Double(c.radius)] }
+      if let floor = pitch.stillFloor {
+        // the raise and punishment bar's top and the scene's lowest working point
+        json["bar"] = r(WideLayout.bar(height: floor - s.bottom - WideLayout.barLift, size: bounds.size, safe: s))
+        json["lowest"] = pitch.stillLowestY(in: bounds.size).map { ($0 * 10).rounded() / 10 }
+      }
       guard let data = try? JSONSerialization.data(withJSONObject: json, options: [.sortedKeys]),
         let text = String(data: data, encoding: .utf8), text != lastReviewLayout
       else { return }
@@ -363,6 +372,7 @@ import UIKit
           case "flight": pitch.playing
           case "handoff": pitch.handoff != nil
           case "raise", "punish": pitch.need?.kind == mode
+          case "punishwhy": pitch.need?.kind == "punish" && pitch.placement?.ok == false
           case "computer": reviewReady && pitch.need?.cpu == true
           case "winner": pitch.need?.winner != nil && model.screen == .match
           case "sheet": model.sheet?.done == true && model.screen == .sheet
