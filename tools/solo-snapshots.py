@@ -11,7 +11,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 MODES = {
     "home": None, "options": None, "menu": "aim", "verdict": "aim", "handoff": "aim", "aim": "aim", "plan": "aim",
-    "arc": "aim", "tilt": "aim", "flight": "aim", "raise": "raise", "raisemany": "raise-many",
+    "arc": "aim", "tilt": "aim", "stand": "aim", "flight": "aim", "raise": "raise", "raisemany": "raise-many",
     "raiseauto": "raise-many", "raiserest": "raise-many", "raisedrag": "raise",
     "raiserefused": "raise-refused", "punish": "punish", "computer": "computer",
     "winner": "over", "sheet": "over",
@@ -26,6 +26,7 @@ METER_SHOTS = {
     "linear-left-aim": ("aim", "aim", "linear", "left"),
     "linear-left-arc": ("arc", "aim", "linear", "left"),
     "linear-left-tilt": ("tilt", "aim", "linear", "left"),
+    "linear-right-stand": ("stand", "aim", "linear", "right"),
     "linear-right-nudge": ("nudge", "aim", "linear", "right"),
     "linear-left-nudge": ("nudge", "aim", "linear", "left"),
     "clock-nudge": ("nudge", "aim", "clock", "right"),
@@ -64,6 +65,8 @@ def capture(phone, args):
                        text=True).stdout.strip()) / "tmp"
         prefix = phone.lower().replace(" ", "-")
         for shot, (mode, fixture, meter, side) in SHOTS.items():
+            if args.only and shot not in args.only:
+                continue
             ready = tmp / "review-ready"
             ready.unlink(missing_ok=True)
             if fixture:
@@ -94,9 +97,14 @@ if __name__ == "__main__":
     parser.add_argument("app", type=Path)
     parser.add_argument("--out", type=Path, default=ROOT / "build/solo-snapshots")
     parser.add_argument("--capture-only", action="store_true")
+    parser.add_argument("--only", type=lambda v: set(v.split(",")), default=None,
+                        help="comma-separated shot names (implies --capture-only)")
+    parser.add_argument("--phone", action="append", help="one review phone (repeatable)")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
-    phones = ["iPhone 16e", "iPhone 17 Pro Max"]
+    phones = args.phone or ["iPhone 16e", "iPhone 17 Pro Max"]
+    if args.only:
+        args.capture_only = True
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         list(pool.map(lambda phone: capture(phone, args), phones))
     if not args.capture_only:
