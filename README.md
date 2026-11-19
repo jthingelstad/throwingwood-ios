@@ -7,8 +7,8 @@ iPhone version.
 
 ## What's here
 
-Choose **Play online**, **Practice** or **Play the computer**. In practice, pick a surface and drag
-the circle onto a kubb. Wind back on the left of the dial, flick through six and
+Choose **Play online**, **Practice** or **Play the computer**. In practice, pick a surface and tap
+a kubb, or drag anywhere to move the circle onto it. Wind back on the left of the dial, flick through six and
 lift inside the blue release range. The solo match adds the full turn order,
 plan and stance controls, raising, punishment placement and the computer's throws.
 At the end, open the Planet Kubb Notation score sheet or start a rematch.

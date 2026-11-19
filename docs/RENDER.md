@@ -1,6 +1,6 @@
 # The iPhone pitch
 
-Practice opens on grass. The surface picker changes the ground in the current session. Drag the circle to aim and lift to snap to a kubb. Press the dial near six, wind back on the left, flick through six and lift on the right. Bringing the arm back slowly lets it down. The blue range is the release angle. The orange range is the backswing. Practice takes batons and the engine's `pointer` tune.
+Practice opens on grass. The surface picker changes the ground in the current session. Tap the pitch to put the circle there (a tap on or beside a standing kubb aims at it), or drag anywhere to move the circle by the finger's travel; lifting snaps it to a kubb it is near. Press the dial near six, wind back on the left, flick through six and lift on the right. Bringing the arm back slowly lets it down. The blue range is the release angle. The orange range is the backswing. Practice takes batons and the engine's `pointer` tune.
 
 ## Picture and clock
 
@@ -8,7 +8,7 @@ Practice opens on grass. The surface picker changes the ground in the current se
 
 - The camera is the engine's eye, orthonormal basis, focal length and principal point. In eye space, depth clips at 0.05 m. Projection divides right and up by depth, inverts screen y and applies the principal point. Landscape centres the 400 × 240 reference frame at `min(width/400, height/240)`. The portrait fit is described below. Sky and ground extend to every edge. The same transform casts drag points back onto z = 0.
 - The scene accepts surface, set, posed items, advantage line, target, arc, thrower, raise footprints and punishment keep-out circles. The local z axis runs along each piece. Kubb, king, baton and stake extents, six stake positions, paint and team bands, light direction, hard shadows and near-plane clipping follow the web renderer. Nearby overlapping boxes use separating planes to correct depth order. The arc stops 0.45 m short of its target so the kubb stays visible.
-- `PitchSession` owns the main-actor engine for practice and solo. A target drag calls `setTarget`. A display tick consumes at most one pointer frame. `ThrowInput` isolates input sampling, lift and cancellation. The pointer implementation uses forward degrees from six, preserving touch boundaries and accumulating elapsed time between samples. Its stationary feed matches the web's stop detection. The display link sleeps on a still, unattended pitch and stops outside the active scene.
+- `PitchSession` owns the main-actor engine for practice and solo. A tap or target drag calls `setTarget` (`AimDrag`). A display tick consumes at most one pointer frame. `ThrowInput` isolates input sampling, lift and cancellation. The pointer implementation uses forward degrees from six, preserving touch boundaries and accumulating elapsed time between samples. Its stationary feed matches the web's stop detection. The display link sleeps on a still, unattended pitch and stops outside the active scene.
 - The release frame already contains the applied throw. Decode its tracks, index moving bodies by id once, and retain static poses. Between samples, interpolate position and normalize the shortest-path quaternion blend. The session's one `showAt` call per moving frame supplies the camera, speed and dial. The typed playback response skips its redundant items array. The release tick can make both calls. Reaching rest holds the last picture for 0.8 s, then one `view` loads the next aim. Result feedback stays for six seconds into that aim.
 - Timeline bursts follow world anchors. Flash, pop, the second KLAK, king crown and wood chips run on elapsed display time while the session can slow flight time. The engine supplies the flag and verdicts. Off-target words go first. The display face is Londrina Solid Black, with its OFL in the app bundle.
 
@@ -28,10 +28,15 @@ Each image is a real iOS 26.2 simulator capture of the app with a synthetic matc
 | Options | [16e](review/iphone-16e-options.png) | [17 Pro Max](review/iphone-17-pro-max-options.png) |
 | Handoff | [16e](review/iphone-16e-handoff.png) | [17 Pro Max](review/iphone-17-pro-max-handoff.png) |
 | Aim | [16e](review/iphone-16e-aim.png) | [17 Pro Max](review/iphone-17-pro-max-aim.png) |
-| Plan | [16e](review/iphone-16e-plan.png) | [17 Pro Max](review/iphone-17-pro-max-plan.png) |
+| Side view | [16e](review/iphone-16e-plan.png) | [17 Pro Max](review/iphone-17-pro-max-plan.png) |
+| ARC held | [16e](review/iphone-16e-arc.png) | [17 Pro Max](review/iphone-17-pro-max-arc.png) |
+| TILT held | [16e](review/iphone-16e-tilt.png) | [17 Pro Max](review/iphone-17-pro-max-tilt.png) |
 | Flight | [16e](review/iphone-16e-flight.png) | [17 Pro Max](review/iphone-17-pro-max-flight.png) |
 | Verdict | [16e](review/iphone-16e-verdict.png) | [17 Pro Max](review/iphone-17-pro-max-verdict.png) |
 | Raise | [16e](review/iphone-16e-raise.png) | [17 Pro Max](review/iphone-17-pro-max-raise.png) |
+| Raise, two to go | [16e](review/iphone-16e-raisemany.png) | [17 Pro Max](review/iphone-17-pro-max-raisemany.png) |
+| Raising automatically | [16e](review/iphone-16e-raiseauto.png) | [17 Pro Max](review/iphone-17-pro-max-raiseauto.png) |
+| AUTO ALL | [16e](review/iphone-16e-raiserest.png) | [17 Pro Max](review/iphone-17-pro-max-raiserest.png) |
 | Punishment | [16e](review/iphone-16e-punish.png) | [17 Pro Max](review/iphone-17-pro-max-punish.png) |
 | Computer | [16e](review/iphone-16e-computer.png) | [17 Pro Max](review/iphone-17-pro-max-computer.png) |
 | Menu | [16e](review/iphone-16e-menu.png) | [17 Pro Max](review/iphone-17-pro-max-menu.png) |

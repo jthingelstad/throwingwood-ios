@@ -31,7 +31,8 @@ separate presentation session. That separation lets the network advance while
 the board is still showing the preceding throw. The display clock only advances
 the dial or computer while the room grants that seat control. A player can
 choose a legal end for a raise or place a punishment kubb using the same board
-controls as solo. The host runs the computer. Spectators see the thrower's
+controls as solo, including AUTO ALL and the device's Raising setting (in the
+online menu too); automatic raising acts only while this seat holds control. The host runs the computer. Spectators see the thrower's
 camera. A WATCH handoff closes after 2.5 seconds, or on the next action.
 
 The dial releases an engine action. The room controller applies it, then sends
