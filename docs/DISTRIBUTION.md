@@ -66,7 +66,7 @@ Answer **Yes** to data collection and **No** to tracking for this build. There a
 | Identifiers — User ID | App Functionality | The pitch display name acts as a handle. The member key links someone to their seat when reconnecting. |
 | Identifiers — Device ID | App Functionality | A persistent random key in this installation's defaults identifies the member to the service across pitches. |
 | User Content — Gameplay Content | App Functionality, Analytics | Teams, levels, actions, board state and scores support play, shared replays and analysis of recorded games. |
-| User Content — Customer Support | App Functionality | A player can send two free-text answers about a throw. |
+| User Content — Customer Support | App Functionality | A player can send free text: two answers about a throw, or one box of any other feedback. |
 | Diagnostics — Other Diagnostic Data | App Functionality | The report includes build, engine, viewport, time, and game state needed to reproduce the throw. |
 
 Mark all six types **linked to the user**. Records can connect the installation, pitch and typed names. Even a report with substituted member IDs can be joined back to the game by room and document version. Mark tracking **No** for each type. Ordinary aim and preset shouts are transient. The app requests no contacts, location, photos, microphone, advertising identifier or payments. Review the public privacy-policy URL and these answers against the submitted build. [Apple's privacy definitions](https://developer.apple.com/app-store/app-privacy-details/)
