@@ -231,7 +231,10 @@ import Testing
   @Test func answerTimeoutReconnectsAndUsesTaggedRecordHelpers() async throws {
     var sockets: [MockTransport] = []
     var timing = RoomsClient.Timing()
-    timing.answer = .seconds(3)
+    // Long enough that only the unanswered set times out: beside the other
+    // suites the main actor can be busy for seconds, and at 3 s the second
+    // socket's answers were sometimes late too (a third socket).
+    timing.answer = .seconds(12)
     timing.retry = .milliseconds(2)
     let room = try makeClient(
       { _ in

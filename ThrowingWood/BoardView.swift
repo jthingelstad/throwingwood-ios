@@ -489,14 +489,22 @@ import UIKit
     case .raise:
       if !moved { run { try pitch.raise(at: t.location(in: self), size: bounds.size) } }
     case .walk: pitch.walk(drag: .zero)
-    case .body: nudge.pressEnded(thrown: false)
+    case .body:
+      nudge.pressEnded(thrown: false)
+      // a second fumble moves the nudge's deadline up: the sleeping link's
+      // timer was set for the old one
+      wake()
     case .stance, .punishment, nil: break
     }
     tracking = nil
     gesture = nil
     besideRing = false
   }
-  override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) { cancel() }
+  override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+    let body = gesture == .body
+    cancel()
+    if body { wake() }
+  }
 
   #if targetEnvironment(simulator)
     /// Review stills use the actual pitch, dial input, clock and drawing layers.
