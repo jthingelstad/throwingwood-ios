@@ -21,6 +21,9 @@ import Observation
   var onlineRevision = 0
   var report: PitchReport?
   var reportReturn = Screen.match
+  /// The plan's two columns on the screen (window points; PlanControls reports them):
+  /// the coach line keeps out of any level with it. Drawing only, not observed.
+  @ObservationIgnored var planFrames: [Int: CGRect] = [:]
   var joinInput = ""
   static let version =
     Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"

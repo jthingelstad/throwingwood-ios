@@ -153,6 +153,19 @@ import UIKit
             if mode == "computer" { for _ in 0..<32 { try pitch.tick(1.0 / 60) } }
             // the nudge frozen a second in, the draw back, beside the plan's sliders
             if mode == "nudge" { reviewNudge = 1.0 }
+            if mode == "raisedrag", let g = pitch.raiseGeometry(in: bounds.size) {
+              // a finger tipping the kubb up toward end 2, past half way: that end lit
+              let a = g.caps[0], b = g.caps[1]
+              let l = max(1, hypot(b.x - a.x, b.y - a.y))
+              let go = max(RaiseTouch.travelMin, l * RaiseTouch.travelK) * 0.7
+              let from = CGPoint(x: a.x + (b.x - a.x) * 0.3, y: a.y + (b.y - a.y) * 0.3)
+              try pitch.raiseDrag(
+                g, from: from, to: CGPoint(x: from.x + (b.x - a.x) / l * go, y: from.y + (b.y - a.y) / l * go))
+            }
+            if mode == "raiserefused", let i = pitch.need?.ends?.firstIndex(where: { $0.ok == false }) {
+              // a tap on the end the rules refuse: nothing sent, the allowed end lit
+              try pitch.raiseTap(i)
+            }
             if mode == "arc" || mode == "tilt" {
               // A finger held on the slider three quarters along: the side view eases in.
               pitch.slide(mode == "arc" ? .arc : .side, to: 0.75, phase: .down)
@@ -282,13 +295,13 @@ import UIKit
           switch mode {
           case "home": model.screen == .home
           case "options": model.screen == .options
-          case "aim", "nudge": model.screen == .match && pitch.canAim
+          case "aim", "nudge", "coach", "coachslow": model.screen == .match && pitch.canAim
           case "menu": model.screen == .menu
           case "verdict": pitch.result != nil
           case "plan": pitch.plan
           case "arc": pitch.held == .arc
           case "tilt": pitch.held == .side
-          case "raisemany", "raiseauto", "raiserest": pitch.need?.kind == "raise"
+          case "raisemany", "raiseauto", "raiserest", "raisedrag", "raiserefused": pitch.need?.kind == "raise"
           case "flight": pitch.playing
           case "handoff": pitch.handoff != nil
           case "raise", "punish": pitch.need?.kind == mode
@@ -354,6 +367,22 @@ import UIKit
         hud.linear(
           pitch.dial, m, held: gesture == .dial, prompt: linearWords(caption ?? pitch.dial.prompt))
         if hint { hud.linearHint(m, safeBottom: safeAreaInsets.bottom) }
+      }
+      // the coach line: words for the thrower, never while watching, over the
+      // nudge's ghost (which shows the same stroke) or with a slider's caption
+      var slow = pitch.coachSlow
+      #if targetEnvironment(simulator)
+        if matchReview == "coachslow" { slow = true }
+      #endif
+      if pitch.canAim, ghost == nil, pitch.held == nil,
+        let line = Coach.line(thrown: nudge.thrown, slow: slow, stage: Coach.stage(pitch.dial))
+      {
+        let place = PracticeHUD.coachPlace(meter)
+        let plans = model.planFrames.values.map { convert($0, from: nil) }
+        let room = PracticeHUD.coachWidth(
+          place, screen: bounds.size, safeLeft: safeAreaInsets.left, safeRight: safeAreaInsets.right,
+          plans: plans)
+        hud.coach(line, place, left: room.left, width: room.width)
       }
       if let ghost {
         hud.nudge(
