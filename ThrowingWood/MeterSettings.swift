@@ -37,12 +37,23 @@ struct MeterSettings: View {
           Text("Clock").tag(MeterKind.clock)
           Text("Linear").tag(MeterKind.linear)
         }.pickerStyle(.segmented).accessibilityLabel("Meter")
+        if meter.kind == .linear {
+          // Jamie, 2026-11-19: "Left and right handed folks may want it on one side or the other"
+          Picker("Side", selection: $meter.side) {
+            Text("Left").tag(MeterSide.left)
+            Text("Right").tag(MeterSide.right)
+          }.pickerStyle(.segmented).accessibilityLabel("Side")
+        }
       }
     } else {
       Picker("Meter", selection: $meter.kind) {
         Text("Clock").tag(MeterKind.clock)
         Text("Linear").tag(MeterKind.linear)
       }.pickerStyle(.menu)
+      Picker("Side", selection: $meter.side) {
+        Text("Left").tag(MeterSide.left)
+        Text("Right").tag(MeterSide.right)
+      }.pickerStyle(.menu).disabled(meter.kind != .linear)
     }
   }
 }

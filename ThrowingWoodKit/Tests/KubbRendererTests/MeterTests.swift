@@ -4,7 +4,7 @@ import Testing
 
 @testable import KubbRenderer
 
-/// The linear meter's geometry and its arm degrees against the clock's.
+/// The linear meter's geometry, its arm degrees against the clock's and its sides.
 @MainActor struct MeterTests {
   private let small = CGRect(x: 0, y: 0, width: 390, height: 844)  // iPhone 16e
   private let large = CGRect(x: 0, y: 0, width: 440, height: 956)  // iPhone 17 Pro Max
@@ -59,6 +59,28 @@ import Testing
     #expect(m.arm(atY: m.yForward - 200) == 180)
     // drawing down toward yourself is the backswing
     #expect(m.arm(atY: m.yHome + 10) < 0)
+  }
+
+  @Test func leftSideIsTheRightMirrored() throws {
+    for b in [small, large] {
+      let r = try linear(b, .right)
+      let l = try linear(b, .left)
+      #expect(l.side == .left && l.tabDirection == 1)
+      #expect(abs(l.box.minX - 7) < 0.001)
+      #expect(l.channelLeft < l.laneLeft)  // the lane toward the centre again
+      #expect(abs(l.width - r.width) < 0.001 && abs(l.box.height - r.box.height) < 0.001)
+      #expect(abs(l.yHome - r.yHome) < 0.001 && abs(l.scale - r.scale) < 0.001)
+      // the box mirrored about the screen's centre, the parts within it too
+      #expect(abs(l.box.minX - (b.width - r.box.maxX)) < 0.001)
+      #expect(abs((l.knobX - l.left) - (r.right - r.knobX)) < 0.001)
+      #expect(abs((l.laneX - l.left) - (r.right - r.laneX)) < 0.001)
+      // the same stroke gives the same arm on either side
+      for dy in [-120.0, -10, 0, 33, 140] as [CGFloat] {
+        let lp = MeterLayout.linear(l).unit(CGPoint(x: l.knobX, y: l.yHome + dy), grab: 0)
+        let rp = MeterLayout.linear(r).unit(CGPoint(x: r.knobX, y: r.yHome + dy), grab: 0)
+        #expect(lp == rp)
+      }
+    }
   }
 
   private func armOf(_ frame: String?) throws -> Double {
