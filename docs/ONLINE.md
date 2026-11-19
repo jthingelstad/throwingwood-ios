@@ -88,8 +88,28 @@ through the web Room client and loads its engine from the existing checkout.
 Review images and baselines are in docs/review/online. Run the online snapshot
 script with the simulator app path and --web pointing at the web checkout.
 The two phone sizes use the same scenarios and the existing tile comparator.
+With --landscape left or right the same scenarios run on a phone on its side,
+named `<phone>-landscape-<mode>.png` (the 16e turned right, the Pro Max left).
+The match takes the web's wide arrangement, SHOUT beside MENU, and the lobby
+and menu cards scroll from their titles (docs/RENDER.md "A phone on its side").
 
-The phone uses the pointer dial, native sharing, pickers and a portrait HUD.
+| On its side | Small iPhone | Large iPhone |
+| --- | --- | --- |
+| Play online | [16e](review/online/iphone-16e-landscape-entry.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-entry.png) |
+| Join a pitch | [16e](review/online/iphone-16e-landscape-join.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-join.png) |
+| Lobby, sharing | [16e](review/online/iphone-16e-landscape-share.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-share.png) |
+| Lobby, host | [16e](review/online/iphone-16e-landscape-host.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-host.png) |
+| Lobby, guest | [16e](review/online/iphone-16e-landscape-guest.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-guest.png) |
+| A match, watching | [16e](review/online/iphone-16e-landscape-flight.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-flight.png) |
+| SHOUT | [16e](review/online/iphone-16e-landscape-shout.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-shout.png) |
+| Handoff | [16e](review/online/iphone-16e-landscape-handoff.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-handoff.png) |
+| Winner | [16e](review/online/iphone-16e-landscape-winner.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-winner.png) |
+| Pitch menu | [16e](review/online/iphone-16e-landscape-menu.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-menu.png) |
+| Send feedback, a throw | [16e](review/online/iphone-16e-landscape-report.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-report.png) |
+| Send feedback, something else | [16e](review/online/iphone-16e-landscape-feedback.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-feedback.png) |
+| Pitch not found | [16e](review/online/iphone-16e-landscape-notFound.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-notFound.png) |
+
+The phone uses the pointer dial, native sharing, pickers and a HUD for the phone upright or on its side.
 Open-pitch discovery, archived replay playback, embeds, browser shortcuts,
 and the browser's full menu are outside this screen. The phone does
 not resume a room after process termination. A player can rejoin by link or

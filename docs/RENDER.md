@@ -18,9 +18,21 @@ When height exceeds 1.05 times width, the scale is `1.3 × width / 400`. Frame y
 
 The dark stripe next to the former flight dial is the airborne baton's hard ground shadow. The renderer projects its shadow by (+0.55z, −0.30z) onto the ground. At tick 22 of the engine 0.5.0 practice throw, its centre in the original 390 × 844 framing is (317.44, 684.96) pt. A raster regression removes only the baton and measures the changed foreground pixels around that projection. The shadow stays, the dial and plan controls disappear during flight, and the pitch extends to the bottom.
 
+## A phone on its side
+
+Jamie, 2026-11-19: "Given we have a widescreen view for web, can we extend that to support iPhone rotated display?" The app turns to landscape left and right as well as portrait (never upside down). A screen that is not tall (height at most 1.05 times width, the projection's rule) lays the match out as the web's wide screen, its numbers from `src/game/layout.js`, in `KubbRenderer/WideLayout.swift`. Every frame is in whole-screen points with the safe area (the sensor housing's inset on both sides, the home indicator's at the bottom):
+
+- The turn rail is top left (300 × 62, 10 in from the safe area) and MENU top right. A slider's caption, the verdict and SLOW MOTION sit at the top between them, and so does SHOUT, beside MENU online.
+- The clock is low in the Meter side corner: S = min(0.28 W, 0.5 H, 380), a box 1.2 S tall, 14 in from the side, its foot 7 over the bottom safe area, the ring placed as the web's dialGeometry (radius 84.6 pt on the 16e, about the upright 16e's 86). The minimap (max(56, min(118, 0.085 W, 0.16 H)) wide) is in the other bottom corner.
+- The plan is one block beside the meter, 6 pt off its box and its foot 10 above the box's, with ARC next to the meter. The raise and punishment panels and SKIP take the same corner.
+- The linear meter goes at its edge, under the rail or MENU, only where its track has 320 pt. No iPhone on its side has that, so there the clock is shown, as on the web, and the menu's Meter Linear notes that the screen is too short for it. Meter side is always shown, as on the web: on a wide screen it moves the clock too; upright it notes that the clock stays in the middle.
+- The camera is the thrower's view as ever, the 400 × 240 frame fitted whole, never a wide camera.
+
+Where the web has the room and the phone does not, the phone differs, knowingly: the practice hint sits level with the ring's foot on the screen's inner side, not under the ring, and the coach's SLOW FLICK lead sits beside its line, not over it, which would reach MENU. Cards that are taller than the 390 pt screen (the options, the menus, a lobby) scroll from their titles. Turning the screen while a finger is down lets go cleanly: the dial or aim drag is cancelled with no throw, a held slider or STAND lets go where it was and the rest of that drag is ignored (`PitchSession.cancelHeld`), so nothing is stranded or mapped through the old layout.
+
 ## Review pictures
 
-Each image is a real iOS 26.2 simulator capture of the app with a synthetic match. The five original 640 × 384 landscape renderer PNGs remain byte-identical. The portrait suite covers the HUD and cards on both screen sizes.
+Each image is a real iOS 26.2 simulator capture of the app with a synthetic match. The five original 640 × 384 landscape renderer PNGs remain byte-identical. The portrait suite covers the HUD and cards on both screen sizes, and the landscape suite the same on each phone on its side.
 
 | Screen | Small iPhone | Large iPhone |
 | --- | --- | --- |
@@ -61,6 +73,38 @@ Each image is a real iOS 26.2 simulator capture of the app with a synthetic matc
 | Winner | [16e](review/iphone-16e-winner.png) | [17 Pro Max](review/iphone-17-pro-max-winner.png) |
 | Sheet | [16e](review/iphone-16e-sheet.png) | [17 Pro Max](review/iphone-17-pro-max-sheet.png) |
 
+On its side the 16e is turned right and the Pro Max left, so both ways are covered. The online screens on their side are in [ONLINE.md](ONLINE.md).
+
+| On its side | Small iPhone | Large iPhone |
+| --- | --- | --- |
+| Home | [16e](review/iphone-16e-landscape-home.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-home.png) |
+| Options | [16e](review/iphone-16e-landscape-options.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-options.png) |
+| Handoff | [16e](review/iphone-16e-landscape-handoff.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-handoff.png) |
+| Aim, clock right | [16e](review/iphone-16e-landscape-aim.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-aim.png) |
+| Aim, clock left (Linear, left) | [16e](review/iphone-16e-landscape-linear-left-aim.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-linear-left-aim.png) |
+| Side view | [16e](review/iphone-16e-landscape-plan.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-plan.png) |
+| ARC held | [16e](review/iphone-16e-landscape-arc.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-arc.png) |
+| TILT held | [16e](review/iphone-16e-landscape-tilt.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-tilt.png) |
+| STAND held | [16e](review/iphone-16e-landscape-stand.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-stand.png) |
+| TILT held, clock left | [16e](review/iphone-16e-landscape-linear-left-tilt.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-linear-left-tilt.png) |
+| Nudge, in a match | [16e](review/iphone-16e-landscape-clock-nudge.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-clock-nudge.png) |
+| Coach, learning | [16e](review/iphone-16e-landscape-coach.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-coach.png) |
+| Coach, after a SLOW flick | [16e](review/iphone-16e-landscape-coach-slow.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-coach-slow.png) |
+| Flight | [16e](review/iphone-16e-landscape-flight.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-flight.png) |
+| Verdict | [16e](review/iphone-16e-landscape-verdict.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-verdict.png) |
+| Raise | [16e](review/iphone-16e-landscape-raise.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-raise.png) |
+| Raise, kubb dragged past half way | [16e](review/iphone-16e-landscape-raisedrag.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-raisedrag.png) |
+| AUTO ALL | [16e](review/iphone-16e-landscape-raiserest.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-raiserest.png) |
+| Punishment | [16e](review/iphone-16e-landscape-punish.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-punish.png) |
+| Computer | [16e](review/iphone-16e-landscape-computer.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-computer.png) |
+| Menu | [16e](review/iphone-16e-landscape-menu.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-menu.png) |
+| Winner | [16e](review/iphone-16e-landscape-winner.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-winner.png) |
+| Sheet | [16e](review/iphone-16e-landscape-sheet.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-sheet.png) |
+| Practice, clock right | [16e](review/iphone-16e-landscape-practice.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-practice.png) |
+| Practice, clock left | [16e](review/iphone-16e-landscape-practice-left.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-practice-left.png) |
+| Practice, the coach | [16e](review/iphone-16e-landscape-clock-coach-wind.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-clock-coach-wind.png) |
+| Practice, a press beside the ring | [16e](review/iphone-16e-landscape-clock-beside.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-clock-beside.png) |
+
 ### Drawing details
 
 - Quartz rasterizes the ink edges and dashes. Grass blades use short batches of filled, hard-edged shapes and sand/snow specks have square ends. Their positions still use the web seed. The playfield and dial use at most two backing pixels per point for the moving-frame budget. SwiftUI controls and text use display resolution.
@@ -96,7 +140,7 @@ When a player is stuck on their own throw, a ghost of the knob makes one good th
 
 While a device is learning (fewer than 3 throws, `pitch.throwsMade`) a few words sit just over the meter's prompt and follow the stroke: PULL BACK TO THE ORANGE MARK at rest, NO RUSH GOING BACK while drawing back short of the power band, NOW FLICK FAST AND STOP ON THE BLUE MARK from the band through the flick. After a throw of this player's own that the engine called SLOW, the next throw is coached on any device, led by SLOW FLICK. FLICK FASTER. in an ink box. `KubbRenderer/Coach.swift` is the web's `src/game/coach.js` (its tests ported in `CoachTests`); `CoachHUD.swift` draws it as the web's hud.js `showCoach`: over the clock's plate, centred, or from the linear meter's inner edge over its tab; 13 pt heavy, upper case, balanced lines, at most 280 pt wide and short of any plan column level with it (up to 76 pt above its foot, read from the columns' frames). It shows only in the player's own aim with no finger down, never with the nudge's ghost, and takes no touches. The face is the system's heavy font, not the web's CSS face. Drawing only: never fed to the engine, sent or recorded.
 
-`python3 tools/meter-snapshots.py <simulator-app> --device <name or udid>` captures every meter, side, mark and nudge frame under `build/meter-shots/` (`PITCH_REVIEW` modes `wind`, `beside`, `marks` and `nudge`; `NUDGE_AT` freezes the nudge at a time, `NUDGE_STILL` shows the still picture, `THROWS_MADE` sets `pitch.throwsMade` for the coach, 9 by default). The review tools launch with `-pitch.throwsMade 9` so the coach stays away, and 0 for the coach shots.
+`python3 tools/meter-snapshots.py <simulator-app> --device <name or udid>` captures every meter, side, mark and nudge frame under `build/meter-shots/` (`PITCH_REVIEW` modes `wind`, `beside`, `marks` and `nudge`; `NUDGE_AT` freezes the nudge at a time, `NUDGE_STILL` shows the still picture, `THROWS_MADE` sets `pitch.throwsMade` for the coach, 9 by default). The review tools launch with `-pitch.throwsMade 9` so the coach stays away, and 0 for the coach shots. `--landscape left` or `right` on the solo, meter and online tools turns the simulator's interface on its side (`REVIEW_ORIENTATION`, simulator only; the board writes its ready file only once the window has turned) and names the pictures `<phone>-landscape-<shot>.png`.
 
 | Meter | Small iPhone | Large iPhone |
 | --- | --- | --- |
