@@ -12,7 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MODES = {
     "home": None, "options": None, "menu": "aim", "verdict": "aim", "handoff": "aim", "aim": "aim", "plan": "aim",
     "arc": "aim", "tilt": "aim", "flight": "aim", "raise": "raise", "raisemany": "raise-many",
-    "raiseauto": "raise-many", "raiserest": "raise-many", "punish": "punish", "computer": "computer",
+    "raiseauto": "raise-many", "raiserest": "raise-many", "raisedrag": "raise",
+    "raiserefused": "raise-refused", "punish": "punish", "computer": "computer",
     "winner": "over", "sheet": "over",
 }
 # The match with the linear meter (and the nudge) beside the plan's sliders:
@@ -28,7 +29,16 @@ METER_SHOTS = {
     "linear-right-nudge": ("nudge", "aim", "linear", "right"),
     "linear-left-nudge": ("nudge", "aim", "linear", "left"),
     "clock-nudge": ("nudge", "aim", "clock", "right"),
+    # the coach line over the prompt, for a device yet to make 3 throws, and led
+    # by the SLOW verdict on the throw after a slow flick
+    "coach": ("coach", "aim", "clock", "right"),
+    "coach-slow": ("coachslow", "aim", "clock", "right"),
+    "linear-right-coach": ("coach", "aim", "linear", "right"),
+    "linear-left-coach": ("coach", "aim", "linear", "left"),
+    "linear-right-coach-slow": ("coachslow", "aim", "linear", "right"),
 }
+# every other shot is a device that has learned the throw (no coach line)
+LEARNING = {"coach", "coachslow"}
 SHOTS = {**{m: (m, f, "clock", "right") for m, f in MODES.items()}, **METER_SHOTS}
 APP = "com.throwingwood.app"
 
@@ -61,6 +71,7 @@ def capture(phone, args):
                 shutil.copyfile(src, tmp / "review-solo.json")
             sim("launch", "--terminate-running-process", udid, APP,
                 "-pitch.meter", meter, "-pitch.meterSide", side,
+                "-pitch.throwsMade", "0" if mode in LEARNING else "9",
                 env={**os.environ, "SIMCTL_CHILD_MATCH_REVIEW": mode}, stdout=subprocess.DEVNULL)
             deadline = time.monotonic() + 30
             while not ready.exists() or ready.read_text() != mode:

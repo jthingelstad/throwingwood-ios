@@ -66,6 +66,7 @@ try {
     "winner",
     "menu",
     "report",
+    "feedback",
     "replaced",
     "reconnecting",
   ].includes(mode);
@@ -82,7 +83,8 @@ try {
   if (mode === "connecting" || mode === "unreachable") stallJoins();
   execFileSync(
     "xcrun",
-    ["simctl", "launch", "--terminate-running-process", phone, app],
+    // a device that has learned the throw: no coach line in these pictures
+    ["simctl", "launch", "--terminate-running-process", phone, app, "-pitch.throwsMade", "9"],
     {
       env: {
         ...process.env,
@@ -107,7 +109,7 @@ try {
       server.drop(conn);
       stallJoins();
     } else {
-      const watcher = ["flight", "shout", "winner", "menu", "report"].includes(
+      const watcher = ["flight", "shout", "winner", "menu", "report", "feedback"].includes(
         mode,
       );
       await webRoom.update((doc) => {

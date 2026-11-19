@@ -64,7 +64,7 @@ struct GameView: View {
             case .onlineEntry, .join, .pitch, .invalidLink: OnlineCards(model: model)
             case .report:
               if let report = model.report {
-                ReportCard(model: model, report: report)
+                ReportCard(model: model, report: report, kind: reviewReportKind)
               }
             case .sheet:
               if let sheet = model.sheet {
@@ -112,6 +112,20 @@ struct GameView: View {
     } message: {
       Text(model.error ?? "")
     }
+  }
+
+  /// The feedback card's kind in the simulator's "report" and "feedback" reviews (else the
+  /// card's default).
+  private var reviewReportKind: ReportCard.Kind? {
+    #if targetEnvironment(simulator)
+      switch ProcessInfo.processInfo.environment["ONLINE_REVIEW"] {
+      case "report": .throw  // the review's match has no last throw yet
+      case "feedback": .feedback
+      default: nil
+      }
+    #else
+      nil
+    #endif
   }
 
   /// The room the linear meter takes, in the safe area's coordinates: the

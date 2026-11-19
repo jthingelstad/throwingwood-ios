@@ -20,7 +20,7 @@
       case "flight": return model.playing
       case "shout": return p?.shouts.isEmpty == false && p?.board.handoff == nil
       case "winner": return p?.board.need?.kind == "over"
-      case "menu", "report": return p?.stage == .match
+      case "menu", "report", "feedback": return p?.stage == .match
       default: return p.map { String(describing: $0.stage) == mode } == true
       }
     }
@@ -33,7 +33,7 @@
           do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
         }
         if mode == "menu" { model.screen = .menu }
-        if mode == "report", let online = model.online {
+        if mode == "report" || mode == "feedback", let online = model.online {
           model.perform {
             model.report = try online.captureReport(size: .zero, scale: 3)
             model.screen = .report
