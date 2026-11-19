@@ -227,7 +227,8 @@ struct MatchScreen: View {
 
   /// A phone on its side (WideLayout, the web's wide screen): the rail top
   /// left, SHOUT and MENU top right, the captions between them, the plan in one
-  /// block beside the clock, the panels and SKIP in the clock's corner.
+  /// block at the screen's edge away from the clock (WideLayout.plan), the
+  /// panels and SKIP in the clock's corner.
   private func wide(_ n: MatchNeed) -> some View {
     let size = screen.size, safe = screen.safe
     let side = model.meter.side
@@ -238,7 +239,9 @@ struct MatchScreen: View {
     let meter = model.meter.layout(
       bounds: CGRect(origin: .zero, size: size),
       safe: UIEdgeInsets(top: safe.top, left: safe.left, bottom: safe.bottom, right: safe.right))
-    let anchor = WideLayout.plansAnchor(meter: meter, size: size, safe: safe, side: side)
+    let plan = WideLayout.plan(meter: meter, size: size, safe: safe, side: side)
+    // the held slider's caption grows from the block's side toward the middle
+    let from: Alignment = (plan.edge ?? (side == .right ? .left : .right)) == .left ? .topLeading : .topTrailing
     let corner: Alignment = side == .left ? .bottomLeading : .bottomTrailing
     let edge: Edge.Set = side == .left ? .leading : .trailing
     return ZStack(alignment: .topLeading) {
@@ -249,7 +252,7 @@ struct MatchScreen: View {
       menuButton.modifier(Plate(inset: 4))
         .frame(width: menuBox.width, height: menuBox.height)
         .offset(x: menuBox.minX, y: menuBox.minY)
-      captions(n)
+      captions(n, held: from)
         .frame(width: captionBox.width, alignment: .top)
         .offset(x: captionBox.minX, y: captionBox.minY)
       if let online = model.online {
@@ -266,8 +269,6 @@ struct MatchScreen: View {
           placement(n).frame(maxWidth: 360)
             .padding(edge, (side == .left ? safe.left : safe.right) + WideLayout.margin)
             .padding(.bottom, safe.bottom + 8)
-        } else if !playing && pitch.canAim {
-          plans.padding(edge, anchor.edge).padding(.bottom, anchor.bottom)
         } else if playing {
           tool("SKIP", label: "Skip playback") {
             if let online = model.online { try online.skip() } else { try pitch.skipPlayback() }
@@ -276,9 +277,19 @@ struct MatchScreen: View {
           .padding(.bottom, safe.bottom + 10)
         }
       }
-      .frame(width: size.width, height: size.height, alignment: corner)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: corner)
+      if !playing && pitch.canAim && !((n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput) {
+        // TILT and STAND at the screen's edge, ARC and SIDE VIEW toward the middle
+        plans
+          .frame(
+            width: plan.block.width, height: plan.block.height,
+            alignment: plan.edge == .left || (plan.edge == nil && side == .left) ? .bottomLeading : .bottomTrailing)
+          .offset(x: plan.block.minX, y: plan.block.minY)
+      }
     }
-    .frame(width: size.width, height: size.height, alignment: .topLeading)
+    // flexible, so the screen it fills is the whole screen without growing the
+    // safe area's container (a fixed frame did, widening the board under it)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .ignoresSafeArea()
   }
 
@@ -328,14 +339,16 @@ struct MatchScreen: View {
     }.accessibilityLabel("Match menu")
   }
 
-  @ViewBuilder private func captions(_ n: MatchNeed) -> some View {
+  /// `held`: on a phone on its side, where the held slider's or STAND's caption
+  /// sits in the top strip (nil: centred, as upright).
+  @ViewBuilder private func captions(_ n: MatchNeed, held from: Alignment? = nil) -> some View {
     VStack(spacing: 8) {
       if model.slow {
         Text("SLOW MOTION").font(.caption.bold()).modifier(Plate(inset: 5))
       } else if let stand = pitch.standCaption, n.kind == "throw" {
-        SliderCaption(text: stand)
+        SliderCaption(text: stand).aligned(from)
       } else if let held = pitch.held, n.kind == "throw" {
-        SliderCaption(text: PlanScale.caption(held, kubb: pitch.throwsKubb))
+        SliderCaption(text: PlanScale.caption(held, kubb: pitch.throwsKubb)).aligned(from)
       } else if let wind = pitch.windText, n.kind == "throw" {
         Text(wind).font(.caption.bold()).modifier(Plate(inset: 5))
       }
@@ -596,5 +609,12 @@ struct PlanControls: View {
       Text(text).font(displayFont(16)).frame(minWidth: 84, minHeight: 34)
         .modifier(Plate(fill: on ? .woodGold : .woodPaper, inset: 4))
     }.accessibilityLabel(label).accessibilityAddTraits(on ? .isSelected : [])
+  }
+}
+
+extension View {
+  /// Set to one side of the width it is given, or as it is (nil).
+  @ViewBuilder fileprivate func aligned(_ alignment: Alignment?) -> some View {
+    if let alignment { frame(maxWidth: .infinity, alignment: alignment) } else { self }
   }
 }
