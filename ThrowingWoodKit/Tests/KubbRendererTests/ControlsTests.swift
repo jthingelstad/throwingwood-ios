@@ -459,6 +459,25 @@ import simd
     #expect(dragged && refusedSeen)
   }
 
+  /// Writes Fixtures/solo/raise-refused.json: the first raise of the seed 5 match
+  /// (invented teams North and South, pass and play) where the rules refuse one end,
+  /// for the review picture of a refused tap. Run with TW_WRITE_RAISE_FIXTURE=refused.
+  @Test(.enabled(if: ProcessInfo.processInfo.environment["TW_WRITE_RAISE_FIXTURE"] == "refused"))
+  func writeRaiseRefusedFixture() throws {
+    let acts = try realRaises()
+    for nth in 0..<16 {
+      guard let app = try atRealRaise(acts, nth), let need = app.need else { break }
+      let oks = need.ends?.map { $0.ok != false } ?? []
+      guard oks.contains(false) && oks.contains(true) else { continue }
+      let out = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        .appending(path: "Fixtures/solo/raise-refused.json")
+      try Data(app.engine.call("snapshot").utf8).write(to: out, options: .atomic)
+      print("raise-refused: raise \(nth), side \(need.side ?? "?"), ends \(oks)")
+      return
+    }
+    Issue.record("no raise with a refused end")
+  }
+
   /// Writes Fixtures/solo/raise-many.json: the first raise of two or more kubbs
   /// for side A in a synthetic match (no names but You and Computer). Run with
   /// TW_WRITE_RAISE_FIXTURE=1; the planner engine throws for side A.

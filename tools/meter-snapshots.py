@@ -35,6 +35,9 @@ SHOTS = {
     "linear-right-nudge-flick": ("nudge", "linear", "right", {"NUDGE_AT": "1.7"}),
     "linear-right-nudge-still": ("nudge", "linear", "right", {"NUDGE_STILL": "1"}),
     "linear-left-nudge-back": ("nudge", "linear", "left", {"NUDGE_AT": "1.4"}),
+    # the coach line following the stroke, for a device yet to make 3 throws
+    "clock-coach-wind": ("wind", "clock", "right", {"THROWS_MADE": "0"}),
+    "linear-right-coach-wind": ("wind", "linear", "right", {"THROWS_MADE": "0"}),
 }
 
 
@@ -72,7 +75,9 @@ def capture(device, args):
             env = {**os.environ, "SIMCTL_CHILD_PITCH_REVIEW": mode}
             env.update({"SIMCTL_CHILD_" + k: v for k, v in extra.items()})
             sim("launch", "--terminate-running-process", udid, APP,
-                "-pitch.meter", meter, "-pitch.meterSide", side, env=env, stdout=subprocess.DEVNULL)
+                "-pitch.meter", meter, "-pitch.meterSide", side,
+                # a learned device unless the shot asks for the coach line
+                "-pitch.throwsMade", extra.get("THROWS_MADE", "9"), env=env, stdout=subprocess.DEVNULL)
             deadline = time.monotonic() + 30
             while not ready.exists():
                 if time.monotonic() > deadline:

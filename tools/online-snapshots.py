@@ -7,7 +7,7 @@ import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 MODES = (
-    "entry share join host guest flight shout handoff winner menu report newer older "
+    "entry share join host guest flight shout handoff winner menu report feedback newer older "
     "connecting reconnecting notFound full unreachable replaced"
 ).split()
 PHONES = ["iPhone 16e", "iPhone 17 Pro Max"]
