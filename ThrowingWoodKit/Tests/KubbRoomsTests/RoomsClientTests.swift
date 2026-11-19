@@ -236,10 +236,7 @@ import Testing
   @Test func answerTimeoutReconnectsAndUsesTaggedRecordHelpers() async throws {
     var sockets: [MockTransport] = []
     var timing = RoomsClient.Timing()
-    // Long enough that only the unanswered set times out: beside the other
-    // suites the main actor can be busy for seconds, and at 3 s the second
-    // socket's answers were sometimes late too (a third socket).
-    timing.answer = .seconds(12)
+    timing.answer = .seconds(600)
     timing.retry = .milliseconds(2)
     let room = try makeClient(
       { _ in
@@ -265,6 +262,15 @@ import Testing
     defer { room.close() }
     room.connect()
     try await room.ready()
+    // Only the unanswered set may time out. Beside the other suites the main
+    // actor can be held for longer than any wait worth sitting through (12 s was
+    // not enough on CI: the second socket's answers were late too, a third
+    // socket), so the wait is short for that set alone and long again before the
+    // client reconnects.
+    room.timing.answer = .milliseconds(50)
+    room.observe { [weak room] event in
+      if case .status(.reconnecting) = event { room?.timing.answer = .seconds(600) }
+    }
     _ = try await room.update { _ in JSONText("{}") }
     #expect(sockets.count == 2)
     #expect(

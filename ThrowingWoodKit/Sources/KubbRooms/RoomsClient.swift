@@ -39,7 +39,9 @@ import Foundation
   private let url: URL
   private let appVersion: String
   private let factory: Factory
-  private let timing: Timing
+  /// Each timer takes the value as it starts. Settable inside the module so a test
+  /// can let exactly one answer be late.
+  var timing: Timing
   private var me: [(String, JS)]
   private var observers: [UUID: @MainActor (Event) -> Void] = [:]
   private var socket: (any RoomsTransport)?
