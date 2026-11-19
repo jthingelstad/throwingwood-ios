@@ -34,6 +34,25 @@ extension MatchNeed.Pose {
 }
 
 extension PitchSession {
+  /// The punishment scene's near baseline, a frame y (the web's punishNearY).
+  static func punishNearY(_ camera: Camera) -> Double {
+    Double(PitchProjection(size: CGSize(width: 400, height: 240), camera: camera).project(V3(0, 0, 0))?.y ?? 240)
+  }
+
+  /// The raise or punishment scene's lowest working point on a wide screen of
+  /// `size`, in pt from the top: the near baseline (punishment), or the lying kubb's lowest
+  /// corner, footprint or number's centre (raise). nil on other screens.
+  public func stillLowestY(in size: CGSize) -> Double? {
+    guard let low = scene.stillLowest, WideLayout.isWide(size) else { return nil }
+    let shown = scene.projection(size, camera)
+    return shown.origin.y + shown.k * low
+  }
+
+  /// Where the ground point (x, y) is drawn on a screen of `size` (review tools).
+  public func groundPoint(x: Double, y: Double, in size: CGSize) -> CGPoint? {
+    scene.projection(size, camera).project(V3(x, y, 0))
+  }
+
   func settleScene() throws {
     guard let n = need, n.kind != "throw" else { return }
     scene.arc = nil
@@ -41,6 +60,9 @@ extension PitchSession {
     scene.thrower = nil
     scene.advantageY = nil
     scene.focusX = nil
+    scene.stillLowest = nil
+    scene.stillPad = nil
+    scene.stillFloor = stillFloor
     guard n.kind == "raise" || n.kind == "punish", let id = n.kubb else { return }
     scene.items = (n.others ?? []).map { $0.pose.piece(id: $0.id) }
     if let king = n.king { scene.items.append(king.piece(id: "king", king: true)) }
@@ -52,6 +74,11 @@ extension PitchSession {
       camera = .looking(
         from: spot + normal * 1.15 + V3(0, 0, 1.05), at: spot + normal * 0.12, focal: 520)
       scene.stillZoom = 1.8
+      // on a phone on its side: the lowest of the kubb, its footprints and its
+      // numbers stays above the bar (WideLayout.stillLift), with the press's
+      // margin round the kubb below it, which also covers a number's circle
+      scene.stillLowest = RaiseTouch.lowest(n, camera: camera)
+      scene.stillPad = Double(max(RaiseTouch.margin, RaiseTouch.numberR))
       // the kubb: tipped part way up while it is dragged (RaiseTouch), else lying
       let lying = p.piece(id: id)
       scene.items.append(
@@ -64,6 +91,9 @@ extension PitchSession {
     } else if let c = cursor {
       camera = .looking(from: V3(0, -2.6, 5.4), at: V3(0, 1.05, 0), focal: 300)
       scene.stillZoom = 1
+      // the lowest ground a punishment kubb may go on: the near baseline, level
+      // across the screen (the camera looks straight down the pitch)
+      scene.stillLowest = Self.punishNearY(camera)
       scene.keepOut = n.keepOut
       if let k = n.keepOut?.first(where: { $0.kind == "king" }) {
         scene.items.append(

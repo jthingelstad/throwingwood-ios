@@ -44,8 +44,19 @@ public struct PitchScene: Decodable, Sendable {
   // Release preserves the aim's projected x even as the camera starts tracking the throw.
   var focusX: Double? = nil
   var stillZoom: Double? = nil
+  /// A raise or punishment scene's lowest point the player works on: a frame y
+  /// and the screen points below it (WideLayout.stillLift).
+  var stillLowest: Double? = nil, stillPad: Double? = nil
+  /// On a phone on its side, the top of the raise and punishment bar, in pt
+  /// above the screen's foot (set by the app once it has measured the bar).
+  var stillFloor: Double? = nil
   func projection(_ size: CGSize, _ camera: Camera) -> PitchProjection {
-    PitchProjection(size: size, camera: camera, focusX: focusX ?? 200, stillZoom: stillZoom)
+    var lift = 0.0
+    if let low = stillLowest, let floor = stillFloor {
+      lift = WideLayout.stillLift(size: size, lowest: low, pad: stillPad ?? 0, floor: floor)
+    }
+    return PitchProjection(
+      size: size, camera: camera, focusX: focusX ?? 200, stillZoom: stillZoom, lift: lift)
   }
   var footprints, keepOut: [GroundMark]?
 }
@@ -59,7 +70,10 @@ public struct PitchProjection {
   let principal: V2
   static let near = 0.05
 
-  public init(size: CGSize, camera: Camera, focusX: Double = 200, stillZoom: Double? = nil) {
+  /// `lift`: pt a wide screen's frame moves up, the same scale (WideLayout.stillLift).
+  public init(
+    size: CGSize, camera: Camera, focusX: Double = 200, stillZoom: Double? = nil, lift: Double = 0
+  ) {
     c = camera
     self.size = size
     if size.height > size.width * 1.05, size.width > 0 {
@@ -75,7 +89,7 @@ public struct PitchProjection {
       }
     } else {
       k = min(size.width / 400, size.height / 240)
-      origin = V2(size.width - 400 * k, size.height - 240 * k) * 0.5
+      origin = V2(size.width - 400 * k, size.height - 240 * k) * 0.5 - V2(0, lift)
     }
     principal = origin + k * V2(c.cx, c.cy)
   }

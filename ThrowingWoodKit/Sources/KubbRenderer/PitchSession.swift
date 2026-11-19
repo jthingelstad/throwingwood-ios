@@ -137,6 +137,16 @@ public final class PitchSession {
   public internal(set) var raiseDragging: RaiseTouch.Drag?
   var raiseSelected: Int?
   var raiseHint: (i: Int, left: Double)?
+  /// On a phone on its side, the raise and punishment bar's top in pt above the
+  /// screen's foot, as the app measured it; nil while no bar shows. The scene
+  /// moves up only if its lowest point would come within 8 pt of it.
+  public var stillFloor: Double? {
+    didSet {
+      guard stillFloor != oldValue else { return }
+      scene.stillFloor = stillFloor
+      revision += 1
+    }
+  }
   var mix = 0.0
   var save: MatchSave?
   var cursor: GroundMark?
