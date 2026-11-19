@@ -48,9 +48,13 @@ LANDSCAPE = [
     "linear-left-aim", "linear-right-aim", "linear-left-tilt", "clock-nudge", "linear-left-nudge",
     "coach", "coach-slow", "linear-left-coach",
 ]
+# Shots taken only on a phone on its side: STAND held with the clock at the left
+# (the plan block at the right edge).
+LANDSCAPE_ONLY = {"clock-left-stand": ("stand", "aim", "clock", "left")}
+LANDSCAPE += list(LANDSCAPE_ONLY)
 # every other shot is a device that has learned the throw (no coach line)
 LEARNING = {"coach", "coachslow"}
-SHOTS = {**{m: (m, f, "clock", "right") for m, f in MODES.items()}, **METER_SHOTS}
+SHOTS = {**{m: (m, f, "clock", "right") for m, f in MODES.items()}, **METER_SHOTS, **LANDSCAPE_ONLY}
 APP = "com.throwingwood.app"
 
 
@@ -80,8 +84,11 @@ def capture(phone, args):
                 continue
             if args.landscape and not args.only and shot not in LANDSCAPE:
                 continue
+            if not args.landscape and shot in LANDSCAPE_ONLY:
+                continue
             ready = tmp / "review-ready"
             ready.unlink(missing_ok=True)
+            (tmp / "review-layout.json").unlink(missing_ok=True)
             if fixture:
                 src = ROOT / "ThrowingWoodKit/Tests/KubbRendererTests/Fixtures/solo" / (fixture + ".json")
                 shutil.copyfile(src, tmp / "review-solo.json")
@@ -100,6 +107,10 @@ def capture(phone, args):
             sim("io", udid, "screenshot", str(file), capture_output=True)
             if args.landscape:
                 upright(file, args.landscape)
+                # the app's frames and the safe area it was given (not compared)
+                layout = tmp / "review-layout.json"
+                if layout.exists():
+                    shutil.copyfile(layout, file.with_suffix(".json"))
             print(f"{phone} {shot}", flush=True)
     finally:
         sim("status_bar", udid, "clear")
@@ -138,7 +149,7 @@ if __name__ == "__main__":
         list(pool.map(lambda phone: capture(phone, args), phones))
     if not args.capture_only:
         tag = "-landscape" if args.landscape else ""
-        shots = LANDSCAPE if args.landscape else SHOTS
+        shots = LANDSCAPE if args.landscape else [m for m in SHOTS if m not in LANDSCAPE_ONLY]
         subprocess.run(["swift", str(ROOT / "tools/check-snapshots.swift"), str(ROOT / "docs/review"),
                         str(args.out), *[f"{p.lower().replace(' ', '-')}{tag}-{m}.png"
                                        for p in phones for m in shots]], check=True)
