@@ -125,8 +125,9 @@ struct SheetCard: View {
         Button("BACK", action: done).buttonStyle(WoodButton(accent: true))
       }
     }.modifier(Plate())
-      // the web's .sheet, min(640px, 100%): a phone keeps its whole width
-      .frame(maxWidth: 640).padding(16)
+      // an iPad's: the web's .sheet, min(640px, 100%); a phone keeps its whole
+      // width, upright and on its side, as before
+      .frame(maxWidth: UIDevice.current.userInterfaceIdiom == .pad ? 640 : .infinity).padding(16)
       .fileExporter(
         isPresented: $exporting, document: NotationFile(sheet.text),
         contentType: .plainText, defaultFilename: sheet.name
