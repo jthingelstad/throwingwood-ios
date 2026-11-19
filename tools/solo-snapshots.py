@@ -6,7 +6,11 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import time
+
+sys.dont_write_bytecode = True  # no __pycache__ in tools/
+from review_turn import is_ipad, turn as turn_device
 
 ROOT = Path(__file__).resolve().parents[1]
 MODES = {
@@ -60,6 +64,14 @@ LANDSCAPE += list(LANDSCAPE_ONLY)
 LEARNING = {"coach", "coachslow"}
 SHOTS = {**{m: (m, f, "clock", "right") for m, f in MODES.items()}, **METER_SHOTS, **LANDSCAPE_ONLY}
 APP = "com.throwingwood.app"
+# The review devices under the iOS 26.2 runtime and their picture names: both
+# phones, and a small and a large iPad (the same game on a bigger screen).
+DEVICES = {
+    "iPhone 16e": "iphone-16e", "iPhone 17 Pro Max": "iphone-17-pro-max",
+    "iPad mini (A17 Pro)": "ipad-mini", "iPad Pro 13-inch (M5)": "ipad-pro-13",
+}
+PHONES = ["iPhone 16e", "iPhone 17 Pro Max"]
+IPADS = ["iPad mini (A17 Pro)", "iPad Pro 13-inch (M5)"]
 
 
 def sim(*args, **kwargs):
@@ -81,7 +93,9 @@ def capture(phone, args):
             "--batteryLevel", "100", "--cellularBars", "4", "--wifiBars", "3")
         tmp = Path(sim("get_app_container", udid, APP, "data", capture_output=True,
                        text=True).stdout.strip()) / "tmp"
-        prefix = phone.lower().replace(" ", "-") + ("-landscape" if args.landscape else "")
+        if is_ipad(phone):
+            turn_device(udid, args.landscape)  # an iPad turns as a device, not from the app
+        prefix = DEVICES[phone] + ("-landscape" if args.landscape else "")
         turn = {"SIMCTL_CHILD_REVIEW_ORIENTATION": args.landscape} if args.landscape else {}
         for shot, (mode, fixture, meter, side) in SHOTS.items():
             if args.only and shot not in args.only:
@@ -119,6 +133,8 @@ def capture(phone, args):
     finally:
         sim("status_bar", udid, "clear")
         subprocess.run(["xcrun", "simctl", "terminate", udid, APP], capture_output=True)
+        if is_ipad(phone) and args.landscape:
+            turn_device(udid, None)
         if boot:
             sim("shutdown", udid)
 
@@ -141,12 +157,14 @@ if __name__ == "__main__":
     parser.add_argument("--capture-only", action="store_true")
     parser.add_argument("--only", type=lambda v: set(v.split(",")), default=None,
                         help="comma-separated shot names (implies --capture-only)")
-    parser.add_argument("--phone", action="append", help="one review phone (repeatable)")
+    parser.add_argument("--phone", action="append", choices=list(DEVICES),
+                        help="one review device (repeatable)")
+    parser.add_argument("--ipad", action="store_true", help="the two review iPads, not the phones")
     parser.add_argument("--landscape", choices=["left", "right"],
                         help="turn the interface this way (the landscape shots)")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
-    phones = args.phone or ["iPhone 16e", "iPhone 17 Pro Max"]
+    phones = args.phone or (IPADS if args.ipad else PHONES)
     if args.only:
         args.capture_only = True
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
@@ -155,5 +173,5 @@ if __name__ == "__main__":
         tag = "-landscape" if args.landscape else ""
         shots = LANDSCAPE if args.landscape else [m for m in SHOTS if m not in LANDSCAPE_ONLY]
         subprocess.run(["swift", str(ROOT / "tools/check-snapshots.swift"), str(ROOT / "docs/review"),
-                        str(args.out), *[f"{p.lower().replace(' ', '-')}{tag}-{m}.png"
+                        str(args.out), *[f"{DEVICES[p]}{tag}-{m}.png"
                                        for p in phones for m in shots]], check=True)

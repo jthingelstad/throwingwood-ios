@@ -9,6 +9,10 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
+
+sys.dont_write_bytecode = True  # no __pycache__ in tools/
+from review_turn import is_ipad, turn as turn_device
 
 ROOT = Path(__file__).resolve().parents[1]
 MODES = (
@@ -16,6 +20,9 @@ MODES = (
     "connecting reconnecting notFound full unreachable replaced"
 ).split()
 PHONES = ["iPhone 16e", "iPhone 17 Pro Max"]
+# a small and a large iPad, the same game on a bigger screen
+IPADS = ["iPad mini (A17 Pro)", "iPad Pro 13-inch (M5)"]
+NAMES = {"iPad mini (A17 Pro)": "ipad-mini", "iPad Pro 13-inch (M5)": "ipad-pro-13"}
 
 
 def sim(*args, **kwargs):
@@ -23,7 +30,7 @@ def sim(*args, **kwargs):
 
 
 def filename(phone, mode, landscape=None):
-    return phone.lower().replace(" ", "-") + ("-landscape" if landscape else "") + "-" + mode + ".png"
+    return NAMES.get(phone, phone.lower().replace(" ", "-")) + ("-landscape" if landscape else "") + "-" + mode + ".png"
 
 
 def capture(phone, args):
@@ -39,6 +46,8 @@ def capture(phone, args):
         sim("install", udid, str(args.app))
         sim("status_bar", udid, "override", "--time", "9:41", "--batteryState", "charged",
             "--batteryLevel", "100", "--cellularBars", "4", "--wifiBars", "3")
+        if is_ipad(phone):
+            turn_device(udid, args.landscape)  # an iPad turns as a device, not from the app
         for mode in args.modes:
             file = args.out / filename(phone, mode, args.landscape)
             env = dict(os.environ)
@@ -51,6 +60,8 @@ def capture(phone, args):
             print(phone, mode, flush=True)
     finally:
         sim("status_bar", udid, "clear")
+        if is_ipad(phone) and args.landscape:
+            turn_device(udid, None)
         if boot:
             sim("shutdown", udid)
 
@@ -62,9 +73,12 @@ if __name__ == "__main__":
     parser.add_argument("--out", type=Path, default=ROOT / "build/online-snapshots")
     parser.add_argument("--capture-only", action="store_true")
     parser.add_argument("--modes", nargs="+", default=MODES, choices=MODES)
-    parser.add_argument("--phones", nargs="+", default=PHONES, choices=PHONES)
+    parser.add_argument("--phones", nargs="+", default=PHONES, choices=PHONES + IPADS)
+    parser.add_argument("--ipad", action="store_true", help="the two review iPads, not the phones")
     parser.add_argument("--landscape", choices=["left", "right"])
     args = parser.parse_args()
+    if args.ipad:
+        args.phones = IPADS
     args.out.mkdir(parents=True, exist_ok=True)
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         list(pool.map(lambda phone: capture(phone, args), args.phones))
