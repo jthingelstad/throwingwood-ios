@@ -248,8 +248,10 @@ import UIKit
     (model.screen == .practice || model.screen == .match) && pitch.canAim && pitch.handoff == nil
   }
   private var nudgeEligible: Bool {
+    // a finger on a slider or on STAND is busy elsewhere: those presses never
+    // reach this view's touches, so they are asked of the pitch
     nudgeAimWanted && !pitch.showsSide && tracking == nil && pendingDial == nil && nudgeEnd == nil
-      && pitch.dial.phase == "idle"
+      && pitch.held == nil && !pitch.standHeld && pitch.dial.phase == "idle"
   }
   /// Time passing for the nudge, on the wall clock (the display link sleeps).
   private func stepNudge() {
@@ -262,8 +264,8 @@ import UIKit
     let dt = eligible && !nudgeWasEligible ? 0 : nudgeClock.map { now - $0 } ?? 0
     nudgeClock = now
     nudgeWasEligible = eligible
-    // a held slider (SIDE VIEW) is input, and keeps the nudge off the meter
-    if pitch.held != nil { nudge.input() }
+    // a held slider or STAND is input too: the wait starts again after it
+    if pitch.held != nil || pitch.standHeld { nudge.input() }
     let aim = nudgeAimWanted
     if aim && !nudgeAim { nudge.aimBegan() }
     nudgeAim = aim
