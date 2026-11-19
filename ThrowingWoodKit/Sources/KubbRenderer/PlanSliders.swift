@@ -82,7 +82,9 @@ public enum PlanScale {
   }
 }
 
-public enum SlidePhase: Sendable { case down, move, up }
+/// `cancel`: the hold ended with no release (the controls went away under the
+/// finger, the app left the foreground).
+public enum SlidePhase: Sendable { case down, move, up, cancel }
 
 extension PitchSession {
   /// The engine's plan view (SIDE VIEW): the toggle, or while a slider is held
@@ -101,9 +103,14 @@ extension PitchSession {
   /// A finger on a slider at `f` (0...1, bottom to top or left to right). Only
   /// records where it is: `tick` sends the latest place to the engine once a frame.
   public func slide(_ slider: PlanSlider, to f: Double, phase: SlidePhase) {
+    if phase == .cancel {
+      cancelSlide()
+      return
+    }
     guard canAim || (phase == .up && held != nil) else { return }
     let f = PlanScale.clamp01(f)
     switch phase {
+    case .cancel: return
     case .down, .move:
       if held == nil { input.reset() }
       held = slider
@@ -115,6 +122,17 @@ extension PitchSession {
       heldFraction = nil
       peekLeft = PlanScale.peek
     }
+    revision += 1
+  }
+
+  /// A held slider's finger is gone without a release: the plan stays where the
+  /// last frame left it and the side view goes at once, so the dial is not left
+  /// refusing a throw.
+  public func cancelSlide() {
+    guard held != nil || pendingSlide != nil else { return }
+    held = nil
+    heldFraction = nil
+    pendingSlide = nil
     revision += 1
   }
 

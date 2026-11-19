@@ -71,6 +71,7 @@ import UIKit
     display = nil
     previous = nil
     cancel()
+    pitch.cancelSlide()
   }
   private func cancel() {
     if gesture == .walk { pitch.walk(drag: .zero) }
