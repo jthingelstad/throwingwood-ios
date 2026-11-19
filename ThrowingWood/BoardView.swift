@@ -463,6 +463,9 @@ import UIKit
       return
     }
     guard let t = tracking, touches.contains(t) else { return }
+    // the finger was down until now: a sleeping link saw none of it, and the
+    // step after the lift would count the whole press as time stuck
+    stepNudge()
     switch gesture {
     case .dial:
       nudgeEnd = 0
@@ -502,6 +505,7 @@ import UIKit
   }
   override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
     let body = gesture == .body
+    if tracking != nil { stepNudge() }
     cancel()
     if body { wake() }
   }
