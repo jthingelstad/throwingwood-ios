@@ -17,10 +17,16 @@ local function isInkast(tok) return tok:find("[IR]") ~= nil end
 -- a, b (team names), winner ("A" | "B" | nil), first ("A" | "B"), turns,
 -- minutes, date ("NOV 20"), start (the header's text), mode, hits =
 -- { A = { hits, thrown }, B = ... }, kingBaton (the baton of its turn the
--- king fell to, or nil), lines (the file's lines, for the score sheet).
+-- king fell to, or nil), lines (the file's lines, for the score sheet),
+-- players (how many each team lists), roster ({ A = { { name, id } }, B }:
+-- the [Team X Players] entries in order) and throws (every inkast and every
+-- baton thrown, { turn, side, player, token }: player is the token's prefix,
+-- or for an unprefixed throw the id of its team's only player, nil when the
+-- team has more; files before engine 0.7.1 prefix every throw).
 function gamefile.parse(text)
 	if type(text) ~= "string" then return nil, "no text" end
 	local h, lines = {}, {}
+	local throws = {}
 	local hits = { A = { 0, 0 }, B = { 0, 0 } }
 	local turns, kingBaton = 0, nil
 	local first = nil
@@ -43,10 +49,14 @@ function gamefile.parse(text)
 				-- them, belong to the token before them: not tokens
 				rest = rest:gsub("%b()", " ")
 				for tok in rest:gmatch("%S+") do
-					local t = tok:match("^[%w_]+:(.+)$") or tok
-					if not t:match("^%d+A$") and not isInkast(t) then
+					local who, t = tok:match("^([%w_]+):(.+)$")
+					if not who then t = tok end
+					if isInkast(t) then
+						throws[#throws + 1] = { turn = n, side = side, player = who, token = t }
+					elseif not t:match("^%d+A$") then
 						local _, _, hit, thrown = cards.batonCounts(t)
 						if thrown then
+							throws[#throws + 1] = { turn = n, side = side, player = who, token = t }
 							batons = batons + 1
 							hits[side][2] = hits[side][2] + 1
 							if hit then hits[side][1] = hits[side][1] + 1 end
@@ -63,13 +73,29 @@ function gamefile.parse(text)
 		winner = (win == "Team A") and "A" or ((win == "Team B") and "B" or nil),
 		start = h["Start"], mode = h["Mode"], hits = hits, kingBaton = kingBaton, lines = lines }
 	-- players a team ("Kim (kim), Max (max)": a comma between each)
-	s.players = {}
+	s.players, s.roster = {}, {}
 	for _, side in ipairs { "A", "B" } do
 		local v = h["Team " .. side .. " Players"]
 		local n = 0
-		if v then for _ in v:gmatch("%(") do n = n + 1 end end
+		local list = {}
+		if v then
+			for _ in v:gmatch("%(") do n = n + 1 end
+			for part in (v .. ","):gmatch("([^,]*),") do
+				local name, id = part:match("^%s*(.-)%s*%(([^)]+)%)%s*$")
+				if name then list[#list + 1] = { name = name, id = id:lower() } end
+			end
+		end
 		s.players[side] = n
+		s.roster[side] = list
 	end
+	for _, t in ipairs(throws) do
+		if t.player then
+			t.player = t.player:lower()
+		elseif #s.roster[t.side] == 1 then
+			t.player = s.roster[t.side][1].id
+		end
+	end
+	s.throws = throws
 	s.minutes = tonumber((h["Duration"] or ""):match("^(%d+)m")) or 0
 	local _, mo, d = (h["Start"] or ""):match("^(%d+)-(%d+)-(%d+)")
 	s.date = mo and (MONTHS[tonumber(mo)] .. " " .. tonumber(d)) or ""

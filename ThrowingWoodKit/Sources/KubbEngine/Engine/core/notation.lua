@@ -71,6 +71,74 @@ function notation.assignIds(teams)
 	end
 end
 
+-- The ids the game file writes (since engine 0.7.1). The game keeps each
+-- player's full id (assignIds) in its state, saves and history; only the file
+-- is shorter. A throw by a team of one player carries no player prefix (the
+-- team says who threw it). A team of more players writes each player's
+-- initial, the first letter of their id; players whose prefixes are written
+-- and share it get the shortest start of their id that tells them apart
+-- (Kim and Karl: "ki", "ka"). An id made unique with assignIds' suffix,
+-- "dana_b" beside "dana", keeps the suffix after its stem's prefix ("d",
+-- "d_b"). The header names every player with the id the turn lines use: the
+-- prefix, or for a one-player team its full id, which no prefix may equal.
+-- Returns prefix, header: prefix[pid] is the string to write or false (no
+-- prefix), header[pid] the id in [Team X Players] and [Throw Levels].
+local function sharedStart(a, b)
+	local n = 0
+	while n < #a and n < #b and a:byte(n + 1) == b:byte(n + 1) do n = n + 1 end
+	return n
+end
+
+function notation.fileIds(teams)
+	local prefix, header = {}, {}
+	local written, solo = {}, {}
+	for _, side in ipairs { "A", "B" } do
+		local ps = teams[side].players
+		for _, p in ipairs(ps) do
+			if #ps > 1 then written[#written + 1] = p.id; prefix[p.id] = true
+			else solo[p.id] = true; prefix[p.id] = false; header[p.id] = p.id end
+		end
+	end
+	-- each written id's stem and suffix: "dana_b" is "dana" + "_b" when "dana"
+	-- is written too (assignIds' suffix); otherwise the id is its own stem
+	local stemOf, suffixOf, stems, seen = {}, {}, {}, {}
+	for _, id in ipairs(written) do
+		local stem, suffix = id:match("^(.+)(_[a-z]+)$")
+		if not (stem and prefix[stem] == true) then stem, suffix = id, "" end
+		stemOf[id], suffixOf[id] = stem, suffix
+		if not seen[stem] then seen[stem] = true; stems[#stems + 1] = stem end
+	end
+	local short = {}
+	for _, s in ipairs(stems) do
+		local n = 1
+		for _, t in ipairs(stems) do
+			if t ~= s then n = math.max(n, sharedStart(s, t) + 1) end
+		end
+		if n > #s then n = #s end
+		while n < #s and s:sub(n, n) == "_" do n = n + 1 end
+		short[s] = s:sub(1, n)
+	end
+	local cand = {}
+	for _, id in ipairs(written) do cand[id] = short[stemOf[id]] .. suffixOf[id] end
+	-- A prefix that a one-player team's full id, or another player's prefix,
+	-- already says gives way to the player's full id, which is unique in the
+	-- game. A full id taken up this way can meet another prefix in turn ("d"
+	-- alone against "d_b_b" and "d_b"), so repeat until nothing changes: each
+	-- pass only moves players to their full ids, and those never collide.
+	local changed
+	repeat
+		changed = false
+		local count = {}
+		for id in pairs(solo) do count[id] = (count[id] or 0) + 1 end
+		for _, id in ipairs(written) do count[cand[id]] = (count[cand[id]] or 0) + 1 end
+		for _, id in ipairs(written) do
+			if count[cand[id]] > 1 and cand[id] ~= id then cand[id] = id; changed = true end
+		end
+	until not changed
+	for _, id in ipairs(written) do prefix[id], header[id] = cand[id], cand[id] end
+	return prefix, header
+end
+
 -- Names inside header values: no quotes, backslashes or line breaks; player
 -- names also lose commas and parentheses (kubb.js splits on them).
 function notation.cleanName(s, forPlayers)
@@ -273,19 +341,29 @@ function Sheet:note(text)
 	n[#n + 1] = text
 end
 
--- One turn's line, without the trailing newline.
-function notation.turnLine(t)
+-- One turn's line, without the trailing newline. ids (optional, the prefix
+-- table of notation.fileIds) says what each player's throws are written
+-- with; without it every throw carries the player's full id.
+local function written(pid, token, ids)
+	if not pid then return token end
+	local w = pid
+	if ids then w = ids[pid]; if w == nil then w = pid end end
+	if not w then return token end
+	return w .. ":" .. token
+end
+
+function notation.turnLine(t, ids)
 	local parts = { t.n .. "." }
 	local notes = {}
 	for _, pid in ipairs(t.inkastOrder) do
 		local k = t.inkast[pid]
 		if (k.N or 0) > 5 then notes[#notes + 1] = k.N .. " kubbs came to rest on another (N is capped at 5)" end
-		parts[#parts + 1] = pid .. ":" .. notation.inkastBody(k)
+		parts[#parts + 1] = written(pid, notation.inkastBody(k), ids)
 			.. notation.positions(t.inkastAt and t.inkastAt[pid], inkastCount(k))
 	end
 	if t.advantage then parts[#parts + 1] = t.advantage .. "A" end
 	for _, b in ipairs(t.batons) do
-		parts[#parts + 1] = (b.player and (b.player .. ":" .. b.token) or b.token)
+		parts[#parts + 1] = written(b.player, b.token, ids)
 			.. notation.positions(b.at, batonCount(b.token))
 	end
 	for _, n in ipairs(t.notes) do notes[#notes + 1] = n end
@@ -301,9 +379,11 @@ local function teamLabel(side) return "Team " .. side end
 -- The game file. `game` is a rules game (tw.rules) that has ended; meta is
 -- { start, finish (time tables), version, mode, event, location, levels }.
 -- levels: { "kim pro", "sam club", ... } (player id and throw level), written
--- as [Throw Levels "..."] after [Mode] when given.
+-- as [Throw Levels "..."] after [Mode] when given, each id as the header
+-- names it (notation.fileIds: "k pro, s club").
 function notation.render(game, meta)
 	meta = meta or {}
+	local prefix, header = notation.fileIds(game.teams)
 	local lines = {}
 	local function h(k, v) lines[#lines + 1] = fmt('[%s "%s"]', k, v) end
 	h("Event", notation.cleanName(meta.event or notation.event))
@@ -317,7 +397,7 @@ function notation.render(game, meta)
 		h("Team " .. side, notation.cleanName(team.name))
 		local ps = {}
 		for _, p in ipairs(team.players) do
-			ps[#ps + 1] = notation.cleanName(p.name, true) .. " (" .. p.id .. ")"
+			ps[#ps + 1] = notation.cleanName(p.name, true) .. " (" .. (header[p.id] or p.id) .. ")"
 		end
 		h("Team " .. side .. " Players", concat(ps, ", "))
 	end
@@ -326,12 +406,19 @@ function notation.render(game, meta)
 	h("Scored by", notation.scorer .. " " .. (meta.version or "0.0.0"))
 	if meta.mode then h("Mode", meta.mode) end
 	-- each player's throw level (docs/PLAYERS.md decision 7): "kim pro, sam club"
-	if meta.levels and #meta.levels > 0 then h("Throw Levels", concat(meta.levels, ", ")) end
+	if meta.levels and #meta.levels > 0 then
+		local ls = {}
+		for i, l in ipairs(meta.levels) do
+			local id, level = l:match("^(%S+)%s+(.*)$")
+			ls[i] = (id and header[id]) and (header[id] .. " " .. level) or l
+		end
+		h("Throw Levels", concat(ls, ", "))
+	end
 	h("Rules", game.opening == "six" and "U.S. Championship 4.0, six from the start"
 		or "U.S. Championship 4.0, 2-4-6")
 	lines[#lines + 1] = ""
 	for i = 1, #game.sheet.turns do
-		lines[#lines + 1] = notation.turnLine(game.sheet.turns[i])
+		lines[#lines + 1] = notation.turnLine(game.sheet.turns[i], prefix)
 	end
 	return concat(lines, "\n") .. "\n"
 end
