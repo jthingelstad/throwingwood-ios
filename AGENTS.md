@@ -161,7 +161,19 @@ web's wide arrangement from its layout.js, in `KubbRenderer/WideLayout.swift`:
 keep its numbers the web's, keep every frame inside the safe area (the
 `WideLayoutTests` check both review phones, both meters, both sides), and keep
 the thrower's camera. No iPhone on its side gives the linear meter its 320 pt,
-so there it shows the clock. A bounds change mid-gesture cancels the held
+so there it shows the clock. Two hands (Jamie, 2026-11-19: "in landscape the
+tilt, arc, stand controls should be pushed to the left hand side of the screen
+so the user can control those with the left hand and the throw with the right
+hand"): the plan block sits at the edge away from the meter, 8 pt inside the
+safe area with TILT and STAND at the screen's edge, its foot 10 pt above the
+meter box's, the minimap 12 pt on its inner side, and back beside the meter
+only if the minimap would come within 24 pt of the centre (`WideLayout.plan`,
+the web's planAt). The raise and punishment panel is a bar along the bottom
+(`WideLayout.bar`, the web's game.css panel): it must never cover the kubb
+being raised, its numbers, a press or drag on it, or the ground a punishment
+kubb may go on, so the app reports the bar's measured height
+(`PitchSession.stillFloor`) and the scene moves up only by any shortfall
+(`WideLayout.stillLift`, `StillBarTests`). A bounds change mid-gesture cancels the held
 gesture (`BoardView.layoutSubviews`, `PitchSession.cancelHeld`). Cards taller
 than about 390 pt use `FitOrScroll`. The review tools take `--landscape left|right`
 (`<phone>-landscape-*.png`); review both phones on their side as well as

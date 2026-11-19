@@ -92,6 +92,10 @@ With --landscape left or right the same scenarios run on a phone on its side,
 named `<phone>-landscape-<mode>.png` (the 16e turned right, the Pro Max left).
 The match takes the web's wide arrangement, SHOUT beside MENU, and the lobby
 and menu cards scroll from their titles (docs/RENDER.md "A phone on its side").
+The plan block at the far edge and the raise and punishment bar are the solo
+screen's own views, shown online only to the player who acts; the online review
+scenarios watch, so their pictures show neither, and the solo pictures stand
+for both.
 
 | On its side | Small iPhone | Large iPhone |
 | --- | --- | --- |
