@@ -2,6 +2,28 @@
   import KubbRenderer
   import SwiftUI
 
+  /// The review tools' landscape pictures: REVIEW_ORIENTATION "left" or "right"
+  /// turns the interface that way (the simulator itself stays upright), and every
+  /// review waits for it before it prepares or signals a picture.
+  enum ReviewOrientation {
+    static let wanted = ProcessInfo.processInfo.environment["REVIEW_ORIENTATION"]
+    @MainActor static func apply() {
+      guard let wanted,
+        let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first
+      else { return }
+      let mask: UIInterfaceOrientationMask = wanted == "left" ? .landscapeLeft : .landscapeRight
+      scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
+    }
+    /// Is a screen of `size` the way the review asked for?
+    static func settled(_ size: CGSize) -> Bool {
+      wanted == nil || size.width > size.height
+    }
+    @MainActor static var windowSettled: Bool {
+      let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+      return settled(scene?.windows.first?.bounds.size ?? .zero)
+    }
+  }
+
   /// Simulator checkpoint for the local review harness. Every room event arrives over loopback.
   struct OnlineReview: ViewModifier {
     let model: GameModel
@@ -26,10 +48,11 @@
     }
     func body(content: Content) -> some View {
       content.task {
+        ReviewOrientation.apply()
         guard let mode else { return }
         // Observe the reached state even when join and its terminal answer both
         // arrive during the launch transaction, before SwiftUI's first update.
-        while !ready {
+        while !ready || !ReviewOrientation.windowSettled {
           do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
         }
         if mode == "menu" { model.screen = .menu }

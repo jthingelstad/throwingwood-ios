@@ -29,6 +29,17 @@ struct WoodButton: ButtonStyle {
   }
 }
 
+/// A card that fits the screen is shown whole; one that does not (a phone on its
+/// side is about 390 pt tall) scrolls.
+struct FitOrScroll: ViewModifier {
+  func body(content: Content) -> some View {
+    ViewThatFits(in: .vertical) {
+      content
+      ScrollView { content }.scrollBounceBehavior(.basedOnSize)
+    }
+  }
+}
+
 func displayFont(_ size: CGFloat) -> Font { .custom("LondrinaSolid-Black", size: size) }
 
 struct GameView: View {
@@ -51,7 +62,7 @@ struct GameView: View {
             switch model.screen {
             case .home: HomeCard(model: model)
             case .options: MatchOptionsCard(model: model)
-            case .practice: practice
+            case .practice: practice(wide: WideLayout.isWide(screen(geometry).size))
             case .match:
               MatchScreen(
                 model: model, pitch: pitch, revision: model.revision, playing: model.playing)
@@ -76,6 +87,7 @@ struct GameView: View {
       }
       .environment(\.reportViewport, geometry.size)
       .environment(\.meterRoom, meterRoom(geometry))
+      .environment(\.screenGeometry, screen(geometry))
     }
     #if targetEnvironment(simulator)
       .modifier(OnlineReview(model: model))
@@ -128,6 +140,13 @@ struct GameView: View {
     #endif
   }
 
+  private func screen(_ g: GeometryProxy) -> ScreenGeometry {
+    let i = g.safeAreaInsets
+    return ScreenGeometry(
+      size: CGSize(width: g.size.width + i.leading + i.trailing, height: g.size.height + i.top + i.bottom),
+      safe: ScreenInsets(top: i.top, left: i.leading, bottom: i.bottom, right: i.trailing))
+  }
+
   /// The room the linear meter takes, in the safe area's coordinates: the
   /// plan's buttons keep out of it.
   private func meterRoom(_ g: GeometryProxy) -> MeterRoom {
@@ -142,7 +161,9 @@ struct GameView: View {
     return MeterRoom(edge: .leading, width: max(0, m.right + m.shadow - i.leading - 12 + 8))
   }
 
-  private var practice: some View {
+  /// On a phone on its side there is no status bar: the header keeps the rail's
+  /// distance from the top.
+  private func practice(wide: Bool) -> some View {
     VStack(spacing: 10) {
       HStack {
         Button(action: model.home) { Image(systemName: "house.fill").frame(width: 36, height: 36) }
@@ -169,7 +190,7 @@ struct GameView: View {
       }.modifier(Plate(inset: 8))
       if let result = model.result { Verdict(result: result) }
       Spacer()
-    }.padding(.horizontal, 14)
+    }.padding(.horizontal, 14).padding(.top, wide ? WideLayout.edge : 0)
   }
 }
 
