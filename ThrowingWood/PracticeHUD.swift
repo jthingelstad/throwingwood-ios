@@ -45,7 +45,7 @@ import UIKit
     (word as NSString).draw(in: rect, withAttributes: attributes)
   }
 
-  func dial(_ d: DialState, at c: CGPoint, radius r: Double, showHint: Bool) {
+  func dial(_ d: DialState, at c: CGPoint, radius r: Double, showHint: Bool, finger: CGPoint? = nil) {
     context.saveGState()
     defer { context.restoreGState() }
     context.setLineCap(.round)
@@ -84,6 +84,16 @@ import UIKit
     }
     context.setLineCap(.round)
     let knob = at(d.phase == "idle" ? d.crank : d.arm, r * 0.82)
+    if let f = finger {
+      // a finger turning the arm from beside the ring: a spoke from the knob to it
+      let lw = max(1, r * 0.022)
+      line(knob, f, paper, lw * 2.6)
+      line(knob, f, ink, lw * 1.1)
+      disk(f, r * 0.11 + lw * 1.2, paper)
+      context.setStrokeColor(ink.cgColor)
+      context.setLineWidth(lw * 1.5)
+      context.strokeEllipse(in: CGRect(x: f.x - r * 0.11, y: f.y - r * 0.11, width: r * 0.22, height: r * 0.22))
+    }
     line(c, knob, ink, 0.08 * r)
     line(c, knob, UIColor.brown, 0.04 * r)
     disk(c, r * 0.07, ink)

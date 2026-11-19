@@ -18,6 +18,7 @@ APP = "com.throwingwood.app"
 SHOTS = {
     "clock-idle": ("aim", "clock", "right", {}),
     "clock-wind": ("wind", "clock", "right", {}),
+    "clock-beside": ("beside", "clock", "right", {}),
     "clock-marks": ("marks", "clock", "right", {}),
     "linear-right-idle": ("aim", "linear", "right", {}),
     "linear-right-wind": ("wind", "linear", "right", {}),

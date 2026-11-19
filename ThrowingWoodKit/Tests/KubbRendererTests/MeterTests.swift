@@ -4,7 +4,8 @@ import Testing
 
 @testable import KubbRenderer
 
-/// The linear meter's geometry, its arm degrees against the clock's and its sides.
+/// The linear meter's geometry, its arm degrees against the clock's, its sides and
+/// the touches each meter claims.
 @MainActor struct MeterTests {
   private let small = CGRect(x: 0, y: 0, width: 390, height: 844)  // iPhone 16e
   private let large = CGRect(x: 0, y: 0, width: 440, height: 956)  // iPhone 17 Pro Max
@@ -81,6 +82,87 @@ import Testing
         #expect(lp == rp)
       }
     }
+  }
+
+  /// Exactly which presses each meter claims, before and after the pitch's own.
+  @Test func touchClaims() throws {
+    let clock = ClockMeter(bounds: small, bottomInset: 34)
+    let cl = MeterLayout.clock(clock)
+    let c = clock.center, r = clock.radius
+    func at(_ k: CGFloat, _ arm: Double = 90) -> CGPoint { clock.point(arm: arm, radius: r * k) }
+    // the ring, out to 1.25 radii, is the throw at once, as always
+    #expect(cl.first(c) == .meter(grab: 0))
+    #expect(cl.first(at(1.24)) == .meter(grab: 0))
+    #expect(cl.first(at(1.26)) == nil)
+    // beside it, 1.25 to 2.1 radii, after the target and the thrower
+    for arm in [-150.0, -90, 0, 90, 150] {
+      #expect(cl.after(at(1.3, arm), in: small.size, aimable: false) == .beside)
+      #expect(cl.after(at(2.09, arm), in: small.size, aimable: true) == .besidePending)
+    }
+    #expect(cl.after(at(2.11), in: small.size, aimable: false) == nil)
+    // the clock has no throw zone
+    #expect(cl.after(CGPoint(x: 20, y: small.height * 0.7), in: small.size, aimable: false) == nil)
+    // the arm is the angle about the centre at any radius
+    #expect(abs(clock.arm(at: at(1.9, -120)) - -120) < 1e-9)
+
+    for side in MeterSide.allCases {
+      let m = try linear(small, side)
+      let ml = MeterLayout.linear(m)
+      // the knob: 46 pt up or down from home, across the body and 6 pt either side
+      #expect(ml.first(CGPoint(x: m.knobX, y: m.yHome)) == .meter(grab: 0))
+      #expect(ml.first(CGPoint(x: m.left - 5, y: m.yHome + 40)) == .meter(grab: 40))
+      #expect(ml.first(CGPoint(x: m.right + 5, y: m.yHome - 46)) == .meter(grab: -46))
+      #expect(ml.first(CGPoint(x: m.knobX, y: m.yHome + 47)) == .body)
+      // the rest of the body, its shadow too, swallows the press
+      #expect(ml.first(CGPoint(x: m.laneX, y: m.top + 4)) == .body)
+      #expect(ml.first(CGPoint(x: m.knobX, y: m.bottom + m.shadow - 1)) == .body)
+      let outside = side == .right ? m.left - 7 : m.right + m.shadow + 7
+      #expect(ml.first(CGPoint(x: outside, y: m.yHome)) == nil)
+      // the throw zone: the lower 40% of the screen, wherever the finger is
+      let zoneY = small.height * MeterLayout.zoneFrom
+      #expect(ml.after(CGPoint(x: small.midX, y: zoneY), in: small.size, aimable: true) == .zone)
+      #expect(ml.after(CGPoint(x: 5, y: small.height - 2), in: small.size, aimable: false) == .zone)
+      #expect(ml.after(CGPoint(x: small.midX, y: zoneY - 1), in: small.size, aimable: false) == nil)
+      // a stroke from the zone is relative: the press point is the knob's home
+      let press = CGPoint(x: small.midX, y: small.height * 0.8)
+      let grab = press.y - m.yHome
+      #expect(ml.unit(press, grab: grab) == meterPoint(arm: 0))
+      let down = ml.unit(CGPoint(x: 30, y: press.y + 30 * m.scale), grab: grab)
+      #expect(abs(atan2(down.x, down.y) * 180 / .pi - -30) < 1e-9)
+    }
+    #expect(MeterLayout.tapSlop == 10)
+  }
+
+  /// A stroke from the throw zone as BoardView feeds it: the press (the knob's
+  /// home) on one frame, then the finger, already past the tap slop, on the next.
+  @Test func zoneStrokeThrows() throws {
+    let dt = 1.0 / 60
+    let pitch = try PracticePitch(appVersion: "test")
+    let m = try linear(small)
+    let ml = MeterLayout.linear(m)
+    let press = CGPoint(x: small.midX, y: small.height * 0.75)
+    let grab = press.y - m.yHome
+    let d = pitch.dial
+    let back = try #require(d.powerLo.flatMap { lo in d.powerHi.map { (lo + $0) / 2 } })
+    let stop = try #require(d.releaseLo.flatMap { lo in d.releaseHi.map { (lo + $0) / 2 } })
+    pitch.beginDial()
+    pitch.sample(ml.unit(press, grab: grab))
+    try pitch.tick(dt)
+    var y = press.y + 12  // the move that made it a drag
+    while y < press.y + CGFloat(back) * m.scale {
+      pitch.sample(ml.unit(CGPoint(x: press.x, y: y), grab: grab))
+      try pitch.tick(dt)
+      y = min(press.y + CGFloat(back) * m.scale, y + 400 * dt * m.scale)
+    }
+    #expect(pitch.dial.back > back - 8)
+    while y > press.y - CGFloat(stop) * m.scale {
+      y = max(press.y - CGFloat(stop) * m.scale, y - 2400 * dt * m.scale)
+      pitch.sample(ml.unit(CGPoint(x: press.x - 20, y: y), grab: grab))
+      try pitch.tick(dt)
+    }
+    pitch.sample(nil)
+    try pitch.tick(dt)
+    #expect(pitch.playing)
   }
 
   private func armOf(_ frame: String?) throws -> Double {
