@@ -64,6 +64,11 @@ import Testing
   var fast = RoomsClient.Timing()
   fast.retry = .milliseconds(2)
   fast.retryMax = .milliseconds(5)
+  // Nothing here is ever late, so no answer may time out. Beside the other suites
+  // the main actor can be held past the app's 10 s, and a timer that fires then
+  // closes the one transport most of these tests share: every reconnect gets it
+  // back closed, and the test waits for ever (the CI stalls of 2026-11-19).
+  fast.answer = .seconds(600)
   return try RoomsClient(
     url: URL(string: "ws://127.0.0.1:1")!, room: "abcdefghjk", engineVersion: engineVersion,
     appVersion: "0.0-test", store: store, timing: timing ?? fast, factory: factory)
