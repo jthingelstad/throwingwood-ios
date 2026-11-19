@@ -52,12 +52,42 @@ public struct PitchReport {
   let pieces: [JS]
   let practiceBefore: String?
   let surface: String
+  /// The game had a last throw when the card opened: "A throw looked wrong" comes first.
+  public var hasLastThrow: Bool {
+    fields.contains { $0.0 == "lastThrow" && $0.1 != .null }
+  }
+  /// The web's REPORT_LIMITS (src/net/report.js), kept in step with the rooms server.
+  public static let answerChars = 1000
+  public static let feedbackChars = 2000
+
+  /// A throw that looked wrong: `kind: "throw"`, the two answers and any pieces marked.
   public func message(happened: String, should: String, selected: Set<String> = []) throws
     -> JSONText
   {
     guard
       ![happened, should].allSatisfy({ $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
     else { throw RoomError("empty-report") }
+    let clip = { (s: String) in String(s.unicodeScalars.prefix(Self.answerChars)) }
+    return try message(
+      typed: [
+        ("kind", .string("throw")), ("happened", .string(clip(happened))),
+        ("should", .string(clip(should))),
+      ], selected: selected)
+  }
+
+  /// Anything else: `kind: "feedback"` and one `text`, trimmed, 1 to 2000 characters, and
+  /// never a throw's answers or marked pieces.
+  public func feedback(_ text: String) throws -> JSONText {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { throw RoomError("empty-report") }
+    return try message(
+      typed: [
+        ("kind", .string("feedback")),
+        ("text", .string(String(trimmed.unicodeScalars.prefix(Self.feedbackChars)))),
+      ], selected: [])
+  }
+
+  private func message(typed: [(String, JS)], selected: Set<String>) throws -> JSONText {
     var dropped: [String] = []
     for pass in 0...3 {
       var contents = fields
@@ -92,8 +122,7 @@ public struct PitchReport {
         text = text.replacingOccurrences(of: id, with: "member\(i+1)")
       }
       var result = try JSONNode.parse(text).members.map { ($0.key, JS.raw($0.value.raw)) }
-      let clip = { (s: String) in String(s.unicodeScalars.prefix(1000)) }
-      result += [("happened", .string(clip(happened))), ("should", .string(clip(should)))]
+      result += typed
       if !dropped.isEmpty { result.append(("dropped", .array(dropped.map(JS.string)))) }
       let r = JS.object(result)
       if JS.object([("t", .string("report")), ("id", .int(1)), ("r", r)]).ascii.utf8.count <= 65536

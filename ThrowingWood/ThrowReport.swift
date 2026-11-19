@@ -12,7 +12,7 @@ struct ReportButton: View {
   @Environment(\.displayScale) private var scale
 
   var body: some View {
-    Button("REPORT A THROW") {
+    Button("SEND FEEDBACK") {
       model.perform {
         guard let board = model.pitch else { return }
         model.report =
@@ -25,62 +25,109 @@ struct ReportButton: View {
   }
 }
 
+/// The feedback card (the web's src/ui/report.js): "A throw looked wrong" (two answers and
+/// pieces to mark) or "Something else" (one box), sent with the game as it stood when the
+/// card opened (PitchReport).
 struct ReportCard: View {
+  enum Kind: String, CaseIterable, Identifiable {
+    case `throw`, feedback
+    var id: String { rawValue }
+    var label: String { self == .throw ? "A throw looked wrong" : "Something else" }
+  }
+
+  static let throwNote =
+    "This sends what you typed with this game as it stands (its options, names and throws), so the throw can be played again and tested. It is kept privately and not published."
+  static let feedbackNote =
+    "This sends what you typed with this game as it stands (its options, names and throws). It is kept privately and not published."
+  static let failures = [
+    "too-many": "Too many sent at once. Try again in a moment.",
+    "too-big": "That is too long to send.",
+    "timeout": "The server did not answer.",
+    "uncertain": "The server did not answer.",
+    "closed": "The server could not be reached.",
+    "unavailable": "Feedback cannot be sent from here.",
+  ]
+
   let model: GameModel, report: PitchReport
+  @State private var kind: Kind
   @State private var happened = ""
   @State private var should = ""
+  @State private var text = ""
   @State private var selected: Set<String> = []
   @State private var sending = false
   @State private var sent = false
   @State private var status = ""
 
+  init(model: GameModel, report: PitchReport, kind: Kind? = nil) {
+    self.model = model
+    self.report = report
+    _kind = State(initialValue: kind ?? (report.hasLastThrow ? .throw : .feedback))
+  }
+
+  private var ready: Bool {
+    let blank = { (s: String) in s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    return kind == .throw ? !(blank(happened) && blank(should)) : !blank(text)
+  }
+
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 12) {
-        Text("Report a throw").font(displayFont(36))
+        Text("Send feedback").font(displayFont(36))
         if sent {
           Text("Sent, thank you.")
           Button("BACK TO THE PITCH", action: close).buttonStyle(WoodButton())
         } else {
-          if !report.candidates.isEmpty {
-            DisclosureGroup(selected.isEmpty ? "Mark pieces" : "Mark pieces (\(selected.count))") {
-              ReportPiecePicker(pieces: report.candidates, selected: $selected)
-            }.disabled(sending)
+          Picker("What is it about?", selection: $kind) {
+            ForEach(Kind.allCases) { Text($0.label).tag($0) }
+          }.pickerStyle(.segmented).disabled(sending)
+            .onChange(of: kind) { status = "" }
+          if kind == .throw {
+            if !report.candidates.isEmpty {
+              DisclosureGroup(selected.isEmpty ? "Mark pieces" : "Mark pieces (\(selected.count))") {
+                ReportPiecePicker(pieces: report.candidates, selected: $selected)
+              }.disabled(sending)
+            }
+            field("What happened?", $happened, limit: PitchReport.answerChars, lines: 2...5)
+            field("What should have happened?", $should, limit: PitchReport.answerChars, lines: 2...5)
+          } else {
+            field(
+              "What would you like to tell us?", $text, limit: PitchReport.feedbackChars,
+              lines: 4...8,
+              hint: "A problem, an idea, something you liked or did not. Anything.")
           }
-          field("What happened?", $happened)
-          field("What should have happened?", $should)
-          Text(
-            "Your answers and this game’s names, options and throws are kept privately so the throw can be replayed."
-          )
-          .font(.footnote)
+          Text(kind == .throw ? Self.throwNote : Self.feedbackNote).font(.footnote)
           if !status.isEmpty { Text(status) }
           HStack {
+            Button(sending ? "SENDING…" : "SEND", action: send).disabled(sending || !ready)
             Button("CANCEL", action: close).disabled(sending)
-            Button(sending ? "SENDING…" : "SEND") {
-              sending = true
-              Task {
-                defer { sending = false }
-                do {
-                  let message = try report.message(
-                    happened: happened, should: should, selected: selected)
-                  if let online = model.online {
-                    try await online.room.sendPitchReport(message)
-                  } else {
-                    try await RoomsClient.sendReport(
-                      message, url: RoomsConfiguration.url, appVersion: GameModel.version)
-                  }
-                  sent = true
-                } catch {
-                  status = "The report could not be sent. Your answers are here to try again."
-                }
-              }
-            }.disabled(
-              sending || (happened + should).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            )
           }.buttonStyle(WoodButton())
         }
       }.modifier(Plate()).padding(16)
     }.scrollDismissesKeyboard(.interactively)
+  }
+
+  private func send() {
+    sending = true
+    let kind = kind
+    Task {
+      defer { sending = false }
+      do {
+        let message =
+          kind == .throw
+          ? try report.message(happened: happened, should: should, selected: selected)
+          : try report.feedback(text)
+        if let online = model.online {
+          try await online.room.sendPitchReport(message)
+        } else {
+          try await RoomsClient.sendReport(
+            message, url: RoomsConfiguration.url, appVersion: GameModel.version)
+        }
+        sent = true
+      } catch {
+        let why = (error as? RoomError).flatMap { Self.failures[$0.code] } ?? "Try again in a moment."
+        status = "\(kind == .throw ? "The report" : "Your feedback") was not sent. \(why)"
+      }
+    }
   }
 
   private func close() {
@@ -88,14 +135,19 @@ struct ReportCard: View {
     model.screen = model.reportReturn
   }
 
-  private func field(_ label: String, _ value: Binding<String>) -> some View {
+  private func field(
+    _ label: String, _ value: Binding<String>, limit: Int, lines: ClosedRange<Int>,
+    hint: String? = nil
+  ) -> some View {
     VStack(alignment: .leading) {
       Text(label).font(.subheadline.bold())
-      TextField("", text: value, axis: .vertical).lineLimit(2...5)
-        .textFieldStyle(.roundedBorder).accessibilityLabel(label).disabled(sending)
+      if let hint { Text(hint).font(.footnote) }
+      TextField("", text: value, axis: .vertical).lineLimit(lines)
+        .textFieldStyle(.roundedBorder).accessibilityLabel(label)
+        .accessibilityHint(hint ?? "").disabled(sending)
         .onChange(of: value.wrappedValue) { _, text in
-          if text.unicodeScalars.count > 1000 {
-            value.wrappedValue = String(text.unicodeScalars.prefix(1000))
+          if text.unicodeScalars.count > limit {
+            value.wrappedValue = String(text.unicodeScalars.prefix(limit))
           }
         }
     }

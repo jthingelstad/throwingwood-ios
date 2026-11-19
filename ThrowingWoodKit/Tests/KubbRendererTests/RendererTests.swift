@@ -182,6 +182,19 @@ struct RendererTests {
     #expect(report["practice"]?["ops"]?.items.compactMap { $0["type"]?.string } == ["surface", "throw"])
     #expect(Set(report["selectedPieces"]?.items.compactMap { $0["id"]?.string } ?? []) == [id, "king"])
     #expect(report["room"] == nil)
+    #expect(report["kind"]?.string == "throw")
+    #expect(capture.hasLastThrow)
+    // Anything else: one trimmed text, the same game, never a throw's answers or pieces.
+    let long = String(repeating: "é", count: 2100)
+    let feedback = try JSONNode.parse(capture.feedback("  \n" + long + " \n"))
+    #expect(feedback["kind"]?.string == "feedback")
+    #expect(feedback["text"]?.string?.unicodeScalars.count == 2000)
+    for key in ["happened", "should", "selectedPieces"] { #expect(feedback[key] == nil) }
+    #expect(feedback["mode"]?.string == "practice")
+    #expect(feedback["client"]?.string == "ios")
+    #expect(feedback["lastThrow"]?["action"] != nil)
+    #expect(try JSONNode.parse(capture.feedback("Hi"))["text"]?.string == "Hi")
+    #expect(throws: RoomError.self) { try capture.feedback(" \n ") }
   }
 
   @Test func reviewFlightShadow() throws {
