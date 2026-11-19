@@ -432,10 +432,17 @@ struct PlanControls: View {
   var body: some View {
     let mirrored = meterRoom.width > 0 && meterRoom.edge == .leading
     HStack(alignment: .bottom) {
-      if mirrored { side } else { arc }
+      if mirrored { reported(side, 1) } else { reported(arc, 0) }
       Spacer()
-      if mirrored { arc } else { side }
+      if mirrored { reported(arc, 0) } else { reported(side, 1) }
     }
+  }
+
+  /// Where a column is, for the coach line (BoardView keeps it clear of them).
+  private func reported(_ column: some View, _ key: Int) -> some View {
+    column
+      .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { model.planFrames[key] = $0 }
+      .onDisappear { model.planFrames[key] = nil }
   }
 
   private var arc: some View {

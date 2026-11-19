@@ -109,6 +109,9 @@ public final class PitchSession {
   public internal(set) var scene: PitchScene, camera: Camera, dial: DialState
   public private(set) var result: ThrowResult?, bursts: [HitBurst] = []
   private var resultAge = 0.0
+  /// The coach line's slow flick (Coach.swift): this player's own last throw was SLOW.
+  public private(set) var coachSlow = false
+  private var playbackLocal = false
   public let options: SoloOptions
   public internal(set) var need: MatchNeed?, handoff: MatchNeed.Handoff?, placement: PlacementCheck?
   public internal(set) var revision = 0
@@ -328,13 +331,15 @@ public final class PitchSession {
       }
     }
     if let recording = a.recording {
-      try beginPlayback(recording)
+      try beginPlayback(recording, local: true)
       if let action = try JSONNode.parse(text)["action"] { try committed(action.raw) }
     }
     return true
   }
 
-  func beginPlayback(_ recording: Recording) throws {
+  /// `local`: the throw was made on this device (its verdicts are the player's).
+  func beginPlayback(_ recording: Recording, local: Bool = false) throws {
+    playbackLocal = local
     walkAxis = .zero
     walking = false
     plan = false
@@ -353,9 +358,14 @@ public final class PitchSession {
     cancelFeedback?()
     result = p.recording.result
     resultAge = 0
+    noteOwnResult()
     bursts = []
     playback = nil
     try adopt(read("view"))
+  }
+
+  private func noteOwnResult() {
+    if playbackLocal { coachSlow = result?.slowFlick ?? false }
   }
 
   private func play(_ dt: Double) throws {
@@ -379,6 +389,7 @@ public final class PitchSession {
         p.finished = true
         result = p.recording.result
         resultAge = 0
+        noteOwnResult()
       }
       p.nextTime = min(p.recording.duration, t + dt * shown.speed)
     } else {

@@ -157,6 +157,9 @@ struct RendererTests {
     }
     #expect(!pitch.playing && samples > 60)
     #expect(pitch.result == playback.recording.result)
+    // this device's own throw: the coach's slow flick is its power verdict
+    #expect(pitch.result?.verdicts != nil)
+    #expect(pitch.coachSlow == (pitch.result?.verdicts?.power == "SLOW"))
     // Engine v0.3.0 defines hash() for matches only. Hash its canonical raw practice outputs.
     for method in ["recording", "view"] {
       let actual = SHA256.hash(data: Data(try pitch.engine.call(method).utf8))
