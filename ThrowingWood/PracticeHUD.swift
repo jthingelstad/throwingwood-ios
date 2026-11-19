@@ -3,14 +3,14 @@ import UIKit
 
 @MainActor struct PracticeHUD {
   let context: CGContext, size: CGSize
-  private let ink = UIColor(red: 0.09, green: 0.078, blue: 0.059, alpha: 1)
-  private let paper = UIColor(red: 0.984, green: 0.965, blue: 0.918, alpha: 1)
+  let ink = UIColor(red: 0.09, green: 0.078, blue: 0.059, alpha: 1)
+  let paper = UIColor(red: 0.984, green: 0.965, blue: 0.918, alpha: 1)
 
-  private func disk(_ p: CGPoint, _ r: CGFloat, _ paint: UIColor) {
+  func disk(_ p: CGPoint, _ r: CGFloat, _ paint: UIColor) {
     context.setFillColor(paint.cgColor)
     context.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
   }
-  private func line(_ a: CGPoint, _ b: CGPoint, _ color: UIColor, _ width: Double) {
+  func line(_ a: CGPoint, _ b: CGPoint, _ color: UIColor, _ width: Double) {
     context.setStrokeColor(color.cgColor)
     context.setLineWidth(width)
     context.beginPath()
@@ -18,7 +18,7 @@ import UIKit
     context.addLine(to: b)
     context.strokePath()
   }
-  private func text(
+  func text(
     _ word: String, at p: CGPoint, size: Double, color: UIColor, plate: Bool = false,
     outlined: Bool = false
   ) {

@@ -156,11 +156,14 @@ struct MatchMenu: View {
         }.pickerStyle(.segmented)
       }
       Text(
-        "Tap the pitch to aim, or drag anywhere to move the circle. Wind back on the left of the dial, flick through six and lift on the right."
+        model.meter.kind == .linear
+          ? "Tap the pitch to aim, or drag anywhere to move the circle. Draw the knob back toward you, fling it up through the middle and let go on the blue."
+          : "Tap the pitch to aim, or drag anywhere to move the circle. Wind back on the left of the dial, flick through six and lift on the right."
       )
       .font(.subheadline)
       FeedbackSettings(feedback: model.feedback)
       RaisingSetting(model: model)
+      MeterSettings(meter: model.meter, card: true)
       ReportButton(model: model).buttonStyle(WoodButton())
       Button("SCORE SHEET", action: model.showSheet).buttonStyle(WoodButton())
       HStack {
@@ -180,6 +183,7 @@ struct MatchMenu: View {
 
 struct MatchScreen: View {
   let model: GameModel, pitch: PitchSession, revision: Int, playing: Bool
+  @Environment(\.meterRoom) private var meterRoom
   var body: some View {
     if let n = pitch.need {
       ZStack {
@@ -245,12 +249,12 @@ struct MatchScreen: View {
                   Text(s).font(displayFont(20)).modifier(Plate(inset: 5))
                 }
               }
-            }
+            }.padding(meterRoom.edge, !playing && pitch.canAim ? meterRoom.width : 0)
           }
           if (n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput {
             placement(n)
           } else if !playing && pitch.canAim {
-            plans
+            plans.padding(meterRoom.edge, meterRoom.width)
           } else if playing {
             HStack {
               Spacer()

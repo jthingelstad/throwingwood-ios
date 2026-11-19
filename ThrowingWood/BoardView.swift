@@ -6,12 +6,14 @@ import UIKit
   private let model: GameModel
   private var display: CADisplayLink?, previous: CFTimeInterval?
   private var active = false
-  private enum Gesture { case aim, dial, stance, walk, raise, punishment }
+  private enum Gesture { case aim, dial, body, stance, walk, raise, punishment }
   private var gesture: Gesture?
   private var tracking: UITouch?
   private var startPoint = CGPoint.zero, moved = false
   private var lastAimPoint = CGPoint.zero
   private var lastDialPoint: CGPoint?
+  /// The linear meter's grab: the press's offset from the knob's home.
+  private var meterGrab: CGFloat = 0
   #if targetEnvironment(simulator)
     private var reviewReady = false, signalled = false
     private let reviewMode = ProcessInfo.processInfo.environment["PITCH_REVIEW"]
@@ -156,10 +158,11 @@ import UIKit
     }
   }
 
-  var radius: CGFloat { min(bounds.width * 0.22, bounds.height * 0.12, 114) }
-  var hub: CGPoint {
-    CGPoint(x: bounds.midX, y: bounds.maxY - safeAreaInsets.bottom - 42 - radius)
-  }
+  /// The meter on the screen: the player's choice where it has its room.
+  var meter: MeterLayout { model.meter.layout(bounds: bounds, safe: safeAreaInsets) }
+  var clock: ClockMeter { ClockMeter(bounds: bounds, bottomInset: safeAreaInsets.bottom) }
+  var radius: CGFloat { clock.radius }
+  var hub: CGPoint { clock.center }
 
   override func draw(_ rect: CGRect) {
     guard let ctx = UIGraphicsGetCurrentContext() else { return }
@@ -172,6 +175,11 @@ import UIKit
       in: ctx, size: bounds.size, camera: pitch.camera,
       scene: backdrop ? pitch.scene.scenery : pitch.scene)
     #if targetEnvironment(simulator)
+      if let mode = reviewMode, matchReview == nil, reviewReady, !signalled, model.error == nil {
+        signalled = true
+        try? Data(mode.utf8).write(
+          to: URL.temporaryDirectory.appending(path: "review-ready"), options: .atomic)
+      }
       if let mode = matchReview, !signalled, model.error == nil {
         let ready =
           switch mode {
@@ -222,7 +230,14 @@ import UIKit
     if model.screen == .practice || model.screen == .match, !pitch.playing,
       pitch.handoff == nil, pitch.need == nil || pitch.need?.kind == "throw"
     {
-      hud.dial(pitch.dial, at: hub, radius: radius, showHint: model.screen == .practice)
+      let hint = model.screen == .practice
+      switch meter {
+      case .clock(let c):
+        hud.dial(pitch.dial, at: c.center, radius: c.radius, showHint: hint)
+      case .linear(let m):
+        hud.linear(pitch.dial, m, held: gesture == .dial, prompt: linearWords(pitch.dial.prompt))
+        if hint { hud.linearHint(m, safeBottom: safeAreaInsets.bottom) }
+      }
     }
   }
 
@@ -238,11 +253,16 @@ import UIKit
       run { try pitch.movePunishment(to: p, size: bounds.size) }
     } else if !pitch.canAim {
       return
-    } else if hypot(p.x - hub.x, p.y - hub.y) <= 1.25 * radius {
-      gesture = .dial
-      pitch.beginDial()
-      wake()
-      sampleDial(p)
+    } else if let claim = meter.first(p) {
+      if case .meter(let grab) = claim {
+        gesture = .dial
+        meterGrab = grab
+        pitch.beginDial()
+        wake()
+        sampleDial(p)
+      } else {
+        gesture = .body
+      }
     } else if pitch.walking {
       gesture = .walk
       wake()
@@ -259,7 +279,7 @@ import UIKit
   }
   private func sampleDial(_ p: CGPoint) {
     lastDialPoint = p
-    pitch.sample(CGPoint(x: (p.x - hub.x) / radius, y: (p.y - hub.y) / radius))
+    pitch.sample(meter.unit(p, grab: meterGrab))
   }
   override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
     guard pitch.acceptsInput else {
@@ -285,7 +305,7 @@ import UIKit
       run { try pitch.nudgeAim(by: d) }
     case .stance: run { try pitch.stance(at: p, size: bounds.size) }
     case .punishment: run { try pitch.movePunishment(to: p, size: bounds.size) }
-    case .raise, nil: break
+    case .raise, .body, nil: break
     }
   }
   override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -308,7 +328,7 @@ import UIKit
     case .raise:
       if !moved { run { try pitch.raise(at: t.location(in: self), size: bounds.size) } }
     case .walk: pitch.walk(drag: .zero)
-    case .stance, .punishment, nil: break
+    case .stance, .punishment, .body, nil: break
     }
     tracking = nil
     gesture = nil
@@ -318,7 +338,7 @@ import UIKit
   #if targetEnvironment(simulator)
     /// Review stills use the actual pitch, dial input, clock and drawing layers.
     private func prepareReview(_ mode: String) throws {
-      guard ["aim", "flight", "rest", "timing"].contains(mode) else { return }
+      guard ["aim", "flight", "rest", "timing", "wind", "marks"].contains(mode) else { return }
       let dt = 1.0 / 60
       // Snap the circle one kubb to the right of its initial target.
       if let m = pitch.marker(in: bounds.size) {
@@ -340,6 +360,11 @@ import UIKit
         a = max(-back, a - 400 * dt)
         try arm(a)
       }
+      if mode == "wind" {
+        // Held at the back of the swing: the meter mid-throw, the finger still down.
+        gesture = .dial
+        return
+      }
       while a < stop {
         a = min(stop, a + 2400 * dt)
         try arm(a)
@@ -353,6 +378,8 @@ import UIKit
       } else {
         for _ in 0..<2000 where pitch.result == nil { try pitch.tick(dt) }
         guard pitch.result != nil else { throw ReviewError.noRest }
+        // The next aim, with the last throw's marks on the meter.
+        if mode == "marks" { for _ in 0..<2000 where pitch.playing { try pitch.tick(dt) } }
       }
     }
     private enum ReviewError: Error { case noRelease, noRest }
