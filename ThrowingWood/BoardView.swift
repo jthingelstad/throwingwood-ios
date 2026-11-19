@@ -6,7 +6,7 @@ import UIKit
   private let model: GameModel
   private var display: CADisplayLink?, previous: CFTimeInterval?
   private var active = false
-  private enum Gesture { case aim, dial, body, zone, track, stance, walk, raise, punishment }
+  private enum Gesture { case aim, dial, body, zone, track, stance, raise, punishment }
   private var gesture: Gesture?
   private var tracking: UITouch?
   private var startPoint = CGPoint.zero, moved = false
@@ -99,7 +99,6 @@ import UIKit
     pitch.cancelSlide()
   }
   private func cancel() {
-    if gesture == .walk { pitch.walk(drag: .zero) }
     if gesture == .dial {
       run { try pitch.cancelInput() }
       nudgeEnd = 0
@@ -165,6 +164,11 @@ import UIKit
             if mode == "raiserefused", let i = pitch.need?.ends?.firstIndex(where: { $0.ok == false }) {
               // a tap on the end the rules refuse: nothing sent, the allowed end lit
               try pitch.raiseTap(i)
+            }
+            if mode == "stand" {
+              // a finger held on STAND, toward the right and back: the caption says where
+              pitch.stand(fx: 0.8, fy: 0.75, phase: .down)
+              for _ in 0..<3 { try pitch.tick(1.0 / 60) }
             }
             if mode == "arc" || mode == "tilt" {
               // A finger held on the slider three quarters along: the side view eases in.
@@ -301,6 +305,7 @@ import UIKit
           case "plan": pitch.plan
           case "arc": pitch.held == .arc
           case "tilt": pitch.held == .side
+          case "stand": pitch.standHeld
           case "raisemany", "raiseauto", "raiserest", "raisedrag", "raiserefused": pitch.need?.kind == "raise"
           case "flight": pitch.playing
           case "handoff": pitch.handoff != nil
@@ -421,9 +426,6 @@ import UIKit
       } else {
         gesture = .body
       }
-    } else if pitch.walking {
-      gesture = .walk
-      wake()
     } else if let stance = pitch.stancePoint(in: bounds.size),
       hypot(p.x - stance.x, p.y - stance.y) < 44
     {
@@ -463,9 +465,6 @@ import UIKit
     let crossed = !moved && hypot(p.x - startPoint.x, p.y - startPoint.y) > slop
     moved = moved || crossed
     switch gesture {
-    case .walk:
-      pitch.walk(drag: CGPoint(x: p.x - startPoint.x, y: p.y - startPoint.y))
-      wake()
     case .dial:
       if pendingDial != nil { pendingDial = p } else { sampleDial(p) }
     case .zone where moved, .track where moved:
@@ -540,7 +539,6 @@ import UIKit
       }
       raiseShape = nil
       wake()
-    case .walk: pitch.walk(drag: .zero)
     case .body:
       nudge.pressEnded(thrown: false)
       // a second fumble moves the nudge's deadline up: the sleeping link's

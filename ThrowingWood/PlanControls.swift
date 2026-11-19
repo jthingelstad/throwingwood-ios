@@ -202,3 +202,95 @@ struct SliderCaption: View {
       .frame(maxWidth: 180).modifier(Plate(inset: 7)).allowsHitTesting(false)
   }
 }
+
+/// STAND: the throwing line from above (StandPad.swift, the web's stand-pad.js and
+/// its CSS). The light ground is where the rules let the thrower stand, the rest
+/// shaded; the line is ink, the advantage line dashed, and the thrower a ring with
+/// an arrow toward the target. A press anywhere on it puts the ring under the
+/// finger; a drag follows by position. The picture's ground is fixed at the press.
+struct StandPlate: View {
+  let span: StandPad.Span, thrower: (x: Double, y: Double), held: Bool
+  let enabled: Bool, valueText: String
+  let stand: (Double, Double, SlidePhase) -> Void
+  let step: (Double, Double) -> Void
+  /// Its body: TILT's width, and tall enough that its column's foot meets ARC's.
+  var width: CGFloat = 96, height: CGFloat = 72
+  @State private var dragging = false
+  @GestureState private var touching = false
+  /// The run (the ground shown) inside the body, as the web's `inset: 6px 8px`.
+  private let insetX: CGFloat = 8, insetY: CGFloat = 6
+  var body: some View {
+    SliderPlate(title: "STAND", width: width, height: height) {
+      Canvas { ctx, size in
+        let run = CGRect(x: insetX, y: insetY, width: size.width - insetX * 2, height: size.height - insetY * 2)
+        func y(_ f: Double) -> CGFloat { run.minY + run.height * f }
+        let line = span.fraction(x: 0, y: span.lineY).fy
+        let limit = span.fraction(x: 0, y: span.limit).fy
+        ctx.fill(Path(roundedRect: run, cornerRadius: 2), with: .color(Color(red: 0.718, green: 0.78, blue: 0.604)))
+        ctx.fill(
+          Path(CGRect(x: run.minX, y: y(limit), width: run.width, height: run.maxY - y(limit))),
+          with: .color(Color(red: 0.914, green: 0.941, blue: 0.839)))
+        ctx.fill(
+          Path(CGRect(x: run.minX - 2, y: y(line) - 1.5, width: run.width + 4, height: 3)), with: .color(.woodInk))
+        if span.advantage {
+          var dash = Path()
+          dash.move(to: CGPoint(x: run.minX, y: y(limit)))
+          dash.addLine(to: CGPoint(x: run.maxX, y: y(limit)))
+          ctx.stroke(dash, with: .color(.woodInk), style: StrokeStyle(lineWidth: 2, dash: [4, 3]))
+        }
+        let f = span.fraction(x: thrower.x, y: thrower.y)
+        let c = CGPoint(x: run.minX + run.width * f.fx, y: y(f.fy))
+        let k: CGFloat = held ? 1.25 : 1
+        let r = 7 * k
+        var arrow = Path()
+        arrow.move(to: CGPoint(x: c.x, y: c.y - r - 6 * k))
+        arrow.addLine(to: CGPoint(x: c.x - 4 * k, y: c.y - r))
+        arrow.addLine(to: CGPoint(x: c.x + 4 * k, y: c.y - r))
+        arrow.closeSubpath()
+        ctx.fill(arrow, with: .color(.woodInk))
+        let ring = Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2))
+        ctx.fill(ring, with: .color(.white))
+        ctx.stroke(
+          Path(ellipseIn: CGRect(x: c.x - r + 1.25 * k, y: c.y - r + 1.25 * k, width: (r - 1.25 * k) * 2, height: (r - 1.25 * k) * 2)),
+          with: .color(.woodInk), lineWidth: 2.5 * k)
+      }
+      .contentShape(Rectangle())
+      .gesture(
+        DragGesture(minimumDistance: 0)
+          .onChanged { v in
+            let (fx, fy) = fraction(v.location)
+            stand(fx, fy, dragging ? .move : .down)
+            dragging = true
+          }
+          .updating($touching) { _, on, _ in on = true }
+          .onEnded { v in
+            dragging = false
+            let (fx, fy) = fraction(v.location)
+            stand(fx, fy, .up)
+          })
+    }
+    .heldSliderCancels(touching: touching, dragging: $dragging) { stand(0, 0, .cancel) }
+    .opacity(enabled ? 1 : 0.5)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("Where you stand")
+    .accessibilityValue(valueText)
+    .accessibilityHint("Adjust to step along the line; the actions step forward and back.")
+    .accessibilityAdjustableAction { direction in
+      switch direction {
+      case .increment: step(StandPad.keyStep, 0)
+      case .decrement: step(-StandPad.keyStep, 0)
+      @unknown default: break
+      }
+    }
+    .accessibilityActions {
+      Button("Step left") { step(-StandPad.keyStep, 0) }
+      Button("Step right") { step(StandPad.keyStep, 0) }
+      Button("Step forward") { step(0, StandPad.keyStep) }
+      Button("Step back") { step(0, -StandPad.keyStep) }
+    }
+  }
+
+  private func fraction(_ p: CGPoint) -> (Double, Double) {
+    (Double((p.x - insetX) / (width - insetX * 2)), Double((p.y - insetY) / (height - insetY * 2)))
+  }
+}
