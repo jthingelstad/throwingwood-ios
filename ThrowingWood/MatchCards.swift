@@ -156,10 +156,11 @@ struct MatchMenu: View {
         }.pickerStyle(.segmented)
       }
       Text(
-        "Drag the circle to aim. Wind back on the left of the dial, flick through six and lift on the right."
+        "Tap the pitch to aim, or drag anywhere to move the circle. Wind back on the left of the dial, flick through six and lift on the right."
       )
       .font(.subheadline)
       FeedbackSettings(feedback: model.feedback)
+      RaisingSetting(model: model)
       ReportButton(model: model).buttonStyle(WoodButton())
       Button("SCORE SHEET", action: model.showSheet).buttonStyle(WoodButton())
       HStack {
@@ -225,6 +226,8 @@ struct MatchScreen: View {
           }.modifier(Plate(inset: 9))
           if model.slow {
             Text("SLOW MOTION").font(.caption.bold()).modifier(Plate(inset: 5))
+          } else if let held = pitch.held, n.kind == "throw" {
+            SliderCaption(text: PlanScale.caption(held, kubb: pitch.throwsKubb))
           } else if let wind = pitch.windText, n.kind == "throw" {
             Text(wind).font(.caption.bold()).modifier(Plate(inset: 5))
           }
@@ -267,31 +270,7 @@ struct MatchScreen: View {
   }
 
   private var plans: some View {
-    VStack(spacing: 4) {
-      HStack {
-        VStack(spacing: 6) {
-          tool("ARC ▲", label: "Increase arc") { try pitch.adjustPlan(arc: true, step: 1) }
-          tool("\(pitch.arcDegrees ?? 0)° ▼", label: "Decrease arc") {
-            try pitch.adjustPlan(arc: true, step: -1)
-          }
-        }
-        Spacer()
-        VStack(spacing: 6) {
-          let word = pitch.need?.setup?.projectile == "kubb" ? "SPIN" : "TILT"
-          tool("◂ \(word)", label: "\(word) left") { try pitch.adjustPlan(arc: false, step: -1) }
-          tool("\(pitch.sideStep ?? 0) ▸", label: "\(word) right") {
-            try pitch.adjustPlan(arc: false, step: 1)
-          }
-        }
-      }.padding(.bottom, 40)
-      HStack {
-        tool("PLAN VIEW", label: "Toggle plan view", on: pitch.plan) { try pitch.togglePlan() }
-        Spacer()
-        tool("WALK", label: "Walk by dragging on the pitch", on: pitch.walking) {
-          try pitch.toggleWalk()
-        }
-      }
-    }
+    PlanControls(model: model, pitch: pitch, revision: revision)
   }
 
   private func tool(
@@ -309,16 +288,32 @@ struct MatchScreen: View {
     VStack(alignment: .leading, spacing: 8) {
       Text("\(n.kind == "raise" ? "Raise" : "Punishment kubb") \(n.n ?? 1) of \(n.of ?? 1)")
         .font(displayFont(28))
-      if n.kind == "raise" {
-        Text("Tap the end to stand it on.").font(.subheadline)
-        HStack {
+      if n.kind == "raise" && (pitch.raiseAutomatically || pitch.raisingRest) {
+        Text(
+          pitch.raiseAutomatically
+            ? "Raising automatically (menu, Raising)." : "Raising the rest automatically."
+        ).font(.subheadline)
+        Button("BY HAND") { model.raiseByHand() }.buttonStyle(WoodButton())
+          .accessibilityHint("Choose the end for each kubb again")
+      } else if n.kind == "raise" {
+        Text("Tap the end to stand it on. The menu's Raising does it for you.").font(
+          .subheadline)
+        HStack(spacing: 6) {
           ForEach(n.ends ?? [], id: \.which) { e in
             Button("END \(e.which)") { model.perform { try pitch.raise(end: e.which) } }
               .disabled(e.ok != true).opacity(e.ok == true ? 1 : 0.45).accessibilityHint(
                 e.why ?? "")
           }
           Button("AUTO") { model.perform { try pitch.raise() } }
+            .accessibilityHint("Stand this kubb on the end the game chooses")
+          if (n.n ?? 1) < (n.of ?? 1) {
+            Button { model.perform { pitch.raiseRest() } } label: {
+              Text("AUTO ALL").lineLimit(1).fixedSize()
+            }
+              .accessibilityHint("Stand this kubb and the rest of this turn's on the ends the game chooses")
+          }
         }.buttonStyle(WoodButton())
+        if let why = pitch.placement?.label { Text(why).font(.caption.bold()) }
       } else {
         Text(pitch.placement?.label ?? "Drag or tap a spot clear of the circles.").font(
           .subheadline)
@@ -390,5 +385,60 @@ struct MatchScreen: View {
       }
       Button("HOME", action: model.home).font(.caption.bold()).padding(.vertical, 8)
     }.frame(maxWidth: .infinity, alignment: .leading)
+  }
+}
+
+/// The menu's Raising: By hand or Automatic, kept on this device.
+struct RaisingSetting: View {
+  @Bindable var model: GameModel
+  var body: some View {
+    HStack {
+      Text("Raising").font(.subheadline.weight(.semibold))
+      Picker("Raising", selection: $model.raiseAutomatically) {
+        Text("By hand").tag(false)
+        Text("Automatic").tag(true)
+      }.pickerStyle(.segmented)
+    }
+  }
+}
+
+/// ARC over SIDE VIEW on the left of the dial, TILT or SPIN over WALK on the
+/// right, their feet level.
+struct PlanControls: View {
+  let model: GameModel, pitch: PitchSession, revision: Int
+  var body: some View {
+    let enabled = pitch.canAim
+    HStack(alignment: .bottom) {
+      VStack(spacing: 12) {
+        ArcSlider(
+          release: pitch.release, loft: pitch.arcDegrees,
+          held: pitch.held == .arc ? pitch.heldFraction : nil, enabled: enabled,
+          slide: { f, phase in model.perform { pitch.slide(.arc, to: f, phase: phase) } },
+          step: { s in model.perform { try pitch.stepPlan(.arc, by: s) } })
+        tool("SIDE VIEW", label: "Side view", on: pitch.plan) { try pitch.togglePlan() }
+      }
+      Spacer()
+      VStack(spacing: 12) {
+        SideSlider(
+          value: pitch.sideStep ?? 0, kubb: pitch.throwsKubb,
+          held: pitch.held == .side ? pitch.heldFraction : nil, enabled: enabled,
+          slide: { f, phase in model.perform { pitch.slide(.side, to: f, phase: phase) } },
+          step: { s in model.perform { try pitch.stepPlan(.side, by: s) } })
+        tool("WALK", label: "Walk by dragging on the pitch", on: pitch.walking) {
+          try pitch.toggleWalk()
+        }
+      }
+    }
+  }
+
+  private func tool(
+    _ text: String, label: String, on: Bool, _ action: @escaping () throws -> Void
+  ) -> some View {
+    Button {
+      model.perform(action)
+    } label: {
+      Text(text).font(displayFont(16)).frame(minWidth: 84, minHeight: 34)
+        .modifier(Plate(fill: on ? .woodGold : .woodPaper, inset: 4))
+    }.accessibilityLabel(label).accessibilityAddTraits(on ? .isSelected : [])
   }
 }

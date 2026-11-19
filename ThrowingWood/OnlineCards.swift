@@ -240,6 +240,7 @@ struct OnlineMenu: View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Pitch menu").font(displayFont(36))
       FeedbackSettings(feedback: model.feedback).fixedSize(horizontal: true, vertical: false)
+      RaisingSetting(model: model).frame(maxWidth: 300)
       Button("SCORE SHEET", action: model.showSheet)
       ReportButton(model: model)
       Button("BACK TO MATCH") { model.screen = .match }
