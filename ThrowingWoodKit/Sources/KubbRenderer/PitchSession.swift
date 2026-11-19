@@ -121,6 +121,11 @@ public final class PitchSession {
   var pendingSlide: (PlanSlider, Double)?
   var peekLeft = 0.0
   var autoRaise = AutoRaise()
+  /// The raise screen's touch (RaiseTouch.swift): the kubb being tipped up, the end lit
+  /// past half way, and the allowed end lit (for `left` seconds) after a refused one.
+  public internal(set) var raiseDragging: RaiseTouch.Drag?
+  var raiseSelected: Int?
+  var raiseHint: (i: Int, left: Double)?
   var mix = 0.0
   var save: MatchSave?
   var cursor: GroundMark?
@@ -204,6 +209,9 @@ public final class PitchSession {
       }
       placement = nil
       cursor = v.need.cursor
+      if previous?.kind != v.need.kind || previous?.kubb != v.need.kubb || previous?.n != v.need.n {
+        resetRaiseTouch()
+      }
       try settleScene()
       revision += 1
     }
@@ -212,6 +220,7 @@ public final class PitchSession {
   func resetPresentation() {
     cancelFeedback?()
     input.reset()
+    resetRaiseTouch()
     playback = nil
     result = nil
     bursts = []
@@ -285,6 +294,7 @@ public final class PitchSession {
     }
     var changed = try applySlide()
     if held == nil && peekLeft > 0 { peekLeft = max(0, peekLeft - dt) }
+    if try raiseHintTick(dt) { changed = true }
     if try autoRaiseTick(dt) { return true }
     if result != nil {
       resultAge += dt

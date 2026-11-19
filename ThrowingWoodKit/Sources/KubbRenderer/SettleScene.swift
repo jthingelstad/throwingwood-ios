@@ -21,7 +21,7 @@ extension Camera {
 }
 
 extension MatchNeed.Pose {
-  fileprivate func piece(id: String, king: Bool = false) -> Piece {
+  func piece(id: String, king: Bool = false) -> Piece {
     let down = standing == false
     var rotation = simd_quatd(angle: (angle ?? 0) - (down ? .pi / 2 : 0), axis: V3(0, 0, 1))
     if down { rotation *= simd_quatd(angle: -.pi / 2, axis: V3(1, 0, 0)) }
@@ -52,9 +52,14 @@ extension PitchSession {
       camera = .looking(
         from: spot + normal * 1.15 + V3(0, 0, 1.05), at: spot + normal * 0.12, focal: 520)
       scene.stillZoom = 1.8
-      scene.items.append(p.piece(id: id))
-      scene.footprints = n.ends?.map {
-        GroundMark(x: $0.pose.x, y: $0.pose.y, angle: $0.pose.angle, allowed: $0.ok == true)
+      // the kubb: tipped part way up while it is dragged (RaiseTouch), else lying
+      let lying = p.piece(id: id)
+      scene.items.append(
+        raiseDragging.map { RaiseTouch.tilt(n, lying: lying, i: $0.i, t: $0.t) } ?? lying)
+      let lit = raiseLit
+      scene.footprints = n.ends?.enumerated().map { i, e in
+        GroundMark(
+          x: e.pose.x, y: e.pose.y, angle: e.pose.angle, allowed: e.ok != false, chosen: i == lit)
       }
     } else if let c = cursor {
       camera = .looking(from: V3(0, -2.6, 5.4), at: V3(0, 1.05, 0), focal: 300)

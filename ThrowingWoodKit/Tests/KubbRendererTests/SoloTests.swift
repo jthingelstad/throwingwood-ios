@@ -108,7 +108,9 @@ import Testing
     let old = try app.engine.hash()
     let point = try #require(
       app.scene.projection(size, app.camera).project(V3(end.pose.x, end.pose.y, 0)))
-    try app.raise(at: point, size: size)
+    let i = try #require(app.raisePick(at: point, size: size))
+    #expect(app.need?.ends?[i].which == end.which)
+    try app.raiseTap(i)
     #expect(try app.engine.hash() != old)
     try app.restore(fixture("punish"), save: nil)
     let cursor = try #require(app.cursor)

@@ -115,8 +115,21 @@ import UIKit
     }
   }
 
-  func endLabel(_ which: Int, at p: CGPoint) {
-    text(String(which), at: CGPoint(x: p.x, y: p.y + 26), size: 16, color: ink, plate: true)
+  /// An end's number beside its footprint on the raise screen (the web's drawEndLabels):
+  /// gold when lit (a drag past half way, or the allowed end's hint), grey when refused.
+  func endLabel(_ e: RaiseEndPoint) {
+    let r: CGFloat = 17
+    let p = e.label
+    disk(CGPoint(x: p.x + 3, y: p.y + 3), r, ink)
+    let fill =
+      !e.ok
+      ? UIColor(red: 0.79, green: 0.76, blue: 0.69, alpha: 1)
+      : e.lit ? UIColor(red: 0.95, green: 0.72, blue: 0.02, alpha: 1) : paper
+    disk(p, r, fill)
+    context.setStrokeColor(ink.cgColor)
+    context.setLineWidth(3)
+    context.strokeEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r))
+    text(String(e.index + 1), at: CGPoint(x: p.x, y: p.y + 1), size: 22, color: ink, plate: false)
   }
 
   func burst(_ b: HitBurst, at anchor: CGPoint) {

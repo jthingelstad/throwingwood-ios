@@ -14,6 +14,8 @@ import UIKit
   private var lastDialPoint: CGPoint?
   /// The linear meter's grab: the press's offset from the knob's home.
   private var meterGrab: CGFloat = 0
+  /// The lying kubb as drawn when a press landed on it: the press may tip it up (RaiseTouch).
+  private var raiseShape: RaiseTouch.Geometry?
   /// A finger turning the clock from beside its ring (drawn as a spoke to it).
   private var besideRing = false
   /// A stroke from the throw zone or beside the ring: the engine takes the
@@ -103,6 +105,11 @@ import UIKit
       nudgeEnd = 0
     }
     if gesture == .body { nudge.pressEnded(thrown: false) }
+    if gesture == .raise {
+      pitch.raiseCancel()
+      setNeedsDisplay()
+    }
+    raiseShape = nil
     tracking = nil
     gesture = nil
     besideRing = false
@@ -307,7 +314,7 @@ import UIKit
           in: ctx,
           rect: CGRect(x: x, y: safeAreaInsets.top + 75, width: width, height: width * 1.65))
       }
-      for (end, p) in pitch.endLabels(in: bounds.size) { hud.endLabel(end, at: p) }
+      for e in pitch.raiseEnds(in: bounds.size) { hud.endLabel(e) }
       if pitch.held == .side, !pitch.throwsKubb, let circle = pitch.marker(in: bounds.size) {
         hud.leaningBaton(at: circle, tiltDegrees: Double(pitch.sideStep ?? 0))
       }
@@ -366,6 +373,9 @@ import UIKit
     nudge.input()
     if pitch.need?.kind == "raise" {
       gesture = .raise
+      // a press on the kubb may become a drag that tips it up
+      let g = pitch.raiseGeometry(in: bounds.size)
+      raiseShape = RaiseTouch.on(g, p) ? g : nil
     } else if pitch.need?.kind == "punish" {
       gesture = .punishment
       run { try pitch.movePunishment(to: p, size: bounds.size) }
@@ -454,6 +464,8 @@ import UIKit
       run { try pitch.nudgeAim(by: d) }
     case .stance: run { try pitch.stance(at: p, size: bounds.size) }
     case .punishment: run { try pitch.movePunishment(to: p, size: bounds.size) }
+    case .raise where moved:
+      if let g = raiseShape { run { try pitch.raiseDrag(g, from: startPoint, to: p) } }
     case .zone, .track, .raise, .body, nil: break
     }
   }
@@ -490,7 +502,15 @@ import UIKit
         run { try pitch.tapAim(at: t.location(in: self), size: bounds.size) }
       }
     case .raise:
-      if !moved { run { try pitch.raise(at: t.location(in: self), size: bounds.size) } }
+      // a tap: the end it means; a drag: past half way it stands, short of that nothing
+      if !moved {
+        let p = t.location(in: self)
+        if let i = pitch.raisePick(at: p, size: bounds.size) { run { try pitch.raiseTap(i) } }
+      } else {
+        run { try pitch.raiseLetGo() }
+      }
+      raiseShape = nil
+      wake()
     case .walk: pitch.walk(drag: .zero)
     case .body:
       nudge.pressEnded(thrown: false)
