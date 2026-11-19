@@ -22,10 +22,21 @@ struct Plate: ViewModifier {
 struct WoodButton: ButtonStyle {
   var accent = false
   func makeBody(configuration: Configuration) -> some View {
-    configuration.label.font(.custom("LondrinaSolid-Black", size: 21, relativeTo: .headline))
-      .frame(minHeight: 26).padding(.horizontal, 6)
-      .modifier(Plate(fill: accent ? .woodGold : .woodPaper, inset: 8))
-      .offset(y: configuration.isPressed ? 2 : 0)
+    Face(configuration: configuration, accent: accent)
+  }
+  /// A style cannot read the environment itself, and a button that will not act
+  /// must not look as if it will (the web's .btn:disabled).
+  private struct Face: View {
+    let configuration: Configuration
+    let accent: Bool
+    @Environment(\.isEnabled) private var enabled
+    var body: some View {
+      configuration.label.font(.custom("LondrinaSolid-Black", size: 21, relativeTo: .headline))
+        .frame(minHeight: 26).padding(.horizontal, 6)
+        .modifier(Plate(fill: accent ? .woodGold : .woodPaper, inset: 8))
+        .offset(y: configuration.isPressed && enabled ? 2 : 0)
+        .opacity(enabled ? 1 : 0.55)
+    }
   }
 }
 
