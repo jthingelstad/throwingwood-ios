@@ -213,8 +213,9 @@ struct StandPlate: View {
   let enabled: Bool, valueText: String
   let stand: (Double, Double, SlidePhase) -> Void
   let step: (Double, Double) -> Void
-  /// Its body: TILT's width, and tall enough that its column's foot meets ARC's.
-  var width: CGFloat = 96, height: CGFloat = 72
+  /// Its body: TILT's width, and short (the web's 44 px or so) so TILT over it
+  /// stays under the linear meter's prompt tab.
+  var width: CGFloat = 96, height: CGFloat = 48
   @State private var dragging = false
   @GestureState private var touching = false
   /// The run (the ground shown) inside the body, as the web's `inset: 6px 8px`.
