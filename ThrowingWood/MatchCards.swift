@@ -108,10 +108,15 @@ struct SheetCard: View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Score sheet").font(displayFont(38))
       Text("Planet Kubb Notation").font(.subheadline.weight(.semibold))
-      ScrollView([.vertical, .horizontal]) {
-        Text(verbatim: positions ? sheet.text : sheet.shown.joined(separator: "\n"))
-          .font(.system(size: 13, design: .monospaced))
-          .fixedSize(horizontal: true, vertical: true).textSelection(.enabled).padding(10)
+      GeometryReader { box in
+        ScrollView([.vertical, .horizontal]) {
+          Text(verbatim: positions ? sheet.text : sheet.shown.joined(separator: "\n"))
+            .font(.system(size: 13, design: .monospaced))
+            .fixedSize(horizontal: true, vertical: true).textSelection(.enabled).padding(10)
+            // a sheet shorter than its box (an iPad's tall window) starts at the
+            // top, as it does where it overflows, not in the box's middle
+            .frame(minWidth: box.size.width, minHeight: box.size.height, alignment: .topLeading)
+        }
       }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(.white).border(Color.woodInk)
       Toggle("Show positions", isOn: $positions)
