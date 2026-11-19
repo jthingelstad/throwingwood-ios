@@ -1,7 +1,12 @@
-"""Compare the iPhone online screens with loopback rooms and invented players."""
+"""Compare the iPhone online screens with loopback rooms and invented players.
+
+--landscape left|right turns the interface on its side and names the pictures
+<phone>-landscape-<mode>.png.
+"""
 import argparse
 import concurrent.futures
 import json
+import os
 from pathlib import Path
 import subprocess
 
@@ -17,8 +22,8 @@ def sim(*args, **kwargs):
     return subprocess.run(["xcrun", "simctl", *args], check=True, **kwargs)
 
 
-def filename(phone, mode):
-    return phone.lower().replace(" ", "-") + "-" + mode + ".png"
+def filename(phone, mode, landscape=None):
+    return phone.lower().replace(" ", "-") + ("-landscape" if landscape else "") + "-" + mode + ".png"
 
 
 def capture(phone, args):
@@ -35,10 +40,13 @@ def capture(phone, args):
         sim("status_bar", udid, "override", "--time", "9:41", "--batteryState", "charged",
             "--batteryLevel", "100", "--cellularBars", "4", "--wifiBars", "3")
         for mode in args.modes:
-            file = args.out / filename(phone, mode)
+            file = args.out / filename(phone, mode, args.landscape)
+            env = dict(os.environ)
+            if args.landscape:
+                env["SIMCTL_CHILD_REVIEW_ORIENTATION"] = args.landscape
             subprocess.run(
                 ["node", str(ROOT / "tools/online-review.mjs"), str(args.web), udid, mode, str(file)],
-                check=True,
+                check=True, env=env,
             )
             print(phone, mode, flush=True)
     finally:
@@ -55,12 +63,13 @@ if __name__ == "__main__":
     parser.add_argument("--capture-only", action="store_true")
     parser.add_argument("--modes", nargs="+", default=MODES, choices=MODES)
     parser.add_argument("--phones", nargs="+", default=PHONES, choices=PHONES)
+    parser.add_argument("--landscape", choices=["left", "right"])
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         list(pool.map(lambda phone: capture(phone, args), args.phones))
     if not args.capture_only:
-        names = [filename(phone, mode) for phone in args.phones for mode in args.modes]
+        names = [filename(phone, mode, args.landscape) for phone in args.phones for mode in args.modes]
         subprocess.run(
             ["swift", str(ROOT / "tools/check-snapshots.swift"), str(ROOT / "docs/review/online"),
              str(args.out), *names],

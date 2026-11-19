@@ -4,6 +4,9 @@ Each shot launches the installed app with PITCH_REVIEW (aim, wind, marks, ...)
 and the meter preferences as launch arguments (they are not saved), waits for
 the board's ready file and saves a screenshot. Pass the devices by name or
 UDID with --device; nothing here boots or shuts down a device it was not given.
+--landscape left|right turns the interface on its side (a phone held sideways
+lays out as the web's wide screen, always with the clock) and names the shots
+<phone>-landscape-*.
 """
 import argparse
 import json
@@ -65,7 +68,7 @@ def capture(device, args):
         "--batteryLevel", "100", "--cellularBars", "4", "--wifiBars", "3")
     tmp = Path(sim("get_app_container", udid, APP, "data", capture_output=True,
                    text=True).stdout.strip()) / "tmp"
-    prefix = args.prefix or name.lower().replace(" ", "-")
+    prefix = args.prefix or name.lower().replace(" ", "-") + ("-landscape" if args.landscape else "")
     try:
         for shot, (mode, meter, side, extra) in SHOTS.items():
             if args.only and shot not in args.only:
@@ -74,6 +77,8 @@ def capture(device, args):
             ready.unlink(missing_ok=True)
             env = {**os.environ, "SIMCTL_CHILD_PITCH_REVIEW": mode}
             env.update({"SIMCTL_CHILD_" + k: v for k, v in extra.items()})
+            if args.landscape:
+                env["SIMCTL_CHILD_REVIEW_ORIENTATION"] = args.landscape
             sim("launch", "--terminate-running-process", udid, APP,
                 "-pitch.meter", meter, "-pitch.meterSide", side,
                 # a learned device unless the shot asks for the coach line
@@ -99,6 +104,7 @@ if __name__ == "__main__":
     parser.add_argument("--out", type=Path, default=ROOT / "build/meter-shots")
     parser.add_argument("--only", action="append")
     parser.add_argument("--prefix")
+    parser.add_argument("--landscape", choices=["left", "right"])
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     for device in args.device:
