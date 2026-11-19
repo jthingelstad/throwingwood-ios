@@ -38,6 +38,16 @@ METER_SHOTS = {
     "linear-left-coach": ("coach", "aim", "linear", "left"),
     "linear-right-coach-slow": ("coachslow", "aim", "linear", "right"),
 }
+# A phone on its side (Jamie, 2026-11-19: "Given we have a widescreen view for
+# web, can we extend that to support iPhone rotated display?"): with --landscape
+# these shots are taken turned, named <phone>-landscape-<shot>.png. The linear
+# shots show the clock in that corner: no iPhone on its side has the track's room.
+LANDSCAPE = [
+    "home", "options", "handoff", "aim", "plan", "arc", "tilt", "stand", "flight", "verdict",
+    "raise", "raisedrag", "raiserest", "punish", "computer", "menu", "winner", "sheet",
+    "linear-left-aim", "linear-right-aim", "linear-left-tilt", "clock-nudge", "linear-left-nudge",
+    "coach", "coach-slow", "linear-left-coach",
+]
 # every other shot is a device that has learned the throw (no coach line)
 LEARNING = {"coach", "coachslow"}
 SHOTS = {**{m: (m, f, "clock", "right") for m, f in MODES.items()}, **METER_SHOTS}
@@ -63,9 +73,12 @@ def capture(phone, args):
             "--batteryLevel", "100", "--cellularBars", "4", "--wifiBars", "3")
         tmp = Path(sim("get_app_container", udid, APP, "data", capture_output=True,
                        text=True).stdout.strip()) / "tmp"
-        prefix = phone.lower().replace(" ", "-")
+        prefix = phone.lower().replace(" ", "-") + ("-landscape" if args.landscape else "")
+        turn = {"SIMCTL_CHILD_REVIEW_ORIENTATION": args.landscape} if args.landscape else {}
         for shot, (mode, fixture, meter, side) in SHOTS.items():
             if args.only and shot not in args.only:
+                continue
+            if args.landscape and not args.only and shot not in LANDSCAPE:
                 continue
             ready = tmp / "review-ready"
             ready.unlink(missing_ok=True)
@@ -75,7 +88,8 @@ def capture(phone, args):
             sim("launch", "--terminate-running-process", udid, APP,
                 "-pitch.meter", meter, "-pitch.meterSide", side,
                 "-pitch.throwsMade", "0" if mode in LEARNING else "9",
-                env={**os.environ, "SIMCTL_CHILD_MATCH_REVIEW": mode}, stdout=subprocess.DEVNULL)
+                env={**os.environ, **turn, "SIMCTL_CHILD_MATCH_REVIEW": mode},
+                stdout=subprocess.DEVNULL)
             deadline = time.monotonic() + 30
             while not ready.exists() or ready.read_text() != mode:
                 if time.monotonic() > deadline:
@@ -84,12 +98,25 @@ def capture(phone, args):
             time.sleep(0.7)  # allow the launch transition and SwiftUI transaction to finish
             file = args.out / f"{prefix}-{shot}.png"
             sim("io", udid, "screenshot", str(file), capture_output=True)
+            if args.landscape:
+                upright(file, args.landscape)
             print(f"{phone} {shot}", flush=True)
     finally:
         sim("status_bar", udid, "clear")
         subprocess.run(["xcrun", "simctl", "terminate", udid, APP], capture_output=True)
         if boot:
             sim("shutdown", udid)
+
+
+def upright(file, way):
+    """simctl captures the display as it is mounted, upright: turn the picture
+    the way the interface turned, so it reads as the player sees it."""
+    out = subprocess.run(["sips", "-g", "pixelWidth", "-g", "pixelHeight", str(file)],
+                         capture_output=True, text=True, check=True).stdout.split()
+    w, h = int(out[out.index("pixelWidth:") + 1]), int(out[out.index("pixelHeight:") + 1])
+    if h > w:
+        subprocess.run(["sips", "-r", "90" if way == "left" else "270", str(file)],
+                       capture_output=True, check=True)
 
 
 if __name__ == "__main__":
@@ -100,6 +127,8 @@ if __name__ == "__main__":
     parser.add_argument("--only", type=lambda v: set(v.split(",")), default=None,
                         help="comma-separated shot names (implies --capture-only)")
     parser.add_argument("--phone", action="append", help="one review phone (repeatable)")
+    parser.add_argument("--landscape", choices=["left", "right"],
+                        help="turn the interface this way (the landscape shots)")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     phones = args.phone or ["iPhone 16e", "iPhone 17 Pro Max"]
@@ -108,6 +137,8 @@ if __name__ == "__main__":
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         list(pool.map(lambda phone: capture(phone, args), phones))
     if not args.capture_only:
+        tag = "-landscape" if args.landscape else ""
+        shots = LANDSCAPE if args.landscape else SHOTS
         subprocess.run(["swift", str(ROOT / "tools/check-snapshots.swift"), str(ROOT / "docs/review"),
-                        str(args.out), *[f"{p.lower().replace(' ', '-')}-{m}.png"
-                                       for p in phones for m in SHOTS]], check=True)
+                        str(args.out), *[f"{p.lower().replace(' ', '-')}{tag}-{m}.png"
+                                       for p in phones for m in shots]], check=True)
