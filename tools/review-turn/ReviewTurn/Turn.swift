@@ -15,7 +15,12 @@ final class Turn: XCTestCase {
       case "right": .landscapeLeft
       default: .portrait
       }
+    // through another way first: after Settings the device can keep reporting
+    // the last way it was set without the screen being turned
+    XCUIDevice.shared.orientation = wanted == .portrait ? .landscapeRight : .portrait
+    Thread.sleep(forTimeInterval: 1)
     XCUIDevice.shared.orientation = wanted
+    Thread.sleep(forTimeInterval: 1)
     XCTAssertEqual(XCUIDevice.shared.orientation, wanted)
   }
 
