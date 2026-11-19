@@ -301,6 +301,33 @@ import UIKit
     setNeedsDisplay()
   }
 
+  #if targetEnvironment(simulator)
+    private var lastReviewLayout = ""
+    /// The review's layout on a phone on its side, for the review tools: the safe
+    /// area iOS gives, the meter, the plan block's place and the minimap, in
+    /// points. Written only when it changes.
+    private func writeReviewLayout() {
+      guard WideLayout.isWide(bounds.size), model.screen == .match else { return }
+      let s = insets
+      let plan = WideLayout.plan(meter: meter, size: bounds.size, safe: s, side: model.meter.side)
+      func r(_ f: CGRect) -> [Double] {
+        f.isNull ? [] : [f.minX, f.minY, f.width, f.height].map { (Double($0) * 10).rounded() / 10 }
+      }
+      var json: [String: Any] = [
+        "size": [Double(bounds.width), Double(bounds.height)],
+        "safe": ["top": Double(s.top), "left": Double(s.left), "bottom": Double(s.bottom), "right": Double(s.right)],
+        "side": model.meter.side.rawValue, "meter": r(WideLayout.meterBox(meter, size: bounds.size, safe: s, side: model.meter.side)),
+        "block": r(plan.block), "edge": plan.edge?.rawValue ?? "beside", "minimap": r(plan.minimap),
+      ]
+      if let c = meter.clock { json["clock"] = [Double(c.center.x), Double(c.center.y), Double(c.radius)] }
+      guard let data = try? JSONSerialization.data(withJSONObject: json, options: [.sortedKeys]),
+        let text = String(data: data, encoding: .utf8), text != lastReviewLayout
+      else { return }
+      lastReviewLayout = text
+      try? data.write(to: URL.temporaryDirectory.appending(path: "review-layout.json"), options: .atomic)
+    }
+  #endif
+
   override func draw(_ rect: CGRect) {
     guard let ctx = UIGraphicsGetCurrentContext() else { return }
     #if targetEnvironment(simulator)
@@ -312,6 +339,7 @@ import UIKit
       in: ctx, size: bounds.size, camera: pitch.camera,
       scene: backdrop ? pitch.scene.scenery : pitch.scene)
     #if targetEnvironment(simulator)
+      if reviewMode != nil || matchReview != nil { writeReviewLayout() }
       if let mode = reviewMode, matchReview == nil, reviewReady, !signalled, model.error == nil,
         ReviewOrientation.settled(bounds.size)
       {
@@ -351,9 +379,11 @@ import UIKit
     if model.screen == .match, pitch.handoff == nil {
       if pitch.need?.kind == "throw" {
         if WideLayout.isWide(bounds.size) {
-          // on its side: the bottom corner the clock leaves (the web's wide minimap)
+          // on its side: beside the plan block at the far edge, toward the middle
+          // (the web's wide minimap, layout.js planAt)
           pitch.scene.drawMap(
-            in: ctx, rect: WideLayout.minimap(size: bounds.size, safe: insets, side: model.meter.side))
+            in: ctx,
+            rect: WideLayout.plan(meter: meter, size: bounds.size, safe: insets, side: model.meter.side).minimap)
         } else {
           let width = min(74, bounds.width * 0.18)
           let left = (pitch.marker(in: bounds.size)?.x ?? 0) > bounds.midX
