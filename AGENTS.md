@@ -122,6 +122,26 @@ use synthetic checkpoints and both iOS 26.2 review phones. Run
 `python3 tools/solo-snapshots.py <simulator-app>` locally. Review changes to
 both the 16e and Pro Max pictures before replacing either set.
 
+## The meter
+
+The throw's meter is the player's choice (Jamie, 2026-11-19: "I'm considering
+a player preference for a circular meter (clock) versus a linear meter ... The
+logic is the same to me. Just a choice if you want to spin your thumb or crank
+-- or use a different hand to flick."): Meter, Clock or Linear, and Side, Left
+or Right ("Left and right handed folks may want it on one side or the other"),
+kept on the device. The clock is the default and is never retired. Both feed
+the same arm degrees through `ThrowInput`: never give a meter an engine change
+of its own. The linear meter must keep its room: the straight trial of
+2026-11-18 went because "it was too cramped and visually looked janky", so a
+screen that cannot give its track 320 pt shows the clock. The finger and the
+meter apart ("if you can have the control and the touch be slightly distant
+from each other, that could make that better"): a drag in the throw zone
+strokes the linear knob and a press beside the clock's ring turns its arm,
+while a tap there still aims. The nudge ("Have the UI show it not a separate
+how to page.") draws on the meter itself and is never fed to the engine. Keep
+the linear meter, the touch rules and the nudge's numbers the same as the
+web's. docs/RENDER.md "The meter".
+
 ## Rooms and the online screen
 
 `KubbRooms` is the main-actor room client and headless pitch controller; its contract

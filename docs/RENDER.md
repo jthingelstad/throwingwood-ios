@@ -47,7 +47,44 @@ Each image is a real iOS 26.2 simulator capture of the app with a synthetic matc
 
 - Quartz rasterizes the ink edges and dashes. Grass blades use short batches of filled, hard-edged shapes and sand/snow specks have square ends. Their positions still use the web seed. The playfield and dial use at most two backing pixels per point for the moving-frame budget. SwiftUI controls and text use display resolution.
 - Batons have 24-sided circular cross-sections with a projected cap, highlight and bands. The web constructs analytic ellipses. End-grain rings and pith, crown interiors, cheese spots and some bevels use simpler paths. Small differences appear on close wood and around silhouettes. These are presentation approximations. Positions in moving pieces use the recording's 1e−5 quantization; the session camera uses its full-precision playback.
-- The provisional dial uses the web's angle convention, zones, prompt, power and release targets and last-throw dots. It has a simpler face, hand, ticks and knob. The native burst uses its own text metrics, short chip animation and crown path. Labels use the system face, display words use Londrina. The native screen stacks its verdict under the heading. These UI differences are intentional.
+- The provisional dial uses the web's angle convention, zones, prompt, power and release targets and last-throw marks. It has a simpler face, hand, ticks and knob. The native burst uses its own text metrics, short chip animation and crown path. Labels use the system face, display words use Londrina. The native screen stacks its verdict under the heading. These UI differences are intentional.
+
+## The meter
+
+The throw's meter is the player's choice, kept on the device: MENU (practice) or the match menus, Meter, Clock or Linear (`pitch.meter`, clock by default), and Side, Left or Right (`pitch.meterSide`, right by default) for the linear meter. `KubbRenderer/ThrowMeter.swift` holds the geometry and which touches each meter claims, and both feed the same `PointerDial`: the clock its finger's angle about the centre, the linear meter `meterPoint(arm:)` for the knob's height. The engine and its `pointer` tune do not know which meter is on the screen.
+
+- **The clock** keeps its place and size: radius `min(0.22 W, 0.12 H, 114)` pt, centre 42 pt above the bottom safe area. Its colours are the app's own (system red and grey), not the web's palette.
+- **The linear meter** (`LinearMeterHUD.swift`) is a port of the web's `src/render/linear.js`, its tune number for number: two columns in one ink frame with a hard shadow, the lane (targets) toward the screen's centre and the channel (the wood knob) toward the edge, the prompt a tab at the knob's home. The knob's home is the clock's 6, the middle of the track; the backswing runs down, toward the player, and the forward swing up, on one scale. The box is 0.2 of the width (64 to 96 pt) and 0.47 of the height, the web's, about 330 pt of track on a tall phone, and stands 7 pt off the edge and the bottom safe area, under the minimap. A screen that cannot give it 320 pt of track (a phone on its side, a short phone) shows the clock. Its words: DRAW BACK, FLING!, BACK TO MIDDLE. The plan's buttons are padded clear of it through the `\.meterRoom` environment value (`MeterRoom`: the edge and the width the meter takes).
+- **Red** starts at `max(overDeg, powerHi)` on both meters: the engine's overpower cost counts from the power target's top (core/throwplan), so a long throw's target past 11 o'clock is never drawn as overpowered.
+- **The last throw** (the engine's `lastBack` and `lastStop`) is a faded ghost of the knob where it was, 60% of its size at 45% opacity, so it reads as "where your last throw went" and never as a target. The web draws the same.
+
+### Touches
+
+In `BoardView.touchesBegan`, in this order. Anything a step does not claim falls to the next.
+
+1. Raise and punishment phases, as before.
+2. `MeterLayout.first`: the clock's ring, within 1.25 radii of its centre (the throw at once, as always); the linear knob, 46 pt up or down from home, across the body and 6 pt either side of it (the throw at once, grabbed relatively: the press point is home); the rest of the linear body and its shadow (swallowed, never a throw).
+3. Walking, the target circle (56 pt), the thrower (44 pt), as before.
+4. `MeterLayout.after`: beside the clock's ring, 1.25 to 2.1 radii; the linear meter's throw zone, y ≥ 0.6 of the height. Beside the ring where a tap could not aim (`tapCouldAim`, the tap rule `target(tap: true)` uses), the press is the throw at once. Otherwise the press waits: one that moves more than 10 pt (`MeterLayout.tapSlop`) is the throw, a stroke from the knob's home for the zone, and one that does not is a tap on the pitch.
+5. A tap on the pitch, as before.
+
+A stroke from the zone or beside the ring feeds the engine the press on one frame and the finger on the next, so a quick first move still arms the swing. A finger beside the ring is drawn as a spoke from the knob to it.
+
+### The nudge
+
+When a player is stuck on their own throw, a ghost of the knob makes one good throw on the meter with a ghost fingertip where the finger goes: a slow draw back (0.9 s), a beat, a fast flick (0.25 s), then a second's rest, until the next press. `ThrowNudge.swift` (pure, the web's `src/game/nudge.js` numbers) says when and where on the timeline; `NudgeHUD.swift` draws it. It counts only eligible time (the player's own aim in practice or a match, no finger down, the plan closed, the dial idle) on the wall clock, and the display link sleeps until it is due. A device with fewer than 3 throws (`pitch.throwsMade`, capped at 9) is nudged after 8 s in the aim without a press on the meter; any device after two presses on the meter in a row that made no throw (0.8 s after the last); a learned one after 30 s with no input. A tap in the throw zone or beside the ring keeps it away 1.5 s. The fingertip is beside the ring (1.6 radii) on the clock and in the throw zone on the linear meter's inner side. While the engine says WIND BACK the plate follows the ghost. Reduce Motion shows a still picture at the back with the strokes' arrows. Drawing only: the ghost is never fed to the engine.
+
+`python3 tools/meter-snapshots.py <simulator-app> --device <name or udid>` captures every meter, side, mark and nudge frame under `build/meter-shots/` (`PITCH_REVIEW` modes `wind`, `beside`, `marks` and `nudge`; `NUDGE_AT` freezes the nudge at a time, `NUDGE_STILL` shows the still picture).
+
+| Meter | Small iPhone | Large iPhone |
+| --- | --- | --- |
+| Linear, right | [16e](review/iphone-16e-linear-right.png) | [17 Pro Max](review/iphone-17-pro-max-linear-right.png) |
+| Linear, left | [16e](review/iphone-16e-linear-left.png) | [17 Pro Max](review/iphone-17-pro-max-linear-left.png) |
+| Last throw, linear | [16e](review/iphone-16e-linear-marks.png) | [17 Pro Max](review/iphone-17-pro-max-linear-marks.png) |
+| Last throw, clock | [16e](review/iphone-16e-clock-marks.png) | [17 Pro Max](review/iphone-17-pro-max-clock-marks.png) |
+| Beside the ring | [16e](review/iphone-16e-clock-beside.png) | [17 Pro Max](review/iphone-17-pro-max-clock-beside.png) |
+| Nudge, clock | [16e](review/iphone-16e-nudge-clock.png) | [17 Pro Max](review/iphone-17-pro-max-nudge-clock.png) |
+| Nudge, linear | [16e](review/iphone-16e-nudge-linear.png) | [17 Pro Max](review/iphone-17-pro-max-nudge-linear.png) |
 
 ## Prior practice frame measurements
 
