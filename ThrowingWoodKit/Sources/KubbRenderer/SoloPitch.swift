@@ -141,15 +141,16 @@ extension PitchSession {
     try replan(arc ? "stepArc" : "stepSide", #"{"step":\#(step)}"#)
   }
 
-  public func raise(end: Int? = nil) throws {
-    guard acceptsInput, need?.kind == "raise" else { return }
+  /// Raises the kubb on an end, or by the engine's choice. False when refused.
+  @discardableResult public func raise(end: Int? = nil) throws -> Bool {
+    guard acceptsInput, need?.kind == "raise" else { return false }
     if let end {
       guard need?.ends?.contains(where: { $0.which == end && $0.ok == true }) == true,
         let index = need?.choices?.firstIndex(where: { $0.which == end })
-      else { return }
-      try applyPlacement(#"{"type":"raise","choice":\#(index+1)}"#)
+      else { return false }
+      return try applyPlacement(#"{"type":"raise","choice":\#(index+1)}"#)
     } else {
-      try applyPlacement(#"{"type":"raise"}"#)
+      return try applyPlacement(#"{"type":"raise"}"#)
     }
   }
 
@@ -177,14 +178,15 @@ extension PitchSession {
     try applyPlacement(#"{"type":"punish","x":\#(c.x),"y":\#(c.y)}"#)
   }
 
-  private func applyPlacement(_ json: String) throws {
+  @discardableResult private func applyPlacement(_ json: String) throws -> Bool {
     let response: PlacementCheck = try read("apply", json)
     guard response.ok else {
       placement = response
       revision += 1
-      return
+      return false
     }
     try committed(JSONText(json))
     try adopt(read("view"))
+    return true
   }
 }

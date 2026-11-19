@@ -69,7 +69,7 @@ public struct PointerDial: ThrowInput {
 }
 
 struct Aim: Decodable {
-  struct Plan: Decodable { let loft: Double?, tilt, spin: Int? }
+  struct Plan: Decodable { let loft, release: Double?, tilt, spin: Int? }
   struct Wind: Decodable { let text: String }
   let wind: Wind?, advText: String?
   let plan: Plan?, mix: Double?, projectile: String?
@@ -104,7 +104,7 @@ public final class PitchSession {
   var trail = ReportTrail()
   let engine: Engine
   private let decoder = JSONDecoder()
-  private var input: any ThrowInput
+  var input: any ThrowInput
   private(set) var playback: Playback?
   public internal(set) var scene: PitchScene, camera: Camera, dial: DialState
   public private(set) var result: ThrowResult?, bursts: [HitBurst] = []
@@ -114,6 +114,13 @@ public final class PitchSession {
   public internal(set) var revision = 0
   public internal(set) var plan = false, walking = false
   public private(set) var arcDegrees: Int?, sideStep: Int?
+  /// The planned release on the clock (degrees) and the side in the engine's steps.
+  public private(set) var release: Double?, sideSteps = 0, projectile: String?
+  /// The plan slider a finger holds, where it is (0...1), and the place not yet sent.
+  public internal(set) var held: PlanSlider?, heldFraction: Double?
+  var pendingSlide: (PlanSlider, Double)?
+  var peekLeft = 0.0
+  var autoRaise = AutoRaise()
   var mix = 0.0
   var save: MatchSave?
   var cursor: GroundMark?
@@ -161,6 +168,9 @@ public final class PitchSession {
     mix = a.mix ?? 0
     arcDegrees = a.plan?.loft.map { Int($0.rounded()) }
     sideStep = a.projectile == "kubb" ? a.plan?.spin : a.plan?.tilt
+    release = a.plan?.release
+    projectile = a.projectile
+    sideSteps = PlanScale.steps(of: sideStep ?? 0, kubb: a.projectile == "kubb")
     scene.advantageY = a.advY
     scene.marker = a.marker
     let reference = PitchProjection(size: CGSize(width: 400, height: 240), camera: c)
@@ -207,6 +217,7 @@ public final class PitchSession {
     bursts = []
     plan = false
     walking = false
+    endSlide()
     mix = 0
     slow = false
     walkAxis = .zero
@@ -232,11 +243,14 @@ public final class PitchSession {
     struct DialView: Decodable { let dial: DialState }
     let previousArc = arcDegrees
     let previousSide = sideStep
+    let previousRelease = release
     let a: AimOutput = try read(method, args)
     aim(a.aim, camera: a.camera)
     let view: DialView = try read("view")
     dial = view.dial
-    if arcDegrees != previousArc || sideStep != previousSide { revision += 1 }
+    if arcDegrees != previousArc || sideStep != previousSide || release != previousRelease {
+      revision += 1
+    }
   }
 
   public func target(_ point: CGPoint, size: CGSize, snap: Bool, tap: Bool = false) throws {
@@ -245,7 +259,7 @@ public final class PitchSession {
     }
     try replan("setTarget", #"{"x":\#(g.x),"y":\#(g.y),"snap":\#(snap)}"#)
   }
-  public func sample(_ point: CGPoint?) { if canAim && !plan { input.sample(point) } }
+  public func sample(_ point: CGPoint?) { if canAim && !showsSide { input.sample(point) } }
 
   func resetContact() {
     input.reset()
@@ -269,7 +283,9 @@ public final class PitchSession {
       try play(dt)
       return true
     }
-    var changed = false
+    var changed = try applySlide()
+    if held == nil && peekLeft > 0 { peekLeft = max(0, peekLeft - dt) }
+    if try autoRaiseTick(dt) { return true }
     if result != nil {
       resultAge += dt
       if resultAge >= 6 {
@@ -281,13 +297,14 @@ public final class PitchSession {
     guard handoff == nil, need == nil || need?.kind == "throw" else { return changed }
     let args: String
     var inputFrame = false
+    let side = showsSide
     if walking && walkAxis != .zero {
-      args = #"{"dt":\#(dt),"plan":\#(plan),"walk":{"dx":\#(walkAxis.x),"dy":\#(walkAxis.y)}}"#
-    } else if !plan, let sample = input.frame(after: dt) {
+      args = #"{"dt":\#(dt),"plan":\#(side),"walk":{"dx":\#(walkAxis.x),"dy":\#(walkAxis.y)}}"#
+    } else if !side, let sample = input.frame(after: dt) {
       args = sample
       inputFrame = canAim
-    } else if (plan && mix < 1) || (!plan && mix > 0) || need?.cpu == true {
-      args = #"{"dt":\#(dt),"plan":\#(plan)}"#
+    } else if (side && mix < 1) || (!side && mix > 0) || need?.cpu == true {
+      args = #"{"dt":\#(dt),"plan":\#(side)}"#
     } else {
       return changed
     }
@@ -311,6 +328,7 @@ public final class PitchSession {
     walkAxis = .zero
     walking = false
     plan = false
+    endSlide()
     input.reset()
     playback = Playback(recording)
     result = nil
