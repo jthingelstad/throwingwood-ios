@@ -96,6 +96,13 @@ The plan block at the far edge and the raise and punishment bar are the solo
 screen's own views, shown online only to the player who acts; the online review
 scenarios watch, so their pictures show neither, and the solo pictures stand
 for both.
+With --ipad the same scenarios run on the iPad mini and the iPad Pro 13-inch
+(`ipad-mini-<mode>.png`, `ipad-pro-13-<mode>.png`, and `-landscape-` turned left):
+the same screens on a bigger screen (docs/RENDER.md "An iPad"), the cards at the
+web's widths and centred, e.g. [the lobby](review/online/ipad-mini-host.png),
+[on its side](review/online/ipad-pro-13-landscape-host.png),
+[Send feedback](review/online/ipad-mini-feedback.png) and
+[a match, watching](review/online/ipad-pro-13-landscape-flight.png).
 
 | On its side | Small iPhone | Large iPhone |
 | --- | --- | --- |

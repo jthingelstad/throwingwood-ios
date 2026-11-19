@@ -179,6 +179,27 @@ than about 390 pt use `FitOrScroll`. The review tools take `--landscape left|rig
 (`<phone>-landscape-*.png`); review both phones on their side as well as
 upright. docs/RENDER.md "A phone on its side".
 
+## An iPad
+
+The app is universal: an iPad plays the same game on a bigger screen (Jamie:
+"The idea of an iPad version would just be to give us a little bit bigger
+screen."). No new controls, no other camera, no split views. An iPad turns all
+four ways; an iPhone keeps portrait and landscape left and right. iPadOS 26
+resizes every app's window, so lay out from the window's size, never the
+device's: a tall window is the upright phone, any other the wide arrangement
+above, with the linear meter where its track has 320 pt (450 pt on an iPad on
+its side) and the raise and punishment bar only when `WideLayout.isShort`.
+Controls keep their phone sizes. Cards keep the web's widths and stay centred
+(the sheet 640, the tall panel 520, Send feedback 560, on an iPad).
+`WindowControls.swift` keeps the rail clear of a window's close, minimise and
+full screen controls; full screen and every iPhone add nothing.
+`WideLayoutTests` check both review iPads and sweep window sizes. The review
+tools take `--ipad` (the iPad mini and iPad Pro 13-inch, `ipad-*.png`); an iPad
+turns as a device through `tools/review_turn.py` (a UI-test bundle in
+`tools/review-turn`, simulator only). A simulator left in Windowed Apps or
+resized may stop turning until it is shut down; the tool says so. Review the
+iPads upright and on their side as well as the phones. docs/RENDER.md "An iPad".
+
 ## Rooms and the online screen
 
 `KubbRooms` is the main-actor room client and headless pitch controller; its contract
