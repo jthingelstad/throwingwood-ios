@@ -126,7 +126,7 @@ import UIKit
   /// An end's number beside its footprint on the raise screen (the web's drawEndLabels):
   /// gold when lit (a drag past half way, or the allowed end's hint), grey when refused.
   func endLabel(_ e: RaiseEndPoint) {
-    let r: CGFloat = 17
+    let r = RaiseTouch.numberR
     let p = e.label
     disk(CGPoint(x: p.x + 3, y: p.y + 3), r, ink)
     let fill =
