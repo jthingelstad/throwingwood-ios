@@ -243,7 +243,7 @@ extension PracticeHUD {
     let x = g.side == .right ? (g.left - 10) / 2 : (g.right + g.shadow + 10 + size.width) / 2
     let y = size.height - safeBottom - 22
     text("Draw back · fling up", at: CGPoint(x: x, y: y), size: 16, color: ink, plate: true)
-    text("Drag target to aim", at: CGPoint(x: x, y: y - 34), size: 16, color: ink, plate: true)
+    text("Tap or drag to aim", at: CGPoint(x: x, y: y - 34), size: 16, color: ink, plate: true)
   }
 
   /// A little baton end: the knob of both meters.
