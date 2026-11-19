@@ -94,8 +94,6 @@ case "${1:-}" in
       case $name in engine.json | LICENSE) continue ;; esac
       manifest_files | grep -q "^$name " || fail "extra: $name (not in engine.json)"
     done < <(find "$engine" -type f | LC_ALL=C sort)
-    trial="$root/ThrowingWoodKit/Sources/KubbEngine/StraightPractice/sources.json"
-    [[ -f $trial && $(shasum -a 256 "$trial" | cut -d" " -f1) == 8fe3cef962fea4ab6407ba588c7691a5406bf8f7cf5d11b2461c0e74df0bb285 ]] || fail "straight practice differs from v0.6.0"
     [[ -s $engine/LICENSE ]] || fail "missing: LICENSE"
     for f in "${golden_files[@]}"; do [[ -s $golden/$f ]] || fail "missing: Fixtures/golden/$f"; done
     if [[ -s $golden/hashes.json ]]; then

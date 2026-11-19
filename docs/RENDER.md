@@ -67,17 +67,3 @@ Release took 12.07 ms in the full suite. The Kit's slowest frame crossed the 8.3
 
 
 For the solo snapshots, build the simulator app with `xcodebuild -project ThrowingWood.xcodeproj -scheme ThrowingWood -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO build`. Run `python3 tools/solo-snapshots.py build/dd/Build/Products/Debug-iphonesimulator/ThrowingWood.app`. The script waits for each scene, captures to `build/solo-snapshots/` and checks every 24-point tile against the corresponding review PNG (mean RGB error below 4/255). The comparison masks the simulator-composited home indicator and Pro Max camera cutout. Use `--capture-only` to inspect a proposed new set before copying it. See [the session contract](MATCH.md) for checkpoint provenance.
-
-### Straight-through practice trial
-
-Choose **Practice pitch → Menu → Straight throw practice** and select an 8 m base
-kubb, an offset pair, or a drill beside an existing kubb. Pull the handle to the
-band and push back through the line. Menu → Throw plan changes arc, baton tilt
-or kubb spin. Reset repeats that shot. An early lift cancels.
-
-This practice board loads the exact source bundle and manifest from kubb-engine
-v0.6.0 (7447ddd). The shared-pitch engine stays on the primary vendor pin.
-StraightPracticeTests compare the native release action for all three shots
-byte for byte with the WebAssembly reference. A simulator-only
-`SIMCTL_CHILD_PRACTICE_EXERCISE=base|pair|pile` launch opens the exercise
-directly for visual review.
