@@ -210,9 +210,29 @@ try {
         type: "report",
         fields: {
           r: {
+            kind: "throw",
             mode: "pitch",
             happened: "test",
             should: "",
+            client: "ios",
+            engine: manifest.version,
+          },
+        },
+      })
+    ).t,
+    "reported",
+  );
+  assert.equal(
+    (
+      await rpc({
+        op: "request",
+        key: "wire",
+        type: "report",
+        fields: {
+          r: {
+            kind: "feedback",
+            mode: "pitch",
+            text: "test",
             client: "ios",
             engine: manifest.version,
           },
@@ -368,6 +388,17 @@ try {
   server.store.putRoom = async () => false;
   await error("guest", { t: "me", me: {} }, "busy");
   server.store.putRoom = put;
+  // Feedback carries one text and never a throw's answers (backend checkReport).
+  await error(
+    "guest",
+    { t: "report", r: { kind: "feedback", mode: "solo", text: "hi", happened: "" } },
+    "bad-message",
+  );
+  await error(
+    "guest",
+    { t: "report", r: { kind: "feedback", mode: "solo", text: "  " } },
+    "bad-message",
+  );
   for (let i = 0; i < 3; i++)
     await wire(
       "guest",
