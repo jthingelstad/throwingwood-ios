@@ -8,6 +8,7 @@ The iPhones turn themselves from REVIEW_ORIENTATION, as before.
 from pathlib import Path
 import os
 import subprocess
+import tempfile
 import threading
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,3 +35,14 @@ def turn(udid, way):
                     "-scheme", "ReviewTurn", "-destination", f"id={udid}",
                     "-derivedDataPath", str(DERIVED), "-only-testing:ReviewTurn/Turn/testMode", "-only-testing:ReviewTurn/Turn/testTurn"],
                    check=True, capture_output=True, env=env)
+    # a window test (Windowed Apps, a resize) can leave the simulator unable to
+    # turn until it is booted afresh: say so rather than take upright pictures
+    with tempfile.TemporaryDirectory() as tmp:
+        shot = Path(tmp) / "turned.png"
+        subprocess.run(["xcrun", "simctl", "io", udid, "screenshot", str(shot)], check=True, capture_output=True)
+        out = subprocess.run(["sips", "-g", "pixelWidth", "-g", "pixelHeight", str(shot)],
+                             capture_output=True, text=True, check=True).stdout.split()
+        w, h = int(out[out.index("pixelWidth:") + 1]), int(out[out.index("pixelHeight:") + 1])
+    if (w > h) != bool(way):
+        raise RuntimeError(f"{udid} did not turn {way or 'upright'}: shut it down "
+                           "(xcrun simctl shutdown) and run again")

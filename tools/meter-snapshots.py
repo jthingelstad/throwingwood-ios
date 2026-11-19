@@ -6,14 +6,19 @@ the board's ready file and saves a screenshot. Pass the devices by name or
 UDID with --device; nothing here boots or shuts down a device it was not given.
 --landscape left|right turns the interface on its side (a phone held sideways
 lays out as the web's wide screen, always with the clock) and names the shots
-<phone>-landscape-*.
+<phone>-landscape-*. An iPad turns as a device (review_turn.py); pass --prefix
+ipad-mini or ipad-pro-13 for its pictures' names.
 """
 import argparse
 import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import time
+
+sys.dont_write_bytecode = True
+from review_turn import is_ipad, turn as turn_device  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = "com.throwingwood.app"
@@ -68,6 +73,8 @@ def capture(device, args):
         "--batteryLevel", "100", "--cellularBars", "4", "--wifiBars", "3")
     tmp = Path(sim("get_app_container", udid, APP, "data", capture_output=True,
                    text=True).stdout.strip()) / "tmp"
+    if is_ipad(name):
+        turn_device(udid, args.landscape)  # an iPad turns as a device, not from the app
     prefix = args.prefix or name.lower().replace(" ", "-") + ("-landscape" if args.landscape else "")
     try:
         for shot, (mode, meter, side, extra) in SHOTS.items():
@@ -95,6 +102,8 @@ def capture(device, args):
     finally:
         sim("status_bar", udid, "clear")
         subprocess.run(["xcrun", "simctl", "terminate", udid, APP], capture_output=True)
+        if is_ipad(name) and args.landscape:
+            turn_device(udid, None)
 
 
 if __name__ == "__main__":
