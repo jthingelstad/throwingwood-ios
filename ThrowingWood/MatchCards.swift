@@ -230,6 +230,8 @@ struct MatchScreen: View {
           }.modifier(Plate(inset: 9))
           if model.slow {
             Text("SLOW MOTION").font(.caption.bold()).modifier(Plate(inset: 5))
+          } else if let stand = pitch.standCaption, n.kind == "throw" {
+            SliderCaption(text: stand)
           } else if let held = pitch.held, n.kind == "throw" {
             SliderCaption(text: PlanScale.caption(held, kubb: pitch.throwsKubb))
           } else if let wind = pitch.windText, n.kind == "throw" {
@@ -423,7 +425,7 @@ struct RaisingSetting: View {
   }
 }
 
-/// ARC over SIDE VIEW on the left of the dial, TILT or SPIN over WALK on the
+/// ARC over SIDE VIEW on the left of the dial, TILT or SPIN over STAND on the
 /// right, their feet level. With the linear meter on the left the two swap, so
 /// the shorter TILT column sits beside the meter, under its prompt tab.
 struct PlanControls: View {
@@ -465,9 +467,11 @@ struct PlanControls: View {
         held: pitch.held == .side ? pitch.heldFraction : nil, enabled: enabled,
         slide: { f, phase in model.perform { pitch.slide(.side, to: f, phase: phase) } },
         step: { s in model.perform { try pitch.stepPlan(.side, by: s) } })
-      tool("WALK", label: "Walk by dragging on the pitch", on: pitch.walking) {
-        try pitch.toggleWalk()
-      }
+      StandPlate(
+        span: pitch.standSpan, thrower: pitch.standPoint, held: pitch.standHeld, enabled: enabled,
+        valueText: pitch.standValueText,
+        stand: { fx, fy, phase in model.perform { pitch.stand(fx: fx, fy: fy, phase: phase) } },
+        step: { dx, dy in model.perform { try pitch.standStep(dx: dx, dy: dy) } })
     }
   }
 
