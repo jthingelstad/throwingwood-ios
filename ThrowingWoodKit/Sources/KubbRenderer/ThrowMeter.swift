@@ -94,12 +94,14 @@ public struct LinearMeter: Equatable, Sendable {
     public var grabTouch: CGFloat = 46  // pt up or down from the knob that a finger grabs it
     // The box. Three quarters of the web's old finger travel (a tester: "Make it
     // 1/4 shorter", and Jamie agreed), the same as the web's from 2026-11-19:
-    // 0.47 of the height, about 330 pt of track on a tall phone, and never less
-    // than `minTravel`. The straight trial of
+    // 0.47 of the height, 390 to 450 pt (about 330 pt of track on a tall
+    // phone), and a track never shorter than `minTravel`. The straight trial of
     // 2026-11-18 had about 300 pt for the whole swing and was, in Jamie's
     // words, "too cramped and visually looked janky": a screen that cannot
     // give `minTravel` gets the clock.
     public var heightShare: CGFloat = 0.47
+    public var heightMin: CGFloat = 390
+    public var heightMax: CGFloat = 450
     public var minTravel: CGFloat = 320
     public var widthShare: CGFloat = 0.2  // the box's width, of the screen's
     public var widthMin: CGFloat = 64
@@ -193,12 +195,9 @@ public struct LinearMeter: Equatable, Sendable {
     // the header plate and the minimap (BoardView: top + 75, 1.65 of its width)
     let mapW = min(74, size.width * 0.18)
     let ceiling = safeTop + 75 + mapW * 1.65 + 10
-    var h = size.height * t.heightShare
-    // grow it, if there is the room, until the track has `minTravel`
-    let body = min(t.bodyMax, w * 0.92)
-    let fixed = body * t.shadow + 2 * (body * (1 - t.lane) * t.knob + max(1.5, body * t.frame) + body * t.endPad)
-    h = max(h, t.minTravel + fixed)
-    h = min(h, bottom - ceiling)
+    // the web's (layout.js linearBox): 0.47 of the height, never under
+    // `heightMin` where there is the room nor over `heightMax`
+    let h = min(bottom - ceiling, max(size.height * t.heightShare, t.heightMin), t.heightMax)
     guard h > 0 else { return nil }
     let x = side == .left ? safeLeft + t.margin : size.width - safeRight - t.margin - w
     let meter = LinearMeter(box: CGRect(x: x, y: bottom - h, width: w, height: h), side: side, tune: t)

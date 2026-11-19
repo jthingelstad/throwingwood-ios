@@ -110,7 +110,7 @@ import UIKit
     }
     if showHint {
       text(
-        "Drag target to aim · Circle dial to throw", at: CGPoint(x: c.x, y: c.y + r + 24), size: 16,
+        "Tap or drag to aim · Circle dial to throw", at: CGPoint(x: c.x, y: c.y + r + 24), size: 16,
         color: ink, plate: true)
     }
   }

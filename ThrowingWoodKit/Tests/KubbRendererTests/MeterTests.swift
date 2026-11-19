@@ -36,6 +36,13 @@ import Testing
     // about 330 pt of track on the 16e, a tall phone
     let m = try linear(small)
     #expect(m.travel > 325 && m.travel < 345)
+    // the web's floor and cap: 390 to 450 pt where there is the room
+    let short = try #require(
+      LinearMeter.layout(size: CGSize(width: 375, height: 812), safeTop: 47, safeBottom: 34, side: .right))
+    #expect(abs(short.box.height - 390) < 0.001)
+    let tall = try #require(
+      LinearMeter.layout(size: CGSize(width: 440, height: 1100), safeTop: 47, safeBottom: 34, side: .right))
+    #expect(abs(tall.box.height - 450) < 0.001)
   }
 
   @Test func screensWithoutTheRoomShowTheClock() {
