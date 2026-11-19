@@ -23,7 +23,8 @@ Swift packages or task groups. The local practice screen runs its own engine ses
 The reference is the web's `src/net/room.js` and `backend/rooms/core.mjs`, with
 `docs/ROOMS.md` as the guide. The client sends Origin `https://app.throwingwood.com` and
 User-Agent `ThrowingWood/<app version> (ios)`. Each join includes the engine's version
-in `me.engine`. `recordGame` and `report` add `client: ios` and the actual engine version;
+in `me.engine`. `recordGame` and `report` add `client: ios` and the actual engine version (the server's
+client tag allows no space, so the app version travels in the report's `build.version`);
 commit riders carry `c: ios` and `e` from that engine. The low-level `request` and
 `send` methods are available for protocol work; use the tagged methods for records.
 

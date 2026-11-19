@@ -58,7 +58,7 @@ Test, all set with `scripts/asc.swift`.
 
 ## App Privacy worksheet
 
-Answer **Yes** to data collection and **No** to tracking for this build. There are no ad or analytics SDKs. Practice and solo stay on the phone unless the player sends a throw report. Sound and haptic preferences stay on the phone. Multiplayer retains identifiable gameplay on the first-party service. The developer also uses the private game records to study throws and improve play. Apple's Analytics purpose covers that use of gameplay data.
+Answer **Yes** to data collection and **No** to tracking for this build. There are no ad or analytics SDKs. Practice and solo stay on the phone unless the player sends feedback. Sound and haptic preferences stay on the phone. Multiplayer retains identifiable gameplay on the first-party service. The developer also uses the private game records to study throws and improve play. Apple's Analytics purpose covers that use of gameplay data.
 
 | App Store Connect type | Purpose | What travels or is kept |
 | --- | --- | --- |
@@ -78,7 +78,7 @@ The bundled `PrivacyInfo.xcprivacy` declares two required-reason categories. `CA
 | Question group | Proposed response and basis |
 | --- | --- |
 | User-generated content | Yes. Players choose display names visible to others. Match replays can include those names. |
-| Messaging and chat | Yes. Four preset shouts go directly to the pitch. Free-text throw reports go privately to the developer. |
+| Messaging and chat | Yes. Four preset shouts go directly to the pitch. Free-text feedback and throw reports go privately to the developer. |
 | Contests | Frequent. Playing a scored game against another player is central to the app. There are no stakes or prizes. |
 | In-app controls | No parental controls or age assurance. |
 | Other capabilities | No social media feed, unrestricted web access or advertising. Sharing uses the system share sheet. |

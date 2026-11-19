@@ -56,14 +56,16 @@ the lobby with the same teams.
   sends keep with room.replayOf and the exact ending document version.
   Sending a separate game message here would double-record a shared match.
   The server reserves game for one-client solo and watch records.
-- Report a throw freezes the displayed action trail when the card opens. Send
-  includes the two answers, pitch code and document position, viewport, build,
+- SEND FEEDBACK freezes the displayed action trail when the card opens. A throw
+  report (`kind: "throw"`) sends the two answers; Something else
+  (`kind: "feedback"`) sends one trimmed text of up to 2000 characters. Both include pitch code and document position, viewport, build,
   need, level, last action and throw result, pieces, options and replay snapshots.
   Member IDs are pseudonymised in the captured state, including snapshot strings.
   Answers are limited to 1,000 Unicode scalars each. History, pieces and the
   after snapshot are dropped in that order to fit 64 KiB. The report uses a
   short-lived unjoined socket, waits for reported, and closes. It carries the
-  same client and engine tags as a game record.
+  same client and engine tags as a game record. The review modes `report` and
+  `feedback` show the card in each kind.
 
 ## Leaving and reconnecting
 
