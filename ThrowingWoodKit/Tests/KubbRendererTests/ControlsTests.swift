@@ -320,6 +320,24 @@ import simd
     #expect(RaiseTouch.tilt(need, lying: lying, i: 0, t: 0).center == lying.center)
   }
 
+  @Test func raiseTouchHoldsOnTheIPads() throws {
+    // the kubb and its two ends on the screen, a press on the kubb its own, and
+    // the drag's travel the same rule, upright and on its side
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(fixture("raise"), save: nil)
+    for size in [
+      CGSize(width: 744, height: 1133), CGSize(width: 1133, height: 744),
+      CGSize(width: 1032, height: 1376), CGSize(width: 1376, height: 1032),
+    ] {
+      let g = try #require(app.raiseGeometry(in: size))
+      let screen = CGRect(origin: .zero, size: size)
+      for p in g.outline + g.caps { #expect(screen.contains(p), "\(size): \(p)") }
+      let mid = CGPoint.between(g.caps[0], g.caps[1], 0.5)
+      #expect(RaiseTouch.on(g, mid))
+      #expect(RaiseTouch.nearerEnd(g, .between(g.caps[0], g.caps[1], 0.2)) == 0)
+    }
+  }
+
   /// The computer's throws of a seeded match (both sides, raising automatically), then
   /// a pass and play match that raises by hand played with those throws up to its nth
   /// raise: the engine's own raise, in the raising team's frame, as the web's test does.

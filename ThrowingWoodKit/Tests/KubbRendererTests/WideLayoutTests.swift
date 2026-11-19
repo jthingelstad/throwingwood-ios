@@ -147,6 +147,148 @@ import Testing
     }
   }
 
+  // MARK: The same game on an iPad
+
+  /// The review iPads on their side, as the iOS 26.2 simulator gives them to the
+  /// app in full screen (the review's layout dump, 2026-11-19): the status bar's
+  /// inset at the top and the home indicator's at the bottom, none at the sides.
+  static let iPads: [(name: String, size: CGSize, safe: ScreenInsets)] = [
+    ("iPad mini (A17 Pro) on its side", CGSize(width: 1133, height: 744), ScreenInsets(top: 32, bottom: 20)),
+    ("iPad Pro 13-inch (M5) on its side", CGSize(width: 1376, height: 1032), ScreenInsets(top: 32, bottom: 20)),
+  ]
+
+  /// Every frame of the wide arrangement inside the safe area and none meeting
+  /// another, the clock's ring and rim on the screen, and the plan block and the
+  /// minimap off the throwing line: what holds on a phone holds on any wide screen.
+  private func holds(_ name: String, _ size: CGSize, _ s: ScreenInsets, kind: MeterKind, side: MeterSide) {
+    let safeRect = CGRect(
+      x: s.left, y: s.top, width: size.width - s.left - s.right, height: size.height - s.top - s.bottom)
+    let meter = MeterLayout.make(
+      kind: kind, side: side, bounds: CGRect(origin: .zero, size: size), safeTop: s.top,
+      safeBottom: s.bottom, safeLeft: s.left, safeRight: s.right)
+    let plan = WideLayout.plan(meter: meter, size: size, safe: s, side: side)
+    let frames: [(String, CGRect)] = [
+      ("rail", WideLayout.rail(size: size, safe: s)),
+      ("menu", WideLayout.menu(size: size, safe: s)),
+      ("minimap", plan.minimap),
+      ("meter", WideLayout.meterBox(meter, size: size, safe: s, side: side)),
+      ("plans", plan.block),
+    ]
+    let what = "\(name) \(Int(size.width)) x \(Int(size.height)) \(kind) \(side)"
+    for (n, f) in frames {
+      #expect(safeRect.contains(f), "\(what): \(n) \(f) outside \(safeRect)")
+    }
+    for i in frames.indices {
+      for j in frames.indices where j > i {
+        #expect(!frames[i].1.intersects(frames[j].1), "\(what): \(frames[i].0) meets \(frames[j].0)")
+      }
+    }
+    if let c = meter.clock {
+      #expect(c.center.y + c.radius * 1.12 <= size.height - s.bottom, "\(what)")
+      #expect(
+        c.center.x - c.radius * 1.12 >= s.left && c.center.x + c.radius * 1.12 <= size.width - s.right, "\(what)")
+    }
+    // At the far edge the block and the minimap are clear of a press beside the
+    // ring. Back beside the meter (a window too narrow, the web's planAt) the
+    // block is in that reach on the web too: its plates are above the pitch, so
+    // a press on one is the plate's.
+    if plan.edge != nil, let c = meter.clock {
+      for f in [plan.block, plan.minimap] {
+        #expect(distance(c.center, f) > c.radius * ClockMeter.touchReach, "\(what): \(f) in the clock's reach")
+      }
+    }
+    if plan.edge != nil {
+      let centre = size.width / 2
+      for f in [plan.block, plan.minimap] {
+        #expect(side == .right ? f.maxX <= centre - 24 : f.minX >= centre + 24, "\(what): \(f)")
+      }
+    }
+  }
+
+  @Test func anIPadOnItsSideIsTheWideArrangementWithTheLinearMetersRoom() throws {
+    for p in Self.iPads {
+      #expect(WideLayout.isWide(p.size) && !WideLayout.isShort(p.size))
+      for side in MeterSide.allCases {
+        // the web's linearBox: a wide screen's track is 450 pt, at its edge
+        let m = try #require(
+          LinearMeter.layout(size: p.size, safeTop: p.safe.top, safeBottom: p.safe.bottom, side: side), "\(p.name)")
+        #expect(m.box.height == 450 && m.travel >= 320)
+        #expect(side == .left ? m.box.minX == 7 : m.box.maxX == p.size.width - 7)
+        for kind in MeterKind.allCases {
+          holds(p.name, p.size, p.safe, kind: kind, side: side)
+          // the plan block at the edge away from the meter: two hands, as on a phone
+          let meter = MeterLayout.make(
+            kind: kind, side: side, bounds: CGRect(origin: .zero, size: p.size), safeTop: p.safe.top,
+            safeBottom: p.safe.bottom)
+          let plan = WideLayout.plan(meter: meter, size: p.size, safe: p.safe, side: side)
+          #expect(plan.edge == (side == .right ? .left : .right), "\(p.name) \(kind) \(side)")
+          #expect(plan.block.size == WideLayout.planBlock)
+        }
+      }
+      // the clock is the web's wide clock: S = min(0.28 W, 0.46 H, 380), not a phone's
+      let box = WideLayout.clockBox(size: p.size, safe: p.safe, side: .right)
+      #expect(abs(box.width - min(p.size.width * 0.28, p.size.height * 0.46, 380)) < 1e-9)
+    }
+  }
+
+  @Test func anIPadUprightIsThePhoneLayoutWithTheLinearMeterAtItsCap() throws {
+    for p in Self.iPads {
+      let size = CGSize(width: p.size.height, height: p.size.width)
+      #expect(!WideLayout.isWide(size))
+      let m = try #require(LinearMeter.layout(size: size, safeTop: 32, safeBottom: 20, side: .right))
+      #expect(abs(m.box.height - 450) < 0.001 && m.travel >= 320)
+      // the upright clock keeps the phone's cap: the controls do not grow
+      let c = ClockMeter(bounds: CGRect(origin: .zero, size: size), bottomInset: 20)
+      #expect(c.radius == 114)
+    }
+  }
+
+  /// An iPad's window can be any size (iPadOS 26): every wide one from a phone's
+  /// on its side to a 13-inch iPad's, in full screen (the status bar's inset)
+  /// and in a window (10 pt, or 53 under the window's controls).
+  @Test func everyWideWindowHolds() {
+    let insets = [
+      ScreenInsets(top: 32, bottom: 20), ScreenInsets(top: 10, bottom: 10), ScreenInsets(top: 53, bottom: 10),
+    ]
+    var checked = 0
+    for w in stride(from: CGFloat(480), through: 1400, by: 20) {
+      for h in stride(from: CGFloat(380), through: 1040, by: 20) {
+        let size = CGSize(width: w, height: h)
+        guard WideLayout.isWide(size) else { continue }
+        for s in insets {
+          for kind in MeterKind.allCases {
+            for side in MeterSide.allCases {
+              holds("window", size, s, kind: kind, side: side)
+              checked += 1
+            }
+          }
+        }
+      }
+    }
+    #expect(checked > 10_000)
+  }
+
+  /// Upright windows, from a phone's width to a 13-inch iPad's: the phone's
+  /// layout, its clock no bigger than the phone's cap, the linear meter only
+  /// with its 320 pt of track and never over 450 pt, both inside the window.
+  @Test func everyUprightWindowKeepsThePhonesMeters() {
+    for w in stride(from: CGFloat(320), through: 1040, by: 20) {
+      for h in stride(from: CGFloat(480), through: 1380, by: 20) {
+        let size = CGSize(width: w, height: h)
+        guard !WideLayout.isWide(size) else { continue }
+        let c = ClockMeter(bounds: CGRect(origin: .zero, size: size), bottomInset: 20)
+        #expect(c.radius <= 114)
+        #expect(c.center.y + c.radius * 1.12 <= h - 20 && c.center.x - c.radius * 1.12 >= 0)
+        for side in MeterSide.allCases {
+          if let m = LinearMeter.layout(size: size, safeTop: 53, safeBottom: 10, side: side) {
+            #expect(m.travel >= 320 && m.box.height <= 450 + 0.001)
+            #expect(m.box.minX >= 0 && m.box.maxX <= w && m.box.minY >= 53 && m.box.maxY <= h - 10)
+          }
+        }
+      }
+    }
+  }
+
   /// The nearest a rect comes to a point.
   private func distance(_ p: CGPoint, _ r: CGRect) -> CGFloat {
     hypot(max(r.minX - p.x, 0, p.x - r.maxX), max(r.minY - p.y, 0, p.y - r.maxY))
