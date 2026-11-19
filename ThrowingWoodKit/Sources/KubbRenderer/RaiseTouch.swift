@@ -69,15 +69,25 @@ public enum RaiseTouch {
     return Array(lower.dropLast() + upper.dropLast())
   }
 
+  /// Corner k of a kubb's box (bit 0 across x, bit 1 across y, bit 2 along its
+  /// length). Typed step by step: as one sum, a CI compiler gave up on it.
+  static func corner(_ k: Int, of piece: Piece, x: V3, y: V3, z: V3) -> V3 {
+    let sx: Double = k & 1 == 0 ? -halfSide : halfSide
+    let sy: Double = k & 2 == 0 ? -halfSide : halfSide
+    let sz: Double = k & 4 == 0 ? -halfLength : halfLength
+    // the same order as the sum it was: centre, then x, y, z
+    let ax: V3 = piece.center + sx * x
+    let ay: V3 = ax + sy * y
+    return ay + sz * z
+  }
+
   static func geometry(_ need: MatchNeed, piece: Piece, projection: PitchProjection) -> Geometry? {
     guard let pose = need.pose, need.ends?.count == 2 else { return nil }
     let r = piece.rotation
     let x = r.act(V3(1, 0, 0)), y = r.act(V3(0, 1, 0)), z = r.act(V3(0, 0, 1))
     var outline: [CGPoint] = []
     for k in 0..<8 {
-      let c =
-        piece.center + (k & 1 == 0 ? -halfSide : halfSide) * x
-        + (k & 2 == 0 ? -halfSide : halfSide) * y + (k & 4 == 0 ? -halfLength : halfLength) * z
+      let c = corner(k, of: piece, x: x, y: y, z: z)
       guard let p = projection.project(c) else { return nil }
       outline.append(p)
     }
@@ -102,10 +112,7 @@ public enum RaiseTouch {
     let piece = pose.piece(id: id)
     let r = piece.rotation
     let x = r.act(V3(1, 0, 0)), y = r.act(V3(0, 1, 0)), z = r.act(V3(0, 0, 1))
-    var points: [V3] = (0..<8).map { k in
-      piece.center + (k & 1 == 0 ? -halfSide : halfSide) * x
-        + (k & 2 == 0 ? -halfSide : halfSide) * y + (k & 4 == 0 ? -halfLength : halfLength) * z
-    }
+    var points: [V3] = (0..<8).map { corner($0, of: piece, x: x, y: y, z: z) }
     for e in ends {
       let d = V2(e.pose.x - pose.x, e.pose.y - pose.y)
       let l = simd_length(d) == 0 ? 1 : simd_length(d)
