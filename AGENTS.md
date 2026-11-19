@@ -115,6 +115,10 @@ independent practice throw locally with the usual Kit tests. The web checkout is
 read-only when generating review pictures. Keep synthetic scenes free of names.
 
 Read [docs/MATCH.md](docs/MATCH.md) before changing solo flow or persistence.
+A raise is a touch on the kubb (`RaiseTouch.swift`, the web's raise-touch.js
+numbers), and Raising (by hand or automatic) is the match's choice, never a
+device setting. SEND FEEDBACK sends a throw report (`kind: "throw"`) or
+anything else (`kind: "feedback"`), the web's wire.
 The six option lists come from the pinned engine. Store the raw snapshot after
 each action, including a release before the throw has finished playing.
 The solo host uses the pointer dial. The simulator-only card and HUD tests
@@ -138,9 +142,13 @@ meter apart ("if you can have the control and the touch be slightly distant
 from each other, that could make that better"): a drag in the throw zone
 strokes the linear knob and a press beside the clock's ring turns its arm,
 while a tap there still aims. The nudge ("Have the UI show it not a separate
-how to page.") draws on the meter itself and is never fed to the engine. Keep
-the linear meter, the touch rules and the nudge's numbers the same as the
-web's. docs/RENDER.md "The meter".
+how to page.") draws on the meter itself and is never fed to the engine, and so
+does the coach line (`Coach.swift`, the web's coach.js: a few words over the
+prompt for a device under 3 throws, or after a SLOW flick). Keep the linear
+meter (390 to 450 pt tall), the touch rules, the nudge's numbers and the coach's
+lines and placement the same as the web's. Review tools launch with
+`-pitch.throwsMade 9` so the coach stays out of other pictures.
+docs/RENDER.md "The meter".
 
 ## Rooms and the online screen
 
