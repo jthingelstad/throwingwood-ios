@@ -40,6 +40,24 @@ import Testing
     print("solo controller \(releases)/\(releases) hashes, final \(try ref.hash())")
   }
 
+  // A SLOW flick is coached on the player's next throw, however many of the
+  // computer's come between: its throws carry no verdicts and change nothing.
+  @Test func computerThrowsKeepThePlayersSlowFlick() throws {
+    let setup =
+      #"{"mode":"match","cpu":"both","seed":1001,"opening":"2-4-6","raising":"hand","start":{"year":2026,"month":11,"day":17,"hour":12,"min":0}}"#
+    let app = try PitchSession(appVersion: "test")
+    try app.openMatch("new", json: setup, save: nil)
+    app.coachSlow = true
+    var played = 0
+    for _ in 0..<40_000 where played < 2 {
+      let was = app.playing
+      try app.tick(0.05)
+      if was && !app.playing { played += 1 }
+    }
+    try #require(played == 2)
+    #expect(app.coachSlow)
+  }
+
   private func fixture(_ name: String) throws -> String {
     let file = try #require(
       Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures/solo"))

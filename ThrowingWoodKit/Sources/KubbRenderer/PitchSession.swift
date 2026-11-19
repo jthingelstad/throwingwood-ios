@@ -110,7 +110,7 @@ public final class PitchSession {
   public private(set) var result: ThrowResult?, bursts: [HitBurst] = []
   private var resultAge = 0.0
   /// The coach line's slow flick (Coach.swift): this player's own last throw was SLOW.
-  public private(set) var coachSlow = false
+  public internal(set) var coachSlow = false
   private var playbackLocal = false
   public let options: SoloOptions
   public internal(set) var need: MatchNeed?, handoff: MatchNeed.Handoff?, placement: PlacementCheck?
@@ -321,6 +321,9 @@ public final class PitchSession {
     } else {
       return changed
     }
+    // the computer's throws come through here too: only the player's own
+    // carry verdicts and may change what the coach says next
+    let own = need?.cpu != true
     let text = try engine.call("frame", json: args)
     let a = try decoder.decode(AimOutput.self, from: Data(text.utf8))
     aim(a.aim, camera: a.camera)
@@ -331,7 +334,7 @@ public final class PitchSession {
       }
     }
     if let recording = a.recording {
-      try beginPlayback(recording, local: true)
+      try beginPlayback(recording, local: own)
       if let action = try JSONNode.parse(text)["action"] { try committed(action.raw) }
     }
     return true
