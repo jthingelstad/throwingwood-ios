@@ -152,6 +152,21 @@ lines and placement the same as the web's. Review tools launch with
 `-pitch.throwsMade 9` so the coach stays out of other pictures.
 docs/RENDER.md "The meter".
 
+## A phone on its side
+
+The app turns to landscape left and right as well as portrait, never upside
+down (Jamie, 2026-11-19: "Given we have a widescreen view for web, can we
+extend that to support iPhone rotated display?"). On its side the match is the
+web's wide arrangement from its layout.js, in `KubbRenderer/WideLayout.swift`:
+keep its numbers the web's, keep every frame inside the safe area (the
+`WideLayoutTests` check both review phones, both meters, both sides), and keep
+the thrower's camera. No iPhone on its side gives the linear meter its 320 pt,
+so there it shows the clock. A bounds change mid-gesture cancels the held
+gesture (`BoardView.layoutSubviews`, `PitchSession.cancelHeld`). Cards taller
+than about 390 pt use `FitOrScroll`. The review tools take `--landscape left|right`
+(`<phone>-landscape-*.png`); review both phones on their side as well as
+upright. docs/RENDER.md "A phone on its side".
+
 ## Rooms and the online screen
 
 `KubbRooms` is the main-actor room client and headless pitch controller; its contract

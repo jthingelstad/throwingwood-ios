@@ -1,6 +1,8 @@
 # The offline solo match
 
-The home screen opens practice or a match against the computer. PLAY THE COMPUTER resumes an unfinished solo game or opens its options. START creates a new match. REMATCH returns to the options. The match menu pauses the clock and provides level, Raising, Meter (Clock or Linear, and Side for the linear one), score sheet, home and resignation.
+The home screen opens practice or a match against the computer. PLAY THE COMPUTER resumes an unfinished solo game or opens its options. START creates a new match. REMATCH returns to the options. The match menu pauses the clock and provides level, Raising, Meter (Clock or Linear), Meter side, score sheet, home and resignation.
+
+The phone can be held on its side as well as upright (Jamie, 2026-11-19: "Given we have a widescreen view for web, can we extend that to support iPhone rotated display?"). On its side the match takes the web's wide arrangement: the rail top left, MENU top right, the clock low in the Meter side corner with the plan beside it, the minimap in the other corner. The clock is always shown there, because no phone on its side has the linear meter's room. The match, its save and the engine do not know which way the phone is held. Turning it mid-gesture lets go of the dial, an aim drag, a slider or STAND with nothing sent. docs/RENDER.md "A phone on its side".
 
 ## Session contract
 
