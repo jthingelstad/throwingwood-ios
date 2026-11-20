@@ -45,7 +45,7 @@ METER_SHOTS = {
 # A phone on its side (Jamie, 2026-11-19: "Given we have a widescreen view for
 # web, can we extend that to support iPhone rotated display?"): with --landscape
 # these shots are taken turned, named <phone>-landscape-<shot>.png. The linear
-# shots show the clock in that corner: no iPhone on its side has the track's room.
+# shots show the linear meter at its edge, the whole safe height.
 LANDSCAPE = [
     "home", "options", "handoff", "aim", "plan", "arc", "tilt", "stand", "flight", "verdict",
     "raise", "raisemany", "raiseauto", "raiserest", "raisedrag", "raiserefused", "punish", "computer", "menu", "winner", "sheet",

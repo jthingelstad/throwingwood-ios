@@ -73,7 +73,7 @@ struct GameView: View {
             switch model.screen {
             case .home: HomeCard(model: model)
             case .options: MatchOptionsCard(model: model)
-            case .practice: practice(wide: WideLayout.isWide(screen(geometry).size))
+            case .practice: practice(wide: WideLayout.isWide(screen(geometry).size), room: meterRoom(geometry))
             case .match:
               MatchScreen(
                 model: model, pitch: pitch, revision: model.revision, playing: model.playing)
@@ -176,7 +176,7 @@ struct GameView: View {
 
   /// On a phone on its side there is no status bar: the header keeps the rail's
   /// distance from the top.
-  private func practice(wide: Bool) -> some View {
+  private func practice(wide: Bool, room: MeterRoom) -> some View {
     VStack(spacing: 10) {
       HStack {
         Button(action: model.home) { Image(systemName: "house.fill").frame(width: 36, height: 36) }
@@ -201,6 +201,8 @@ struct GameView: View {
           Label("Menu", systemImage: "line.3.horizontal")
         }
       }.modifier(Plate(inset: 8))
+      // on its side the linear meter has its edge's whole height: the header stops short of it
+      .padding(room.edge, wide ? room.width : 0)
       if let result = model.result { Verdict(result: result) }
       Spacer()
     }.padding(.horizontal, 14).padding(.top, wide ? WideLayout.edge : 0)

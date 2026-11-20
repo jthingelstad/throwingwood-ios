@@ -138,11 +138,14 @@ or Right ("Left and right handed folks may want it on one side or the other"),
 kept on the device. The clock is the default and is never retired. Both feed
 the same arm degrees through `ThrowInput`: never give a meter an engine change
 of its own. The linear meter must keep its room: the straight trial of
-2026-11-18 went because "it was too cramped and visually looked janky", so a
-screen that cannot give its track 320 pt shows the clock. The finger and the
+2026-11-18 went because "it was too cramped and visually looked janky", so an
+upright screen that cannot give its track 320 pt shows the clock. The choice
+holds when the phone turns: on a wide screen the track has the whole safe
+height at its edge and needs 260 pt (`wideMinTravel`), which every iPhone on
+its side has. The finger and the
 meter apart ("if you can have the control and the touch be slightly distant
 from each other, that could make that better"): a drag in the throw zone
-strokes the linear knob and a press beside the clock's ring turns its arm,
+(the lower 40% upright, the meter's half on a wide screen) strokes the linear knob and a press beside the clock's ring turns its arm,
 while a tap there still aims. The nudge ("Have the UI show it not a separate
 how to page.") draws on the meter itself and is never fed to the engine, and so
 does the coach line (`Coach.swift`, the web's coach.js: a few words over the
@@ -160,8 +163,12 @@ extend that to support iPhone rotated display?"). On its side the match is the
 web's wide arrangement from its layout.js, in `KubbRenderer/WideLayout.swift`:
 keep its numbers the web's, keep every frame inside the safe area (the
 `WideLayoutTests` check both review phones, both meters, both sides), and keep
-the thrower's camera. No iPhone on its side gives the linear meter its 320 pt,
-so there it shows the clock. Two hands (Jamie, 2026-11-19: "in landscape the
+the thrower's camera. Linear chosen is the linear meter on its side too
+(Jamie, 2026-11-19: "Bug: On iPhone if I turn on linear and then rotate it goes
+back to the circular swing."): its box runs from 10 pt under the safe top to
+7 pt over the safe bottom (at most 450), its track at least 260 pt (265.3 on
+the 375 pt phones, 331.3 on the 17 Pro Max), and MENU or the rail moves in
+beside it, 10 pt off its body. The coach line hangs under its tab there. Two hands (Jamie, 2026-11-19: "in landscape the
 tilt, arc, stand controls should be pushed to the left hand side of the screen
 so the user can control those with the left hand and the throw with the right
 hand"): the plan block sits at the edge away from the meter, 8 pt inside the
@@ -187,8 +194,8 @@ screen."). No new controls, no other camera, no split views. An iPad turns all
 four ways; an iPhone keeps portrait and landscape left and right. iPadOS 26
 resizes every app's window, so lay out from the window's size, never the
 device's: a tall window is the upright phone, any other the wide arrangement
-above, with the linear meter where its track has 320 pt (450 pt on an iPad on
-its side) and the raise and punishment bar only when `WideLayout.isShort`.
+above, with the linear meter where its track has 320 pt upright or 260 pt
+wide (450 pt on an iPad on its side, on the bottom margin as before) and the raise and punishment bar only when `WideLayout.isShort`.
 Controls keep their phone sizes. Cards keep the web's widths and stay centred
 (the sheet 640, the tall panel 520, Send feedback 560, on an iPad).
 `WindowControls.swift` keeps the rail clear of a window's close, minimise and

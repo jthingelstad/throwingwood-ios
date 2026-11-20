@@ -105,6 +105,18 @@ public struct LinearMeter: Equatable, Sendable {
     public var heightMin: CGFloat = 390
     public var heightMax: CGFloat = 450
     public var minTravel: CGFloat = 320
+    // The smallest track on a wide screen (a phone on its side). The player's
+    // choice of meter holds when the phone turns, so the wide box takes the whole
+    // safe height at its edge (`WideLayout.edge` under the safe area's top to
+    // `margin` over its bottom) and MENU or the rail moves inward beside it. The
+    // shortest iPhones on their side (375 pt with a 21 pt home indicator: the
+    // 12 and 13 mini, the 11 Pro) give that box 337 pt and 265.3 pt of track;
+    // the SE (375, no insets) 286.3, the 16e 281.3, the 17 Pro Max 331.3 (both
+    // with the simulator's 20 pt). So the wide floor is 260, a little under every
+    // supported iPhone, where upright it stays 320: a phone on its side has no
+    // taller track to give, and the swing spans the whole safe height, unlike
+    // the 2026-11-18 trial's 300 pt in a corner.
+    public var wideMinTravel: CGFloat = 260
     public var widthShare: CGFloat = 0.2  // the box's width, of the screen's
     public var widthMin: CGFloat = 64
     public var widthMax: CGFloat = 96
@@ -185,8 +197,9 @@ public struct LinearMeter: Equatable, Sendable {
   }
 
   /// The linear meter on a screen, or nil where its track would be shorter than
-  /// `minTravel` (then the clock is shown). On a tall screen the box starts under
-  /// the HUD's header and the minimap; on a wide one under the rail or MENU.
+  /// `minTravel` upright or `wideMinTravel` on a wide screen (then the clock is
+  /// shown). On a tall screen the box starts under the HUD's header and the
+  /// minimap; on a wide one it has the whole safe height at its edge.
   public static func layout(
     size: CGSize, safeTop: CGFloat, safeBottom: CGFloat, safeLeft: CGFloat = 0,
     safeRight: CGFloat = 0, side: MeterSide, tune t: Tune = LinearMeter.tune
@@ -194,16 +207,15 @@ public struct LinearMeter: Equatable, Sendable {
     let w = max(t.widthMin, min(t.widthMax, size.width * t.widthShare))
     let bottom = size.height - safeBottom - t.margin
     let h: CGFloat
+    let least: CGFloat
     if WideLayout.isWide(size) {
-      // a phone on its side (layout.js linearBox, a wide canvas): under the
-      // rail on the left, under MENU's row on the right, at most `heightMax`.
-      // No iPhone on its side gives that `minTravel`, so there it is the clock.
-      let safe = ScreenInsets(top: safeTop, left: safeLeft, bottom: safeBottom, right: safeRight)
-      let ceiling =
-        side == .left
-        ? WideLayout.rail(size: size, safe: safe).maxY + WideLayout.margin * 0.7
-        : WideLayout.menu(size: size, safe: safe).maxY + WideLayout.margin * 1.5
-      h = min(bottom - ceiling, t.heightMax)
+      // a phone on its side: from MENU's top (`WideLayout.edge` under the safe
+      // area) to the bottom margin, at most `heightMax`. MENU or the rail, the
+      // plate at that corner, moves inward beside it (`WideLayout.menu`, `rail`).
+      // A wide iPad has more than `heightMax`, so its box stands on the bottom
+      // margin as before and nothing moves.
+      h = min(bottom - (safeTop + WideLayout.edge), t.heightMax)
+      least = t.wideMinTravel
     } else {
       // the header plate and the minimap (BoardView: top + 75, 1.65 of its width)
       let mapW = min(74, size.width * 0.18)
@@ -211,12 +223,16 @@ public struct LinearMeter: Equatable, Sendable {
       // the web's (layout.js linearBox): 0.47 of the height, never under
       // `heightMin` where there is the room nor over `heightMax`
       h = min(bottom - ceiling, max(size.height * t.heightShare, t.heightMin), t.heightMax)
+      least = t.minTravel
     }
     guard h > 0 else { return nil }
     let x = side == .left ? safeLeft + t.margin : size.width - safeRight - t.margin - w
     let meter = LinearMeter(box: CGRect(x: x, y: bottom - h, width: w, height: h), side: side, tune: t)
-    return meter.travel >= t.minTravel - 0.001 ? meter : nil
+    return meter.travel >= least - 0.001 ? meter : nil
   }
+
+  /// The body and its shadow: what the meter covers on the screen.
+  public var cover: CGRect { CGRect(x: left, y: top, width: width + shadow, height: bottom + shadow - top) }
 }
 
 // MARK: - Which touches the meter claims
@@ -232,6 +248,15 @@ public enum MeterLayout: Equatable, Sendable {
   /// in the far half of the pitch and on a phone held upright the centre line is
   /// at about 0.54 of the height, so below 0.6 there is nothing to aim at.
   public static let zoneFrom: CGFloat = 0.6
+  /// The throw zone on a wide screen: a drag that starts on the meter's side of
+  /// this share of the width (the centre line, the throwing line) strokes the
+  /// knob. The lower 40% of a phone on its side is about 156 pt, too shallow for
+  /// a whole draw back and flick, so the zone is the meter's half, top to
+  /// bottom: a thumb there has the screen's height for the stroke, and the plan
+  /// block and the minimap are on the other half. A tap there still aims (the
+  /// clock's outer reach's rule: where a tap could aim, only a drag throws), and
+  /// a drag on the other half still moves the aim.
+  public static let wideZone: CGFloat = 0.5
 
   public static func make(
     kind: MeterKind, side: MeterSide, bounds: CGRect, safeTop: CGFloat, safeBottom: CGFloat,
@@ -271,7 +296,7 @@ public enum MeterLayout: Equatable, Sendable {
   /// 2. `after(_:in:aimable:)`, only when nothing else took the press (after the
   ///    target circle and the thrower, before a tap on the pitch): beside the
   ///    clock's ring (1.25 to 2.1 radii), or the linear meter's throw zone (the
-  ///    lower 40% of the screen). These wait to see whether they are a tap
+  ///    lower 40% of a tall screen, the meter's half of a wide one). These wait to see whether they are a tap
   ///    (then the pitch's tap rules apply, as before) or a drag (then the throw).
   ///    Beside the clock where a tap could not aim, the press is the throw at once.
   public enum Claim: Equatable, Sendable {
@@ -305,7 +330,11 @@ public enum MeterLayout: Equatable, Sendable {
     case .clock(let c):
       guard c.beside(p) else { return nil }
       return aimable ? .besidePending : .beside
-    case .linear:
+    case .linear(let m):
+      if WideLayout.isWide(size) {
+        let line = size.width * Self.wideZone
+        return (m.side == .right ? p.x >= line : p.x <= line) ? .zone : nil
+      }
       return p.y >= size.height * Self.zoneFrom ? .zone : nil
     }
   }

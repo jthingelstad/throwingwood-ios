@@ -454,8 +454,14 @@ import UIKit
       if pitch.canAim, ghost == nil, pitch.held == nil,
         let line = Coach.line(thrown: nudge.thrown, slow: slow, stage: Coach.stage(pitch.dial))
       {
-        let place = PracticeHUD.coachPlace(meter)
-        let plans = model.planFrames.values.map { convert($0, from: nil) }
+        let place = PracticeHUD.coachPlace(meter, wide: WideLayout.isWide(bounds.size))
+        var plans = model.planFrames.values.map { convert($0, from: nil) }
+        if WideLayout.isWide(bounds.size), meter.linear != nil {
+          // on its side the tab is level with the far baseline: the line keeps to
+          // the meter's half, `planClear` short of the throwing line and its target
+          let c = bounds.midX
+          plans.append(CGRect(x: c - WideLayout.planClear, y: 0, width: 2 * WideLayout.planClear, height: bounds.height))
+        }
         let room = PracticeHUD.coachWidth(
           place, screen: bounds.size, safeLeft: safeAreaInsets.left, safeRight: safeAreaInsets.right,
           plans: plans)

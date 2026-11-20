@@ -46,8 +46,8 @@ import Testing
   }
 
   @Test func screensWithoutTheRoomShowTheClock() {
-    // a phone on its side, and a short phone
-    for size in [CGSize(width: 844, height: 390), CGSize(width: 320, height: 568)] {
+    // a short phone held upright, and a wide window shorter than any iPhone on its side
+    for size in [CGSize(width: 320, height: 568), CGSize(width: 700, height: 320)] {
       let layout = MeterLayout.make(
         kind: .linear, side: .right, bounds: CGRect(origin: .zero, size: size), safeTop: 20,
         safeBottom: 0)

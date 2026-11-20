@@ -5,19 +5,24 @@ import UIKit
 /// `.coach` (game.css, hud.js showCoach): just over the meter's prompt so the
 /// two read as one, centred over the clock's plate or from the linear meter's
 /// inner edge over its tab, at most 280 pt wide and short of any plan column
-/// level with it. Words only: it takes no touches.
+/// level with it. On a wide screen the linear meter's line hangs under its tab
+/// instead (the tab is level with the far baseline there) and keeps to the
+/// meter's half. Words only: it takes no touches.
 extension PracticeHUD {
   enum CoachAlign { case center, left, right }
 
   struct CoachPlace: Equatable {
     var bottom, anchor: CGFloat
     var align: CoachAlign
+    /// The line hangs from `bottom` (its top) instead of standing on it: the
+    /// linear meter on a wide screen, whose tab is level with the far baseline.
+    var hangs = false
   }
 
   static let coachMax: CGFloat = 280
 
   /// Where the line goes over a meter (the web's numbers).
-  static func coachPlace(_ meter: MeterLayout) -> CoachPlace {
+  static func coachPlace(_ meter: MeterLayout, wide: Bool = false) -> CoachPlace {
     switch meter {
     case .clock(let c):
       // the prompt plate (dial(...): centred r + 20 over the hub, Londrina 20)
@@ -26,6 +31,13 @@ extension PracticeHUD {
       return CoachPlace(bottom: c.center.y - c.radius - 20 - half - 8, anchor: c.center.x, align: .center)
     case .linear(let g):
       let right = g.side == .right
+      if wide {
+        // on its side the knob's home is level with the far baseline, so over
+        // the tab the line would cover its kubbs: it hangs under the tab instead
+        return CoachPlace(
+          bottom: g.yHome + g.promptHeight / 2 + 8, anchor: right ? g.box.minX : g.box.maxX,
+          align: right ? .right : .left, hangs: true)
+      }
       return CoachPlace(
         bottom: g.yHome - g.promptHeight / 2 - 8, anchor: right ? g.box.minX : g.box.maxX,
         align: right ? .right : .left)
@@ -39,7 +51,8 @@ extension PracticeHUD {
   ) -> (left: CGFloat, width: CGFloat) {
     var lo = safeLeft + 8
     var hi = screen.width - safeRight - 8
-    for r in plans where r.width > 0 && !(r.maxY < p.bottom - 76 || r.minY > p.bottom) {
+    let band = p.hangs ? (p.bottom, p.bottom + 76) : (p.bottom - 76, p.bottom)
+    for r in plans where r.width > 0 && !(r.maxY < band.0 || r.minY > band.1) {
       if r.maxX <= p.anchor { lo = max(lo, r.maxX + 8) } else if r.minX >= p.anchor { hi = min(hi, r.minX - 8) }
     }
     switch p.align {
@@ -56,7 +69,8 @@ extension PracticeHUD {
   }
 
   /// `beside`: on a phone on its side the stack would rise into MENU, so the
-  /// lead goes level with the line, on that side of it (.left or .right).
+  /// lead goes level with the line, on that side of it (.left or .right). A
+  /// hanging line has no such limit: the lead goes over it, both under the tab.
   func coach(_ c: Coach.Line, _ p: CoachPlace, left: CGFloat, width: CGFloat, beside: CoachAlign? = nil) {
     guard width > 40 else { return }
     let font = UIFont.systemFont(ofSize: 13, weight: .heavy)
@@ -67,8 +81,12 @@ extension PracticeHUD {
     style.alignment = p.align == .center ? .center : (p.align == .right ? .right : .left)
     var y = p.bottom
     var lineBox = CGRect.null
-    // drawn from the foot up: the line, then the lead over it (or beside it)
-    for (text, inverted) in [(c.line, false), (c.lead, true)] {
+    // drawn from the foot up: the line, then the lead over it (or beside it);
+    // hanging, from the top down: the lead, then the line under it
+    let beside = p.hangs ? nil : beside
+    var last = CGRect.null
+    let order = p.hangs ? [(c.lead, true), (c.line, false)] : [(c.line, false), (c.lead, true)]
+    for (text, inverted) in order {
       guard let text else { continue }
       let leadBeside = inverted && beside != nil && !lineBox.isNull
       let attributes: [NSAttributedString.Key: Any] = [
@@ -90,7 +108,10 @@ extension PracticeHUD {
           }
         }
       if leadBeside { y = p.bottom }
+      // hanging: the first box's top is at `bottom`, the next 4 pt under it
+      if p.hangs { y = (last.isNull ? p.bottom : last.maxY + 1 + 4) + h }
       let box = CGRect(x: x, y: y - h, width: w, height: h).insetBy(dx: 1, dy: 1)
+      last = box
       if !inverted { lineBox = box }
       let path = UIBezierPath(roundedRect: box, cornerRadius: 4)
       ink.setFill()
