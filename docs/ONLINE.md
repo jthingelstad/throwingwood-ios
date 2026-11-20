@@ -42,6 +42,70 @@ checks the hash, and plays its recording using showAt. A gap or disagreement
 restores the room snapshot. After a win the host can put everyone back in
 the lobby with the same teams.
 
+## The highlight reel
+
+When the finished match has a kept replay (`PitchController.finishedWithReplay`:
+the engine's `room.replayOf` is not null, the same test as the web's WATCH
+REPLAY), the winner card adds a button, MAKE A HIGHLIGHT REEL. It opens the reel
+card (`ReelCard.swift`), which holds a pitch code and nothing else
+(`HighlightReel` in KubbRenderer), so a solo match can use it once a solo match
+has a code; solo has no button yet. The web's docs/REEL.md "The iPhone" is the
+contract and its words are the card's (`ReelWords`).
+
+- The card asks the rooms server with a `reel` request on a short-lived socket
+  of its own (docs/ROOMS-CLIENT.md). The request carries the pitch code only.
+- While the server renders, the card says MAKING YOUR REEL with a slow bar and
+  "About a minute. You can keep watching.", and asks again every 5 seconds while
+  the card is on screen. BACK or the app going to the background stops the
+  asking; showing the card again asks once and goes on. There is no push
+  notification. A poll that goes unanswered is asked again, three in a row is No
+  connection. The winner card's button reads MAKING YOUR REEL meanwhile and
+  WATCH THE REEL once it is done.
+- Done, the tall MP4 is downloaded to Caches (`reels/<code>/<v>-<tag>/`), and the
+  wide one too when the window is wider than tall. iOS may empty Caches; the
+  card downloads again when it is shown. The video plays muted and looping, wide
+  in a window wider than tall and tall otherwise.
+- SHARE gives the system share sheet the tall file, named
+  `throwing-wood-<code>-tall.mp4`. Save Video there adds it to Photos, which is
+  why Info.plist carries an add-only `NSPhotoLibraryAddUsageDescription`; the app
+  never reads the library. COPY LINK copies `https://throwingwood.com/p/<code>`.
+  A success haptic marks the reel arriving, when HAPTICS is on.
+- Every other answer is said plainly: no connection (nothing is sent while the
+  device has no network path; TRY AGAIN), could not be made (TRY AGAIN once, then
+  "Not this time"), no highlights, another version of the game, busy today, not
+  available, too many at once, and no replay. TRY AGAIN sends one more request:
+  after the server could not start the render it may start it; after a render
+  that failed the server keeps that result for the version and renderer look, so
+  the second answer is the same and the card says Not this time.
+
+Review pictures: `python3 tools/reel-snapshots.py <simulator-app> --videos <dir>`
+shows the card over a finished match with a stand-in server (simulator only;
+`<dir>` holds a tall and a wide MP4 from the web's renderer, run in a copy of the
+web checkout). Every state on both phones upright; making, done, failed and
+offline also turned (`--landscape right` for the 16e, `left` for the Pro Max) and
+on both iPads upright and turned (`--ipad`, `--ipad --landscape left`). An iPad
+lays the card out from its window's shape, so upside down and turned right give
+the same pictures as upright and turned left.
+
+| State | Small iPhone | Large iPhone |
+| --- | --- | --- |
+| Making | [16e](review/reel/iphone-16e-making.png) | [17 Pro Max](review/reel/iphone-17-pro-max-making.png) |
+| Done | [16e](review/reel/iphone-16e-done.png) | [17 Pro Max](review/reel/iphone-17-pro-max-done.png) |
+| Done, on its side | [16e](review/reel/iphone-16e-landscape-done.png) | [17 Pro Max](review/reel/iphone-17-pro-max-landscape-done.png) |
+| Could not be made | [16e](review/reel/iphone-16e-failed.png) | [17 Pro Max](review/reel/iphone-17-pro-max-failed.png) |
+| Not this time | [16e](review/reel/iphone-16e-notthistime.png) | [17 Pro Max](review/reel/iphone-17-pro-max-notthistime.png) |
+| No connection | [16e](review/reel/iphone-16e-offline.png) | [17 Pro Max](review/reel/iphone-17-pro-max-offline.png) |
+| No highlights | [16e](review/reel/iphone-16e-empty.png) | [17 Pro Max](review/reel/iphone-17-pro-max-empty.png) |
+| Another version | [16e](review/reel/iphone-16e-engine.png) | [17 Pro Max](review/reel/iphone-17-pro-max-engine.png) |
+| Busy today | [16e](review/reel/iphone-16e-busy.png) | [17 Pro Max](review/reel/iphone-17-pro-max-busy.png) |
+| Not available | [16e](review/reel/iphone-16e-unavailable.png) | [17 Pro Max](review/reel/iphone-17-pro-max-unavailable.png) |
+| Too many | [16e](review/reel/iphone-16e-toomany.png) | [17 Pro Max](review/reel/iphone-17-pro-max-toomany.png) |
+| No replay | [16e](review/reel/iphone-16e-noreplay.png) | [17 Pro Max](review/reel/iphone-17-pro-max-noreplay.png) |
+| iPad | [mini](review/reel/ipad-mini-done.png) | [Pro 13-inch, on its side](review/reel/ipad-pro-13-landscape-done.png) |
+
+The winner card with the button is the online `winner` review mode
+([16e](review/online/iphone-16e-winner.png)).
+
 ## What travels
 
 - Joining sends the code, the persistent random member ID, name, level and
