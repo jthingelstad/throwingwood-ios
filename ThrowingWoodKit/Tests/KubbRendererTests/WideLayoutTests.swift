@@ -189,7 +189,7 @@ import Testing
             ("meter", WideLayout.meterBox(meter, size: p.size, safe: s, side: side)),
             ("plans", WideLayout.plan(meter: meter, size: p.size, safe: s, side: side).block),
           ]
-          if let m = meter.linear { frames.append(("tab", Self.tab(m))) }
+          if let m = meter.linear { frames.append(("tab", m.tab)) }
           // online, SHOUT beside MENU (and with it beside a linear meter at the right)
           if online { frames.append(("shout", WideLayout.shout(size: p.size, safe: s, meter: meter))) }
           let what = "\(p.name) \(kind) \(side)\(online ? " online" : "")"
@@ -272,28 +272,67 @@ import Testing
       kind: kind, side: side, bounds: CGRect(origin: .zero, size: size), safeTop: s.top,
       safeBottom: s.bottom, safeLeft: s.left, safeRight: s.right)
     let plan = WideLayout.plan(meter: meter, size: size, safe: s, side: side)
-    var frames: [(String, CGRect)] = [
-      ("rail", WideLayout.rail(size: size, safe: s, meter: meter)),
-      ("menu", WideLayout.menu(size: size, safe: s, meter: meter)),
-      ("meter", WideLayout.meterBox(meter, size: size, safe: s, side: side)),
-      ("plans", plan.block),
-    ]
-    // a minimap with no room over the block in a narrow window is not drawn
-    if !plan.minimap.isNull { frames.append(("minimap", plan.minimap)) }
-    // the prompt tab and the coach line hanging under it, in every window
-    if let m = meter.linear {
-      frames.append(("tab", Self.tab(m)))
-      frames.append(("coach", Self.coach(m, size: size)))
-    }
-    let what = "\(name) \(Int(size.width)) x \(Int(size.height)) \(kind) \(side)"
-    for (n, f) in frames {
-      #expect(safeRect.contains(f), "\(what): \(n) \(f) outside \(safeRect)")
-    }
-    for i in frames.indices {
-      for j in frames.indices where j > i {
-        #expect(!frames[i].1.intersects(frames[j].1), "\(what): \(frames[i].0) meets \(frames[j].0)")
+    // every frame of the wide layout, solo and online (Codex on PR #25 found
+    // the tab, then the caption, missing from this list: keep it whole)
+    for online in [false, true] {
+      let tray = online ? WideLayout.trayWidth : 0
+      let plan = WideLayout.plan(meter: meter, size: size, safe: s, side: side, trayWidth: tray)
+      let caption = WideLayout.caption(size: size, safe: s, trayWidth: tray, meter: meter, side: side)
+      var frames: [(String, CGRect)] = [
+        ("rail", WideLayout.rail(size: size, safe: s, meter: meter)),
+        ("menu", WideLayout.menu(size: size, safe: s, meter: meter)),
+        ("caption", caption),
+        ("meter", WideLayout.meterBox(meter, size: size, safe: s, side: side)),
+        ("plans", plan.block),
+      ]
+      if online { frames.append(("shout", WideLayout.shout(size: size, safe: s, meter: meter))) }
+      // a minimap with no room over the block in a narrow window is not drawn
+      if !plan.minimap.isNull { frames.append(("minimap", plan.minimap)) }
+      // the prompt tab and the coach line hanging under it, in every window
+      if let m = meter.linear {
+        frames.append(("tab", m.tab))
+        frames.append(("coach", WideLayout.coachBand(m, size: size)))
+      }
+      let what = "\(name) \(Int(size.width)) x \(Int(size.height)) \(kind) \(side)\(online ? " online" : "")"
+      #expect(caption.width >= WideLayout.captionMin, "\(what): caption \(caption.width) pt")
+      for (n, f) in frames {
+        #expect(safeRect.contains(f), "\(what): \(n) \(f) outside \(safeRect)")
+      }
+      for i in frames.indices {
+        for j in frames.indices where j > i {
+          #expect(!frames[i].1.intersects(frames[j].1), "\(what): \(frames[i].0) \(frames[i].1) meets \(frames[j].0) \(frames[j].1)")
+        }
+      }
+      // the nudge's fingertip, its whole swing, on the screen and off every
+      // control and plate. Never with the coach line (BoardView shows one or the
+      // other). Where the meter's half is narrower than the tab and a fingertip
+      // (a window under about 600 pt) the fingertip passes over the tab's words.
+      if let m = meter.linear {
+        let nudge = m.nudgeSweep(
+          swing: NudgeSwing(back: NudgeTune().defaultBack, release: NudgeTune().defaultRelease), size: size,
+          safeLeft: s.left, safeRight: s.right, ceiling: caption.maxY)
+        let R = LinearMeter.nudgeFinger
+        let narrow = m.side == .right ? m.tab.minX < size.width / 2 + 2 * R + 4 : m.tab.maxX > size.width / 2 - 2 * R - 4
+        #expect(nudge.minY >= 0 && nudge.maxY <= size.height, "\(what): nudge \(nudge)")
+        for (n, f) in frames where n != "coach" && !(n == "tab" && narrow) {
+          #expect(!nudge.intersects(f), "\(what): nudge \(nudge) meets \(n) \(f)")
+        }
       }
     }
+    // the practice pitch's header: inside, clear of the meter, its tab, coach line and nudge
+    let header = WideLayout.practiceHeader(size: size, safe: s, meter: meter)
+    let what = "\(name) \(Int(size.width)) x \(Int(size.height)) \(kind) \(side)"
+    #expect(safeRect.contains(header) && header.width >= 200, "\(what): practice header \(header)")
+    var practice = [WideLayout.meterBox(meter, size: size, safe: s, side: side)]
+    if let m = meter.linear {
+      practice += [
+        m.tab, WideLayout.coachBand(m, size: size),
+        m.nudgeSweep(
+          swing: NudgeSwing(back: 120, release: 90), size: size, safeLeft: s.left, safeRight: s.right,
+          ceiling: header.maxY),
+      ]
+    }
+    for f in practice { #expect(!header.intersects(f), "\(what): practice header meets \(f)") }
     if let c = meter.clock {
       #expect(c.center.y + c.radius * 1.12 <= size.height - s.bottom, "\(what)")
       #expect(
@@ -404,22 +443,13 @@ import Testing
     }
   }
 
-  /// The prompt tab at the knob's home, as wide as its longest words could make
-  /// it (LinearMeterHUD's tab; the nudge keeps 5 tab heights for it too).
-  static func tab(_ m: LinearMeter) -> CGRect {
-    let w = m.promptHeight * 5
-    let x = m.side == .right ? m.left - w : m.cover.maxX  // its own hard shadow falls on the body's
-    return CGRect(x: x, y: m.yHome - m.promptHeight / 2, width: w, height: m.promptHeight)
-  }
-
-  /// The coach line hanging under the tab on a wide screen (CoachHUD: 8 pt under
-  /// it, a band 76 pt deep, kept to the meter's half `planClear` off the centre).
-  static func coach(_ m: LinearMeter, size: CGSize) -> CGRect {
-    let t = tab(m)
-    let centre = size.width / 2
-    let lo = m.side == .right ? centre + WideLayout.planClear : m.cover.maxX
-    let hi = m.side == .right ? m.left : centre - WideLayout.planClear
-    return CGRect(x: lo, y: t.maxY + 8, width: max(0, hi - lo), height: 76)
+  /// The whole list on every iPhone on its side, both meters, both sides, solo and online.
+  @Test func everyIPhoneOnItsSideHoldsTheWholeList() {
+    for p in Self.phones + Self.iPhones {
+      for kind in MeterKind.allCases {
+        for side in MeterSide.allCases { holds(p.name, p.size, p.safe, kind: kind, side: side) }
+      }
+    }
   }
 
   /// Short, narrow windows (Codex on PR #25: 480 x 400 with 10 pt insets put
@@ -441,6 +471,7 @@ import Testing
             // is the web's, unchanged here (under 380 tall it is not checked)
             guard drawn.linear != nil || h >= 380 else { continue }
             holds("short window \(Int(s.top))/\(Int(s.bottom))", size, s, kind: .linear, side: side)
+            if h >= 380 { holds("short window \(Int(s.top))/\(Int(s.bottom))", size, s, kind: .clock, side: side) }
           }
         }
       }
@@ -453,7 +484,7 @@ import Testing
       let m = try #require(meter.linear)
       let plan = WideLayout.plan(meter: meter, size: size, safe: s, side: side)
       #expect(plan.edge == (side == .right ? .left : .right))
-      #expect(!plan.block.intersects(Self.tab(m)) && !plan.block.intersects(Self.coach(m, size: size)))
+      #expect(!plan.block.intersects(m.tab) && !plan.block.intersects(WideLayout.coachBand(m, size: size)))
       // no room over the block under the rail: the minimap gives way, never a control
       #expect(plan.minimap.isNull)
       // the clock keeps the web's fallback beside the meter

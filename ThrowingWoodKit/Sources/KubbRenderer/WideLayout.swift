@@ -123,16 +123,82 @@ public enum WideLayout {
       x: m.minX - shoutGap - shoutSize.width, y: m.minY, width: shoutSize.width, height: shoutSize.height)
   }
 
+  /// The caption strip's narrowest: a slider's caption plate, the wind words or
+  /// the verdict (its flag shrinks to fit this). The iPhones' narrowest strip,
+  /// the SE online beside a linear meter, is 112.6 pt.
+  public static let captionMin: CGFloat = 112
+
   /// Where a slider's or STAND's caption, the verdict and SLOW MOTION go: the
-  /// top between the rail and MENU (and any tray beside it), its top level with theirs.
+  /// top between the rail and MENU (and any tray beside it), its top level with
+  /// theirs. Where that strip is narrower than `captionMin` (a narrow iPad
+  /// window, Codex on PR #25: 0.4 pt online at 480 x 400 beside a linear meter)
+  /// the captions take a line of their own `edge` under the header row, as
+  /// wide as the meter, its tab and coach line, and the plan block leave.
   public static func caption(
-    size: CGSize, safe: ScreenInsets, trayWidth: CGFloat = 0, meter: MeterLayout? = nil
+    size: CGSize, safe: ScreenInsets, trayWidth: CGFloat = 0, meter: MeterLayout? = nil,
+    side: MeterSide? = nil
   ) -> CGRect {
     let r = rail(size: size, safe: safe, meter: meter)
     let m = menu(size: size, safe: safe, meter: meter)
     let left = r.maxX + edge
     let right = m.minX - edge - trayWidth
-    return CGRect(x: left, y: r.minY, width: max(0, right - left), height: r.height)
+    var strip = CGRect(x: left, y: r.minY, width: max(0, right - left), height: r.height)
+    // a linear meter standing on the bottom margin whose top comes up beside
+    // MENU (a window a little taller than its 450 pt): the strip stops short of it
+    if let lm = meter?.linear, lm.cover.minY - edge < strip.maxY {
+      if lm.side == .right {
+        strip.size.width = max(0, min(strip.maxX, lm.cover.minX - edge) - strip.minX)
+      } else {
+        let x = min(strip.maxX, max(strip.minX, lm.cover.maxX + edge))
+        strip.size.width = strip.maxX - x
+        strip.origin.x = x
+      }
+    }
+    guard strip.width < captionMin, let meter else { return strip }
+    let side = side ?? meter.linear?.side ?? .right
+    var row = CGRect(
+      x: safe.left + edge, y: max(r.maxY, m.maxY) + edge,
+      width: size.width - safe.left - safe.right - 2 * edge, height: r.height)
+    var keepOut = [meterBox(meter, size: size, safe: safe, side: side), place(meter: meter, size: size, safe: safe, side: side).plan.block]
+    if let lm = meter.linear { keepOut += [lm.tab, coachBand(lm, size: size)] }
+    for k in keepOut where k.minY < row.maxY && k.maxY > row.minY {
+      if k.midX >= size.width / 2 {
+        row.size.width = max(0, min(row.maxX, k.minX - edge) - row.minX)
+      } else {
+        let x = min(row.maxX, max(row.minX, k.maxX + edge))
+        row.size.width = row.maxX - x
+        row.origin.x = x
+      }
+    }
+    return row
+  }
+
+  /// Is the caption a line of its own under the header row?
+  public static func captionHasItsOwnLine(_ c: CGRect, size: CGSize, safe: ScreenInsets, meter: MeterLayout?) -> Bool {
+    c.minY > rail(size: size, safe: safe, meter: meter).minY
+  }
+
+  /// The coach line under the linear meter's tab on a wide screen (CoachHUD:
+  /// 8 pt under it, at most 76 pt deep, in the meter's half `planClear` short
+  /// of the centre line).
+  public static func coachBand(_ m: LinearMeter, size: CGSize) -> CGRect {
+    let t = m.tab
+    let centre = size.width / 2
+    let lo = m.side == .right ? centre + planClear : m.cover.maxX
+    let hi = m.side == .right ? m.left : centre - planClear
+    return CGRect(x: lo, y: t.maxY + 8, width: max(0, hi - lo), height: 76)
+  }
+
+  /// The practice pitch's header on a wide screen (GameView.practice): 14 pt in
+  /// from the safe sides, `edge` under the safe top, about 56 pt tall with its
+  /// shadow, and 10 pt short of a linear meter's body (its meterRoom).
+  public static let practiceHeaderHeight: CGFloat = 56
+  public static func practiceHeader(size: CGSize, safe: ScreenInsets, meter: MeterLayout) -> CGRect {
+    var lo = safe.left + 14, hi = size.width - safe.right - 14
+    if let m = meter.linear {
+      if m.side == .right { hi = min(hi, m.left - 10) } else { lo = max(lo, m.cover.maxX + 10) }
+    }
+    return CGRect(x: lo, y: safe.top + edge, width: max(0, hi - lo), height: practiceHeaderHeight)
   }
 
   /// The plan's block of `block` size, on the meter's inner side `planGap` off
@@ -182,9 +248,32 @@ public enum WideLayout {
   /// stand controls should be pushed to the left hand side of the screen so the
   /// user can control those with the left hand and the throw with the right
   /// hand"). The web's planAt (src/game/layout.js) with the app's block size.
+  ///
+  /// `trayWidth`: SHOUT's online (`trayWidth`), which can push the captions to a
+  /// line of their own under the header row: a stacked minimap keeps clear of it.
   public static func plan(
-    block: CGSize = planBlock, meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide
+    block: CGSize = planBlock, meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide,
+    trayWidth: CGFloat = 0
   ) -> Plan {
+    var p = place(block: block, meter: meter, size: size, safe: safe, side: side)
+    guard p.stacked else { return p.plan }
+    // the minimap over the block: clear of the rail, MENU and the captions' line
+    var top = max(rail(size: size, safe: safe, meter: meter).maxY, menu(size: size, safe: safe, meter: meter).maxY)
+    let c = caption(size: size, safe: safe, trayWidth: trayWidth, meter: meter, side: side)
+    if captionHasItsOwnLine(c, size: size, safe: safe, meter: meter), c.minX < p.plan.minimap.maxX,
+      c.maxX > p.plan.minimap.minX
+    {
+      top = max(top, c.maxY)
+    }
+    if p.plan.minimap.minY < top + stackedMapGap { p.plan.minimap = .null }
+    return p.plan
+  }
+
+  /// The block and its edge, and the minimap where it would go (`stacked`: over
+  /// the block, to be checked against the top row by `plan`).
+  static func place(
+    block: CGSize = planBlock, meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide
+  ) -> (plan: Plan, stacked: Bool) {
     let beside = plans(block: block, meter: meter, size: size, safe: safe, side: side)
     let corner = minimap(size: size, safe: safe, side: side)
     // the block's edge is the one away from the meter
@@ -202,21 +291,20 @@ public enum WideLayout {
       // controls and the tab keep their places).
       let blockInner = edge == .left ? x + block.width : size.width - x
       guard meter.linear != nil, blockInner <= size.width / 2 - planClear else {
-        return Plan(block: beside, edge: nil, minimap: corner)
+        return (Plan(block: beside, edge: nil, minimap: corner), false)
       }
       let b = CGRect(x: x, y: beside.minY, width: block.width, height: block.height)
       var map = corner
       map.origin.x = edge == .left ? b.maxX - corner.width : b.minX
       map.origin.y = b.minY - planMapGap - corner.height
-      let top = max(
-        rail(size: size, safe: safe, meter: meter).maxY, menu(size: size, safe: safe, meter: meter).maxY)
-      return Plan(block: b, edge: edge, minimap: map.minY >= top + stackedMapGap ? map : .null)
+      return (Plan(block: b, edge: edge, minimap: map), true)
     }
     var map = corner
     map.origin.x = mx
-    return Plan(
-      block: CGRect(x: x, y: beside.minY, width: block.width, height: block.height), edge: edge,
-      minimap: map)
+    return (
+      Plan(
+        block: CGRect(x: x, y: beside.minY, width: block.width, height: block.height), edge: edge,
+        minimap: map), false)
   }
 
   // MARK: The raise and punishment bar

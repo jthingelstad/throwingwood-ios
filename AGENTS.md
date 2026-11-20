@@ -179,7 +179,10 @@ meter box's, the minimap 12 pt on its inner side, and back beside the clock
 only if the minimap would come within 24 pt of the centre (`WideLayout.plan`,
 the web's planAt). Beside the linear meter the block never goes back over the
 prompt tab: it stays at the far edge and the minimap goes over it, or is not
-drawn where there is no room (a narrow, short iPad window). The raise and punishment panel is a bar along the bottom
+drawn where there is no room (a narrow, short iPad window). The caption strip
+never goes under 112 pt (`WideLayout.captionMin`): where the strip beside SHOUT
+cannot give that, the captions take a line of their own under the header row,
+clear of the meter, plan block, tab and coach line, never the clock instead. The raise and punishment panel is a bar along the bottom
 (`WideLayout.bar`, the web's game.css panel): it must never cover the kubb
 being raised, its numbers, a press or drag on it, or the ground a punishment
 kubb may go on, so the app reports the bar's measured height
