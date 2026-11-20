@@ -25,7 +25,7 @@ struct HomeCard: View {
         }
         .buttonStyle(WoodButton())
         Button {
-          model.screen = .practice
+          model.openPractice()
         } label: {
           Text("PRACTICE").frame(maxWidth: .infinity)
         }
@@ -122,7 +122,7 @@ struct SheetCard: View {
             .frame(minWidth: box.size.width, minHeight: box.size.height, alignment: .topLeading)
         }
       }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(.white).border(Color.woodInk)
+        .background(skin.isDay ? Color.white : Color.woodPaper).border(Color.woodInk)
       Toggle("Show positions", isOn: $positions)
       HStack {
         Button(copied ? "COPIED" : "COPY") {
@@ -456,7 +456,7 @@ struct MatchScreen: View {
       model.perform(action)
     } label: {
       Text(text).font(displayFont(16)).frame(minWidth: 43, minHeight: 31)
-        .modifier(Plate(fill: on ? .woodGold : .woodPaper, inset: 4))
+        .modifier(Plate(accent: on, inset: 4))
     }.accessibilityLabel(label)
   }
 
@@ -486,9 +486,9 @@ struct MatchScreen: View {
             .lineLimit(1)
           Spacer(minLength: 0)
           if let why = barWhy(n) {
-            Text(why).font(displayFont(15)).foregroundStyle(.white).lineLimit(1)
+            Text(why).font(displayFont(15)).foregroundStyle(Color(skin.onWarn)).lineLimit(1)
               .padding(.horizontal, 8).padding(.vertical, 1)
-              .background(Color(red: 0.86, green: 0.25, blue: 0.22), in: RoundedRectangle(cornerRadius: 3))
+              .background(Color(skin.warn), in: RoundedRectangle(cornerRadius: 3))
           }
         }
         if n.kind == "punish" {
@@ -570,7 +570,7 @@ struct MatchScreen: View {
 
   private func modal<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
     ZStack {
-      Color.black.opacity(0.26).ignoresSafeArea()
+      Color(skin.dim).ignoresSafeArea()
       content().frame(maxWidth: 330).modifier(Plate(inset: 20)).padding(22).modifier(FitOrScroll())
     }
   }
@@ -749,7 +749,7 @@ struct PlanControls: View {
       model.perform(action)
     } label: {
       Text(text).font(displayFont(16)).frame(minWidth: 84, minHeight: 34)
-        .modifier(Plate(fill: on ? .woodGold : .woodPaper, inset: 4))
+        .modifier(Plate(accent: on, inset: 4))
     }.accessibilityLabel(label).accessibilityAddTraits(on ? .isSelected : [])
   }
 }
@@ -770,7 +770,7 @@ struct VersionFooter: View {
       Text("Throwing Wood \(label.text)")
       ForEach(label.detail, id: \.self) { Text($0) }
     }
-    .font(.caption2).foregroundStyle(.secondary)
+    .font(.caption2).mutedText()
     .accessibilityElement(children: .combine)
   }
 }

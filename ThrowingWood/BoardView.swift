@@ -346,9 +346,15 @@ import UIKit
       defer { if reviewMode == "timing" { timing.draw(start) } }
     #endif
     let backdrop = model.screen == .home || model.screen == .options
+    // the screen's scene (GameModel.shownScene): its look, and its effects for
+    // the throws it shows, calmed by Reduce Motion
+    let look = model.shownScene
+    let reduced = UIAccessibility.isReduceMotionEnabled
+    pitch.useLook(look, reduced: reduced)
     PitchRenderer.draw(
       in: ctx, size: bounds.size, camera: pitch.camera,
-      scene: backdrop ? pitch.scene.scenery : pitch.scene)
+      scene: backdrop ? pitch.scene.scenery : pitch.scene, look: look,
+      effects: backdrop ? nil : pitch.effects, time: pitch.lookTime, reduced: reduced)
     #if targetEnvironment(simulator)
       if reviewMode != nil || matchReview != nil { writeReviewLayout() }
       if let mode = reviewMode, matchReview == nil, reviewReady, !signalled, model.error == nil,
@@ -397,14 +403,14 @@ import UIKit
           let map = WideLayout.plan(
             meter: meter, size: bounds.size, safe: insets, side: model.meter.side,
             trayWidth: model.online == nil ? 0 : WideLayout.trayWidth).minimap
-          if !map.isNull { pitch.scene.drawMap(in: ctx, rect: map) }
+          if !map.isNull { pitch.scene.drawMap(in: ctx, rect: map, look: look) }
         } else {
           let width = min(74, bounds.width * 0.18)
           let left = (pitch.marker(in: bounds.size)?.x ?? 0) > bounds.midX
           let x = left ? 14 : bounds.width - width - 14
           pitch.scene.drawMap(
             in: ctx,
-            rect: CGRect(x: x, y: safeAreaInsets.top + 75, width: width, height: width * 1.65))
+            rect: CGRect(x: x, y: safeAreaInsets.top + 75, width: width, height: width * 1.65), look: look)
         }
       }
       for e in pitch.raiseEnds(in: bounds.size) { hud.endLabel(e) }

@@ -2,20 +2,27 @@ import AVFAudio
 import KubbRenderer
 import SwiftUI
 
-extension Color {
-  static let woodInk = Color(red: 23 / 255, green: 20 / 255, blue: 15 / 255)
-  static let woodPaper = Color(red: 251 / 255, green: 246 / 255, blue: 234 / 255)
-  static let woodGold = Color(red: 0.96, green: 0.73, blue: 0.13)
+// The plates' colours: the scene's skin (Skin.swift), the day's as they always were.
+@MainActor extension Color {
+  static var woodInk: Color { Color(skin.ink) }
+  static var woodPaper: Color { Color(skin.paper) }
+  static var woodGold: Color { Color(skin.accent) }
+  /// Type on the accent (a pressed choice, a gold button).
+  static var woodOnGold: Color { Color(skin.onAccent) }
+  /// A plate's hard shadow.
+  static var woodDrop: Color { Color(skin.drop) }
 }
 
 struct Plate: ViewModifier {
-  var fill = Color.woodPaper
+  /// nil: the paper. `accent`: the gold, its type the skin's on-accent.
+  var fill: Color? = nil
+  var accent = false
   var inset: CGFloat = 16
   func body(content: Content) -> some View {
-    content.foregroundStyle(Color.woodInk).padding(inset)
-      .background(fill, in: RoundedRectangle(cornerRadius: 5))
+    content.foregroundStyle(accent ? Color.woodOnGold : Color.woodInk).padding(inset)
+      .background(fill ?? (accent ? .woodGold : .woodPaper), in: RoundedRectangle(cornerRadius: 5))
       .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color.woodInk, lineWidth: 2))
-      .background(RoundedRectangle(cornerRadius: 5).fill(Color.woodInk).offset(x: 3, y: 4))
+      .background(RoundedRectangle(cornerRadius: 5).fill(Color.woodDrop).offset(x: 3, y: 4))
   }
 }
 
@@ -33,7 +40,7 @@ struct WoodButton: ButtonStyle {
     var body: some View {
       configuration.label.font(.custom("LondrinaSolid-Black", size: 21, relativeTo: .headline))
         .frame(minHeight: 26).padding(.horizontal, 6)
-        .modifier(Plate(fill: accent ? .woodGold : .woodPaper, inset: 8))
+        .modifier(Plate(accent: accent, inset: 8))
         .offset(y: configuration.isPressed && enabled ? 2 : 0)
         .opacity(enabled ? 1 : 0.55)
     }
@@ -64,7 +71,7 @@ struct GameView: View {
           PitchBoard(
             pitch: pitch, model: model, active: live && phase == .active && model.error == nil,
             revision: model.revision + model.onlineRevision, screen: model.screen,
-            meter: model.meter.kind, side: model.meter.side
+            meter: model.meter.kind, side: model.meter.side, look: model.shownScene
           )
           .id(ObjectIdentifier(pitch)).ignoresSafeArea().allowsHitTesting(live)
           if let version = model.online?.versionCard {
@@ -140,7 +147,10 @@ struct GameView: View {
       model.feedback.setActive(false)
       model.online?.close()
     }
-    .preferredColorScheme(.light)
+    // a scene skins the system's controls too: its menus and pickers go dark
+    .preferredColorScheme(SkinStore.shared.skin.isDay ? .light : .dark)
+    .tint(SkinStore.shared.skin.isDay ? nil : Color(SkinStore.shared.skin.accent))
+    .onChange(of: model.shownScene, initial: true) { _, id in SkinStore.shared.use(id) }
     .alert(
       "Pitch unavailable",
       isPresented: Binding(
@@ -208,6 +218,15 @@ struct GameView: View {
             ForEach(Surface.allCases, id: \.self) { s in Text(s.rawValue.capitalized).tag(s) }
           }
           .pickerStyle(.menu).disabled(model.playing)
+          if model.offline?.options.takesScene == true {
+            Picker(
+              SceneID.row.label,
+              selection: Binding(get: { model.practiceScene }, set: { model.practiceScene = $0 })
+            ) {
+              ForEach(SceneID.row.choices, id: \.self) { c in Text(c[1]).tag(c[0]) }
+            }
+            .pickerStyle(.menu).disabled(model.playing)
+          }
           ReportButton(model: model)
           LevelSetting(model: model, card: false).disabled(model.playing)
           FeedbackSettings(feedback: model.feedback)
@@ -277,6 +296,8 @@ struct Verdict: View {
 private struct PitchBoard: UIViewRepresentable {
   let pitch: PitchSession, model: GameModel, active: Bool, revision: Int, screen: GameModel.Screen
   let meter: MeterKind, side: MeterSide
+  /// The scene on the screen: a change draws the pitch again.
+  let look: String
   func makeUIView(context: Context) -> BoardView { BoardView(pitch: pitch, model: model) }
   func updateUIView(_ view: BoardView, context: Context) {
     view.setActive(active)

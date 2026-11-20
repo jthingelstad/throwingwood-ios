@@ -4,7 +4,11 @@ import KubbEngine
 import KubbRooms
 
 extension PitchSession {
-  public func practice() throws {
+  /// A new practice pitch on `surface`, in `scene` (the practice menu's Scene, a
+  /// look only: the engine keeps it from the start and has no setter, so a new
+  /// scene is a new practice, as on the web). The day, an unknown id or an
+  /// engine that takes no scene: no scene is sent.
+  public func practice(scene: String? = nil, surface: Surface = .grass) throws {
     try useEngine(minor: nil)  // practice is always on the newest
     resetPresentation()
     trail = ReportTrail()
@@ -12,7 +16,12 @@ extension PitchSession {
     save = nil
     trailKept = false
     trailComplete = false
-    try adopt(read("new", #"{"mode":"practice","surface":"grass"}"#))
+    let look = scene.flatMap { options.takesScene && SceneID.drawn.contains($0) ? $0 : nil }
+    try adopt(
+      read(
+        "new",
+        #"{"mode":"practice","surface":"\#(surface.rawValue)""#
+          + (look.map { #","scene":"\#($0)""# } ?? "") + "}"))
   }
 
   /// `level` is the player's own (ThrowLevel, the device's); `selections["computer"]`

@@ -8,8 +8,8 @@ extension PracticeHUD {
   /// straight throw. Plain wood, no bands, as on the pitch (Jamie, 2026-11-20).
   /// Drawn only; nothing here reaches the engine.
   func leaningBaton(at circle: CGPoint, tiltDegrees: Double) {
-    let ink = UIColor(red: 0.09, green: 0.078, blue: 0.059, alpha: 1)
-    let wood = UIColor(red: 0.95, green: 0.89, blue: 0.75, alpha: 1)
+    let ink = self.ink
+    let wood = UIColor(skin.meterKnob)
     let length: CGFloat = 62, width: CGFloat = 11
     let foot = CGPoint(x: circle.x, y: circle.y - 10)
     context.saveGState()

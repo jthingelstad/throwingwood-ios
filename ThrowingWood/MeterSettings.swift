@@ -80,7 +80,7 @@ struct MeterSettings: View {
   }
 
   private func note(_ words: String) -> some View {
-    Text(words).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    Text(words).font(.caption).mutedText().fixedSize(horizontal: false, vertical: true)
   }
 }
 

@@ -10,20 +10,23 @@ extension PitchScene {
   }
 
   /// From the same thrower-frame poses as the pitch, with the far baseline at the top.
-  public func drawMap(in ctx: CGContext, rect: CGRect) {
+  /// `look`: the scene the map is skinned for (the web's skin hud.mapGround);
+  /// the day, or an unknown scene, draws it as it always was.
+  public func drawMap(in ctx: CGContext, rect: CGRect, look: String? = nil) {
     ctx.saveGState()
     defer { ctx.restoreGState() }
-    ctx.setFillColor(color(ink))
+    let m = MapPaint.of(SceneID.shown(look ?? self.look), surface)
+    let ink = m.ink, white = m.line
+    ctx.setFillColor(color(m.drop.rgb, m.drop.a))
     ctx.fill(rect.offsetBy(dx: 2, dy: 2))
-    ctx.setFillColor(color(paper))
+    ctx.setFillColor(color(m.paper))
     ctx.fill(rect)
     ctx.setStrokeColor(color(ink))
     ctx.setLineWidth(2)
     ctx.stroke(rect)
     let s = min((rect.width - 8) / 5, (rect.height - 8) / 8)
     let field = CGRect(x: rect.midX - 2.5 * s, y: rect.midY - 4 * s, width: 5 * s, height: 8 * s)
-    let ground = surface == .grass ? 0x6bb146 : (surface == .sand ? 0xe8cf98 : 0xd3dfec)
-    ctx.setFillColor(color(ground))
+    ctx.setFillColor(color(m.ground))
     ctx.fill(field)
     ctx.setLineWidth(1)
     ctx.stroke(field)
@@ -48,7 +51,7 @@ extension PitchScene {
       let p = point(piece.x, piece.y)
       guard rect.contains(p) else { continue }
       let dot = CGRect(x: p.x - 2, y: p.y - 2, width: 4, height: 4)
-      let paint = piece.team == "B" ? 0x8e44ad : (piece.team == "A" ? 0xf2b705 : ink)
+      let paint = piece.team == "B" ? m.teamB : (piece.team == "A" ? m.teamA : m.king)
       ctx.setFillColor(color(paint))
       ctx.fill(dot)
       ctx.setStrokeColor(color(ink))
@@ -61,3 +64,41 @@ extension PitchScene {
     }
   }
 }
+
+/// The minimap's colours in a scene (palette.js NIGHT.skin and NEON.skin
+/// hud.mapGround, and the pieces in their scene's light).
+struct MapPaint {
+  let ink, paper, ground, line, teamA, teamB, king: Int
+  let drop: (rgb: Int, a: Double)
+  static func of(_ look: String, _ surface: Surface) -> MapPaint {
+    switch look {
+    case "night":
+      let g: (Int, Int) =
+        switch surface {
+        case .grass: (0x284a3b, 0xe6f8ff)
+        case .sand: (0x6e6452, 0xfff3dc)
+        case .snow: (0x9fb4d3, 0x1f5fd0)
+        }
+      return MapPaint(
+        ink: 0xdbe9ff, paper: 0x0d1424, ground: g.0, line: g.1, teamA: 0xf2b705, teamB: 0xb07ad0,
+        king: 0xf4cf6a, drop: (0x000000, 0.55))
+    case "neon":
+      let g: (Int, Int) =
+        switch surface {
+        case .grass: (0x0a2a33, 0xc8fdff)
+        case .sand: (0x30200a, 0xfff0c8)
+        case .snow: (0x1c2a48, 0xffffff)
+        }
+      return MapPaint(
+        ink: 0x5ff0ff, paper: 0x02050a, ground: g.0, line: g.1, teamA: 0xffc94a, teamB: 0xcf8bff,
+        king: 0xff5c9d, drop: (0x2be4ff, 0.35))
+    default:
+      return MapPaint(
+        ink: dayInk, paper: dayPaper,
+        ground: surface == .grass ? 0x6bb146 : (surface == .sand ? 0xe8cf98 : 0xd3dfec),
+        line: dayWhite, teamA: 0xf2b705, teamB: 0x8e44ad, king: dayInk,
+        drop: (dayInk, 1))
+    }
+  }
+}
+private let dayInk = ink, dayPaper = paper, dayWhite = white

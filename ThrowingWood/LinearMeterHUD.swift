@@ -3,7 +3,7 @@ import UIKit
 
 /// The meters' colours: the web's HUD palette (src/render/palette.js), so the
 /// linear meter is the same instrument on a phone and in a browser.
-enum MeterPaint {
+@MainActor enum MeterPaint {
   /// The last throw's marks: a faded ghost of the knob, about 60% of its size at
   /// about 45% opacity, where the knob was (the same on the web).
   static let ghostSize: CGFloat = 0.6
@@ -13,19 +13,24 @@ enum MeterPaint {
       red: CGFloat((v >> 16) & 0xff) / 255, green: CGFloat((v >> 8) & 0xff) / 255,
       blue: CGFloat(v & 0xff) / 255, alpha: a)
   }
-  static let face = hex(0xfbf6ea)
-  static let faceShade = hex(0xeadfc8)
-  static let ring = hex(0xf1e7d2)
-  static let power = hex(0xff7a3d)
-  static let powerDeep = hex(0xc4521f)
-  static let release = hex(0x33b6e8)
-  static let releaseDeep = hex(0x1f7fa8)
-  static let dead = hex(0xc9bfa9)
-  static let over = hex(0xe5484d)
-  static let hand = hex(0x7a5530)
-  static let knob = hex(0xf2e2c0)
-  static let knobGrab = UIColor.white
-  static let glow = UIColor(red: 1, green: 246 / 255, blue: 200 / 255, alpha: 0.55)
+  // the day's are the web's HUD as they always were; a scene's are its skin's
+  private static func pick(_ day: @autoclosure () -> UIColor, _ scene: (SceneSkin) -> SkinPaint) -> UIColor {
+    let s = SkinStore.shared.skin
+    return s.isDay ? day() : UIColor(scene(s))
+  }
+  static var face: UIColor { pick(hex(0xfbf6ea), \.face) }
+  static var faceShade: UIColor { pick(hex(0xeadfc8), \.faceShade) }
+  static var ring: UIColor { pick(hex(0xf1e7d2), \.ring) }
+  static var power: UIColor { pick(hex(0xff7a3d), \.power) }
+  static var powerDeep: UIColor { pick(hex(0xc4521f), \.powerDeep) }
+  static var release: UIColor { pick(hex(0x33b6e8), \.release) }
+  static var releaseDeep: UIColor { pick(hex(0x1f7fa8), \.releaseDeep) }
+  static var dead: UIColor { pick(hex(0xc9bfa9), \.dead) }
+  static var over: UIColor { pick(hex(0xe5484d), \.over) }
+  static var hand: UIColor { pick(hex(0x7a5530), \.hand) }
+  static var knob: UIColor { pick(hex(0xf2e2c0), \.meterKnob) }
+  static var knobGrab: UIColor { pick(UIColor.white, \.knobGrab) }
+  static var glow: UIColor { pick(UIColor(red: 1, green: 246 / 255, blue: 200 / 255, alpha: 0.55), \.glow) }
 }
 
 /// The engine's prompts are the crank's; on the linear meter they read as its own motion.
@@ -242,8 +247,8 @@ extension PracticeHUD {
   func linearHint(_ g: LinearMeter, safeBottom: CGFloat) {
     let x = g.side == .right ? (g.left - 10) / 2 : (g.right + g.shadow + 10 + size.width) / 2
     let y = size.height - safeBottom - 22
-    text("Draw back · fling up", at: CGPoint(x: x, y: y), size: 16, color: ink, plate: true)
-    text("Tap or drag to aim", at: CGPoint(x: x, y: y - 34), size: 16, color: ink, plate: true)
+    text("Draw back · fling up", at: CGPoint(x: x, y: y), size: 16, color: type, plate: true)
+    text("Tap or drag to aim", at: CGPoint(x: x, y: y - 34), size: 16, color: type, plate: true)
   }
 
   /// A little baton end: the knob of both meters.
