@@ -174,13 +174,25 @@ local function aim(side, a)
 end
 wide.aim = aim
 
--- A recording's bursts' anchors (what the client draws from a recording).
+-- A recording's bursts' anchors (what the client draws from a recording), and since 0.7.2
+-- its facts in world terms too: the result's landing and rest spots (landX, landY, restX,
+-- restY), the landing, and the timeline's first contact and first hit.
 local function recording(side, rec)
 	if not rec or side ~= "B" or not rec.timeline then return rec end
 	local o = {}
 	for k, v in pairs(rec) do o[k] = v end
+	if rec.result then
+		local r = {}
+		for k, v in pairs(rec.result) do r[k] = v end
+		if r.landX and r.landY then r.landX, r.landY = frame.point(side, r.landX, r.landY) end
+		if r.restX and r.restY then r.restX, r.restY = frame.point(side, r.restX, r.restY) end
+		o.result = r
+	end
+	o.landing = point(side, rec.landing)
 	local tl = {}
 	for k, v in pairs(rec.timeline) do tl[k] = v end
+	tl.firstContact = point(side, rec.timeline.firstContact)
+	tl.firstHit = point(side, rec.timeline.firstHit)
 	if rec.timeline.bursts then
 		tl.bursts = {}
 		for i, b in ipairs(rec.timeline.bursts) do

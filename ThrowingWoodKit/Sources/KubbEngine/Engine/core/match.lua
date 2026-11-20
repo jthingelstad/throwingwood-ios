@@ -361,35 +361,42 @@ local function wins(g)
 	return match.teamName(g.winner, g) .. " wins"
 end
 
--- A short line for a baton token (and the notes the throw added).
+-- A short line for a baton token (and the notes the throw added), and the same as
+-- codes: a list of { code, n } beside the words (m.ruling), one per part of the line,
+-- so a reader need not parse the English. The words are what they always were.
 local function batonText(g, token, notes, from)
-	local parts = {}
-	if token == "K" then return "king down: " .. wins(g) end
-	if token:sub(-1) == "E" then return "king down early: " .. wins(g) end
-	if token == "G" then return "resigned: " .. wins(g) end
+	local parts, codes = {}, {}
+	if token == "K" then return "king down: " .. wins(g), { { code = "kingWin" } } end
+	if token:sub(-1) == "E" then return "king down early: " .. wins(g), { { code = "kingEarly" } } end
+	if token == "G" then return "resigned: " .. wins(g), { { code = "resigned" } } end
 	if token == "=" then
-		parts[1] = "missed the king"
+		parts[1], codes[1] = "missed the king", { code = "kingMiss" }
 	elseif token == "Z" then
-		if hasNote(notes, from, "II.B.11") then parts[1] = "own-half kubb hit: all put back"
-		else parts[1] = "helicopter: illegal" end
+		if hasNote(notes, from, "II.B.11") then parts[1], codes[1] = "own-half kubb hit: all put back", { code = "ownHalf" }
+		else parts[1], codes[1] = "helicopter: illegal", { code = "helicopter" } end
 	elseif token == "-" then
-		parts[1] = "missed"
+		parts[1], codes[1] = "missed", { code = "miss" }
 	else
 		local function n(c) if not c then return 0 end return c == "" and 1 or tonumber(c) end
 		local f, b = n(token:match("^(%d*)F")), n(token:match("(%d*)B$"))
-		if f > 0 then parts[#parts + 1] = plural(f, "field kubb", "field kubbs") end
-		if b > 0 then parts[#parts + 1] = plural(b, "base kubb", "base kubbs") end
+		if f > 0 then parts[#parts + 1] = plural(f, "field kubb", "field kubbs"); codes[#codes + 1] = { code = "field", n = f } end
+		if b > 0 then parts[#parts + 1] = plural(b, "base kubb", "base kubbs"); codes[#codes + 1] = { code = "base", n = b } end
 		parts = { table.concat(parts, " and ") .. " down" }
 	end
-	if hasNote(notes, from, "II.B.4a") then parts[#parts + 1] = "base kubb early: raised" end
-	if hasNote(notes, from, "II.B.7") then parts[#parts + 1] = "pushed out: put back" end
-	return table.concat(parts, "; ")
+	if hasNote(notes, from, "II.B.4a") then
+		parts[#parts + 1] = "base kubb early: raised"; codes[#codes + 1] = { code = "baseEarly" }
+	end
+	if hasNote(notes, from, "II.B.7") then
+		parts[#parts + 1] = "pushed out: put back"; codes[#codes + 1] = { code = "pushedOut" }
+	end
+	return table.concat(parts, "; "), codes
 end
 
 -- Apply a finished physics throw. `res` is tw.world.result of a world
 -- built from m.setup.pieces with the projectile launched (a kubb toss's
 -- projectile body has the kubb's id); `illegal` is true for a helicopter
--- baton. Sets m.text and returns the outcome record given to the engine.
+-- baton. Sets m.text (and m.ruling, its codes: { parts = { { code, n } }, winner })
+-- and returns the outcome record given to the engine. m.ruling is not saved.
 -- The kubb throwing is judged at the final position (core/rules): after a
 -- toss that is not the last of its round m.text says only where the kubb
 -- lies for now; after the last one it says what the judgment did.
@@ -412,38 +419,45 @@ function match.resolve(m, res, illegal)
 		o = outcome.toss(res, s.pieces, s.side, s.kubb)
 		g:toss(o, s.thrower and s.thrower.id)
 		m.tossed = m.tossed + 1
-		local parts = {}
+		local parts, codes = {}, {}
+		local function say(text, code, n)
+			parts[#parts + 1] = text
+			codes[#codes + 1] = { code = code, n = n }
+		end
 		local fouled = hasNote(sheetTurn.notes, nn + 1, "II.C.4b")
 		local j = g.judgment
 		if g.phase == "over" then
-			parts[1] = "king down: " .. wins(g)
+			say("king down: " .. wins(g), "kingKubb")
 		elseif not j then
 			-- more kubbs to throw in this round: only where it lies now
-			if fouled then parts[1] = "own half hit: kubb out"
-			elseif g:liesNow(s.kubb) == "out" then parts[1] = "kubb out for now"
-			else parts[1] = "kubb in for now" end
+			if fouled then say("own half hit: kubb out", "ownHalfOut")
+			elseif g:liesNow(s.kubb) == "out" then say("kubb out for now", "outForNow")
+			else say("kubb in for now", "inForNow") end
 		else
 			-- the last throw of the round: the judgment
-			if fouled then parts[1] = "own half hit" end
+			if fouled then say("own half hit", "ownHalf") end
 			if j.rethrow == 0 and j.punish == 0 and j.rescue == 0 and not fouled then
-				parts[#parts + 1] = j.thrown == 1 and "kubb in" or "all in"
+				say(j.thrown == 1 and "kubb in" or "all in", "in", j.thrown)
 			end
 			if j.rethrow > 0 then
-				parts[#parts + 1] = j.rethrow == 1 and "kubb out: rethrown" or (j.rethrow .. " out: rethrown")
+				say(j.rethrow == 1 and "kubb out: rethrown" or (j.rethrow .. " out: rethrown"), "rethrow", j.rethrow)
 			end
 			if j.punish > 0 then
-				parts[#parts + 1] = j.punish == 1 and "out twice: punishment kubb" or (j.punish .. " punishment kubbs")
+				say(j.punish == 1 and "out twice: punishment kubb" or (j.punish .. " punishment kubbs"), "punish", j.punish)
 			end
-			if inkCount("N") > before.N then parts[#parts + 1] = "on a kubb: lowered" end
+			if inkCount("N") > before.N then say("on a kubb: lowered", "lowered") end
 			local q = inkCount("Q") - before.Q
-			if q > 0 then parts[#parts + 1] = plural(q, "rescue", "rescues") end
+			if q > 0 then say(plural(q, "rescue", "rescues"), "rescue", q) end
 		end
 		m.text = table.concat(parts, "; ")
+		m.ruling = { parts = codes, winner = g.winner }
 	else
 		o = outcome.baton(res, s.pieces, s.side, illegal)
 		g:throwBaton(o, s.thrower and s.thrower.id)
 		local b = sheetTurn.batons[nb + 1]
-		m.text = batonText(g, b and b.token or "-", sheetTurn.notes, nn + 1)
+		local codes
+		m.text, codes = batonText(g, b and b.token or "-", sheetTurn.notes, nn + 1)
+		m.ruling = { parts = codes, winner = g.winner }
 	end
 	match.carryDebris(m, s, res, turn, sheetTurn.batons[nb + 1])
 	countTurn(m)
@@ -511,6 +525,7 @@ function match.resign(m)
 	m.setup = nil
 	debris.clear(m.debris)
 	m.text = match.teamName(side, g) .. " resigned: " .. wins(g)
+	m.ruling = { parts = { { code = "resigned" } }, winner = g.winner }
 	return true
 end
 
@@ -526,8 +541,9 @@ function match.howText(m)
 end
 
 -- The game file (DESIGN 7): text and file name. finish = {year, month, day,
--- hour, min}; the start is m.start (finish when it was not given).
-function match.file(m, finish, version)
+-- hour, min}; the start is m.start (finish when it was not given). location: the
+-- Location line (nil: notation.location).
+function match.file(m, finish, version, location)
 	local start = m.start or finish
 	local g = m.game
 	local levels = {}
@@ -537,7 +553,7 @@ function match.file(m, finish, version)
 		end
 	end
 	local text = notation.render(g, { start = start, finish = finish, version = version, mode = m.mode,
-		levels = levels })
+		levels = levels, location = location })
 	return text, notation.filename(start, g.teams.A.name, g.teams.B.name)
 end
 
