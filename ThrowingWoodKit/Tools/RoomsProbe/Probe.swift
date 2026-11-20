@@ -38,6 +38,44 @@ import KubbRooms
             happened: "Synthetic contact", should: "Both pieces move", selected: ["king", "b1"])
           try await RoomsClient.sendReport(message, url: url, appVersion: "0.0-test")
           response = .bool(true)
+        case "shareMake":
+          // the iPhone's `share` message for a finished match against the computer
+          let engine = try Engine(appVersion: "0.0-test")
+          let source = ShareSource(
+            engine: cmd["engine"]!.string!, start: cmd["start"]!.string!,
+            actions: cmd["actions"]!.items.map(\.raw), winner: cmd["winner"]!.string!)
+          switch try ShareMessage.make(engine: engine, source: source, name: cmd["name"]!.string!) {
+          case .message(let text, let bytes):
+            response = .object([("message", .string(text.text)), ("bytes", .int(bytes))])
+          case .refused(let why): response = .object([("refused", .string(why.rawValue))])
+          }
+        case "share":
+          let url = URL(string: cmd["url"]!.string!)!
+          guard url.host == "127.0.0.1", url.scheme == "ws" else { throw RoomError("local-only") }
+          let reply = try await RoomsClient.share(
+            JSONText(cmd["message"]!.string!), url: url, appVersion: "0.0-test")
+          response = .object([
+            ("code", reply.code.map(JS.string) ?? .null), ("v", reply.v.map(JS.int) ?? .null),
+            ("why", reply.why.map(JS.string) ?? .null),
+          ])
+        case "reel":
+          let url = URL(string: cmd["url"]!.string!)!
+          guard url.host == "127.0.0.1", url.scheme == "ws" else { throw RoomError("local-only") }
+          let answer = try await RoomsClient.reel(room: cmd["room"]!.string!, url: url, appVersion: "0.0-test")
+          response = .string(String(describing: answer))
+        case "sealedCard":
+          // what the app's sealed card shows: the kept replay's last snapshot, restored
+          let url = URL(string: cmd["url"]!.string!)!
+          guard url.host == "127.0.0.1", url.scheme == "ws" else { throw RoomError("local-only") }
+          guard let kept = try await RoomsClient.kept(room: cmd["room"]!.string!, url: url, appVersion: "0.0-test"),
+            let snap = kept.snap
+          else { throw RoomError("no-kept-replay") }
+          let board = try PitchSession(appVersion: "0.0-test")
+          try board.restore(snap, save: nil)
+          response = .object([
+            ("need", .string(board.need?.kind ?? "")), ("v", .int(kept.v)),
+            ("n", kept.n.map(JS.int) ?? .null), ("hash", kept.hash.map(JS.string) ?? .null),
+          ])
         case "wireConnect":
           let url = URL(string: cmd["url"]!.string!)!
           guard url.host == "127.0.0.1", url.scheme == "ws" else { throw RoomError("local-only") }

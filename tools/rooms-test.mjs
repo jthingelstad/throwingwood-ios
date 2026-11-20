@@ -988,6 +988,117 @@ try {
     await rpc({ op: "close", key });
     browser.close();
   }
+  // Sharing a match against the computer (the web's docs/ROOMS.md section 13): the
+  // iPhone's message for the web's vector match, the web's own check on a server of its
+  // own, the same code again, a sealed join, the kept replay and the reel. The reel
+  // renderer is a stand-in that only notes what it was asked: nothing is written.
+  {
+    const { devShareChecker, devReelEngines } = await fromWeb(
+      "tools/reels-dev.mjs",
+    );
+    const asked = [];
+    const shareServer = await startRoomsServer({
+      port: 0,
+      shareChecker: devShareChecker({ log: () => {} }),
+      reelEngines: devReelEngines(),
+      reelRenderer: () => async (input) => {
+        asked.push(input);
+      },
+    });
+    try {
+      const vec = JSON.parse(
+        readFileSync(
+          join(root, "ThrowingWoodKit/Tests/KubbRoomsTests/Fixtures/share-vectors.json"),
+        ),
+      );
+      const make = (name, engine = vec.webEngine) =>
+        rpc({
+          op: "shareMake",
+          engine,
+          start: vec.match.start,
+          actions: vec.match.actions,
+          winner: vec.match.winner,
+          name,
+        });
+      const made = await make("Lakeside");
+      const sent = JSON.parse(made.message);
+      assert.equal(sent.g.client, "ios");
+      assert.deepEqual(
+        { ...sent.g, client: "web" },
+        vec.messages[0].g,
+        "the iPhone's message is the web's but for client",
+      );
+      assert.equal(made.bytes, vec.messages[0].bytes);
+      assert.deepEqual(await make("Lakeside", "0.6.0"), { refused: "engine" });
+      const url = shareServer.url;
+      const first = await rpc({ op: "share", url, message: made.message });
+      assert.match(first.code, /^[2-9a-hjkmnp-z]{10}$/);
+      assert.equal(first.v, 1);
+      const again = await rpc({ op: "share", url, message: made.message });
+      assert.equal(again.code, first.code, "the same match shared again: the same code");
+      const other = await rpc({
+        op: "share",
+        url,
+        message: (await make("Ünïcödé 🪵")).message,
+      });
+      assert.ok(other.code && other.code !== first.code, "another name: another link");
+      // what the server says of a version it does not carry, and of a computer's
+      // throw that is not the one the computer makes
+      const tamper = (f) => {
+        const m = JSON.parse(made.message);
+        f(m.g);
+        return asciiJson(m);
+      };
+      const engine = await rpc({
+        op: "share",
+        url,
+        message: tamper((g) => (g.engine = "0.6.0")),
+      });
+      assert.deepEqual(engine, { code: null, v: 0, why: "engine" });
+      const forged = await rpc({
+        op: "share",
+        url,
+        message: tamper((g) => {
+          const cpu = g.log.find((e) => e.a.type === "throw" && e.a.scripted);
+          cpu.a.launch.speed += 0.5;
+        }),
+      });
+      assert.deepEqual(forged, { code: null, v: 0, why: "does-not-replay" });
+      // a sealed pitch: the iPhone's join is refused `sealed` and the screen says so
+      const key = "sealed";
+      const joined = await rpcRaw({
+        op: "connect",
+        key,
+        url,
+        room: first.code,
+        screen: true,
+        create: false,
+      });
+      assert.equal(joined.ok, false, "a sealed pitch is never joined");
+      await until(
+        async () => (await state(key)).display === "sealed",
+        "the screen shows a sealed pitch",
+      );
+      await rpc({ op: "close", key });
+      const card = await rpc({ op: "sealedCard", url, room: first.code });
+      assert.equal(card.need, "over", "the kept replay restores to its winner card");
+      const reel = await rpc({ op: "reel", url, room: first.code });
+      assert.match(reel, /^rendering/, "the reel is asked for the shared code");
+      assert.ok(asked.some((r) => r.room === first.code));
+      report.share = {
+        bytes: made.bytes,
+        actions: vec.match.actions.length,
+        client: sent.g.client,
+        codes: "same code again; another name another code",
+        refusals: ["engine (here)", "engine (server)", "does-not-replay (server)"],
+        sealed: "join refused sealed; kept replay restores to over",
+        reel: reel,
+      };
+      console.log("share: " + JSON.stringify(report.share));
+    } finally {
+      await shareServer.close();
+    }
+  }
   mkdirSync(join(root, "build"), { recursive: true });
   writeFileSync(
     join(root, "build/rooms-results.json"),
