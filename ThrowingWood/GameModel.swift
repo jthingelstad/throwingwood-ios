@@ -187,6 +187,8 @@ import Observation
         }
         if let mode = ProcessInfo.processInfo.environment["MATCH_REVIEW"] {
           selections = pitch.options.defaults
+          // the solo options' Scene row picked (the review tools' --scene)
+          if let look = ProcessInfo.processInfo.environment["REVIEW_SCENE"] { selections["scene"] = look }
           name = "You"
           if mode == "home" { return }
           if mode == "options" {
