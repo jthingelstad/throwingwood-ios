@@ -39,8 +39,13 @@ codes a reel has, `too-many` (`tooMany`) and `failed` (`notStarted`: nothing was
 asking again may start it). A code newer than the build is kept as `other`. Only paths
 under `/reels/<code>/` ending `.mp4` are taken. Asking how a reel stands is free; only a
 request that starts a render counts against the connection's three.
-`PitchController.finishedWithReplay` says whether the match on the pitch is over and
-carries its replay (`replayOf`), as the web's winner card decides WATCH REPLAY.
+Before it asks, the reel card reads which match the room keeps with
+`RoomsClient.kept(room:url:appVersion:)`: one read-only `{ t: "replay", id: 1, room }`
+(docs/ROOMS.md section 10), which starts nothing, read as a `KeptReplay` (the kept
+version, and the replay's `n` and hash) or nil when the room keeps none.
+`PitchController.finishedReplay` is the match on the pitch as a `ReelMatch` (its `n` and
+hash from `replayOf`) once it is over and carries its replay, as the web's winner card
+decides WATCH REPLAY; `finishedWithReplay` says whether there is one.
 
 `JS` and `ASCIIJSON` write JSON explicitly: UTF-16 units above U+007E become lowercase
 backslash-u escapes, emoji become surrogate pairs, lone surrogates are representable,

@@ -25,7 +25,6 @@ import Observation
   /// The highlight reel of the pitch on the winner card (ReelCard.swift), kept while
   /// the card is closed so its button shows how the reel stands.
   var reel: HighlightReel?
-  var reelMatch: Int?
   var reelReturn = Screen.match
   /// The plan's two columns on the screen (window points; PlanControls reports them):
   /// the coach line keeps out of any level with it. Drawing only, not observed.
