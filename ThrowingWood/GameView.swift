@@ -90,6 +90,10 @@ struct GameView: View {
               }
             case .reel:
               if let reel = model.reel { ReelCard(model: model, reel: reel) }
+            case .share:
+              if let share = model.share { ShareCard(model: model, share: share) }
+            case .sealed:
+              if let sealed = model.sealed { SealedCard(model: model, pitch: sealed) }
             case .sheet:
               if let sheet = model.sheet {
                 SheetCard(sheet: sheet) { model.screen = model.sheetReturn }
@@ -106,6 +110,7 @@ struct GameView: View {
     .background(WindowControlsRoom().ignoresSafeArea())
     #if targetEnvironment(simulator)
       .modifier(OnlineReview(model: model))
+      .modifier(ShareReview(model: model))
     #endif
     .onOpenURL { model.join($0.absoluteString) }
     .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in

@@ -24,16 +24,21 @@ extension GameModel {
   /// finished match it is for (its number and hash), which the room's kept replay must
   /// be. A match against the computer, once shared, opens it with the code alone. The
   /// same code and match keep their reel, so the card shows how it stands.
-  func openReel(code: String, match: ReelMatch? = nil) {
-    if reel?.code != code || reel?.match != match {
-      reel?.hide()
-      reel = HighlightReel(
-        code: code, site: RoomsConfiguration.site,
-        cache: URL.cachesDirectory.appending(path: "reels"), hooks: Self.reelHooks(code),
-        match: match)
-    }
+  /// `linked`: a match just shared, whose card says "The link:" before its address.
+  func openReel(code: String, match: ReelMatch? = nil, linked: Bool = false) {
+    makeReel(code: code, match: match, linked: linked)
     reelReturn = screen
     screen = .reel
+  }
+
+  /// The reel for a code and match, made once and kept while it is the same.
+  func makeReel(code: String, match: ReelMatch? = nil, linked: Bool = false) {
+    guard reel?.code != code || reel?.match != match else { return }
+    reel?.hide()
+    reel = HighlightReel(
+      code: code, site: RoomsConfiguration.site,
+      cache: URL.cachesDirectory.appending(path: "reels"), hooks: reelHooksFor(code),
+      match: match, linked: linked)
   }
 
   /// BACK: to where the card was opened, or, on a pitch that has moved since (a
@@ -111,7 +116,9 @@ struct ReelCard: View {
           Button(ReelWords.tryAgain) { reel.tryAgain() }.buttonStyle(WoodButton(accent: true))
         }
       }
-      Text(reel.link.absoluteString).font(.footnote.monospaced()).textSelection(.enabled)
+      // a match just shared: "The link: https://throwingwood.com/p/<code>" (the web's)
+      Text(reel.linked ? "\(ShareWords.link) \(reel.link.absoluteString)" : reel.link.absoluteString)
+        .font(.footnote.monospaced()).textSelection(.enabled)
       if copied { Text(ReelWords.copied).font(.footnote) }
       HStack {
         if reel.phase == .ready, let tall = reel.file(.tall) {
@@ -186,7 +193,8 @@ struct ReelCard: View {
 
   private var reviewStill: Double? {
     #if targetEnvironment(simulator)
-      ProcessInfo.processInfo.environment["REEL_REVIEW"] == nil ? nil : 24
+      ProcessInfo.processInfo.environment["REEL_REVIEW"] == nil
+        && ProcessInfo.processInfo.environment["SHARE_REVIEW"] == nil ? nil : 24
     #else
       nil
     #endif
@@ -195,7 +203,7 @@ struct ReelCard: View {
 
 /// A bar that fills slowly toward the end of the minute a reel takes and never claims
 /// to be done: it is not the server's progress, which the server does not report.
-private struct SlowBar: View {
+struct SlowBar: View {
   let since: Date
   var body: some View {
     TimelineView(.periodic(from: .now, by: 0.5)) { context in
@@ -216,6 +224,7 @@ private struct SlowBar: View {
   private var reviewing: Bool {
     #if targetEnvironment(simulator)
       ProcessInfo.processInfo.environment["REEL_REVIEW"] != nil
+        || ProcessInfo.processInfo.environment["SHARE_REVIEW"] != nil
     #else
       false
     #endif
