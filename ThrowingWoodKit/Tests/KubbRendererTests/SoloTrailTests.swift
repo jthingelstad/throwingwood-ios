@@ -242,6 +242,47 @@ import Testing
     #expect(Engine.majorMinor(save.readTrail()?.trail.engine) == Engine.newest)
   }
 
+  /// A match finished on an older carried engine and reopened on its winner card: the
+  /// trail has become the finished-match file, which names the engine, so the save is
+  /// restored on it and the match may still be shared (a review finding on PR #30).
+  @Test(.enabled(if: Engine.carried.count > 1)) func aFinishedMatchReopensOnItsOwnEngine() throws {
+    let older = Engine.carried[1]
+    let dir = folder()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let save = MatchSave(file: dir.appending(path: "solo-match.json"))
+    let first = try PitchSession(appVersion: "test")
+    try first.useEngine(minor: older)
+    try first.openMatch("new", json: Self.setup, save: save)
+    try first.checkpoint()
+    first.dismissHandoff()
+    try first.resign()
+    #expect(first.need?.kind == "over")
+    #expect(save.readTrail() == nil)
+    #expect(Engine.majorMinor(save.finishedMatch()?.engine) == older)
+
+    let again = try PitchSession(appVersion: "test")
+    try again.restore(#require(try save.read()), save: save)
+    again.dismissHandoff()
+    #expect(again.engine.minor == older)
+    #expect(again.need?.kind == "over")
+    let m = try #require(again.shareableMatch(save: save))
+    guard case .message = try again.shareMessage(m.source, name: "Alder") else {
+      Issue.record("refused")
+      return
+    }
+    #expect(try again.sheet().text == first.sheet().text)
+
+    // a finished file of another match names nothing for this save
+    let other = MatchSave(file: dir.appending(path: "other.json"))
+    let next = try PitchSession(appVersion: "test")
+    try next.openMatch("new", json: Self.setup.replacingOccurrences(of: "1001", with: "1002"), save: nil)
+    try other.write(next.engine.call("snapshot"))
+    try FileManager.default.copyItem(at: save.finishedFile, to: other.finishedFile)
+    let shown = try PitchSession(appVersion: "test")
+    try shown.restore(#require(try other.read()), save: other)
+    #expect(shown.engine.minor == Engine.newest)
+  }
+
   private func startSolo(_ save: MatchSave, name: String) throws -> PitchSession {
     let app = try PitchSession(appVersion: "test")
     var choices = app.options.defaults
