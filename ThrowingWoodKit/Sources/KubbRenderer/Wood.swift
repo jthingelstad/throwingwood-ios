@@ -299,7 +299,9 @@ extension Painter {
     if !king { stroke(path(hull(p)), ink, width) }
   }
 
-  // Circular cross sections in world space, with the same two bands as the web.
+  // Circular cross sections in world space. A baton is plain wood in every set,
+  // with no bands (Jamie, 2026-11-20: "Batons are always plain and never
+  // changed for the set."); the end cap shows its turn in flight.
   private func baton(_ s: Solid, width: Double) {
     let c = s.piece.center
     let axis = s.axes[2]
@@ -314,7 +316,6 @@ extension Painter {
     let b = section(1)
     let body = path(hull(a + b))
     fill(body, 0xecd2a0)
-    for t in [0.1, 0.78] { fill(path(hull(section(t) + section(t + 0.12))), 0x6b4a2b) }
     let eye = simd_normalize(projection.c.eye - c)
     let normal = cross(axis, eye)
     if simd_length(normal) > 1e-8 {
