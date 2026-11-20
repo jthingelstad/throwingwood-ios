@@ -149,6 +149,10 @@ public final class PitchSession {
   }
   var mix = 0.0
   var save: MatchSave?
+  /// This solo match's actions are being kept on disk (SoloTrail.swift).
+  var trailKept = false
+  /// The kept trail begins at this match's first snapshot, so it could be replayed.
+  public internal(set) var trailComplete = false
   var cursor: GroundMark?
   var onlineAction: ((JSONText) throws -> Void)?
   public internal(set) var acceptsInput = true
