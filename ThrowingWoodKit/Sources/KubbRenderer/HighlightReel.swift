@@ -44,8 +44,9 @@ import KubbRooms
 
   /// The ways out to the network, so tests and review pictures stand in for them.
   public struct Hooks {
-    /// One `reel` request for the pitch.
-    public var ask: @MainActor () async throws -> ReelAnswer
+    /// One `reel` request for the pitch, naming the kept replay version the card is
+    /// for (`v`), or nil only while no kept read has given one (a code alone).
+    public var ask: @MainActor (_ v: Int?) async throws -> ReelAnswer
     /// The room's kept replay (the read-only `replay` fetch), or nil to skip the check.
     public var kept: (@MainActor () async throws -> KeptReplay?)?
     /// Download `from` (a site URL) to the file `to`.
@@ -53,7 +54,7 @@ import KubbRooms
     /// Whether the device has a network path now (offline sends nothing).
     public var reachable: @MainActor () -> Bool
     public init(
-      ask: @escaping @MainActor () async throws -> ReelAnswer,
+      ask: @escaping @MainActor (_ v: Int?) async throws -> ReelAnswer,
       kept: (@MainActor () async throws -> KeptReplay?)? = nil,
       fetch: @escaping @MainActor (_ from: URL, _ to: URL) async throws -> Void,
       reachable: @escaping @MainActor () -> Bool
@@ -226,9 +227,10 @@ import KubbRooms
     }
     if phase != .making { phase = .asking }
     guard sendable() else { return }
-    Task { [weak self, hooks] in
+    // every ask names the match the card is for, so the server starts no other's
+    Task { [weak self, hooks, keptV] in
       let answer: Result<ReelAnswer, Error>
-      do { answer = .success(try await hooks.ask()) } catch { answer = .failure(error) }
+      do { answer = .success(try await hooks.ask(keptV)) } catch { answer = .failure(error) }
       self?.answered(answer)
     }
   }
@@ -261,7 +263,8 @@ import KubbRooms
   }
 
   private func take(_ answer: ReelAnswer) {
-    // the room keeps a newer match now: this answer is about that one
+    // the room keeps a newer match now: the server says so (`why: "moved"`, below),
+    // and a server that ignores `v` answers about that one, which its version shows
     if let keptV, let v = answer.version, v != keptV {
       phase = .problem(.moved)
       return
@@ -286,6 +289,7 @@ import KubbRooms
       }
     case .none(_, .engine): phase = .problem(.engine)
     case .none(_, .busy): phase = .problem(.busy)
+    case .none(_, .moved): phase = .problem(.moved)  // nothing was started or counted
     case .none(_, .unavailable), .none(_, .other): phase = .problem(.unavailable)
     case .tooMany: phase = .problem(.tooMany)
     }

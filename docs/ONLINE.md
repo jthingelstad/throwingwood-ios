@@ -59,10 +59,16 @@ The card's title is "Highlight reel" in every state.
   still be on its way, so it looks 4 times, 2.5 seconds apart, before it says
   "This match has no replay, so it cannot have a reel." When the room keeps a
   newer match (a rematch since), it says "This pitch has moved on to a newer
-  match." So does a reel answer about another kept version. Opened with a code
-  alone there is nothing to compare, and any kept replay is taken.
+  match." Opened with a code alone there is nothing to compare, and any kept
+  replay is taken.
 - Then it asks the rooms server with a `reel` request on a short-lived socket of
-  its own. Both requests carry the pitch code only.
+  its own. Every `reel` request (the first, each poll, a reopened card, TRY
+  AGAIN) carries the pitch code and `v`, the kept version the check found, so
+  the server never starts a render of another match: when the room keeps a
+  different version it answers `why: "moved"`, starts nothing and counts
+  nothing, and the card says the moved line. `v` is left out (never null) only
+  when the card has had no kept read. A server from before `v` ignores it, so
+  the card also says moved when an answer names another kept version.
 - While the server renders, the card says MAKING YOUR REEL with a slow bar and
   "About a minute. You can keep watching.", and asks again every 5 seconds while
   the card is on screen. BACK or the app going to the background stops the
