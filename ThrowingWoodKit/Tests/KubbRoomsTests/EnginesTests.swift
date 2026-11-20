@@ -59,6 +59,40 @@ import Testing
     t.sent.last { $0["t"]?.string == "me" }?["me"] ?? t.sent.first { $0["t"]?.string == "join" }?["me"]
   }
 
+  /// The computer's level is a room option on 0.9 (in the document's `settings`, read
+  /// with `optionsOf`); a room whose next match is on 0.8 offers and reads 0.8's five.
+  @Test func theComputersLevelIsARoomOptionOnlyWhereTheMatchWouldTakeIt() async throws {
+    let (p, _) = try await setup()
+    defer { p.close() }
+    try await p.joinTeam("A")
+    func ids() throws -> [String] { try p.optionRows().items.compactMap { $0.items.first?.string } }
+    #expect(try ids().contains("computer"))
+    #expect(try p.roomOptions(p.room.document)["computer"] == "club")
+    _ = try await p.reduce("setOptions", fields: [("options", .object([("computer", .string("pro"))]))])
+    let doc = try JSONNode.parse(p.room.document)
+    #expect(doc["settings"]?["computer"]?.string == "pro" && doc["options"]?["computer"] == nil)
+    #expect(try p.roomOptions(p.room.document)["computer"] == "pro")
+    #expect(try p.roomOptions(p.room.document)["scene"] == "day")
+
+    // a tester on 0.8 takes a seat: the next match is on 0.8, which has no such option
+    try await seat(p, "Guest_08", me: #"{"name":"Tester","engine":"0.8.1"}"#, side: "B", rev: 3)
+    #expect(try p.roomEngine()["engine"]?.string == "0.8")
+    #expect(try !ids().contains("computer"))
+    #expect(try p.roomOptions(p.room.document)["computer"] == nil)
+    // 0.8's own write (the guest's seat) kept the host's setting
+    #expect(try JSONNode.parse(p.room.document)["settings"]?["computer"]?.string == "pro")
+  }
+
+  @Test func aStartOnNineGivesTheComputerTheRoomsLevel() async throws {
+    let (p, _) = try await setup()
+    defer { p.close() }
+    try await p.joinTeam("A")
+    _ = try await p.reduce("setOptions", fields: [("options", .object([("computer", .string("beginner"))]))])
+    #expect(try await p.start(seed: 7, at: at))
+    #expect(p.engine.minor == Engine.newest)
+    #expect(try p.engine.call("snapshot").contains(#""computer":"beginner""#))
+  }
+
   @Test func theJoinAnnouncesEveryEngineCarriedAndTheNewestAsTheRoomsEngine() async throws {
     let (p, t) = try await setup()
     defer { p.close() }

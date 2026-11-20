@@ -194,10 +194,28 @@ import Testing
     #expect(try app.sheet().done)
   }
 
+  /// A scene is carried, never offered or drawn (not approved to go live): a match
+  /// started in one keeps it through a restore, and the set-up has no row for it.
+  @Test func aMatchsSceneIsCarriedUntouched() throws {
+    let start = try Engine(appVersion: "test")
+    _ = try start.call(
+      "new",
+      json:
+        #"{"mode":"match","cpu":"B","seed":5,"scene":"dusk","computer":"pro","teams":{"A":{"name":"You","players":[{"name":"You"}]},"B":{"name":"Computer","players":[{"name":"Computer"}]}},"start":{"year":2026,"month":11,"day":17,"hour":12,"min":0}}"#
+    )
+    let snapshot = try start.call("snapshot")
+    #expect(snapshot.contains(#""scene":"dusk""#))
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(snapshot, save: nil)
+    #expect(try app.engine.call("snapshot") == snapshot)
+    #expect(try JSONNode.parse(app.engine.call("view"))["scene"]?.string == "dusk")
+    #expect(!app.options.rows.contains { $0.id == "scene" } && app.options.defaults["scene"] == nil)
+  }
+
   @Test func optionsAndLocalStart() throws {
     let app = try PitchSession(appVersion: "test")
     #expect(
-      app.options.rows.map(\.id) == ["level", "surface", "opening", "raising", "wind", "set"])
+      app.options.rows.map(\.id) == ["computer", "surface", "opening", "raising", "wind", "set"])
     var choices = app.options.defaults
     choices["surface"] = "sand"
     try app.startSolo(name: "You", selections: choices, save: nil)

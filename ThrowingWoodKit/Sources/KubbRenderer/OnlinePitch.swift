@@ -58,6 +58,9 @@ public struct PitchMember: Identifiable, Equatable {
   public private(set) var engineLine: String?
   public private(set) var isOpen = false
   public private(set) var options: [String: String] = [:]
+  /// The rows the lobby offers: the room's engine's `MATCH_OPTIONS` (Computer since 0.9).
+  /// A scene is kept in the room as the host's engine left it, never offered.
+  public private(set) var optionRows: [MatchOption] = []
   public private(set) var versionCard: VersionCard?
   public private(set) var turnLabel = ""
   public var note = ""
@@ -271,10 +274,12 @@ public struct PitchMember: Identifiable, Equatable {
         side: a.contains(id) ? "A" : b.contains(id) ? "B" : nil)
     }
     isOpen = l["open"]?.bool == true
-    options = Dictionary(
-      uniqueKeysWithValues: (l["options"]?.members ?? []).compactMap { k, v in
-        v.string.map { (k, $0) }
-      })
+    // every option, the engine's own (computer, scene) too, on the engine the next
+    // match would run on (PitchController.roomOptions)
+    options = try controller.roomOptions(room.document)
+    optionRows =
+      (try? JSONDecoder().decode(
+        [MatchOption].self, from: Data(controller.optionRows().raw.text.utf8))) ?? []
     let lineup = try controller.roomCall(
       "lineup", [("doc", .raw(room.document)), ("members", room.membersJSON)])
     // Which engine the next match would run on: the host and every player (watchers

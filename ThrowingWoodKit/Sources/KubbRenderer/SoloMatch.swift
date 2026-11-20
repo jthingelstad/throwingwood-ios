@@ -20,6 +20,12 @@ public struct MatchOption: Decodable, Identifiable {
 public struct SoloOptions {
   public let rows: [MatchOption], defaults: [String: String]
   public let nameLimit: Int
+  /// The throw levels (`LEVELS`): the player's own (ThrowLevel) and the computer's.
+  public let levels: [String]
+  /// The engine takes the computer's level as a match option (`computer`, since 0.9).
+  /// On an older engine the row is the app's own, and its value goes on the
+  /// computer's player entry instead.
+  public let takesComputer: Bool
   init(engine: Engine) throws {
     struct Constants: Decodable {
       let MATCH_OPTIONS: [MatchOption], LEVELS: [String], OPTION_DEFAULTS: [String: String],
@@ -28,10 +34,17 @@ public struct SoloOptions {
     struct Reply: Decodable { let value: Constants }
     let c = try JSONDecoder().decode(Reply.self, from: Data(engine.call("room.constants").utf8))
       .value
-    rows =
-      [MatchOption(id: "level", label: "Level", choices: c.LEVELS.map { [$0, $0.capitalized] })]
-      + c.MATCH_OPTIONS
-    defaults = c.OPTION_DEFAULTS.merging(["level": "club"]) { _, v in v }
+    levels = c.LEVELS
+    takesComputer = c.MATCH_OPTIONS.contains { $0.id == "computer" }
+    // The computer's level leads, as before: the engine's row on 0.9, the app's own
+    // before it. A scene is carried, never offered (not approved to go live).
+    let computer =
+      c.MATCH_OPTIONS.first { $0.id == "computer" }
+      ?? MatchOption(id: "computer", label: "Computer", choices: c.LEVELS.map { [$0, $0.capitalized] })
+    let rows = [computer] + c.MATCH_OPTIONS.filter { $0.id != "computer" }
+    self.rows = rows
+    defaults = c.OPTION_DEFAULTS.filter { d in rows.contains { $0.id == d.key } }
+      .merging(["computer": "club"]) { old, _ in old }
     nameLimit = c.NAME_MAX
   }
 }

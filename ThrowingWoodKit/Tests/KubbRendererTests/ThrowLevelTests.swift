@@ -73,11 +73,12 @@ import Testing
   @Test func soloSplitsThePlayersLevelFromTheComputers() throws {
     let app = try PitchSession(appVersion: "test")
     var choices = app.options.defaults
-    choices["level"] = "beginner"
+    choices["computer"] = "beginner"
     try app.startSolo(name: "Ada", level: "pro", selections: choices, save: nil)
     let snapshot = try app.engine.call("snapshot")
     #expect(snapshot.contains(#""level":"pro""#))
-    #expect(snapshot.contains(#""level":"beginner""#))
+    // on 0.9 the computer's level is the match's own option, not its player entry
+    #expect(snapshot.contains(#""computer":"beginner""#))
     // the player's first throw is planned at the player's level
     let view = try JSONNode.parse(app.engine.call("view"))
     if view["need"]?["cpu"]?.bool == false {

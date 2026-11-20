@@ -9,7 +9,7 @@ struct LevelSetting: View {
   @Bindable var model: GameModel
   var card = true
   private var choices: [[String]] {
-    model.offline?.options.rows.first { $0.id == "level" }?.choices ?? []
+    model.offline?.options.levels.map { [$0, $0.capitalized] } ?? []
   }
   var body: some View {
     if card {

@@ -100,6 +100,36 @@ import KubbEngine
 
   private var carriesJS: JS { .array(engines.carried.map(JS.string)) }
 
+  /// The engine the lobby's options are read and set on: the room's engine counting
+  /// this member, when this build carries it, else the newest. A room whose next match
+  /// is on 0.8 offers 0.8's options, so nothing is offered that its match would not take.
+  public func lobbyEngine() -> Engine {
+    guard let mm = try? roomEngine(counting: true)["engine"]?.string, engines.carries(mm),
+      let e = try? engines.engine(mm)
+    else { return engines.newest }
+    return e
+  }
+
+  /// Every match option the room holds, defaults filled in, on the lobby's engine:
+  /// `room.optionsOf` (since 0.9: `options`' five and the engine's own from the
+  /// document's `settings`, kubb-engine docs/ROOM.md difference 9), or on an older
+  /// engine, which has no such call, `lobbyOf`'s `options`.
+  public func roomOptions(_ doc: JSONText) throws -> [String: String] {
+    let on = lobbyEngine()
+    let all =
+      try (try? Self.roomCall(on, "optionsOf", [("doc", .raw(doc))]))
+      ?? Self.roomCall(on, "lobbyOf", [("doc", .raw(doc))])["options"]
+    return Dictionary(
+      uniqueKeysWithValues: (all?.members ?? []).compactMap { k, v in v.string.map { (k, $0) } })
+  }
+
+  /// The options the host may set (`MATCH_OPTIONS` of the lobby's engine) as raw JSON
+  /// rows `[id, label, [[value, label]]]`.
+  public func optionRows() throws -> JSONNode {
+    let rows = try Self.roomCall(lobbyEngine(), "constants", [])["MATCH_OPTIONS"]
+    return try rows ?? JSONNode.parse("[]")
+  }
+
   /// The room's engine (`room.engineFor`): the newest major.minor the host and every
   /// player carry, `{ engine | null, missing, unknown }`. With `counting` this member
   /// is counted too, carrying what this build carries.
@@ -151,7 +181,9 @@ import KubbEngine
       if hostOnly.contains(name), !room.isHost { return nil }
       var args = fields.filter { $0.0 != "doc" && $0.0 != "id" }
       if name == "joinTeam" { args.append(("id", .string(room.you))) }
-      let value = try roomCall(name, [("doc", .raw(doc))] + args)
+      // options are set on the engine they are offered from (`lobbyEngine`)
+      let on = name == "setOptions" ? lobbyEngine() : engine
+      let value = try Self.roomCall(on, name, [("doc", .raw(doc))] + args)
       return value.isNull ? nil : value.raw
     } != nil
   }

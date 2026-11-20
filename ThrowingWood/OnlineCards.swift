@@ -160,7 +160,7 @@ struct LobbyCard: View {
         Text(online.isOpen ? "Open" : "Invite only")
       }
     }
-    ForEach(online.board.options.rows.filter { $0.id != "level" }) { option in
+    ForEach(online.optionRows) { option in
       HStack {
         Text(option.label)
         Spacer()
