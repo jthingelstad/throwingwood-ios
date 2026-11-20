@@ -40,12 +40,24 @@ extension PitchSession {
 
   /// Puts a kept match back on the pitch, on its own engine: `engine` (a version, or
   /// its major.minor) when the caller knows it (a shared match's kept replay), else the
-  /// engine its kept trail names (SoloTrail.swift), when this build carries it. A save
-  /// with neither (written before the trail) plays on the newest, as it always did.
+  /// engine its kept trail names (SoloTrail.swift), else, for a finished match whose
+  /// trail has become the finished-match file (the app reopened on the winner card),
+  /// the engine that file names when the save is that match (same final hash). Only an
+  /// engine this build carries is used; a save with none of these (written before the
+  /// trail) plays on the newest, as it always did.
   public func restore(_ snapshot: String, save: MatchSave?, engine: String? = nil) throws {
-    let named = engine ?? save?.readTrail()?.trail.engine
-    let mm = Engine.majorMinor(named)
-    try useEngine(minor: mm.flatMap { Engine.carried.contains($0) ? $0 : nil })
+    func carried(_ named: String?) -> String? {
+      Engine.majorMinor(named).flatMap { Engine.carried.contains($0) ? $0 : nil }
+    }
+    var mm = carried(engine ?? save?.readTrail()?.trail.engine)
+    if engine == nil, mm == nil, let finished = save?.finishedMatch(),
+      let older = carried(finished.engine), let key = finished.finalHash
+    {
+      try useEngine(minor: older)
+      _ = try? self.engine.call("restore", json: snapshot)
+      if (try? self.engine.hash()) == key { mm = older }
+    }
+    try useEngine(minor: mm)
     try openMatch("restore", json: snapshot, save: save)
   }
 
