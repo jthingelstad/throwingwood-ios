@@ -89,7 +89,9 @@ public struct MatchSave {
       at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
     try Data(snapshot.utf8).write(to: file, options: .atomic)
   }
+  /// Home after a win: the save and its trail go; the finished match stays.
   public func clear() throws {
+    clearTrail()
     do { try FileManager.default.removeItem(at: file) } catch let e as CocoaError
       where e.code == .fileNoSuchFile
     { return }

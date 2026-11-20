@@ -8,6 +8,8 @@ extension PitchSession {
     trail = ReportTrail()
     need = nil
     save = nil
+    trailKept = false
+    trailComplete = false
     try adopt(read("new", #"{"mode":"practice","surface":"grass"}"#))
   }
 
@@ -45,7 +47,39 @@ extension PitchSession {
     trail = ReportTrail(snapshot: try engine.call("snapshot"))
     self.save = save
     need = view.need
+    keepTrail(resuming: method == "restore")
     try adopt(read("view"))
+  }
+
+  /// The replay trail on disk (SoloTrail.swift). A restore picks up the trail that lines
+  /// up with the save; without one the match plays on, its trail starting here and
+  /// marked incomplete. Nothing about the trail ever stops play.
+  func keepTrail(resuming: Bool) {
+    trailKept = false
+    trailComplete = false
+    guard let save, let start = trail.start, let hash = try? engine.hash() else { return }
+    if resuming, let kept = save.resumeTrail(hash: hash, engine: engine.engineVersion) {
+      trailKept = true
+      trailComplete = kept.complete
+      // killed between the last save and keeping the finished match
+      if need?.kind == "over" { finishTrail() }
+      return
+    }
+    // a finished match's save (the app closed on the winner card): its trail is kept
+    guard need?.kind != "over" else { return }
+    do {
+      try save.beginTrail(start: start, hash: hash, engine: engine.engineVersion, complete: !resuming)
+      trailKept = true
+      trailComplete = !resuming
+    } catch {}
+  }
+
+  private func finishTrail() {
+    guard trailKept, let save else { return }
+    trailKept = false
+    guard let n: MatchNeed = try? read("need"), n.kind == "over", let winner = n.winner?.winner
+    else { return }
+    try? save.finishTrail(winner: winner)
   }
 
   func checkpoint() throws {
@@ -58,7 +92,18 @@ extension PitchSession {
     } else {
       let snapshot = need != nil ? try engine.call("snapshot") : nil
       trail.append(action, snapshot: snapshot)
-      if let save, let snapshot { try save.write(snapshot) }
+      if let save, let snapshot {
+        // the trail first: a save it has not caught up with could never be replayed
+        if trailKept {
+          do {
+            try save.appendTrail(action, hash: engine.hash())
+          } catch { trailKept = false }
+        }
+        try save.write(snapshot)
+        if trailKept, (try? JSONNode.parse(engine.call("need"))["kind"]?.string) == "over" {
+          finishTrail()
+        }
+      }
     }
   }
 
