@@ -36,6 +36,17 @@ extension GameModel {
     screen = .reel
   }
 
+  /// BACK: to where the card was opened, or, on a pitch that has moved since (a
+  /// rematch's lobby, a reconnect), to the pitch's own screen as it is now.
+  func closeReel() {
+    reel?.hide()
+    if let online {
+      screen = online.stage == .match ? .match : .pitch
+    } else {
+      screen = reelReturn
+    }
+  }
+
   static func reelHooks(_ code: String) -> HighlightReel.Hooks {
     HighlightReel.Hooks(
       ask: { v in
@@ -113,7 +124,7 @@ struct ReelCard: View {
           copied = true
         }.buttonStyle(WoodButton())
         Spacer(minLength: 0)
-        Button(ReelWords.back) { model.screen = model.reelReturn }.buttonStyle(WoodButton())
+        Button(ReelWords.back) { model.closeReel() }.buttonStyle(WoodButton())
       }
     }
     .frame(maxWidth: cardWidth, alignment: .leading)

@@ -72,8 +72,16 @@ The card's title is "Highlight reel" in every state.
 - While the server renders, the card says MAKING YOUR REEL with a slow bar and
   "About a minute. You can keep watching.", and asks again every 5 seconds while
   the card is on screen. BACK or the app going to the background stops the
-  asking; showing the card again asks once and goes on. There is no push
-  notification. A poll that goes unanswered, or a device with no network path,
+  asking: a request already sent is read when it comes back, but nothing it
+  leads to (the reel ask after the kept check, a look again, a poll, the
+  download) is sent until the card shows again, which sends that request and
+  goes on. A deferred ask still names the kept version, so a rematch kept
+  meanwhile is answered "moved". There is no push notification.
+- The card stays up while the pitch behind it reconnects (coming back from the
+  background is one), and while the room sets up a rematch; BACK then goes to
+  the pitch as it is now (the lobby). It closes, to the pitch's own screen,
+  when a match starts on the pitch (this player may be the next to throw) or
+  the pitch is gone (unreachable, not found, full, replaced). A poll that goes unanswered, or a device with no network path,
   puts "No connection." under the wait text and the asking goes on: the render
   goes on without us. The winner card's button reads MAKING YOUR REEL meanwhile
   and WATCH THE REEL once it is done.

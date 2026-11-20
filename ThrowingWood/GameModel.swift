@@ -159,7 +159,14 @@ import Observation
       screen = .pitch
       pitch.changed = { [weak self, weak pitch] in
         guard let self, let pitch, online === pitch else { return }
-        if pitch.stage == .match {
+        if screen == .reel, let reel {
+          // the card stays through a reconnect (the foreground's among them) and a
+          // rematch's lobby; a match starting, or the pitch gone, closes it
+          if !reel.staysOpen(on: pitch.stage, finished: pitch.controller.finishedReplay) {
+            reel.hide()
+            screen = pitch.stage == .match ? .match : .pitch
+          }
+        } else if pitch.stage == .match {
           if screen == .pitch { screen = .match }
         } else {
           screen = .pitch
