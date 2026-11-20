@@ -204,16 +204,39 @@ local function arcLaunch(s)
 		R, z1 = sqrt(lx * lx + ly * ly), 0
 	end
 	if T <= 0 then return 0, 0, 0, 0 end
-	local vh = R / T
+	-- a baton's hand (plan.solve's handZ, handFwd): on a short throw lower and
+	-- ahead of the feet, so the arc starts there and carries the rest
 	local h, g = flight.tune.handHeight, flight.tune.g
+	if s.projectile ~= "kubb" and sol.handZ then
+		h = sol.handZ
+		if sol.flightT and sol.dist then
+			R = R - (sol.handFwd or 0)
+			if Tdraw then
+				local f = s.aimFace - (sol.handFwd or 0)
+				Tdraw = f > 0 and T * f / R or nil
+			end
+		end
+	end
+	local vh = R / T
 	return vh * math.sin(sw), vh * math.cos(sw), (z1 - h + 0.5 * g * T * T) / T, Tdraw or T
+end
+
+-- Where the planned arc starts: the hand (x, y, z), ahead of the stance and
+-- lower on a short baton (plan.solve's handZ, handFwd).
+local function arcOrigin(s)
+	local sol = s.sol
+	local h, f = flight.tune.handHeight, 0
+	if s.projectile ~= "kubb" and sol and sol.handZ then h, f = sol.handZ, sol.handFwd or 0 end
+	local sw = sol and sol.swivel or 0
+	return s.playerX + f * math.sin(sw), s.playerY + f * math.cos(sw), h
 end
 
 -- The planned arc's points (arcSkip..arcPoints), as drawn on the Playdate.
 local function arcPoints(s)
 	local t = throw.tune
 	local vx, vy, vz, T = arcLaunch(s)
-	local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
+	local x0, y0, h = arcOrigin(s)
+	local g = flight.tune.g
 	local out = {}
 	for i = t.arcSkip, t.arcPoints do
 		local tt = T * i / t.arcPoints
@@ -228,7 +251,8 @@ local function shoulderFit(s, c)
 	local xs, ys, zs, n, across = {}, {}, {}, 0, 0
 	if arcShown(s) and not s.watching then
 		local vx, vy, vz, T = arcLaunch(s)
-		local x0, y0, h, g = s.playerX, s.playerY, flight.tune.handHeight, flight.tune.g
+		local x0, y0, h = arcOrigin(s)
+		local g = flight.tune.g
 		across = t.arcFitFrom - t.arcSkip
 		for i = t.arcSkip, t.arcPoints do
 			local tt = T * i / t.arcPoints
@@ -992,7 +1016,14 @@ function throw.fire(s, L, how, info)
 	local id = s.projectileId or (drilling and s.drillId) or nil
 	local tumble = drilling and 0 or (L.tumble or 0)
 	local tilt = kubb and 0 or (L.tilt or 0)
-	flight.launch(fl, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt)
+	-- a baton's hand (flight.handAt): from the planned distance, the stance to
+	-- the circle, as plan.solve has it; a kubb leaves at the feet as before
+	local handZ, handFwd, handTip = nil, nil, nil
+	if not kubb then
+		local _
+		handZ, handFwd, _, _, handTip = flight.handAt(sqrt((s.markerX - s.playerX) ^ 2 + (s.markerY - s.playerY) ^ 2))
+	end
+	flight.launch(fl, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt, handZ, handFwd, handTip)
 	-- In practice the six batons stay where they landed. Pick up the oldest
 	-- for the seventh throw, retaining every other body in the solver.
 	if not kubb and not s.projectileId then
@@ -1017,7 +1048,7 @@ function throw.fire(s, L, how, info)
 			b = phys.launchKubb(w, id, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble)
 		end
 	else
-		b = phys.launchBaton(w, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt, id)
+		b = phys.launchBaton(w, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble, tilt, id, handZ, handFwd, handTip)
 	end
 	-- Listen after the solver. Keep one strike per unordered pair, taking
 	-- the strongest contact point of its first pressing step (N s).

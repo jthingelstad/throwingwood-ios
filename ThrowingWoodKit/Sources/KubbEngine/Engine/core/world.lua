@@ -340,8 +340,11 @@ end
 -- tipping forward. tiltDeg tilts the plane it turns in about the line of
 -- flight (0 = clean end over end, 90 = a flat helicopter): the angular
 -- velocity is about the tilted axis, so a helicopter really spins flat.
+-- h, fwd and tip (nil: handHeight at (x, lineY), upright): the hand's height,
+-- how far ahead along the swivel it lets go, and how far (rad) the baton leans
+-- forward from upright in its turning plane (flight.handAt, a short throw).
 -- Returns the pose and velocities as 13 numbers.
-function world.batonLaunchState(x, lineY, swivel, loftDeg, speed, tumbleRate, tiltDeg)
+function world.batonLaunchState(x, lineY, swivel, loftDeg, speed, tumbleRate, tiltDeg, h, fwd, tip)
 	local dx, dy = sin(swivel), cos(swivel)
 	local lx, ly, lz = launchDir(swivel, loftDeg)
 	local tau = rad(tiltDeg or 0)
@@ -354,16 +357,26 @@ function world.batonLaunchState(x, lineY, swivel, loftDeg, speed, tumbleRate, ti
 	local kn = sqrt(kx * kx + ky * ky + kz * kz)
 	kx, ky, kz = kx / kn, ky / kn, kz / kn
 	-- local axes: x = k, y = d, z = u (the baton starts along u)
-	local qw, qx, qy, qz = quat.fromAxes(kx, ky, kz, dx, dy, 0, ux, uy, uz)
-	local h = tw.flight.tune.handHeight
+	local qw, qx, qy, qz
+	if tip and tip ~= 0 then
+		-- leaning forward by tip in the turning plane: z = u cos + d sin, y = d cos - u sin
+		local ct2, st2 = cos(tip), sin(tip)
+		qw, qx, qy, qz = quat.fromAxes(kx, ky, kz,
+			dx * ct2 - ux * st2, dy * ct2 - uy * st2, -uz * st2,
+			ux * ct2 + dx * st2, uy * ct2 + dy * st2, uz * ct2)
+	else
+		qw, qx, qy, qz = quat.fromAxes(kx, ky, kz, dx, dy, 0, ux, uy, uz)
+	end
+	h = h or tw.flight.tune.handHeight
+	if fwd then x, lineY = x + fwd * dx, lineY + fwd * dy end
 	return x, lineY, h, qw, qx, qy, qz,
 		speed * lx, speed * ly, speed * lz,
 		-tumbleRate * kx, -tumbleRate * ky, -tumbleRate * kz
 end
 
-function world.launchBaton(w, x, lineY, swivel, loftDeg, speed, tumbleRate, tiltDeg, id)
+function world.launchBaton(w, x, lineY, swivel, loftDeg, speed, tumbleRate, tiltDeg, id, h, fwd, tip)
 	return world.launch(w, "baton", id or "baton",
-		world.batonLaunchState(x, lineY, swivel, loftDeg, speed, tumbleRate, tiltDeg))
+		world.batonLaunchState(x, lineY, swivel, loftDeg, speed, tumbleRate, tiltDeg, h, fwd, tip))
 end
 
 -- A lobbed kubb (stage 3's simple inkast; drilling and the cut are stage 4):

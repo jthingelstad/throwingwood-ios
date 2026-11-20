@@ -121,7 +121,7 @@ not keep it again. Aim and shout helpers pace casts; a caller supplies aim ticks
 ## Verification
 
 - `swift test --package-path ThrowingWoodKit` and the optimized command in AGENTS.md
-  run codec vectors, injected transport/controller tests and all 453 golden actions.
+  run codec vectors, injected transport/controller tests and every golden action (505 on engine 0.8).
 - `tools/room-vectors.mjs` imports the real web client read-only. Its committed fixtures
   include provenance and expected ASCII encoding, numbers, sizes, raw-text handling,
   UTF-16 decoding, frame boundaries and reassembly.

@@ -20,14 +20,15 @@
 #                                    extra, the corpus recorded by this engine
 #                                    version or an earlier one (a hash-neutral
 #                                    release keeps its corpus: 0.4.1 carries
-#                                    0.2.0's, 0.7.1 to 0.7.4 0.5.0's, kubb-engine docs/VERSIONING.md).
+#                                    0.2.0's, 0.7.1 to 0.7.4 0.5.0's, 0.8.1 0.8.0's;
+#                                    kubb-engine docs/VERSIONING.md).
 #                                    Needs no kubb-engine checkout (CI runs it)
 #
 # To move to a new release: change TAG, run sync, then the tests (AGENTS.md).
 set -euo pipefail
 
 # The kubb-engine release this app runs.
-TAG=v0.7.4
+TAG=v0.8.1
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 source_dir=${KUBB_ENGINE_SOURCE:-$root/../kubb-engine}
@@ -98,16 +99,16 @@ case "${1:-}" in
     for f in "${golden_files[@]}"; do [[ -s $golden/$f ]] || fail "missing: Fixtures/golden/$f"; done
     if [[ -s $golden/hashes.json ]]; then
       corpus=$(json_version "$golden/hashes.json")
-      # 0.4.1 is explicitly hash-neutral and ships 0.2.0's exact corpus.
-      # Do not accept arbitrary older corpora when moving to another release.
-      expected=$version
-      [[ $version == 0.4.1 ]] && expected=0.2.0
-      [[ $version == 0.5.1 ]] && expected=0.5.0
-      # 0.7.1 to 0.7.4: every reference hash matches 0.5.0's (kubb-engine docs/VERSIONING.md).
-      [[ $version == 0.7.1 ]] && expected=0.5.0
-      [[ $version == 0.7.2 ]] && expected=0.5.0
-      [[ $version == 0.7.3 ]] && expected=0.5.0
-      [[ $version == 0.7.4 ]] && expected=0.5.0
+      # A hash-neutral patch ships the exact corpus of the last release that changed
+      # hashes (kubb-engine docs/VERSIONING.md "Release notes"): 0.4.1 carries 0.2.0's,
+      # 0.5.1 and 0.7.1 to 0.7.4 0.5.0's, 0.8.1 0.8.0's. Arbitrary older corpora are
+      # not accepted when moving to another release.
+      case $version in
+        0.4.1) expected=0.2.0 ;;
+        0.5.1 | 0.7.[1-4]) expected=0.5.0 ;;
+        0.8.1) expected=0.8.0 ;;
+        *) expected=$version ;;
+      esac
       [[ $corpus == "$expected" ]] || fail "golden corpus is $corpus, expected $expected; run sync"
     fi
     [[ $status == 0 ]] && echo "engine: kubb-engine $TAG, $count files match engine.json, golden corpus recorded by $corpus"
