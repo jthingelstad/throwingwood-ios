@@ -44,42 +44,60 @@ the lobby with the same teams.
 
 ## The highlight reel
 
-When the finished match has a kept replay (`PitchController.finishedWithReplay`:
+When the finished match has a kept replay (`PitchController.finishedReplay`:
 the engine's `room.replayOf` is not null, the same test as the web's WATCH
 REPLAY), the winner card adds a button, MAKE A HIGHLIGHT REEL. It opens the reel
-card (`ReelCard.swift`), which holds a pitch code and nothing else
-(`HighlightReel` in KubbRenderer), so a solo match can use it once a solo match
-has a code; solo has no button yet. The web's docs/REEL.md "The iPhone" is the
-contract and its words are the card's (`ReelWords`).
+card (`ReelCard.swift`), which holds a pitch code and, optionally, the match it
+is for (`HighlightReel` in KubbRenderer), so a solo match can use it once a solo
+match has a code; solo has no button yet. The web's docs/REEL.md "The iPhone" is
+the contract, and the card's words (`ReelWords`) are the web's, word for word.
+The card's title is "Highlight reel" in every state.
 
-- The card asks the rooms server with a `reel` request on a short-lived socket
-  of its own (docs/ROOMS-CLIENT.md). The request carries the pitch code only.
+- First the card checks that the room still keeps this match, with the
+  read-only `replay` fetch (docs/ROOMS-CLIENT.md), which starts nothing: the
+  same `n`, and the same hash when both have one. A just-ended match's keep may
+  still be on its way, so it looks 4 times, 2.5 seconds apart, before it says
+  "This match has no replay, so it cannot have a reel." When the room keeps a
+  newer match (a rematch since), it says "This pitch has moved on to a newer
+  match." So does a reel answer about another kept version. Opened with a code
+  alone there is nothing to compare, and any kept replay is taken.
+- Then it asks the rooms server with a `reel` request on a short-lived socket of
+  its own. Both requests carry the pitch code only.
 - While the server renders, the card says MAKING YOUR REEL with a slow bar and
   "About a minute. You can keep watching.", and asks again every 5 seconds while
   the card is on screen. BACK or the app going to the background stops the
   asking; showing the card again asks once and goes on. There is no push
-  notification. A poll that goes unanswered is asked again, three in a row is No
-  connection. The winner card's button reads MAKING YOUR REEL meanwhile and
-  WATCH THE REEL once it is done.
-- Done, the tall MP4 is downloaded to Caches (`reels/<code>/<v>-<tag>/`), and the
-  wide one too when the window is wider than tall. iOS may empty Caches; the
-  card downloads again when it is shown. The video plays muted and looping, wide
-  in a window wider than tall and tall otherwise.
+  notification. A poll that goes unanswered, or a device with no network path,
+  puts "No connection." under the wait text and the asking goes on: the render
+  goes on without us. The winner card's button reads MAKING YOUR REEL meanwhile
+  and WATCH THE REEL once it is done.
+- Done, the card says "Your reel is ready. Getting the video." while the tall MP4
+  is downloaded to Caches (`reels/<code>/<v>-<tag>/`), and the wide one too when
+  the window is wider than tall. iOS may empty Caches; the card downloads again
+  when it is shown. The video plays muted and looping, wide in a window wider
+  than tall and tall otherwise.
 - SHARE gives the system share sheet the tall file, named
   `throwing-wood-<code>-tall.mp4`. Save Video there adds it to Photos, which is
   why Info.plist carries an add-only `NSPhotoLibraryAddUsageDescription`; the app
-  never reads the library. COPY LINK copies `https://throwingwood.com/p/<code>`.
-  A success haptic marks the reel arriving, when HAPTICS is on.
-- Every other answer is said plainly: no connection (nothing is sent while the
-  device has no network path; TRY AGAIN), could not be made (TRY AGAIN once, then
-  "Not this time"), no highlights, another version of the game, busy today, not
-  available, too many at once, and no replay. TRY AGAIN sends one more request:
-  after the server could not start the render it may start it; after a render
-  that failed the server keeps that result for the version and renderer look, so
-  the second answer is the same and the card says Not this time.
+  never reads the library. COPY LINK copies `https://throwingwood.com/p/<code>`
+  and "Copied the link." shows under it. A success haptic marks the reel
+  arriving, when HAPTICS is on.
+- Every other answer is said plainly, in the web's words: no highlights, another
+  version of the game, busy today, too many at once, no replay, moved on, and
+  "Reels cannot be made right now." for unavailable and any why this build does
+  not know. TRY AGAIN is offered only where asking again can mend it:
+  - No connection before anything renders: "No connection.", TRY AGAIN as often
+    as it is pressed.
+  - The server could not start the render (the error `failed`): "The reel could
+    not be made." with TRY AGAIN once; a second failure is the final text.
+  - A reel whose state is `failed` on the server is final for that version:
+    "The reel could not be made. Not this time." with no TRY AGAIN (a `failed`
+    with why `empty` is "There are no highlights to show in this match.").
 
 Review pictures: `python3 tools/reel-snapshots.py <simulator-app> --videos <dir>`
 shows the card over a finished match with a stand-in server (simulator only;
+`--sim-prefix` picks simulators named with that prefix, so a session can use its
+own;
 `<dir>` holds a tall and a wide MP4 from the web's renderer, run in a copy of the
 web checkout). Every state on both phones upright; making, done, failed and
 offline also turned (`--landscape right` for the 16e, `left` for the Pro Max) and
@@ -90,6 +108,7 @@ the same pictures as upright and turned left.
 | State | Small iPhone | Large iPhone |
 | --- | --- | --- |
 | Making | [16e](review/reel/iphone-16e-making.png) | [17 Pro Max](review/reel/iphone-17-pro-max-making.png) |
+| No connection while it renders | [16e](review/reel/iphone-16e-makingoffline.png) | [17 Pro Max](review/reel/iphone-17-pro-max-makingoffline.png) |
 | Done | [16e](review/reel/iphone-16e-done.png) | [17 Pro Max](review/reel/iphone-17-pro-max-done.png) |
 | Done, on its side | [16e](review/reel/iphone-16e-landscape-done.png) | [17 Pro Max](review/reel/iphone-17-pro-max-landscape-done.png) |
 | Could not be made | [16e](review/reel/iphone-16e-failed.png) | [17 Pro Max](review/reel/iphone-17-pro-max-failed.png) |
@@ -101,6 +120,7 @@ the same pictures as upright and turned left.
 | Not available | [16e](review/reel/iphone-16e-unavailable.png) | [17 Pro Max](review/reel/iphone-17-pro-max-unavailable.png) |
 | Too many | [16e](review/reel/iphone-16e-toomany.png) | [17 Pro Max](review/reel/iphone-17-pro-max-toomany.png) |
 | No replay | [16e](review/reel/iphone-16e-noreplay.png) | [17 Pro Max](review/reel/iphone-17-pro-max-noreplay.png) |
+| Moved on | [16e](review/reel/iphone-16e-moved.png) | [17 Pro Max](review/reel/iphone-17-pro-max-moved.png) |
 | iPad | [mini](review/reel/ipad-mini-done.png) | [Pro 13-inch, on its side](review/reel/ipad-pro-13-landscape-done.png) |
 
 The winner card with the button is the online `winner` review mode

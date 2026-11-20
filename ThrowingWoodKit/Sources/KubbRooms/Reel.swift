@@ -89,6 +89,68 @@ public enum ReelAnswer: Equatable, Sendable {
   }
 }
 
+extension ReelAnswer {
+  /// The kept replay's version the answer is about, when it names one.
+  public var version: Int? {
+    switch self {
+    case .rendering(let v, _), .done(let v, _, _), .failed(let v, _, _): v
+    case .none(let v, _): v == 0 ? nil : v
+    case .tooMany, .notStarted: nil
+    }
+  }
+}
+
+/// What identifies a finished match on a pitch: its number and, when it has one, its
+/// final hash as raw JSON (the engine's `room.replayOf`). A pitch that has had a
+/// rematch keeps a newer match under the same code.
+public struct ReelMatch: Equatable, Sendable {
+  public let n: Int
+  public let hash: String?
+  public init(n: Int, hash: String?) {
+    self.n = n
+    self.hash = hash
+  }
+}
+
+/// The room's kept replay as the read-only `replay` fetch gives it (the web's
+/// `askKept`): its version, and the match it is of.
+public struct KeptReplay: Equatable, Sendable {
+  public let v: Int
+  public let n: Int?
+  public let hash: String?
+  public init(v: Int, n: Int?, hash: String?) {
+    self.v = v
+    self.n = n
+    self.hash = hash
+  }
+
+  /// Whether this kept replay is `match` (always, with nothing to compare): the same
+  /// number, and the same hash when both have one.
+  public func isMatch(_ match: ReelMatch?) -> Bool {
+    guard let match else { return true }
+    return n == match.n && (match.hash == nil || hash == nil || hash == match.hash)
+  }
+
+  /// A replay's hash as text: a string as itself, anything else as its JSON.
+  public static func hashText(_ node: JSONNode?) -> String? {
+    guard let node, !node.isNull else { return nil }
+    return node.string ?? node.raw.text
+  }
+
+  /// One reply on the wire: `{ t: "replay", id, room, v, at, replay }`. Nil when the
+  /// room keeps none. Throws for an `error`.
+  public static func read(_ reply: JSONNode, room: String) throws -> KeptReplay? {
+    if reply["t"]?.string == "error" {
+      throw RoomError(reply["code"]?.string ?? "bad-message", reply["message"]?.string ?? "")
+    }
+    guard reply["t"]?.string == "replay", reply["room"]?.string == room else {
+      throw RoomError("unexpected-reply")
+    }
+    guard let v = reply["v"]?.int, let r = reply["replay"], !r.isNull else { return nil }
+    return KeptReplay(v: v, n: r["n"]?.int, hash: hashText(r["hash"]))
+  }
+}
+
 /// A done reel's files, as site paths under `/reels/<code>/`.
 public struct ReelFiles: Equatable, Sendable {
   public let tall: String
@@ -145,5 +207,23 @@ extension RoomsClient {
       return (t == "reel" || t == "error") && (reply["id"]?.int == 1 || reply["id"] == nil)
     }
     return try ReelAnswer.read(reply, room: room)
+  }
+
+  /// The room's kept replay, read with the `replay` fetch, which starts nothing: the
+  /// reel card checks it is the match on the screen before it asks for a reel.
+  public static func kept(
+    room: String, url: URL, appVersion: String, timing: Timing = Timing(),
+    factory: Factory = { WebSocketTransport(request: $0) }
+  ) async throws -> KeptReplay? {
+    guard room.range(of: "^[2-9a-hjkmnp-z]{8,24}$", options: .regularExpression) != nil else {
+      throw RoomError("bad-room")
+    }
+    let transport = factory(socketRequest(url: url, appVersion: appVersion))
+    let message = JS.object([("t", .string("replay")), ("id", .int(1)), ("room", .string(room))])
+    let reply = try await exchange(message, transport: transport, timing: timing) { reply in
+      let t = reply["t"]?.string
+      return (t == "replay" || t == "error") && (reply["id"]?.int == 1 || reply["id"] == nil)
+    }
+    return try KeptReplay.read(reply, room: room)
   }
 }

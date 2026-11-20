@@ -20,16 +20,17 @@ import SwiftUI
 }
 
 extension GameModel {
-  /// MAKE A HIGHLIGHT REEL: the reel card for a pitch code. It takes the code and
-  /// nothing else, so a match against the computer, once shared, opens it the same
-  /// way. The same code (and match) keeps its reel, so the card shows how it stands.
-  func openReel(code: String, match: Int? = nil) {
-    if reel?.code != code || reelMatch != match {
+  /// MAKE A HIGHLIGHT REEL: the reel card for a pitch code and, when known, the
+  /// finished match it is for (its number and hash), which the room's kept replay must
+  /// be. A match against the computer, once shared, opens it with the code alone. The
+  /// same code and match keep their reel, so the card shows how it stands.
+  func openReel(code: String, match: ReelMatch? = nil) {
+    if reel?.code != code || reel?.match != match {
       reel?.hide()
       reel = HighlightReel(
         code: code, site: RoomsConfiguration.site,
-        cache: URL.cachesDirectory.appending(path: "reels"), hooks: Self.reelHooks(code))
-      reelMatch = match
+        cache: URL.cachesDirectory.appending(path: "reels"), hooks: Self.reelHooks(code),
+        match: match)
     }
     reelReturn = screen
     screen = .reel
@@ -39,6 +40,9 @@ extension GameModel {
     HighlightReel.Hooks(
       ask: {
         try await RoomsClient.reel(room: code, url: RoomsConfiguration.url, appVersion: version)
+      },
+      kept: {
+        try await RoomsClient.kept(room: code, url: RoomsConfiguration.url, appVersion: version)
       },
       fetch: { from, to in
         let (file, response) = try await URLSession.shared.download(from: from)
@@ -78,7 +82,7 @@ struct ReelCard: View {
     VStack(alignment: .leading, spacing: 12) {
       Text(ReelWords.title).font(displayFont(38))
       switch reel.phase {
-      case .idle, .asking, .making: making
+      case .idle, .checking, .asking, .making: making
       case .fetching:
         Text(ReelWords.fetching)
         ProgressView().frame(maxWidth: .infinity)
@@ -96,13 +100,14 @@ struct ReelCard: View {
         }
       }
       Text(reel.link.absoluteString).font(.footnote.monospaced()).textSelection(.enabled)
+      if copied { Text(ReelWords.copied).font(.footnote) }
       HStack {
         if reel.phase == .ready, let tall = reel.file(.tall) {
           ShareLink(item: tall) { Label(ReelWords.share, systemImage: "square.and.arrow.up") }
             .buttonStyle(WoodButton(accent: true))
             .accessibilityHint("Shares the tall video file")
         }
-        Button(copied ? ReelWords.copied : ReelWords.copyLink) {
+        Button(ReelWords.copyLink) {
           UIPasteboard.general.string = reel.link.absoluteString
           copied = true
         }.buttonStyle(WoodButton())
@@ -162,6 +167,8 @@ struct ReelCard: View {
       Text(ReelWords.making).font(displayFont(24))
       SlowBar(since: reel.since ?? .now)
       Text(ReelWords.wait)
+      // a lost poll: said, and the next one tried (the render goes on without us)
+      if reel.offline { Text(ReelWords.problem(.offline).text) }
     }
   }
 
@@ -254,9 +261,10 @@ struct LoopingVideo: UIViewRepresentable {
         tall: "/reels/\(code)/1-r1-0.7/tall.mp4", wide: "/reels/\(code)/1-r1-0.7/wide.mp4", room: code)!
       let answer: ReelAnswer =
         switch mode {
-        case "making": .rendering(v: 1, tag: "r1-0.7")
         case "done": .done(v: 1, tag: "r1-0.7", files: files)
-        case "failed", "notthistime": .failed(v: 1, tag: "r1-0.7", why: .render)
+        case "making", "makingoffline": .rendering(v: 1, tag: "r1-0.7")
+        case "failed": .notStarted
+        case "notthistime": .failed(v: 1, tag: "r1-0.7", why: .render)
         case "empty": .failed(v: 1, tag: "r1-0.7", why: .empty)
         case "engine": .none(v: 1, why: .engine)
         case "busy": .none(v: 1, why: .busy)
@@ -264,18 +272,27 @@ struct LoopingVideo: UIViewRepresentable {
         case "toomany": .tooMany
         default: .none(v: 0, why: .replay)
         }
+      var asks = 0
       reel = HighlightReel(
         code: code, site: URL(string: "https://throwingwood.com")!,
         cache: URL.temporaryDirectory.appending(path: "review-reels"),
         hooks: HighlightReel.Hooks(
-          ask: { answer },
+          ask: {
+            asks += 1
+            // the second poll is lost: No connection under the wait
+            if mode == "makingoffline", asks > 1 { throw RoomError("closed") }
+            return answer
+          },
+          // the room keeps the match the card is for (match 2), or a rematch (3)
+          kept: { KeptReplay(v: 1, n: mode == "moved" ? 3 : 2, hash: nil) },
           fetch: { from, to in
             let name = from.lastPathComponent  // tall.mp4 or wide.mp4
             try? FileManager.default.removeItem(at: to)
             try FileManager.default.copyItem(
               at: URL.temporaryDirectory.appending(path: "review-reel-" + name), to: to)
           },
-          reachable: { mode != "offline" }))
+          reachable: { mode != "offline" }),
+        match: ReelMatch(n: 2, hash: nil), every: .milliseconds(mode == "makingoffline" ? 200 : 5000))
       try? FileManager.default.removeItem(at: URL.temporaryDirectory.appending(path: "review-reels"))
       reelReturn = .match
       screen = .reel
@@ -290,15 +307,11 @@ struct LoopingVideo: UIViewRepresentable {
     func body(content: Content) -> some View {
       content.task {
         guard let mode else { return }
-        var retried = false
         while true {
-          if mode == "notthistime", reel.phase == .problem(.failed), !retried {
-            retried = true
-            reel.tryAgain()
-          }
           let ready: Bool =
             switch mode {
-            case "making": reel.phase == .making
+            case "making": reel.phase == .making && !reel.offline
+            case "makingoffline": reel.phase == .making && reel.offline
             case "done": reel.phase == .ready && reel.file(format) != nil
             case "offline": reel.phase == .problem(.offline)
             case "failed": reel.phase == .problem(.failed)

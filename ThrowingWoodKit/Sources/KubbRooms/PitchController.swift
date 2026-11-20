@@ -388,14 +388,21 @@ import KubbEngine
   /// replayOf), the replay a finished match's keep sends: the web's winner card offers
   /// WATCH REPLAY, EMBED and a highlight reel only then. A match from before replays,
   /// or one too long to keep, has none. Cached per match number.
-  public var finishedWithReplay: Bool {
-    guard let m = match, m["over"]?.bool == true, let n = m["n"]?.int else { return false }
-    if let cached = replayChecked, cached.n == n { return cached.has }
-    let has = ((try? roomCall("replayOf", [("match", .raw(m.raw))]))?.isNull == false)
-    replayChecked = (n, has)
-    return has
+  public var finishedWithReplay: Bool { finishedReplay != nil }
+
+  /// The finished match's identity from its replay (`n`, and `hash` as raw JSON), for
+  /// the reel card to check the room still keeps this match. Nil when there is none.
+  public var finishedReplay: ReelMatch? {
+    guard let m = match, m["over"]?.bool == true, let n = m["n"]?.int else { return nil }
+    if let cached = replayChecked, cached.n == n { return cached.match }
+    var found: ReelMatch?
+    if let r = try? roomCall("replayOf", [("match", .raw(m.raw))]), !r.isNull {
+      found = ReelMatch(n: r["n"]?.int ?? n, hash: KeptReplay.hashText(r["hash"]))
+    }
+    replayChecked = (n, found)
+    return found
   }
-  private var replayChecked: (n: Int, has: Bool)?
+  private var replayChecked: (n: Int, match: ReelMatch?)?
 
   /// Take a user action only in this member's seat. The engine validates the action.
   @discardableResult public func take(_ action: JSONText, computer: Bool = false) async throws

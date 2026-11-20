@@ -9,7 +9,9 @@ the web's renderer (in a copy of the web checkout, never the checkout itself):
   node tools/reel/render.mjs --replay tests/fixtures/replay-north-south.json --out <dir>
 
 --landscape left|right turns the interface (an iPad turns as a device) and
-names the pictures <device>-landscape-<state>.png.
+names the pictures <device>-landscape-<state>.png. --sim-prefix picks simulators of
+your own (created as "<prefix>iPhone 16e" and so on) when another session uses the
+shared ones.
 """
 import argparse
 import concurrent.futures
@@ -27,8 +29,8 @@ from review_turn import is_ipad, turn as turn_device
 ROOT = Path(__file__).resolve().parents[1]
 # Every state on the phones held upright; the ones whose shape changes with the
 # window (the bar, the video, a problem with its button) also turned and on iPads.
-STATES = ("making done failed notthistime offline empty busy engine unavailable toomany "
-          "noreplay").split()
+STATES = ("making makingoffline done failed notthistime offline empty busy engine unavailable "
+          "toomany noreplay moved").split()
 SHAPES = ["making", "done", "failed", "offline"]
 APP = "com.throwingwood.app"
 DEVICES = {
@@ -52,7 +54,7 @@ def states_for(phone, args):
 def capture(phone, args):
     devices = json.loads(sim("list", "devices", "available", "-j", capture_output=True).stdout)
     device = next(d for d in devices["devices"]["com.apple.CoreSimulator.SimRuntime.iOS-26-2"]
-                  if d["name"] == phone)
+                  if d["name"] == args.sim_prefix + phone)
     udid = device["udid"]
     boot = device["state"] == "Shutdown"
     if boot:
@@ -121,6 +123,8 @@ if __name__ == "__main__":
                         help="one review device (repeatable)")
     parser.add_argument("--ipad", action="store_true", help="the two review iPads, not the phones")
     parser.add_argument("--landscape", choices=["left", "right"])
+    parser.add_argument("--sim-prefix", default="",
+                        help="use the simulators named <prefix><device> (your own, leaving others' alone)")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     phones = args.phone or (IPADS if args.ipad else PHONES)

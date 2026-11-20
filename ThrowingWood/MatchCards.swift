@@ -632,9 +632,10 @@ struct MatchScreen: View {
       // a finished pitch with its replay (the web's docs/REEL.md); a match against
       // the computer gets it once it can be shared
       if let code = model.onlineReelCode {
-        let shown = model.reel?.code == code && model.reelMatch == model.online?.controller.matchNumber
+        let match = model.online?.controller.finishedReplay
+        let shown = model.reel?.code == code && model.reel?.match == match
         Button {
-          model.openReel(code: code, match: model.online?.controller.matchNumber)
+          model.openReel(code: code, match: match)
         } label: {
           Text(ReelWords.button(shown ? model.reel?.phase : nil)).lineLimit(1).minimumScaleFactor(0.8)
         }.buttonStyle(WoodButton())

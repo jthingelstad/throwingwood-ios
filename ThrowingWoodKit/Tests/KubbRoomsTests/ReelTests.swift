@@ -149,6 +149,55 @@ import Testing
     } catch is RoomError {}
   }
 
+  /// The read-only `replay` fetch (docs/ROOMS.md section 10), answered with `reply`.
+  private func kept(_ reply: String) async throws -> (KeptReplay?, [MockTransport]) {
+    var made: [MockTransport] = []
+    let factory: RoomsClient.Factory = { _ in
+      let t = MockTransport()
+      made.append(t)
+      t.onSend = { m in
+        guard m["t"]?.string == "replay" else { return }
+        t.push(#"{"t":"pong"}"#)
+        t.push(reply)
+      }
+      return t
+    }
+    var timing = RoomsClient.Timing()
+    timing.answer = .seconds(600)
+    let k = try await RoomsClient.kept(
+      room: Self.room, url: URL(string: "ws://127.0.0.1:1")!, appVersion: "0.0-test",
+      timing: timing, factory: factory)
+    return (k, made)
+  }
+
+  @Test func theKeptReplayIsReadWithoutStartingAnything() async throws {
+    let (k, sockets) = try await kept(
+      #"{"t":"replay","id":1,"room":"abcdefgh23","v":7,"at":1,"replay":{"v":1,"n":2,"setup":{},"log":[],"hash":"9f3a"}}"#
+    )
+    #expect(k == KeptReplay(v: 7, n: 2, hash: "9f3a"))
+    #expect(sockets.count == 1 && sockets[0].closed)
+    #expect(sockets[0].sent.map(\.raw.text) == [#"{"t":"replay","id":1,"room":"abcdefgh23"}"#])
+    let (none, _) = try await kept(#"{"t":"replay","id":1,"room":"abcdefgh23","v":0,"at":null,"replay":null}"#)
+    #expect(none == nil)
+    do {
+      _ = try await kept(#"{"t":"error","id":1,"code":"throttled","message":"slow down"}"#)
+      Issue.record("should throw")
+    } catch let e as RoomError { #expect(e.code == "throttled") }
+  }
+
+  @Test func aKeptReplayIsTheMatchByNumberAndHash() {
+    let k = KeptReplay(v: 7, n: 2, hash: "a")
+    #expect(k.isMatch(nil))
+    #expect(k.isMatch(ReelMatch(n: 2, hash: "a")))
+    #expect(k.isMatch(ReelMatch(n: 2, hash: nil)))
+    #expect(KeptReplay(v: 7, n: 2, hash: nil).isMatch(ReelMatch(n: 2, hash: "a")))
+    #expect(!k.isMatch(ReelMatch(n: 2, hash: "b")))
+    #expect(!k.isMatch(ReelMatch(n: 1, hash: "a")))
+    #expect(ReelAnswer.rendering(v: 7, tag: "t").version == 7)
+    #expect(ReelAnswer.none(v: 0, why: .replay).version == nil)
+    #expect(ReelAnswer.notStarted.version == nil)
+  }
+
   @Test func aJoinedClientAsksOnASocketOfItsOwn() async throws {
     var sockets: [MockTransport] = []
     let room = try makeClient { _ in
