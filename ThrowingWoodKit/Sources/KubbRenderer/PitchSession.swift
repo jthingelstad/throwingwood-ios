@@ -69,10 +69,14 @@ public struct PointerDial: ThrowInput {
 }
 
 struct Aim: Decodable {
-  struct Plan: Decodable { let loft, release: Double?, tilt, spin: Int? }
+  // tilt and spin are any value on 0.9 (whole steps before it)
+  struct Plan: Decodable { let loft, release, tilt, spin: Double? }
+  /// The sliders' numbers (since 0.9; absent on an older engine).
+  struct Controls: Decodable { let arc, tilt, spin: PlanControl? }
   struct Wind: Decodable { let text: String }
   let wind: Wind?, advText: String?
   let plan: Plan?, mix: Double?, projectile: String?
+  let controls: Controls?
   let marker, thrower: GroundMark?
   let arc: [WorldPoint]?, advY: Double?
   let lineY, forwardY, halfWidth, backMax: Double?
@@ -123,7 +127,12 @@ public final class PitchSession {
   public internal(set) var need: MatchNeed?, handoff: MatchNeed.Handoff?, placement: PlacementCheck?
   public internal(set) var revision = 0
   public internal(set) var plan = false
-  public private(set) var arcDegrees: Int?, sideStep: Int?
+  /// The loft (ARC's words) and the side: a baton's tilt in degrees or a kubb's spin
+  /// in taps, any value on 0.9.
+  public private(set) var arcDegrees: Int?, sideStep: Double?
+  /// The engine's numbers for ARC and for TILT or SPIN (`aim.controls`, since 0.9);
+  /// nil on an older engine, whose sliders keep their fixed scale and steps.
+  public private(set) var arcControl: PlanControl?, sideControl: PlanControl?
   /// The planned release on the clock (degrees) and the side in the engine's steps.
   public private(set) var release: Double?, sideSteps = 0, projectile: String?
   /// The plan slider a finger holds, where it is (0...1), and the place not yet sent.
@@ -227,6 +236,8 @@ public final class PitchSession {
     sideStep = a.projectile == "kubb" ? a.plan?.spin : a.plan?.tilt
     release = a.plan?.release
     projectile = a.projectile
+    arcControl = a.controls?.arc
+    sideControl = a.projectile == "kubb" ? a.controls?.spin : a.controls?.tilt
     standAim = StandAim(
       projectile: a.projectile, lineY: a.lineY ?? 0, forwardY: a.forwardY,
       halfWidth: a.halfWidth ?? 2.5, backMax: a.backMax ?? 3)

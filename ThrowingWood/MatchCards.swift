@@ -45,11 +45,11 @@ struct MatchOptionsCard: View {
         .onChange(of: model.name) { _, value in
           model.name = String(value.prefix(model.pitch?.options.nameLimit ?? value.count))
         }
-      // the player's own level is the device's (Settings); this card's Level row
-      // is the computer's, chosen for each game
+      // the player's own level is the device's (Settings); this card's Computer
+      // level row is the match's `computer` option, chosen for each game
       LevelLine(model: model)
       ForEach(model.pitch?.options.rows ?? []) { row in
-        let label = row.id == "level" ? "Computer level" : row.label
+        let label = row.id == "computer" ? "Computer level" : row.label
         HStack {
           Text(label).font(.subheadline.weight(.semibold))
           Spacer()
@@ -716,8 +716,9 @@ struct PlanControls: View {
     let enabled = pitch.canAim
     return VStack(spacing: 12) {
       ArcSlider(
-        release: pitch.release, loft: pitch.arcDegrees,
-        held: pitch.held == .arc ? pitch.heldFraction : nil, enabled: enabled,
+        place: pitch.arcPlace, loft: pitch.arcDegrees,
+        held: pitch.held == .arc ? pitch.heldFraction : nil, marks: pitch.arcMarks(run:),
+        enabled: enabled,
         slide: { f, phase in model.perform { pitch.slide(.arc, to: f, phase: phase) } },
         step: { s in model.perform { try pitch.stepPlan(.arc, by: s) } })
       tool("SIDE VIEW", label: "Side view", on: pitch.plan) { try pitch.togglePlan() }
@@ -728,8 +729,9 @@ struct PlanControls: View {
     let enabled = pitch.canAim
     return VStack(spacing: 12) {
       SideSlider(
-        value: pitch.sideStep ?? 0, kubb: pitch.throwsKubb,
-        held: pitch.held == .side ? pitch.heldFraction : nil, enabled: enabled,
+        value: pitch.sideStep ?? 0, place: pitch.sidePlace, kubb: pitch.throwsKubb,
+        held: pitch.held == .side ? pitch.heldFraction : nil, marks: pitch.sideMarks(run:),
+        enabled: enabled,
         slide: { f, phase in model.perform { pitch.slide(.side, to: f, phase: phase) } },
         step: { s in model.perform { try pitch.stepPlan(.side, by: s) } })
       StandPlate(
