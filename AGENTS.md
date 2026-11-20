@@ -232,6 +232,14 @@ the `reel` request) takes a pitch code, and the match when it has one, and keeps
 web's docs/REEL.md words; its pictures come from
 `python3 tools/reel-snapshots.py <simulator-app> --videos <dir>` (docs/ONLINE.md
 "The highlight reel"). Never point it at production while testing.
+Sharing a finished match against the computer (`ShareCard.swift`, `SoloShare`,
+`KubbRooms/Share.swift`) keeps the web's docs/REEL.md "The share card" words and
+reducer, and the web's `share` message byte for byte but for `client: "ios"`
+(`Fixtures/share-vectors.json`, from `node tools/share-vectors.mjs --web <web checkout>`).
+Nothing is sent before SHARE AND MAKE THE REEL, and nothing about the device beyond
+`client`. A sealed pitch shows its winner card from its kept replay. Pictures:
+`python3 tools/share-snapshots.py <simulator-app>`, upright, `--landscape left` and
+`--ipad` (docs/ONLINE.md "Sharing a match against the computer"). Never send a real share.
 
 Local wire conformance and three complete cross-play matches run with
 `swift build --package-path ThrowingWoodKit --product RoomsProbe` then
