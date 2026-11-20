@@ -9,9 +9,10 @@ import "session/json"
 import "session/session"
 import "session/wide"
 import "session/replay"
+import "session/check"
 import "room/api"
 
-local json, session, wide, replay = tw.web.json, tw.web.session, tw.web.wide, tw.web.replay
+local json, session, wide, replay, check = tw.web.json, tw.web.session, tw.web.wide, tw.web.replay, tw.web.check
 
 local api = {}
 local S = nil
@@ -70,10 +71,16 @@ end
 -- engineVersion: { version } (version.lua). useTune { name }: the host's tune
 -- (tune/<name>.lua), once per Lua state, before the first new or restore; returns
 -- { tune }. setClient { label }: the client label written into game files ("web
--- 0.4.2"; default "kubb-engine <version>"); returns { client }.
+-- 0.4.2"; default "kubb-engine <version>") and, since 0.7.2, optionally { location }: the
+-- game file's Location line ("Web"; absent: "Playdate", as before: each call sets both);
+-- returns { client, location? }.
 function M.engineVersion() return { version = tw.engine.version } end
 function M.useTune(a) return { tune = session.useTune(a and a.name) } end
-function M.setClient(a) return { client = session.setClient(a and a.label) } end
+function M.setClient(a)
+	local out = { client = session.setClient(a and a.label) }
+	out.location = session.setLocation(a and a.location)
+	return out
+end
 
 function M.new(a) R = nil; S = session.new(a or {}); return S:view() end
 function M.restore(text, raw) R = nil; S = session.restore(raw); return S:view() end
@@ -104,9 +111,10 @@ function M.apply(a) return act():apply(a) end
 function M.checkPunish(a) return need():checkPunish(a.x, a.y) end
 function M.hash() local text = need():snapshot(); return { hash = session.fnv(text), bytes = #text } end
 -- ---------- a replay (session/replay.lua) ----------
--- replayLoad { setup, h0, log } sets the match out again from its options; the view,
+-- replayLoad { setup, h0, log } (or { start, ... }; options checkCpu, checkThrows and
+-- document: session/replay.lua) sets the match out again from its options; the view,
 -- with `replay` = its info. replayStep plays the next action ({ ok, recording?, need,
--- action, replay }); replayBack goes to the start of the previous turn and
+-- action, standing = { before, after }, replay }); replayBack goes to the start of the previous turn and
 -- replayRewind to the start of the match (the view, with `replay`).
 local function withInfo(r)
 	r.replay = R:info()
@@ -143,6 +151,39 @@ function M.replayInfo()
 	return r
 end
 function M.replayEnd() R = nil; return json.object() end
+-- replayFinish: every action left (no recordings); the info. replayDocument: the finished
+-- match's room document (replayLoad with document), with the hash at the start and after
+-- each action: { document, h0, hashes }.
+function M.replayFinish()
+	local r = needReplay():finish()
+	S = R.s
+	return r
+end
+function M.replayDocument()
+	local r = needReplay()
+	local doc, why = r:document()
+	assert(doc, "replayDocument: " .. tostring(why))
+	return { document = doc, h0 = r.firstHash, hashes = r.hashes }
+end
+
+-- ---------- checking a shared match (session/check.lua) ----------
+-- checkThrow(action): could this be the next throw as the match is set up now? { ok, why,
+-- computer, levels, level, atLevel }. checkStart { start }: is it a match's first
+-- snapshot? { ok, why }. renameStart { start, names = { A = "<name>" }, log? }: { start, ids,
+-- log? }: the renamed start, the players' ids old to new, and the log with its thrower
+-- actions' ids mapped (session.renameLog), so the renamed match replays to its end.
+function M.checkThrow(a) return check.throw(need(), a) end
+function M.checkStart(a)
+	local ok, why = session.startCheck(a and a.start)
+	return { ok = ok, why = why }
+end
+function M.renameStart(a)
+	local start = session.renameStart(a.start, a.names)
+	local ids = session.renameIds(a.start, start)
+	local out = { start = start, ids = ids }
+	if a.log ~= nil then out.log = session.renameLog(a.log, ids) end
+	return out
+end
 
 -- Frozen rest poses in the frame of the reported throw, including pieces
 -- picked up for the following turn. Avoid serializing the playback tracks.

@@ -136,7 +136,7 @@ import Testing
     let dir = folder()
     defer { try? FileManager.default.removeItem(at: dir) }
     let save = MatchSave(file: dir.appending(path: "solo-match.json"))
-    try save.beginTrail(start: #"{"v":1}"#, hash: "h0", engine: "0.7.1", complete: true)
+    try save.beginTrail(start: #"{"v":1}"#, hash: "h0", engine: "0.7.2", complete: true)
     for i in 1...3 { try save.appendTrail(JSONText(#"{"type":"raise","n":\#(i)}"#), hash: "h\(i)") }
     var read = try #require(save.readTrail())
     #expect(read.trail.entries.map(\.hash) == ["h1", "h2", "h3"] && read.trail.complete)
@@ -147,15 +147,15 @@ import Testing
     try handle.close()
     read = try #require(save.readTrail())
     #expect(read.trail.entries.count == 3)
-    #expect(save.resumeTrail(hash: "h3", engine: "0.7.1")?.entries.count == 3)
+    #expect(save.resumeTrail(hash: "h3", engine: "0.7.2")?.entries.count == 3)
     try save.appendTrail(JSONText(#"{"type":"raise","n":4}"#), hash: "h4")
     #expect(save.readTrail()?.trail.entries.map(\.hash) == ["h1", "h2", "h3", "h4"])
     // an append the save never caught up with (killed between the two) is cut back
-    #expect(save.resumeTrail(hash: "h3", engine: "0.7.1")?.entries.count == 3)
+    #expect(save.resumeTrail(hash: "h3", engine: "0.7.2")?.entries.count == 3)
     #expect(save.readTrail()?.trail.entries.count == 3)
     // a different engine, or a hash it never had, does not line up
     #expect(save.resumeTrail(hash: "h3", engine: "0.8.0") == nil)
-    #expect(save.resumeTrail(hash: "zz", engine: "0.7.1") == nil)
+    #expect(save.resumeTrail(hash: "zz", engine: "0.7.2") == nil)
     // a broken line in the middle is a broken trail
     try Data("{\"v\":1}\nnot json\n{}\n".utf8).write(to: save.trailFile)
     #expect(save.readTrail() == nil)
@@ -182,7 +182,7 @@ import Testing
     switch how {
     case "corrupt": try Data("\u{0}garbage\n{".utf8).write(to: save.trailFile)
     case "other":
-      try save.beginTrail(start: fixture("aim"), hash: "0badf00d", engine: "0.7.1", complete: true)
+      try save.beginTrail(start: fixture("aim"), hash: "0badf00d", engine: "0.7.2", complete: true)
     default: break
     }
     let app = try PitchSession(appVersion: "test")

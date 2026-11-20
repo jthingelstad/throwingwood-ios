@@ -8,7 +8,7 @@ import KubbRooms
 //
 // The trail being played is JSON lines, appended one action at a time:
 //
-//   {"v":1,"engine":"0.7.1","complete":true,"start":"<snapshot>","h":"<hash>"}
+//   {"v":1,"engine":"0.7.2","complete":true,"start":"<snapshot>","h":"<hash>"}
 //   {"a":<action>,"h":"<hash after it>"}
 //   ...
 //

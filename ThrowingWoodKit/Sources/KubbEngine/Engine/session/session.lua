@@ -65,6 +65,22 @@ function session.setClient(label)
 	return label
 end
 
+-- Where the game file says the match was played (its Location line). nil: core/notation's
+-- own (notation.location, "Playdate"), as before 0.7.2. Not in the snapshot either.
+session.location = nil
+
+function session.setLocation(place)
+	if place == nil then
+		session.location = nil
+		return nil
+	end
+	assert(type(place) == "string" and #place >= 1 and #place <= 40 and place:match("^[%w%.%-%+ ]+$")
+		and not place:match("^ ") and not place:match(" $"),
+		"setClient: a location of 1 to 40 letters, digits, spaces, dots, hyphens or pluses, like \"Web\"")
+	session.location = place
+	return place
+end
+
 -- The host's tune: tune/<name>.lua, its values for the core's tune tables (put in
 -- once, here) and the session's dial and throw tables. One per Lua state, chosen
 -- before the first new or restore; it cannot change after.
@@ -114,6 +130,22 @@ function session.short(s)
 		if n > 0 then return n .. " DOWN" end
 	end
 	return first:upper():sub(1, 12)
+end
+
+-- A throw's ruling for its recording (docs/SESSION.md "Rulings"): the words (m.text), the
+-- flag's (short), and since 0.7.2 the same as codes (core/match m.ruling): `code` and `n`
+-- the first part's, `parts` every part's, `winner` once the match is won. The words are
+-- unchanged; a reader that needs what happened reads the codes.
+function session.ruling(m)
+	local r = { text = m.text, short = session.short(m.text) }
+	local cr = m.ruling
+	if cr and cr.parts and cr.parts[1] then
+		local parts = {}
+		for i, p in ipairs(cr.parts) do parts[i] = { code = p.code, n = p.n } end
+		r.code, r.n, r.parts = parts[1].code, parts[1].n, parts
+		r.winner = cr.winner
+	end
+	return r
 end
 
 -- scenes/settle.lua whyLabel.
@@ -222,6 +254,7 @@ local function isCpu(s, side)
 	for _, c in ipairs(s.opts.cpu or {}) do if c == side then return true end end
 	return false
 end
+session.isCpu = isCpu
 
 -- ---------- the session ----------
 
@@ -420,7 +453,7 @@ function Session:over()
 		winner = cards.winner(self.m, finish),
 		how = cmatch.howText(self.m),
 	}
-	local text, name = cmatch.file(self.m, finish, session.client)
+	local text, name = cmatch.file(self.m, finish, session.client, session.location)
 	self.overInfo.file = { text = text, name = name }
 end
 
@@ -443,7 +476,7 @@ function Session:sheet()
 			end
 		end
 		text = notation.render(m.game, { start = m.start, version = session.client, mode = m.mode,
-			levels = levels })
+			levels = levels, location = session.location })
 		local start = m.start or self.opts.start
 		name = start and notation.filename(start, m.game.teams.A.name, m.game.teams.B.name) or "kubb-game.txt"
 	end
@@ -870,7 +903,7 @@ function Session:applyThrow(a)
 	else
 		local m = self.m
 		cmatch.resolve(m, ts.result, not rec.result.legal)
-		rec.result.ruling = { text = m.text, short = session.short(m.text) }
+		rec.result.ruling = session.ruling(m)
 		ts.flagText = session.short(m.text)
 		ts.mode = "aim"
 		ts.watching = false
@@ -1058,6 +1091,138 @@ function Session:apply(a)
 		return { ok = true, need = self:need() }
 	end
 	error("unknown action " .. tostring(t))
+end
+
+-- ---------- checking a shared match (docs/SESSION.md "What a server can prove") ----------
+
+-- The computer's next throw as Session:frame makes it (the same choice, aim, launch and
+-- action, through JSON), without running it. It moves this session's aim (throw.cpuBegin),
+-- so call it on a session restored for the purpose (session/replay does). The choice is
+-- seeded by the match seed and the throws so far (mix(seed, 1, throws)) and read from the
+-- set-up, so the snapshot before the throw is all it needs.
+function Session:cpuAction()
+	assert(self.kind == "match" and self.phase == "throw" and isCpu(self, self.setup.side),
+		"cpuAction: not the computer's throw")
+	local ts = self.ts
+	local a = autothrow.choose(self.setup, rngFor(self, 1, self.throws), tw.web.tune.throw.cpuScatter)
+	throw.cpuBegin(ts, a)
+	local L, how = throw.cpuLaunch(ts, a)
+	ts.playerX, ts.playerY = a.x, a.y
+	local info = { scripted = true, back = a.swing and a.swing.back, stop = a.swing and a.swing.releaseAngle }
+	return json.decode(json.encode(self:throwAction(L, how, info)))
+end
+
+-- Standing kubbs in each half now, by role, and the king: { A = { field, base }, B = ...,
+-- king } (a toppled field kubb waiting to be raised is not standing).
+function Session:standing()
+	if self.kind ~= "match" then return nil end
+	local g = self.m.game
+	local out = { king = g.king.pose.standing and true or false }
+	for _, side in ipairs { "A", "B" } do
+		local field, base = 0, 0
+		for _, k in ipairs(g:fieldKubbs(side)) do if k.pose.standing then field = field + 1 end end
+		for _, k in ipairs(g:baseKubbs(side)) do if k.pose.standing then base = base + 1 end end
+		out[side] = { field = field, base = base }
+	end
+	return out
+end
+
+local function copyTable(v)
+	if type(v) ~= "table" then return v end
+	local out = {}
+	for k, x in pairs(v) do out[k] = copyTable(x) end
+	return out
+end
+
+-- The newMatch options a match's first snapshot was made from (without mode = "match", as
+-- a room's document keeps them): a new match from them makes that very snapshot
+-- (session.startCheck says whether it does).
+function session.setupOf(start)
+	local d = type(start) == "string" and json.decode(start) or start
+	assert(type(d) == "table" and d.v == session.snapshotVersion and type(d.opts) == "table",
+		"not a snapshot of this version")
+	local o = copyTable(d.opts)
+	o.modeName, o.mode = o.mode, nil
+	return o
+end
+
+local function newFromSetup(o)
+	local c = copyTable(o)
+	c.mode = "match"
+	return session.new(c)
+end
+
+-- Is `start` a match's first snapshot, one session.new makes (no throw, nothing done)?
+-- Returns true, or false and why.
+function session.startCheck(start)
+	needTune()
+	local ok, d = pcall(json.decode, start)
+	if not ok or type(d) ~= "table" or d.v ~= session.snapshotVersion then return false, "not a snapshot" end
+	if I(d.throws) ~= 0 then return false, "not a start: throws made" end
+	local ok2, s = pcall(newFromSetup, session.setupOf(d))
+	if not ok2 then return false, "not a start: " .. tostring(s) end
+	if s:snapshot() ~= start then return false, "not a start: a new match from its options differs" end
+	return true
+end
+
+-- The start with a side's names changed (docs/SESSION.md "Renaming a side"). names =
+-- { A = "<name>" } or { A = { name = "<team>", players = { "<name>", ... } } } (B the
+-- same). A plain name is the team's and, on a side of one player, the player's too. The
+-- match is made again from the start's options with the new names, so the ids made from
+-- them follow and nothing else changes; the start must be one session.new makes.
+function session.renameStart(start, names)
+	local ok, why = session.startCheck(start)
+	assert(ok, "renameStart: " .. tostring(why))
+	assert(type(names) == "table", "renameStart: { A = \"<name>\" }")
+	local o = session.setupOf(start)
+	for _, side in ipairs { "A", "B" } do
+		local n = names[side]
+		if n ~= nil then
+			local t = o.teams[side]
+			if type(n) == "string" then n = { name = n, players = (#t.players == 1) and { n } or nil } end
+			assert(type(n) == "table", "renameStart: a name or { name, players } for " .. side)
+			if n.name ~= nil then
+				assert(type(n.name) == "string" and #n.name >= 1, "renameStart: a team name for " .. side)
+				t.name = n.name
+			end
+			if n.players ~= nil then
+				assert(type(n.players) == "table" and #n.players == #t.players,
+					"renameStart: one name for each of side " .. side .. "'s " .. #t.players .. " players")
+				for i, p in ipairs(n.players) do
+					assert(type(p) == "string" and #p >= 1, "renameStart: a player's name")
+					t.players[i].name = p
+				end
+			end
+		end
+	end
+	return newFromSetup(o):snapshot()
+end
+
+-- The players' ids (notation.assignIds) come from their names, so a rename changes them,
+-- and a log's `thrower` actions name players by id. session.renameIds(start, renamed):
+-- { [old id] = new id } for every player, matched by side and place. session.renameLog(
+-- log, ids): a copy of the log ([{ a }], the hashes dropped: a renamed match has its own)
+-- with each thrower action's id mapped, so the renamed match replays as the original did.
+function session.renameIds(start, renamed)
+	local a, b = session.restore(start), session.restore(renamed)
+	local ids = {}
+	for _, side in ipairs { "A", "B" } do
+		local pa, pb = a.m.game.teams[side].players, b.m.game.teams[side].players
+		assert(#pa == #pb, "renameIds: side " .. side .. " has other players")
+		for i, p in ipairs(pa) do ids[p.id] = pb[i].id end
+	end
+	return ids
+end
+
+function session.renameLog(log, ids)
+	assert(type(log) == "table", "renameLog: a log [{ a }]")
+	local out = {}
+	for i, e in ipairs(log) do
+		local x = copyTable(e.a)
+		if type(x) == "table" and x.type == "thrower" and ids[x.id] then x.id = ids[x.id] end
+		out[i] = { a = x }
+	end
+	return out
 end
 
 -- ---------- snapshot ----------

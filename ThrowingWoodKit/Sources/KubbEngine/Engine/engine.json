@@ -1,6 +1,6 @@
 {
   "name": "kubb-engine",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "extractedFrom": {
     "repository": "jthingelstad/playdate-kubb",
     "path": "source/core",
@@ -36,7 +36,7 @@
     "core/howto.lua": "06dea483b7090ac9701a092ff6c07289ff285e029583ac48dddc972f5001af88",
     "core/howtoplay.lua": "55bdc5519a010fe79ac94d9ce41f4a998f69bb2741154bd253f20a2a17d39feb",
     "core/lineup.lua": "c7c96c0c228d0e584a05dfa72508f998d8492a83af3770ca5db4cab178d11a48",
-    "core/match.lua": "29080f692bb3fc6952aebcf9471974d65e29415565448ecc8a2d9f976e79819b",
+    "core/match.lua": "1e1cc359f27f826c15958118fce6c810cfb908533362adc9570cb9612b3aac16",
     "core/matchopts.lua": "be4dbdf3b22cb7ea7aa637643e3540e72857cefd4313c847aae8831cdde0124d",
     "core/names.lua": "faec8d960119704c95bd9a72f6462bc2b62daa30e19ff9cedc657a80e452848d",
     "core/notation.lua": "dc13b45fe7372792d845cdaff3dc1b0ee47c86f7f44c3b04b070131e497cef51",
@@ -62,18 +62,19 @@
     "room/lobby.lua": "363b9e47e910f3ab91211f1c7f3273f73c367f38b84df599329abf5dbd5de84a",
     "room/seats.lua": "6bbc5db4cddf33f6f49f8d4887840134eb9d02d86ec2d2969203e84c140ef1bc",
     "room/sync.lua": "b7703c43982aad5abfe7275d908f1ee4d9f0b1ae2570622193b9d572c8883cb1",
-    "session/api.lua": "89144af9a5205f9dccf5b9cb9f01f1fbc6834f10193a99920fe6b646107efdf9",
+    "session/api.lua": "fce31709c3a80ba8959074cfcc7b159b6fecbacd799e7c604dd78acec148b139",
+    "session/check.lua": "9d1486539abbada4817fb5d83a00cb1d95250875a860ffb64ca3691171451a8b",
     "session/json.lua": "c67017eb3aa54b2ebc68000999b7a7c770dab6d7ec45d5e6f2a481bfe38e25b0",
-    "session/replay.lua": "cd6415008b9a7cebc79a4c61ccdf3c4f9a81f5963e2e82a468c10f294f1f10ea",
-    "session/session.lua": "a4e58abad494d4066689490e78c19cab15eb45ae8ee3a086bd5a6daf4721bfc2",
+    "session/replay.lua": "f5eae65e22127c018c7a7afa43f5540e0bc51736d8fdc6780ed3ab06f35148d8",
+    "session/session.lua": "43bbcf86c07ba58be02577529ef380309f1f8dc57104e09dad0d11f38b6fa0b2",
     "session/throw.lua": "f1b48dc7bb14c7dc978d25b863fd59ba8e69c296f9d6a1abc8508923854999f3",
     "session/touch.lua": "1785c2057390574d94f42fde5945558e42ae20186a74d5bd8bc6d523231d4371",
-    "session/wide.lua": "f2ac4b36d7bba2ab081c55a27c1eb31549810431423e6a3671dedb7be99f90c5",
+    "session/wide.lua": "9f2087d3362b6ed4d2240365a5bd79504ae7207775529cc0d403ab201befd855",
     "tune/pointer.lua": "7b30c67adf47fb8387e5b0dd7f73af3c92c99116d05781885e7fc0157fcc9397",
     "tune/touch.lua": "b7c3f2851c4c386cc39a76d891cf273d703ac231fe51c235db5d1bc404915221",
-    "version.lua": "5abe66a0a17418d13aef1ea4df87b02cc2a3fce4c74a678e4cf53e33704beafa"
+    "version.lua": "8be211733255d76425cbec5a5de4441b133840c14e76739560d20c2eb3ef5d03"
   },
   "bundle": {
-    "sha256": "4558628c76ff129affc82f8f6b31d31bd0b885e8a6e78f2ef4b8d1b395b65f7d"
+    "sha256": "2bd693c9a266ce19e357f54a7d06786ad021abd58a2b5119f393000b0b0c4081"
   }
 }
