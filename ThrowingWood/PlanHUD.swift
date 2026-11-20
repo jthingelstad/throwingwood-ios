@@ -5,11 +5,11 @@ extension PracticeHUD {
   /// circle and leaning by the tilt as the thrower sees it from behind (the
   /// engine turns the baton's plane toward the right by the tilt:
   /// core/world.lua `batonLaunchState`), beside a dashed upright for the
-  /// straight throw. Drawn only; nothing here reaches the engine.
+  /// straight throw. Plain wood, no bands, as on the pitch (Jamie, 2026-11-20).
+  /// Drawn only; nothing here reaches the engine.
   func leaningBaton(at circle: CGPoint, tiltDegrees: Double) {
     let ink = UIColor(red: 0.09, green: 0.078, blue: 0.059, alpha: 1)
     let wood = UIColor(red: 0.95, green: 0.89, blue: 0.75, alpha: 1)
-    let band = UIColor(red: 0.62, green: 0.42, blue: 0.22, alpha: 1)
     let length: CGFloat = 62, width: CGFloat = 11
     let foot = CGPoint(x: circle.x, y: circle.y - 10)
     context.saveGState()
@@ -33,10 +33,6 @@ extension PracticeHUD {
     let path = UIBezierPath(roundedRect: body, cornerRadius: width / 2)
     wood.setFill()
     path.fill()
-    context.setFillColor(band.cgColor)
-    for y in [-length * 0.2, -length * 0.8] {
-      context.fill(CGRect(x: -width / 2, y: y - 2, width: width, height: 4))
-    }
     ink.setStroke()
     path.lineWidth = 2
     path.stroke()
