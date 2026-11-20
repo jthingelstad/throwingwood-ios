@@ -176,6 +176,9 @@ extension PitchSession {
         "build",
         .object([
           ("version", .string(appVersion)),
+          // what the player sees in the menu, `0.2 (0.8.1)`, and the build number
+          ("label", .string(versionLabel.text)),
+          ("number", VersionLabel.bundleBuild.map(JS.string) ?? .null),
           (
             "commit",
             (Bundle.main.object(forInfoDictionaryKey: "ThrowingWoodCommit") as? String).map(

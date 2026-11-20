@@ -23,7 +23,9 @@ submit it to Beta App Review for the Beta group whenever Jamie asks for one.
 `scripts/testflight.sh` archives a clean commit on main and uploads it,
 internal only (`testFlightInternalTestingOnly` in
 `Config/ExportOptions-TestFlight.plist`). The version is `VERSION`, set by
-hand; the build number is the commit count, so a commit uploads once.
+hand; the build number is the commit count, so a commit uploads once. A player sees
+the version as `<app version> (<engine version>)`, `0.2 (0.8.1)` for the first build on
+engine 0.8 (AGENTS.md "The version a player sees").
 `scripts/asc.swift` calls the App Store Connect API for the rest (groups,
 What to Test, review submissions).
 

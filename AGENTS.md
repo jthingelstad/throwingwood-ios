@@ -20,6 +20,16 @@ physics and session that the Playdate and the web version
 - No third-party Swift packages. No `withTaskGroup` (the optimizer has broken
   one in a sibling app). No analytics.
 - Shut the simulators down when done: `xcrun simctl shutdown all`.
+- **The version a player sees** is `<app version> (<engine version>)`, e.g.
+  `0.2 (0.8.1)`, built in one place, `VersionLabel` (KubbRenderer): `VERSION`
+  (the marketing version) and the newest carried engine's `engineVersion`, read
+  from the engine, never typed. Nothing else goes in the parentheses: the build
+  number is a detail line (`build 114`), and so is any older engine carried
+  (`Also plays 0.7.4`). It is at the foot of the match, pitch and practice menus
+  and in a feedback report's `build.label`. It never goes on the room wire, a
+  rider, a kept match or a shared replay, which name only the engine a match is
+  played on. Bump `VERSION` and `MARKETING_VERSION` together; the build number
+  is the TestFlight script's.
 
 ## The engine must match the web's, bit for bit
 

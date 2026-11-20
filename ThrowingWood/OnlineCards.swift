@@ -247,6 +247,7 @@ struct OnlineMenu: View {
       ReportButton(model: model)
       Button("BACK TO MATCH") { model.screen = .match }
       Button("HOME", action: model.home)
+      VersionFooter(label: online.board.versionLabel)
     }.buttonStyle(WoodButton()).modifier(Plate()).padding(18)
       .frame(maxWidth: .infinity, maxHeight: .infinity).modifier(FitOrScroll())
   }

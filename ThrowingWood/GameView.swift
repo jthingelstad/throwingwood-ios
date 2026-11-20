@@ -210,6 +210,12 @@ struct GameView: View {
           ReportButton(model: model)
           FeedbackSettings(feedback: model.feedback)
           MeterSettings(meter: model.meter)
+          if let label = model.pitch?.versionLabel {
+            Section {
+              Text("Throwing Wood \(label.text)")
+              ForEach(label.detail, id: \.self) { Text($0) }
+            }
+          }
         } label: {
           Label("Menu", systemImage: "line.3.horizontal")
         }
