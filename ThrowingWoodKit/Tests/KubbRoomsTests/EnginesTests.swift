@@ -73,11 +73,17 @@ import Testing
     #expect(doc["settings"]?["computer"]?.string == "pro" && doc["options"]?["computer"] == nil)
     #expect(try p.roomOptions(p.room.document)["computer"] == "pro")
     #expect(try p.roomOptions(p.room.document)["scene"] == "day")
+    // the host's scene, as the web writes it: the document's settings.scene
+    #expect(p.lobbyTakesScene())
+    _ = try await p.reduce("setOptions", fields: [("options", .object([("scene", .string("night"))]))])
+    #expect(try JSONNode.parse(p.room.document)["settings"]?["scene"]?.string == "night")
+    #expect(try p.roomOptions(p.room.document)["scene"] == "night")
 
     // a tester on 0.8 takes a seat: the next match is on 0.8, which has no such option
     try await seat(p, "Guest_08", me: #"{"name":"Tester","engine":"0.8.1"}"#, side: "B", rev: 3)
     #expect(try p.roomEngine()["engine"]?.string == "0.8")
     #expect(try !ids().contains("computer"))
+    #expect(!p.lobbyTakesScene())
     #expect(try p.roomOptions(p.room.document)["computer"] == nil)
     // 0.8's own write (the guest's seat) kept the host's setting
     #expect(try JSONNode.parse(p.room.document)["settings"]?["computer"]?.string == "pro")

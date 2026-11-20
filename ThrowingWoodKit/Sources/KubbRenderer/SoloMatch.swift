@@ -1,7 +1,7 @@
 import Foundation
 import KubbEngine
 
-public struct MatchOption: Decodable, Identifiable {
+public struct MatchOption: Decodable, Identifiable, Sendable {
   public let id, label: String
   public let choices: [[String]]
   init(id: String, label: String, choices: [[String]]) {
@@ -26,6 +26,8 @@ public struct SoloOptions {
   /// On an older engine the row is the app's own, and its value goes on the
   /// computer's player entry instead.
   public let takesComputer: Bool
+  /// The engine takes a scene (`scene` in OPTION_DEFAULTS, since 0.9): the Scene row shows.
+  public let takesScene: Bool
   init(engine: Engine) throws {
     struct Constants: Decodable {
       let MATCH_OPTIONS: [MatchOption], LEVELS: [String], OPTION_DEFAULTS: [String: String],
@@ -37,11 +39,15 @@ public struct SoloOptions {
     levels = c.LEVELS
     takesComputer = c.MATCH_OPTIONS.contains { $0.id == "computer" }
     // The computer's level leads, as before: the engine's row on 0.9, the app's own
-    // before it. A scene is carried, never offered (not approved to go live).
+    // before it. The Scene row (the client labels it, as the web's SCENE_ROW) comes
+    // last, on an engine that takes a scene.
     let computer =
       c.MATCH_OPTIONS.first { $0.id == "computer" }
       ?? MatchOption(id: "computer", label: "Computer", choices: c.LEVELS.map { [$0, $0.capitalized] })
-    let rows = [computer] + c.MATCH_OPTIONS.filter { $0.id != "computer" }
+    takesScene = SceneID.taken(by: c.OPTION_DEFAULTS)
+    let rows =
+      [computer] + c.MATCH_OPTIONS.filter { $0.id != "computer" && $0.id != "scene" }
+      + (takesScene ? [SceneID.row] : [])
     self.rows = rows
     defaults = c.OPTION_DEFAULTS.filter { d in rows.contains { $0.id == d.key } }
       .merging(["computer": "club"]) { old, _ in old }

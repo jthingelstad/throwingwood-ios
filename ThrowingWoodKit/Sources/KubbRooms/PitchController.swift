@@ -130,6 +130,13 @@ import KubbEngine
     return try rows ?? JSONNode.parse("[]")
   }
 
+  /// The lobby's engine takes a scene (`scene` in its OPTION_DEFAULTS, since 0.9): the
+  /// host may pick one, written to the room's `settings.scene`. On 0.8 or 0.7 none is
+  /// offered and the pitch is drawn as the day.
+  public func lobbyTakesScene() -> Bool {
+    (try? Self.roomCall(lobbyEngine(), "constants", [])["OPTION_DEFAULTS"]?["scene"]) != nil
+  }
+
   /// The room's engine (`room.engineFor`): the newest major.minor the host and every
   /// player carry, `{ engine | null, missing, unknown }`. With `counting` this member
   /// is counted too, carrying what this build carries.
