@@ -50,6 +50,9 @@ public struct PitchScene: Decodable, Sendable {
   /// On a phone on its side, the top of the raise and punishment bar, in pt
   /// above the screen's foot (set by the app once it has measured the bar).
   var stillFloor: Double? = nil
+  /// The match's scene (the engine view's `scene`, since 0.9), carried as given:
+  /// nil or an id this build does not draw is the day (SceneID.shown).
+  public internal(set) var look: String? = nil
   func projection(_ size: CGSize, _ camera: Camera) -> PitchProjection {
     var lift = 0.0
     if let low = stillLowest, let floor = stillFloor {

@@ -149,7 +149,7 @@ extension PitchSession {
   /// allowed end lit for its second.
   public var wantsFrames: Bool {
     held != nil || peekLeft > 0 || pendingSlide != nil || autoRaise.waiting || raiseHint != nil
-      || standDrag != nil || standPeekLeft > 0
+      || standDrag != nil || standPeekLeft > 0 || effects?.active == true
   }
 
   /// A kubb is in the hand (SPIN), not a baton (TILT).

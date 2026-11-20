@@ -88,6 +88,8 @@ struct AimOutput: Decodable {
 struct ViewOutput: Decodable {
   let need: MatchNeed
   let aim: Aim, camera: Camera, items: [Piece], surface: Surface, set: String, dial: DialState
+  /// The match's scene (0.9 on; absent before), carried untouched.
+  let scene: String?
 }
 private struct Shown: Decodable {
   let camera: Camera, speed: Double, done: Bool, dial: DialState
@@ -123,6 +125,10 @@ public final class PitchSession {
   /// The coach line's slow flick (Coach.swift): this player's own last throw was SLOW.
   public internal(set) var coachSlow = false
   private var playbackLocal = false
+  /// The shown scene's effects (`useLook`): fed by the playback, drawn after the pieces.
+  public private(set) var effects: SceneEffects?
+  /// Seconds since this session began, for the night's twinkling stars.
+  public private(set) var lookTime = 0.0
   public let options: SoloOptions
   public internal(set) var need: MatchNeed?, handoff: MatchNeed.Handoff?, placement: PlacementCheck?
   public internal(set) var revision = 0
@@ -198,7 +204,7 @@ public final class PitchSession {
           json:
             #"{"mode":"practice","drill":false,"surface":"grass"}"#
         ).utf8))
-    scene = PitchScene(surface: v.surface, set: v.set, items: v.items)
+    scene = PitchScene(surface: v.surface, set: v.set, items: v.items, look: v.scene)
     camera = v.camera
     dial = v.dial
     aim(v.aim, camera: v.camera)
@@ -254,7 +260,7 @@ public final class PitchSession {
     scene.arc = a.arc?.map(\.vector)
   }
   func adopt(_ v: ViewOutput) throws {
-    scene = PitchScene(surface: v.surface, set: v.set, items: v.items)
+    scene = PitchScene(surface: v.surface, set: v.set, items: v.items, look: v.scene)
     dial = v.dial
     aim(v.aim, camera: v.camera)
     if need != nil {
@@ -352,10 +358,19 @@ public final class PitchSession {
   /// One display tick. Returns true only when the screen needs repainting.
   @discardableResult public func tick(_ delta: Double) throws -> Bool {
     let dt = min(max(delta, 0.00001), 0.05)
+    lookTime += dt
     if playback != nil {
       try play(dt)
       return true
     }
+    // the dust of the last throw settles while the next is aimed
+    let settling = effects?.active == true
+    if settling { effects?.tick(dt) }
+    let changed = try tickAim(dt)
+    return changed || settling
+  }
+
+  private func tickAim(_ dt: Double) throws -> Bool {
     var changed = try applySlide()
     if try applyStand() { changed = true }
     if held == nil && peekLeft > 0 { peekLeft = max(0, peekLeft - dt) }
@@ -415,6 +430,7 @@ public final class PitchSession {
     endStand()
     input.reset()
     playback = Playback(recording)
+    effects?.watch(recording)
     result = nil
     scene.arc = nil
     scene.marker = nil
@@ -430,7 +446,18 @@ public final class PitchSession {
     noteOwnResult()
     bursts = []
     playback = nil
+    effects?.clear()
     try adopt(read("view"))
+  }
+
+  /// Show the scene `id` (SceneID.shown: an unknown one is the day): its effects
+  /// are made again when the scene or Reduce Motion changes, so a throw never
+  /// carries the last scene's dust.
+  public func useLook(_ id: String, reduced: Bool) {
+    let shown = SceneID.shown(id)
+    if effects?.look == shown && effects?.reduced == reduced { return }
+    if effects == nil && shown == "day" { return }
+    effects = SceneEffects(look: shown, reduced: reduced)
   }
 
   private func noteOwnResult() {
@@ -443,6 +470,7 @@ public final class PitchSession {
       let t = min(p.nextTime, p.recording.duration)
       let shown: Shown = try read("showAt", #"{"t":\#(t)}"#)
       scene.items = p.pieces(at: t)
+      effects?.observe(scene.items, t)
       slow = shown.speed < 0.99
       camera = shown.camera
       dial = shown.dial
@@ -463,6 +491,7 @@ public final class PitchSession {
       p.nextTime = min(p.recording.duration, t + dt * shown.speed)
     } else {
       p.rest += dt
+      effects?.tick(dt)
     }
     bursts = p.starts.enumerated().compactMap { i, start in
       guard let start else { return nil }

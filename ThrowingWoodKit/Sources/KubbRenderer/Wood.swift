@@ -34,7 +34,7 @@ private struct Paint {
   }
 }
 
-private struct Solid {
+struct Solid {
   let piece: Piece, axes: [V3], extents: V3, corners: [V3], depth: Double
   init(_ item: Piece, _ c: Camera) {
     piece = item
@@ -92,7 +92,7 @@ private struct Solid {
   }
 }
 
-private struct Projected {
+struct Projected {
   let solid: Solid, points: [CGPoint], bounds: CGRect
   init?(_ s: Solid, _ projection: PitchProjection) {
     let points = s.corners.compactMap(projection.project)
@@ -107,19 +107,30 @@ private struct Projected {
 }
 
 extension Painter {
-  func pieces(_ scene: PitchScene) {
+  /// `paint`: the scene's light and paint (the day by default). `before`: drawn
+  /// after the shadows and under the pieces (a scene's halos), `baton`: a scene's
+  /// own baton.
+  func pieces(
+    _ scene: PitchScene, paint pp: PiecePaint = .day, before: (([Projected]) -> Void)? = nil,
+    baton sceneBaton: ((Solid, Double) -> Void)? = nil
+  ) {
     let all = scene.items.contains { $0.kind == "stake" } ? scene.items : scene.items + stakes
     var shown: [Projected] = []
+    // a scene's shadows are one translucent fill, so two that overlap are not darker
+    let shadows = CGMutablePath()
     for item in all {
       let s = Solid(item, projection.c)
       if item.kind != "stake" {
         let shadow = s.corners.map { v in
-          CGPoint(x: v.x + 0.55 * max(v.z, 0), y: v.y - 0.3 * max(v.z, 0))
+          CGPoint(x: v.x + pp.shadowX * max(v.z, 0), y: v.y + pp.shadowY * max(v.z, 0))
         }
-        fill(poly(hull(shadow).map { V3($0.x, $0.y, 0) }), ink)
+        let outline = poly(hull(shadow).map { V3($0.x, $0.y, 0) })
+        if pp.isDay { fill(outline, ink) } else { shadows.addPath(outline) }
       }
       if let p = Projected(s, projection) { shown.append(p) }
     }
+    if !pp.isDay { fill(shadows, pp.shadowFill, alpha: pp.shadowAlpha) }
+    before?(shown)
     shown.sort { $0.solid.depth > $1.solid.depth }
     var before = Array(repeating: Set<Int>(), count: shown.count)
     for i in shown.indices {
@@ -134,25 +145,32 @@ extension Painter {
     var remaining = Array(shown.indices)
     while let fallback = remaining.first {
       let i = remaining.first { before[$0].isEmpty } ?? fallback
-      wood(shown[i], set: scene.set)
+      wood(shown[i], set: scene.set, paint: pp, baton: sceneBaton)
       remaining.removeAll { $0 == i }
       for j in remaining { before[j].remove(i) }
     }
   }
 
-  private func wood(_ projected: Projected, set: String) {
+  private func wood(
+    _ projected: Projected, set: String, paint pp: PiecePaint, baton sceneBaton: ((Solid, Double) -> Void)?
+  ) {
     let s = projected.solid
     let p = projected.points
     let item = s.piece
     let tall = projection.k * projection.c.f * 2 * s.extents.z / s.depth
     let width = min(3.4, max(1, tall / 20))
     if item.kind == "baton" {
-      baton(s, width: width)
+      if let sceneBaton { sceneBaton(s, width) } else { baton(s, width: width) }
       return
     }
     let king = item.kind == "king"
     let stake = item.kind == "stake"
-    let paint = Paint(set)
+    // a scene paints the whole body (the night's glowing set, the neon's solids)
+    let paint = pp.isDay ? Paint(set) : nil
+    let lit = pp.litOf?(item)
+    let edge = lit?.ink ?? pp.outline
+    let tones = stake ? pp.stake : (king ? pp.kingWood : pp.wood)
+    let light = pp.light
     let eye = projection.c.eye - item.center
     // The far walls and the recessed floor show through the crown's V cuts.
     if king && dot(eye, s.axes[2]) > 0 {
@@ -167,10 +185,10 @@ extension Painter {
           p[b + 4], .between(floor[a], floor[b], 0.75), .between(p[a + 4], p[b + 4], 0.5),
           .between(floor[a], floor[b], 0.25), p[a + 4],
         ])
-        fill(wall, paint?.bands[0].rgb ?? 0xb88a4f)
-        stroke(wall, ink, width * 0.55)
+        fill(wall, paint?.bands[0].rgb ?? tones.shade)
+        stroke(wall, edge, width * 0.55)
       }
-      fill(path([floor[0], floor[1], floor[3], floor[2]]), paint?.bands[0].rgb ?? 0xa87a42)
+      fill(path([floor[0], floor[1], floor[3], floor[2]]), paint?.bands[0].rgb ?? tones.endShade)
     }
     let seed = item.id.utf8.reduce(UInt32(2_166_136_261)) { ($0 ^ UInt32($1)) &* 16_777_619 }
     for i in faces.indices {
@@ -190,7 +208,7 @@ extension Painter {
           at(0, base), at(1, base), at(1, 1), at(0.75, 0.89), at(0.5, 1), at(0.25, 0.89), at(0, 1),
         ])
       }
-      let dark = dot(n, light) <= -0.35
+      let dark = dot(n, light) <= pp.awayBelow
       func pigment(_ rgb: Int) -> Int {
         guard dark else { return rgb }
         func channel(_ shift: Int) -> Int {
@@ -204,9 +222,9 @@ extension Painter {
       let face = king && !end ? teeth(0) : path(f)
       let wood: Int =
         end
-        ? (dark ? 0xa87a42 : 0xe2bf86)
-        : (dark ? 0xb88a4f : (dot(n, light) >= 0.75 ? 0xf6e4bf : 0xecd2a0))
-      fill(face, stake ? (end ? 0xb38550 : (dark ? 0x8a6234 : 0xc9a06a)) : wood)
+        ? (dark ? tones.endShade : tones.end)
+        : (dark ? tones.shade : (dot(n, light) >= pp.topAbove ? tones.top : tones.light))
+      fill(face, wood)
       if !stake {
         if !end {
           if tall >= 26 {
@@ -222,21 +240,25 @@ extension Painter {
               grain.move(to: at(u, lo))
               grain.addQuadCurve(
                 to: at(u, hi), control: at(u + (hash(53) - 0.5) * 0.12, (lo + hi) / 2))
-              stroke(grain, dark ? 0x8d6535 : 0xc79d63, width * 0.5)
+              stroke(grain, dark ? tones.grainShade : tones.grain, width * 0.5)
             }
           }
           if king {
             if let paint { fill(teeth(0.66), pigment(paint.bands[0].rgb)) }
-            band(0.66, 0.73, 0x2a2118)
+            band(0.66, 0.73, pp.kingMark)
             if tall >= 40 && !dark {
-              stroke(path([at(0, 0.6), at(1, 0.6)], closed: false), 0x2a2118, width * 0.7)
-              fill(path([at(0.5, 0.54), at(0.72, 0.47), at(0.5, 0.4), at(0.28, 0.47)]), 0x2a2118)
+              stroke(path([at(0, 0.6), at(1, 0.6)], closed: false), pp.kingMark, width * 0.7)
+              fill(path([at(0.5, 0.54), at(0.72, 0.47), at(0.5, 0.4), at(0.28, 0.47)]), pp.kingMark)
             }
           } else {
             if let team = item.team {
-              band(
-                0.05, 0.13,
-                team == "A" ? (dark ? 0xb98500 : 0xf2b705) : (dark ? 0x5e2777 : 0x8e44ad))
+              if let b = lit?.band, let deep = lit?.bandDeep {
+                band(0.05, 0.13, dark ? deep : b)
+              } else {
+                band(
+                  0.05, 0.13,
+                  team == "A" ? (dark ? 0xb98500 : 0xf2b705) : (dark ? 0x5e2777 : 0x8e44ad))
+              }
             }
             for b in paint?.bands ?? [] { band(b.lo, b.hi, pigment(b.rgb)) }
           }
@@ -286,17 +308,17 @@ extension Painter {
               let a = Double(j) * .pi / 9
               return at(0.5 + radius * cos(a), 0.5 + radius * sin(a))
             }
-            stroke(path(ring), 0xc0935a, width * 0.45)
+            stroke(path(ring), pp.isDay || !dark ? tones.ring : tones.grainShade, width * 0.45)
           }
         }
         if !king && !dark && tall >= 46 {
           let center = at(0.5, 0.5)
-          stroke(path(f.map { .between($0, center, 0.07) }), 0xfff3d8, width * 0.55)
+          stroke(path(f.map { .between($0, center, 0.07) }), lit?.bevel ?? tones.bevel, width * 0.55)
         }
       }
-      stroke(face, ink, width * (king ? 1 : 0.55))
+      stroke(face, edge, width * (king ? 1 : 0.55))
     }
-    if !king { stroke(path(hull(p)), ink, width) }
+    if !king { stroke(path(hull(p)), edge, width) }
   }
 
   // Circular cross sections in world space. A baton is plain wood in every set,
