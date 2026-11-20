@@ -58,6 +58,19 @@ agrees. So:
   vendored files; a fix belongs
   in kubb-engine, then here by moving to its next tag. Never write in the
   kubb-engine checkout from here.
+- **Several engines.** A match belongs to the engine it was started on (its
+  `match.engine` major.minor), so the app carries the newest and each older
+  minor it still plays on, one per major.minor, as the web does
+  (docs/ENGINES.md): `OLDER` in `scripts/vendor-engine.sh` names their tags,
+  vendored the same way into `Sources/KubbEngine/Engines/<major.minor>/`, their
+  corpora into `Tests/KubbEngineTests/Fixtures/engines/<major.minor>/golden/`,
+  each checked by `check` against its own `engine.json` (an engine folder
+  `OLDER` does not name fails it). Each carried engine is a Lua state of its
+  own, made the first time a match on it needs it. New play (solo, practice,
+  a new pitch's own announcement) is on the newest. `GoldenTests` pins each
+  carried engine to its corpus (`pinnedCorpora`); carrying or dropping one
+  changes that on purpose. A new minor that keeps the last: move the old `TAG`
+  into `OLDER`, set the new `TAG`, sync.
 - **Moving to a new engine release:** set `TAG`, run
   `scripts/vendor-engine.sh sync`, then all three test runs below (macOS
   Debug, release and the simulator). Every golden action must match on each.

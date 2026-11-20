@@ -203,6 +203,45 @@ import Testing
     #expect(!again.trailComplete && save.readTrail()?.trail.entries.count == 1)
   }
 
+  /// A kept match resumes on the engine its trail names (a match begun on 0.7 by an
+  /// earlier build plays on as it was), that engine's Lua state made only then; a new
+  /// match and practice go back to the newest.
+  @Test(.enabled(if: Engine.carried.count > 1)) func aKeptMatchResumesOnItsOwnEngine() throws {
+    let older = Engine.carried[1]
+    let dir = folder()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let save = MatchSave(file: dir.appending(path: "solo-match.json"))
+    let first = try PitchSession(appVersion: "test")
+    try first.useEngine(minor: older)
+    try first.openMatch("new", json: Self.setup, save: save)
+    try first.checkpoint()
+    let planner = try Engine(minor: older, appVersion: "test")
+    for _ in 0..<6 { try step(first, planner: planner) }
+    #expect(Engine.majorMinor(save.readTrail()?.trail.engine) == older)
+    let hash = try first.engine.hash()
+
+    let again = try PitchSession(appVersion: "test")
+    #expect(again.loadedEngines == [Engine.newest])
+    try again.restore(#require(try save.read()), save: save)
+    #expect(again.engine.minor == older)
+    #expect(Set(again.loadedEngines) == Set([Engine.newest, older]))
+    #expect(try again.engine.hash() == hash && again.trailKept)
+    // the same snapshot named by its replay's engine, and with nothing to name it
+    let shown = try PitchSession(appVersion: "test")
+    try shown.restore(#require(try save.read()), save: nil, engine: older + ".9")
+    #expect(shown.engine.minor == older)
+    try shown.restore(#require(try save.read()), save: nil, engine: "0.6.0")
+    #expect(shown.engine.minor == Engine.newest)
+
+    try again.practice()
+    #expect(again.engine.minor == Engine.newest)
+    var choices = again.options.defaults
+    choices["level"] = "pro"
+    try again.startSolo(name: "Bo", selections: choices, save: save)
+    #expect(again.engine.minor == Engine.newest)
+    #expect(Engine.majorMinor(save.readTrail()?.trail.engine) == Engine.newest)
+  }
+
   private func startSolo(_ save: MatchSave, name: String) throws -> PitchSession {
     let app = try PitchSession(appVersion: "test")
     var choices = app.options.defaults

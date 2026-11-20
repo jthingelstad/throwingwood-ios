@@ -5,12 +5,13 @@ import Testing
 
 /// kubb-engine's golden corpus (`Fixtures/golden/hashes.json`, vendored with
 /// its driver `Fixtures/golden/drive.lua` from the same release by
-/// scripts/vendor-engine.sh): the hash after every action of its seeded
-/// matches (twelve computer against computer, and since 0.8.0 a thirteenth of
-/// a person's short batons against the computer) on the engine's reference platform, the
-/// web's WebAssembly Lua with musl's libm (kubb-engine docs/DETERMINISM.md).
-/// The native engine must give every hash identically: then a match started
-/// on a phone and one in a browser are the same match, throw for throw.
+/// scripts/vendor-engine.sh; an older engine's in `Fixtures/engines/<mm>/golden/`):
+/// the hash after every action of its seeded matches (twelve computer against
+/// computer, and since 0.8.0 a thirteenth of a person's short batons against the
+/// computer) on the engine's reference platform, the web's WebAssembly Lua with
+/// musl's libm (kubb-engine docs/DETERMINISM.md). Every engine the build carries
+/// must give every hash of its own corpus identically: then a match started on a
+/// phone and one in a browser are the same match, throw for throw.
 struct Corpus: Decodable {
   struct Winner: Decodable, Equatable {
     let winner: String
@@ -36,10 +37,36 @@ struct Corpus: Decodable {
   let tune: String
   let matches: [Match]
 
-  static let shared: Corpus = {
-    let url = Bundle.module.url(forResource: "Fixtures/golden/hashes", withExtension: "json")!
+  static let shared = load(minor: Engine.newest)
+
+  /// The corpus vendored with the carried engine of major.minor `minor`.
+  static func load(minor: String) -> Corpus {
+    let url = Bundle.module.url(forResource: goldenFolder(minor) + "/hashes", withExtension: "json")!
     return try! JSONDecoder().decode(Corpus.self, from: Data(contentsOf: url))
-  }()
+  }
+}
+
+/// Where the golden driver and corpus of the carried engine `minor` are.
+func goldenFolder(_ minor: String) -> String {
+  minor == Engine.newest ? "Fixtures/golden" : "Fixtures/engines/\(minor)/golden"
+}
+
+/// The corpus each carried engine is pinned to, and its size: a new engine, or a
+/// dropped one, changes this on purpose.
+let pinnedCorpora: [String: (corpus: String, matches: Int)] = [
+  "0.8": ("0.8.0", 13),
+  "0.7": ("0.5.0", 12),
+]
+
+/// One golden match on one carried engine.
+struct GoldenCase: Sendable, CustomTestStringConvertible {
+  let minor: String
+  let index: Int
+  var testDescription: String { "\(minor) #\(index + 1)" }
+}
+
+let goldenCases: [GoldenCase] = Engine.carried.flatMap { mm in
+  (0..<(pinnedCorpora[mm]?.matches ?? 0)).map { GoldenCase(minor: mm, index: $0) }
 }
 
 /// Arguments where Apple's libm and musl's round the last bit differently,
@@ -64,11 +91,13 @@ func fixture(_ name: String) throws -> String {
   return try String(contentsOf: url, encoding: .utf8)
 }
 
-/// An engine with the golden driver and the maths probe loaded beside it.
-func drivingEngine() throws -> Engine {
+/// An engine (the carried one of `minor`, or the newest) with its golden driver and
+/// the maths probe loaded beside it.
+func drivingEngine(minor: String = Engine.newest) throws -> Engine {
+  let driver = String(goldenFolder(minor).dropFirst("Fixtures/".count)) + "/drive.lua"
   let engine = try Engine(
-    directory: Engine.bundled(), appVersion: testAppVersion,
-    extra: ["tests/golden/drive": fixture("golden/drive.lua"), "test/probe": fixture("probe.lua")])
+    directory: Engine.bundled(minor: minor), appVersion: testAppVersion,
+    extra: ["tests/golden/drive": fixture(driver), "test/probe": fixture("probe.lua")])
   try engine.run(
     """
     import "tests/golden/drive"
@@ -98,6 +127,22 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
     #expect(corpus.tune == Engine.tune)
     #expect(corpus.matches.count == 13)
     #expect(engine.luaVersion == "Lua 5.4.5")
+  }
+
+  /// Every engine the build carries, each with the corpus it is pinned to: 0.8
+  /// (the newest) and 0.7, kept so a match started on it plays on as it was.
+  @Test func everyCarriedEngineHasItsOwnCorpus() throws {
+    #expect(Engine.carried == ["0.8", "0.7"])
+    #expect(Set(pinnedCorpora.keys) == Set(Engine.carried))
+    for mm in Engine.carried {
+      let engine = try Engine(minor: mm, appVersion: testAppVersion)
+      #expect(engine.minor == mm)
+      let corpus = Corpus.load(minor: mm)
+      #expect(corpus.version == pinnedCorpora[mm]?.corpus, "\(mm): run scripts/vendor-engine.sh sync")
+      #expect(corpus.matches.count == pinnedCorpora[mm]?.matches)
+      #expect(corpus.tune == Engine.tune)
+    }
+    #expect(throws: EngineError.self) { try Engine(minor: "0.6", appVersion: testAppVersion) }
   }
 
   /// The arguments where Apple's libm and musl's round the last bit
@@ -136,9 +181,11 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
     #expect(differing.count > 0)
   }
 
-  @Test(arguments: 0..<13) func matchPlaysAsOnTheReference(index: Int) throws {
+  @Test(arguments: goldenCases) func matchPlaysAsOnTheReference(_ golden: GoldenCase) throws {
+    let corpus = golden.minor == Engine.newest ? corpus : Corpus.load(minor: golden.minor)
+    let index = golden.index
     let want = try #require(corpus.matches.indices.contains(index) ? corpus.matches[index] : nil)
-    let engine = try drivingEngine()
+    let engine = try drivingEngine(minor: golden.minor)
     let started = ContinuousClock.now
     let text = try engine.callGlobal("goldenMatch", String(index + 1))
     let elapsed = ContinuousClock.now - started
@@ -160,7 +207,7 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
     #expect(got.turns == want.turns)
     #expect(got.winner == want.winner)
     print(
-      "golden \(want.name): \(agree) of \(want.actions.count) actions match,",
+      "golden \(golden.minor) \(want.name): \(agree) of \(want.actions.count) actions match,",
       "\(Int(elapsed / .milliseconds(1))) ms")
   }
 }

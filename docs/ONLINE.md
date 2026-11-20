@@ -22,7 +22,8 @@ A match belongs to the engine major.minor it started on, for its whole life
 (kubb-engine docs/ROOM.md "Engines in one match"). The app speaks the engine's
 contract for clients that carry several engines ("The room's engine", "Speaking
 down"), so a client that carries one (an earlier TestFlight build, a web tab)
-agrees with it unchanged:
+agrees with it unchanged (which engines the app carries, and how each is loaded:
+docs/ENGINES.md):
 
 - Presence is `room.announce`: `engines`, every major.minor this build carries,
   and the legacy `engine` written as the room's engine with the `+engines` mark

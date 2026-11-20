@@ -120,7 +120,7 @@ extension GameModel {
     do {
       guard let kept, let snap = kept.snap else { throw RoomError("no-replay") }
       let board = try PitchSession(appVersion: Self.version)
-      try board.restore(snap, save: nil)
+      try board.restore(snap, save: nil, engine: kept.engine)  // on the match's own engine
       board.dismissHandoff()
       guard board.need?.kind == "over" else { throw RoomError("not-over") }
       pitch.board = board

@@ -201,6 +201,11 @@ import Testing
     #expect(k == KeptReplay(v: 7, n: 2, hash: "9f3a"))
     #expect(sockets.count == 1 && sockets[0].closed)
     #expect(sockets[0].sent.map(\.raw.text) == [#"{"t":"replay","id":1,"room":"abcdefgh23"}"#])
+    // the engine the match was played on, which a sealed pitch restores it on
+    let (named, _) = try await kept(
+      #"{"t":"replay","id":1,"room":"abcdefgh23","v":7,"at":1,"replay":{"v":1,"n":2,"setup":{},"log":[],"hash":"9f3a","engine":"0.7"}}"#
+    )
+    #expect(named?.engine == "0.7")
     let (none, _) = try await kept(#"{"t":"replay","id":1,"room":"abcdefgh23","v":0,"at":null,"replay":null}"#)
     #expect(none == nil)
     do {
