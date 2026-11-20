@@ -211,7 +211,7 @@ import Observation
           return
         }
         if ProcessInfo.processInfo.environment["PITCH_REVIEW"] != nil {
-          screen = .practice
+          openPractice()
           return
         }
       #endif
