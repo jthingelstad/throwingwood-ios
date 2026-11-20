@@ -77,13 +77,24 @@ struct Painter {
 
 public enum PitchRenderer {
   /// Draws in a top-left-origin context. The caller supplies the backing scale.
-  public static func draw(in context: CGContext, size: CGSize, camera: Camera, scene: PitchScene) {
+  /// `look`: the scene to draw (nil: the scene's own, `scene.look`); an unknown one
+  /// is the day. `effects`: its stardust or sparks; `time` (s) moves the night's
+  /// twinkling stars, still under Reduce Motion (`reduced`).
+  public static func draw(
+    in context: CGContext, size: CGSize, camera: Camera, scene: PitchScene, look: String? = nil,
+    effects: SceneEffects? = nil, time: Double = 0, reduced: Bool = false
+  ) {
     guard size.width > 0, size.height > 0 else { return }
     context.saveGState()
     defer { context.restoreGState() }
     context.setLineJoin(.round)
     context.setLineCap(.round)
     let p = Painter(ctx: context, projection: scene.projection(size, camera))
+    let shown = SceneID.shown(look ?? scene.look)
+    if shown != "day" {
+      p.scenic(scene, look: shown, effects: effects?.look == shown ? effects : nil, time: reduced ? 0 : time)
+      return
+    }
     p.ground(scene)
     p.marks(scene)
     p.pieces(scene)
@@ -136,8 +147,8 @@ private func texture(_ step: Double) -> [V3] {
   }
   return pts
 }
-private let grassMarks = texture(0.42)
-private let otherMarks = texture(0.36)
+let grassMarks = texture(0.42)
+let otherMarks = texture(0.36)
 
 extension Painter {
   fileprivate func ground(_ scene: PitchScene) {
@@ -182,16 +193,41 @@ extension Painter {
       fill(quad(-400, -400, 400, 400), g.rough)
     }
 
-    let grass = scene.surface == .grass
+    specks(scene.surface, g.speck)
+    fill(quad(-2.5, 0, 2.5, 8), g.pitch)
+    for x in [-2.5, -0.5, 1.5] { fill(quad(x, 0, x + 1, 8), g.stripe) }
+    func stripe(_ x: Double, _ y: Double, _ X: Double, _ Y: Double) {
+      let w = 0.006
+      fill(quad(x - w, y - w, X + w, Y + w), g.line)
+      stroke(line(V3(x, y, 0), V3(X, Y, 0)), g.line, 0.6 * projection.k)
+    }
+    for x in [-2.5, 2.5] { stripe(x, 0, x, 8) }
+    for y in [0.0, 8.0] { stripe(-2.5, y, 2.5, y) }
+    func dashed(_ y: Double, _ on: Double, _ off: Double) {
+      for x in stride(from: -2.5, to: 2.5, by: on + off) { stripe(x, y, min(x + on, 2.5), y) }
+    }
+    dashed(4, 0.24, 0.16)
+    if let adv = scene.advantageY { dashed(adv, 0.1, 0.1) }
+  }
+
+  /// The rough's texture: tufts on grass, grains on sand and snow; `inside`: only
+  /// those in a scene's clearing.
+  func specks(
+    _ surface: Surface, _ speck: Int, inside: (x0: Double, x1: Double, y0: Double, y1: Double)? = nil
+  ) {
+    let c = projection.c
+    let bounds = CGRect(origin: .zero, size: projection.size)
+    let grass = surface == .grass
     // Short batches of straight-sided ink marks avoid Quartz constructing a
     // rounded stroke outline for every blade on every display tick.
     ctx.saveGState()
     ctx.setShouldAntialias(false)
-    ctx.setFillColor(color(g.speck))
+    ctx.setFillColor(color(speck))
     var count = 0
     ctx.beginPath()
     let visible = bounds.insetBy(dx: -4, dy: -4)
     for m in grass ? grassMarks : otherMarks {
+      if let r = inside, m.x < r.x0 || m.x > r.x1 || m.y < r.y0 || m.y > r.y1 { continue }
       let eye = projection.view(V3(m.x, m.y, 0))
       guard eye.z > 0.3, eye.z < 30 else { continue }
       let point = projection.screen(eye)
@@ -221,23 +257,10 @@ extension Painter {
     }
     ctx.fillPath()
     ctx.restoreGState()
-    fill(quad(-2.5, 0, 2.5, 8), g.pitch)
-    for x in [-2.5, -0.5, 1.5] { fill(quad(x, 0, x + 1, 8), g.stripe) }
-    func stripe(_ x: Double, _ y: Double, _ X: Double, _ Y: Double) {
-      let w = 0.006
-      fill(quad(x - w, y - w, X + w, Y + w), g.line)
-      stroke(line(V3(x, y, 0), V3(X, Y, 0)), g.line, 0.6 * projection.k)
-    }
-    for x in [-2.5, 2.5] { stripe(x, 0, x, 8) }
-    for y in [0.0, 8.0] { stripe(-2.5, y, 2.5, y) }
-    func dashed(_ y: Double, _ on: Double, _ off: Double) {
-      for x in stride(from: -2.5, to: 2.5, by: on + off) { stripe(x, y, min(x + on, 2.5), y) }
-    }
-    dashed(4, 0.24, 0.16)
-    if let adv = scene.advantageY { dashed(adv, 0.1, 0.1) }
   }
 
-  fileprivate func marks(_ scene: PitchScene) {
+  /// `track`: the planned throw's trace on the ground (a scene's skin).
+  func marks(_ scene: PitchScene, track: (rgb: Int, alpha: Double) = (ink, 0.28)) {
     for m in scene.keepOut ?? [] {
       let p = ring(m.point, m.r ?? 0)
       fill(p, 0xe5484d, alpha: 0.32)
@@ -264,7 +287,7 @@ extension Painter {
         outlined(p, white, 2.5)
       }
     }
-    if let arc = scene.arc { trajectory(arc, ground: true) }
+    if let arc = scene.arc { trajectory(arc, ground: true, track: track) }
     if let t = scene.thrower {
       outlined(ring(t.point, 0.2), white, 2.5)
       let sign = t.facing == -1 ? -1.0 : 1.0
@@ -286,7 +309,7 @@ extension Painter {
     }
   }
 
-  fileprivate func trajectory(_ arc: [V3], ground: Bool) {
+  func trajectory(_ arc: [V3], ground: Bool, track: (rgb: Int, alpha: Double) = (ink, 0.28)) {
     guard let end = arc.last else { return }
     let p = CGMutablePath()
     var last: V3?
@@ -314,7 +337,7 @@ extension Painter {
       if stop { break }
     }
     ctx.setLineDash(phase: 0, lengths: ground ? [3, 5] : [7, 6])
-    if ground { stroke(p, ink, 2.5, alpha: 0.28) } else { outlined(p, white, 2.5) }
+    if ground { stroke(p, track.rgb, 2.5, alpha: track.alpha) } else { outlined(p, white, 2.5) }
     ctx.setLineDash(phase: 0, lengths: [])
   }
 }
