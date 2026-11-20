@@ -37,7 +37,7 @@ been uploaded yet. Before the first submission, Beta App Review needs the
 review contact, a beta description, a feedback email and each build's What to
 Test, all set with `scripts/asc.swift`.
 
-## Data that leaves the device during online play
+## Data that leaves the device
 
 - The pitch code, persistent random room member ID, typed name, selected level,
   connection presence and engine version travel to the rooms service. People on
@@ -55,10 +55,16 @@ Test, all set with `scripts/asc.swift`.
 - The rooms handshake sends the app origin and versioned user agent. Private
   recording and report tags identify the client and engine version. Sharing a
   pitch through the system sheet sends its URL to the destination the user picks.
+- A match against the computer leaves the phone only when the player presses
+  SHARE AND MAKE THE REEL on its share card. That sends the finished match (its
+  options, actions and result) and the name typed on the card to the rooms
+  service, which checks it, keeps it as a replay with a link of its own for a
+  year and makes its reel. The card says so before anything is sent. Nothing
+  else about the player or the device is in it.
 
 ## App Privacy worksheet
 
-Answer **Yes** to data collection and **No** to tracking for this build. There are no ad or analytics SDKs. Practice and solo stay on the phone unless the player sends feedback. Sound and haptic preferences stay on the phone. Multiplayer retains identifiable gameplay on the first-party service. The developer also uses the private game records to study throws and improve play. Apple's Analytics purpose covers that use of gameplay data.
+Answer **Yes** to data collection and **No** to tracking for this build. There are no ad or analytics SDKs. Practice and solo stay on the phone unless the player sends feedback or shares a finished solo match for its highlight reel. Sound and haptic preferences stay on the phone. Multiplayer retains identifiable gameplay on the first-party service. The developer also uses the private game records to study throws and improve play. Apple's Analytics purpose covers that use of gameplay data.
 
 | App Store Connect type | Purpose | What travels or is kept |
 | --- | --- | --- |
