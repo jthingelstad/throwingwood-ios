@@ -7,12 +7,21 @@ import Testing
 /// Sharing a match against the computer (the web's docs/ROOMS.md section 13 and
 /// docs/REEL.md "The share card"), against vectors the web's own code made
 /// (`node tools/share-vectors.mjs --web <web checkout>`).
+/// The web made the vectors on its engine; a match is renamed only on its own.
+func shareVectorMinor() -> String {
+  let url = Bundle.module.url(forResource: "Fixtures/share-vectors", withExtension: "json")!
+  let v = try? JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
+  return Engine.majorMinor(v?["webEngine"] as? String) ?? ""
+}
+let carriesVectors = Engine.carried.contains(shareVectorMinor())
+
 @Suite @MainActor struct ShareTests {
   static let vectors: [String: Any] = {
     let url = Bundle.module.url(forResource: "Fixtures/share-vectors", withExtension: "json")!
     return try! JSONSerialization.jsonObject(with: Data(contentsOf: url)) as! [String: Any]
   }()
   var v: [String: Any] { Self.vectors }
+  func vectorEngine() throws -> Engine { try Engine(minor: shareVectorMinor(), appVersion: "0.0-test") }
   var match: [String: Any] { v["match"] as! [String: Any] }
 
   func source(engine: String? = nil, actions: [JSONText]? = nil) throws -> ShareSource {
@@ -131,8 +140,8 @@ import Testing
 
   // ---------- the message ----------
 
-  @Test func theMessageIsTheWebsWithTheIPhonesClient() throws {
-    let engine = try Engine(appVersion: "0.0-test")
+  @Test(.enabled(if: carriesVectors)) func theMessageIsTheWebsWithTheIPhonesClient() throws {
+    let engine = try vectorEngine()
     for case let m as [String: Any] in v["messages"] as! [Any] {
       let name = m["name"] as! String
       guard case .message(let text, let bytes) = try ShareMessage.make(
@@ -161,8 +170,8 @@ import Testing
         == (v["messages"] as! [[String: Any]])[1]["bytes"] as? Int)
   }
 
-  @Test func theRenamedMatchReplaysToItsEndWithTheChecks() throws {
-    let engine = try Engine(appVersion: "0.0-test")
+  @Test(.enabled(if: carriesVectors)) func theRenamedMatchReplaysToItsEndWithTheChecks() throws {
+    let engine = try vectorEngine()
     guard case .message(let text, _) = try ShareMessage.make(
       engine: engine, source: source(), name: "Lakeside")
     else {
@@ -190,8 +199,8 @@ import Testing
     #expect(try ShareMessage.make(engine: engine, source: source(engine: "1.7.2"), name: "Ann") == .refused(.engine))
   }
 
-  @Test func aMatchPastTheLimitsIsTooLongBeforeAnythingIsSent() throws {
-    let engine = try Engine(appVersion: "0.0-test")
+  @Test(.enabled(if: carriesVectors)) func aMatchPastTheLimitsIsTooLongBeforeAnythingIsSent() throws {
+    let engine = try vectorEngine()
     let one = try source().actions[0]
     // more actions than the server takes
     let many = Array(repeating: one, count: ShareLimits.actions + 1)
@@ -232,7 +241,7 @@ import Testing
     #expect(RoomsClient.shareErrorCode(CancellationError()) == "closed")
   }
 
-  @Test func oneMessageOnASocketOfItsOwnAndTheSocketCloses() async throws {
+  @Test(.enabled(if: carriesVectors)) func oneMessageOnASocketOfItsOwnAndTheSocketCloses() async throws {
     var made: [MockTransport] = []
     let factory: RoomsClient.Factory = { _ in
       let t = MockTransport()
@@ -243,7 +252,7 @@ import Testing
       }
       return t
     }
-    let engine = try Engine(appVersion: "0.0-test")
+    let engine = try vectorEngine()
     guard case .message(let text, _) = try ShareMessage.make(engine: engine, source: source(), name: "Lakeside")
     else {
       Issue.record("refused")

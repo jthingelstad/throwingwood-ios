@@ -22,10 +22,13 @@ Swift packages or task groups. The local practice screen runs its own engine ses
 
 The reference is the web's `src/net/room.js` and `backend/rooms/core.mjs`, with
 `docs/ROOMS.md` as the guide. The client sends Origin `https://app.throwingwood.com` and
-User-Agent `ThrowingWood/<app version> (ios)`. Each join includes the engine's version
-in `me.engine`. `recordGame` and `report` add `client: ios` and the actual engine version (the server's
-client tag allows no space, so the app version travels in the report's `build.version`);
-commit riders carry `c: ios` and `e` from that engine. The low-level `request` and
+User-Agent `ThrowingWood/<app version> (ios)`. Each join announces the engines carried
+(`room.announce`: `me.engines`, and `me.engine` as the room's engine marked `+engines`;
+docs/ONLINE.md "Engines in one room"). `recordGame` and `report` add `client: ios` and the
+engine version (the record's own when it names one, else the newest; the server's client
+tag allows no space, so the app version travels in the report's `build.version`). These
+two are private operator records, never shown to a player. Commit riders carry no
+`client` (the engine's default, `web`) and `e`, the match engine's full version. The low-level `request` and
 `send` methods are available for protocol work; use the tagged methods for records.
 
 A highlight reel (the web's docs/REEL.md and docs/ROOMS.md section 12) is asked for with
@@ -91,10 +94,19 @@ vendored engine's `room.*` calls and read `.value`. Swift contains no second ver
 lobby/seats/sync rules. `reduce` exposes joinTeam, setOptions, setAccess, pruneTeams and
 backToLobby; host reducers check host ownership again inside the CAS reducer.
 
-START uses lineup, startCheck, matchOptions, new and startMatch inside the reducer, so a
-CAS retry uses the current lineup/options. Engine checks are strict: different or
-unknown player major.minor versions refuse START, and mayPlay gates running matches.
-No lenient transition is enabled in the native client.
+`PitchController` takes an `EngineShelf`: the engines this build carries, one Lua state
+per major.minor, the newest made at once and any other the first time a match needs it.
+`engine` is the one the pitch runs on now (the match's own, else the newest), and room
+calls go to it; `engineFor`, `carried`, `announce`, `speakAs` and `compareEngines`
+(engine 0.8.1) go to the newest (`newestCall`). `announce()` runs after every presence,
+host and document event and sends `me` only when the answer changes.
+
+START uses lineup, engineFor, speakAs, startCheck, matchOptions, new and startMatch inside
+the reducer, so a CAS retry uses the current lineup, presence and options. With no room's
+engine it refuses without writing (`mismatch` names the players as `differ`/`unknown`);
+otherwise `startCheck`, `new` and `startMatch` run on that engine. Engine checks are
+strict: mayPlay, on the match's own engine, gates running matches. No lenient transition
+is enabled in the native client.
 
 `take` requires the engine's mayAct result for the current need. `frame` can release
 this member's dial throw or a host-owned computer throw. Seat/control are cached between
@@ -186,8 +198,9 @@ for the board. The room can receive and verify several actions while the
 board is still playing the first recording through showAt. The board checks
 each action's hash and drains the queue in order. Its own release or placement
 goes through the same seat check and CAS commit as a scripted action.
-The screen announces room.constants.ENGINE in presence. Record and report
-tags use the full engine version.
+The screen announces through the controller (`room.announce`). Its board session
+switches to the match's engine (`PitchSession.useEngine(minor:)`) before it restores a
+match. Record and report tags use the full engine version.
 
 The local rooms test drives OnlinePitch with the web Room and wasm engine.
 It compares each displayed hash, the controller hash, and a replay of the

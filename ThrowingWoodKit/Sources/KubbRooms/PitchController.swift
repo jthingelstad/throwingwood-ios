@@ -6,7 +6,15 @@ import KubbEngine
 @MainActor public final class PitchController {
   public enum State: String, Sendable { case lobby, match, versionMismatch, closed, failed }
   public let room: RoomsClient
-  public let engine: Engine
+  /// The engines this pitch can run (one Lua state per major.minor, made lazily).
+  public let engines: EngineShelf
+  /// The engine the pitch runs on now: the match's own (`match.engine`) once there is
+  /// one this build carries, else the newest. Room calls go to it, so the lobby, START
+  /// and the match decide exactly as a client carrying only that engine would
+  /// (kubb-engine docs/ROOM.md "Speaking down").
+  public private(set) var engine: Engine
+  /// The presence fields last announced (`room.announce`: `engine` and `engines`).
+  public private(set) var announced: JSONText?
   public private(set) var state: State = .lobby
   public private(set) var mismatch: JSONText?
   public private(set) var lastError: String?
@@ -38,11 +46,17 @@ import KubbEngine
   private var lastAimAt = 0
   private var lastShoutAt: Int?
 
-  public init(room: RoomsClient, engine: Engine) throws {
-    guard room.engineVersion == engine.engineVersion else { throw RoomError("engine-version") }
+  public init(room: RoomsClient, engines: EngineShelf) throws {
     self.room = room
-    self.engine = engine
+    self.engines = engines
+    engine = engines.newest
     observation = room.observe { [weak self] in self?.receive($0) }
+    try announce()
+  }
+
+  /// A pitch on one engine only.
+  public convenience init(room: RoomsClient, engine: Engine) throws {
+    try self.init(room: room, engines: EngineShelf(engine: engine))
   }
 
   /// Starts the wire and a 200 ms presence/host clock. Call close when the owner ends.
@@ -69,20 +83,59 @@ import KubbEngine
   }
 
   public func roomCall(_ name: String, _ args: [(String, JS)] = []) throws -> JSONNode {
+    try Self.roomCall(engine, name, args)
+  }
+  /// A room call of the newest engine: the calls for several engines in one room
+  /// (`engineFor`, `carried`, `announce`, `speakAs`, `compareEngines`) are only there.
+  public func newestCall(_ name: String, _ args: [(String, JS)] = []) throws -> JSONNode {
+    try Self.roomCall(engines.newest, name, args)
+  }
+  private static func roomCall(_ engine: Engine, _ name: String, _ args: [(String, JS)]) throws
+    -> JSONNode
+  {
     let result = try JSONNode.parse(engine.call("room." + name, json: JS.object(args).ascii))
     guard let value = result["value"] else { throw RoomError("engine-result") }
     return value
+  }
+
+  private var carriesJS: JS { .array(engines.carried.map(JS.string)) }
+
+  /// The room's engine (`room.engineFor`): the newest major.minor the host and every
+  /// player carry, `{ engine | null, missing, unknown }`. With `counting` this member
+  /// is counted too, carrying what this build carries.
+  public func roomEngine(counting: Bool = false) throws -> JSONNode {
+    var args: [(String, JS)] = [
+      ("doc", .raw(room.document)), ("members", room.membersJSON),
+      ("host", room.host.map(JS.string) ?? .null),
+    ]
+    if counting { args += [("me", .string(room.you)), ("carries", carriesJS)] }
+    return try newestCall("engineFor", args)
+  }
+
+  /// What a member carries, from its presence (`room.carried`), newest first.
+  public func carried(by id: String?) throws -> [String] {
+    let me = room.members.first { $0["id"]?.string == id }?["me"]?.raw ?? .null
+    return try newestCall("carried", [("me", .raw(me))]).items.compactMap(\.string)
+  }
+
+  /// Speak down (kubb-engine docs/ROOM.md "Speaking down"): announce every engine this
+  /// build carries, with `engine` the room's engine counting this member, marked
+  /// `+engines`, so a client that carries one sees a match. Sent again only when it
+  /// changes; before the room is known it is the newest.
+  public func announce() throws {
+    let mm = try roomEngine(counting: true)["engine"]
+    let fields = try newestCall("announce", [("carries", carriesJS), ("engine", .raw(mm?.raw ?? .null))])
+    guard fields.kind == .object, fields.raw != announced else { return }
+    announced = fields.raw
+    room.setMe(fields.members.map { ($0.key, JS.raw($0.value.raw)) })
   }
   private func call(_ name: String, _ args: JS? = nil) throws -> JSONNode {
     try JSONNode.parse(engine.call(name, json: args?.ascii ?? ""))
   }
   public func setMe(name: String, level: String) throws {
     let clean = try roomCall("cleanName", [("name", .string(name))])
-    let version = try roomCall("constants")["ENGINE"]!.raw
-    room.setMe([
-      ("name", .raw(clean.raw)), ("level", .string(level)),
-      ("engine", .raw(version)),
-    ])
+    room.setMe([("name", .raw(clean.raw)), ("level", .string(level))])
+    try announce()
   }
 
   @discardableResult public func reduce(_ name: String, fields: [(String, JS)] = []) async throws
@@ -119,11 +172,42 @@ import KubbEngine
         let lineup = try roomCall("lineup", [("doc", .raw(doc)), ("members", room.membersJSON)])
         if lineup.isNull { return nil }
         let players = lineup["players"]!.raw
+        // The room's engine now, from this document and presence (not a lobby value
+        // from before): the newest that the host and every player carry.
+        let chosen = try newestCall(
+          "engineFor",
+          [
+            ("doc", .raw(doc)), ("members", room.membersJSON), ("host", .string(room.you)),
+            ("me", .string(room.you)), ("carries", carriesJS),
+          ])
+        guard let mm = chosen["engine"]?.string, engines.carries(mm) else {
+          let unknown = chosen["unknown"]?.items ?? []
+          let differ = (chosen["missing"]?.items ?? []).filter { id in
+            !unknown.contains { $0.raw == id.raw }
+          }
+          mismatch = JS.object([
+            ("ok", .bool(false)), ("engine", .null),
+            ("differ", .array(differ.map { .raw($0.raw) })),
+            ("unknown", .array(unknown.map { .raw($0.raw) })),
+          ]).json
+          state = .versionMismatch
+          return nil
+        }
+        // START on that engine's own calls, with every member that carries it speaking
+        // as it (a new announcement may still be on its way).
+        let on = try engines.engine(mm)
+        if on !== engine {
+          engine = on
+          control = .null
+        }
+        let members = try newestCall(
+          "speakAs", [("members", room.membersJSON), ("engine", .string(mm))]
+        ).raw
         let check = try roomCall(
           "startCheck",
           [
             ("players", .raw(players)),
-            ("members", room.membersJSON), ("host", .string(room.you)),
+            ("members", .raw(members)), ("host", .string(room.you)),
           ])
         guard check["ok"]?.bool == true else {
           mismatch = check.raw
@@ -146,7 +230,7 @@ import KubbEngine
             ("doc", .raw(doc)), ("snap", .string(snap)),
             ("hash", .string(engine.hash())), ("players", .raw(players)),
             ("cpu", .raw(lineup["cpu"]?.raw ?? .null)), ("host", .string(room.you)),
-            ("setup", .raw(opts.raw)), ("members", room.membersJSON),
+            ("setup", .raw(opts.raw)), ("members", .raw(members)),
           ])
         guard !value.isNull else { return nil }
         let m = value["match"]!
@@ -233,6 +317,7 @@ import KubbEngine
       case .document(let v, let doc, let rider, let mine):
         try synchronize(doc, rider: rider, mine: mine)
         try keepReplay(doc, version: v)
+        try announce()
       case .state:
         // A joined document can be a new incarnation of an expired room. Match
         // numbers restart there; discard a stale cursor before Lua decides how to
@@ -252,7 +337,9 @@ import KubbEngine
         try synchronize(room.document)
         if state == .match, let match { try present?(.restore(match)) }
         try refreshSeat()
+        try announce()
       case .members, .host:
+        try announce()
         if room.members.contains(where: {
           $0["id"]?.string == room.host && $0["connected"]?.bool == true
         }) {
@@ -302,7 +389,7 @@ import KubbEngine
         ("local", local), ("doc", .raw(doc)),
         ("with", rider.map(JS.raw) ?? .null), ("mine", .bool(mine)),
       ])
-    guard let kind = decision["kind"]?.string else { throw RoomError("engine-result") }
+    guard var kind = decision["kind"]?.string else { throw RoomError("engine-result") }
     if kind == "lobby" {
       state = .lobby
       match = nil
@@ -315,8 +402,13 @@ import KubbEngine
     }
     if kind == "old" { return }
     guard let m = decision["match"] else { return }
-    let check = try roomCall(
-      "mayPlay", [("engine", .string(engine.engineVersion)), ("match", .raw(m.raw))])
+    // A match plays only on its own engine (kubb-engine docs/ROOM.md "Engines in one
+    // match"): this build's engine of that major.minor when it carries one, checked by
+    // that engine's own mayPlay; else the engine it has, which refuses it.
+    let theirs = m["engine"]?.string
+    let on = engines.carries(theirs) ? try engines.engine(Engine.majorMinor(theirs)!) : engine
+    let check = try Self.roomCall(
+      on, "mayPlay", [("engine", .string(on.engineVersion)), ("match", .raw(m.raw))])
     guard check["ok"]?.bool == true else {
       match = m
       state = .versionMismatch
@@ -327,6 +419,12 @@ import KubbEngine
     if state == .versionMismatch {
       state = .match
       mismatch = nil
+    }
+    if on !== engine {
+      engine = on
+      control = .null
+      // another engine's state holds nothing of this match: take the room's snapshot
+      if kind != "start" { kind = "adopt" }
     }
     var presentation: Presentation?
     switch kind {
@@ -447,7 +545,8 @@ import KubbEngine
       [
         ("n", .int(n)), ("seq", .int(seq)), ("action", .raw(action)),
         ("bytes", .int(room.limits?["withBytes"]?.int ?? 4096)),
-        ("client", .string("ios")), ("engine", .string(engine.engineVersion)),
+        // no `client`: the rider's default, so a peer cannot tell a phone from a browser
+        ("engine", .string(engine.engineVersion)),
       ])
     sequence = seq
     pending = true

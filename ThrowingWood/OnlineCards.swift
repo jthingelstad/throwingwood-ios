@@ -182,6 +182,7 @@ struct LobbyCard: View {
         }
       }.font(.subheadline)
     }
+    if let line = online.engineLine, line != online.note { Text(line).font(.callout.bold()) }
     if !online.note.isEmpty { Text(online.note).font(.callout.bold()) }
     if online.isHost {
       Button("START") {

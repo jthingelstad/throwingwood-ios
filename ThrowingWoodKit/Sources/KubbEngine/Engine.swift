@@ -8,9 +8,12 @@ public enum EngineError: Error, Equatable, CustomStringConvertible {
   case load(String)
   case call(method: String, message: String)
   case lua(String)
+  /// A match's engine major.minor that this build does not carry.
+  case notCarried(String)
 
   public var description: String {
     switch self {
+    case .notCarried(let mm): "engine \(mm) is not carried by this build"
     case .missingSources(let what): "engine sources: \(what)"
     case .load(let message): "engine load: \(message)"
     case .call(let method, let message): "\(method): \(message)"
@@ -61,7 +64,7 @@ public final class Engine {
   /// It is in no snapshot, room document, recording or hash.
   public static let location = "throwingwood.com"
 
-  /// The `Engine` folder in this package's resources.
+  /// The `Engine` folder in this package's resources: the newest engine.
   static func bundled() throws -> URL {
     guard let dir = Bundle.module.url(forResource: "Engine", withExtension: nil) else {
       throw EngineError.missingSources("no Engine folder in the bundle")
@@ -69,14 +72,75 @@ public final class Engine {
     return dir
   }
 
+  // MARK: - The engines this build carries
+
+  /// "major.minor" of a version ("0.8.1", "0.8", "0.8+engines"), as the engine's
+  /// `lobby.majorMinor` reads it, or nil.
+  public static func majorMinor(_ version: String?) -> String? {
+    guard let version,
+      let m = version.firstMatch(of: /^(\d+)\.(\d+)/), let a = Int(m.1), let b = Int(m.2)
+    else { return nil }
+    return "\(a).\(b)"
+  }
+
+  /// The engines this build carries by major.minor, newest first (kubb-engine
+  /// docs/VERSIONING.md "Carrying several engines"): the newest in the bundle's
+  /// `Engine/`, each older minor in `Engines/<major.minor>/`, laid out the same way
+  /// (as the web's vendor/engine/ and vendor/engines/, its docs/ENGINES.md).
+  public static let carried: [String] = {
+    var out: [String] = []
+    if let dir = try? bundled(), let m = try? manifest(in: dir), let mm = majorMinor(m.version) {
+      out.append(mm)
+    }
+    out += older.keys.sorted { $0.compare($1, options: .numeric) == .orderedDescending }
+    return out
+  }()
+
+  /// The newest engine's major.minor: what solo, practice and a new pitch play on.
+  public static var newest: String { carried.first ?? "" }
+
+  /// Every older engine's folder, by major.minor: `Engines/<mm>/` whose engine.json
+  /// names that minor.
+  private static let older: [String: URL] = {
+    guard let root = Bundle.module.url(forResource: "Engines", withExtension: nil),
+      let names = try? FileManager.default.contentsOfDirectory(atPath: root.path)
+    else { return [:] }
+    var out: [String: URL] = [:]
+    for name in names {
+      let dir = root.appending(path: name)
+      if let m = try? manifest(in: dir), majorMinor(m.version) == name { out[name] = dir }
+    }
+    return out
+  }()
+
+  /// The folder of the carried engine of major.minor `minor`.
+  static func bundled(minor: String) throws -> URL {
+    if minor == newest { return try bundled() }
+    guard let dir = older[minor] else { throw EngineError.notCarried(minor) }
+    return dir
+  }
+
+  static func manifest(in directory: URL) throws -> EngineManifest {
+    try JSONDecoder().decode(
+      EngineManifest.self, from: Data(contentsOf: directory.appending(path: "engine.json")))
+  }
+
+  /// The carried engine of major.minor `minor` (nil: the newest), a Lua state of its
+  /// own. Throws `EngineError.notCarried` for a minor this build does not carry.
+  public convenience init(minor: String?, appVersion: String) throws {
+    try self.init(directory: Self.bundled(minor: minor ?? Self.newest), appVersion: appVersion)
+  }
+
+  /// This engine's major.minor.
+  public var minor: String { Self.majorMinor(engineVersion) ?? engineVersion }
+
   /// An engine from a folder laid out as `Engine/`: engine.json and the Lua
   /// files it names (`core/`, `room/`, `session/`, `tune/`, `version.lua`). `extra`
   /// adds modules beside them (a test driver).
   public convenience init(directory: URL, appVersion: String, extra: [String: String] = [:]) throws {
     let manifest: EngineManifest
     do {
-      manifest = try JSONDecoder().decode(
-        EngineManifest.self, from: Data(contentsOf: directory.appending(path: "engine.json")))
+      manifest = try Self.manifest(in: directory)
     } catch {
       throw EngineError.missingSources("engine.json: \(error)")
     }

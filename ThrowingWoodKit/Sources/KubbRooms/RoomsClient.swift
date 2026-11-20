@@ -403,10 +403,13 @@ import Foundation
   private func tagged(_ text: JSONText) throws -> JS {
     let node = try JSONNode.parse(text)
     guard node.kind == .object else { throw RoomError("bad-message") }
+    // `engine` is the record's own when it names one (a match on an older engine this
+    // build carries), else the newest.
+    let engine = node["engine"]?.string ?? engineVersion
     return .object(
       node.members.filter { $0.key != "client" && $0.key != "engine" }.map {
         ($0.key, JS.raw($0.value.raw))
-      } + [("client", .string("ios")), ("engine", .string(engineVersion))])
+      } + [("client", .string("ios")), ("engine", .string(engine))])
   }
   public func recordGame(_ game: JSONText) async throws -> JSONNode {
     try await request("game", fields: [("g", tagged(game))])

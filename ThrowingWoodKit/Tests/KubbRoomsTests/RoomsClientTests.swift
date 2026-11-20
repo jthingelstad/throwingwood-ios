@@ -274,7 +274,7 @@ import Testing
     _ = try await room.update { _ in JSONText("{}") }
     #expect(sockets.count == 2)
     #expect(
-      try await room.recordGame(JSONText(#"{"client":"web","engine":"9.0","start":"-"}"#))["t"]?
+      try await room.recordGame(JSONText(#"{"client":"web","start":"-"}"#))["t"]?
         .string == "recorded")
     #expect(try await room.report(JSONText(#"{"happened":"test"}"#))["t"]?.string == "reported")
     // An authoritative join also clears a previous incarnation's document.
