@@ -15,17 +15,23 @@ extension PitchSession {
     try adopt(read("new", #"{"mode":"practice","surface":"grass"}"#))
   }
 
-  public func startSolo(name: String, selections: [String: String], save: MatchSave?) throws {
+  /// `level` is the player's own (ThrowLevel, the device's); `selections["level"]`
+  /// is the computer's, the set-up's per-game choice (and the player's when no
+  /// level is given).
+  public func startSolo(
+    name: String, level: String? = nil, selections: [String: String], save: MatchSave?
+  ) throws {
     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
     let player = trimmed.isEmpty ? "You" : String(trimmed.prefix(options.nameLimit))
-    let level = selections["level"] ?? options.defaults["level"]!
+    let computer = selections["level"] ?? options.defaults["level"]!
+    let level = level ?? computer
     let time = Calendar(identifier: .gregorian).dateComponents(in: .current, from: Date())
     var setup: [String: Any] = selections
     setup.merge([
       "mode": "match", "cpu": "B", "first": "A", "seed": Int.random(in: 0..<2_147_483_648),
       "teams": [
         "A": ["name": player, "players": [["name": player, "level": level]]],
-        "B": ["name": "Computer", "players": [["name": "Computer", "level": level]]],
+        "B": ["name": "Computer", "players": [["name": "Computer", "level": computer]]],
       ],
       "start": [
         "year": time.year!, "month": time.month!, "day": time.day!, "hour": time.hour!,
@@ -166,7 +172,8 @@ extension PitchSession {
       ) == true
     else { return }
     levelOverride = level
-    if !playing, need?.kind == "throw", need?.cpu == false {
+    // practice (no need) sets its level for good; a match, the throw in hand
+    if !playing, need == nil || (need?.kind == "throw" && need?.cpu == false) {
       let args = try JSONEncoder().encode(["level": level])
       try replan("setLevel", String(decoding: args, as: UTF8.self))
     }

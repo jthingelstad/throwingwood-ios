@@ -275,6 +275,19 @@ vectors with `node tools/room-vectors.mjs`; committed vectors and injected Swift
 run in the existing macOS CI job, without an additional cross-repository checkout.
 
 
+## Your level
+
+The player's own throw level (Beginner, Club, Pro) is one value on the device,
+never asked per game (Jamie, 2026-11-20: "Yes this is a device/user setting...
+not a per game setting."). `ThrowLevel` (KubbRenderer) stores it as
+`pitch.throwLevel`; Settings and the menus set it (`LevelSetting`), and the solo
+options card and the lobby show it as a line with a way to Settings
+(`LevelLine`), never a picker (`ThrowLevelTests` checks both screens). Practice,
+solo and online all throw at it. The engine reads a thrower's level for each
+throw, so a change applies from the next throw; the match's record keeps the
+levels it started with. The computer's level is a separate, per-game choice: the
+options card's Computer level, side B's player.
+
 ## Sound and haptics
 
 Read [docs/FEEL.md](docs/FEEL.md) for engine events, sample provenance,

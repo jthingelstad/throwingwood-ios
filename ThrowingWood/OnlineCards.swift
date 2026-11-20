@@ -105,14 +105,10 @@ struct LobbyCard: View {
     }.buttonStyle(WoodButton())
     HStack {
       TextField("Your name", text: $draft).textFieldStyle(.roundedBorder).focused($editing)
-        .onAppear { draft = online.name }.onSubmit { profile(online.level) }
-        .onChange(of: editing) { _, focused in if !focused { profile(online.level) } }
-      if let levels = online.board.options.rows.first(where: { $0.id == "level" }) {
-        Picker("Level", selection: Binding(get: { online.level }, set: { level in profile(level) })) {
-          ForEach(levels.choices, id: \.self) { c in Text(c[1]).tag(c[0]) }
-        }
-      }
+        .onAppear { draft = online.name }.onSubmit { profile() }
+        .onChange(of: editing) { _, focused in if !focused { profile() } }
     }
+    LevelLine(model: model)
     ForEach(["A", "B"], id: \.self) { side in
       let players = online.members.filter { $0.side == side }
       VStack(alignment: .leading, spacing: 3) {
@@ -122,7 +118,7 @@ struct LobbyCard: View {
           Text("\(players.count) / \(online.teamMax)").font(.caption)
           if !players.contains(where: \.you) {
             Button("JOIN \(side)") {
-              profile(online.level)
+              profile()
               model.runOnline { try await online.team(side) }
             }
             .disabled(players.count >= online.teamMax)
@@ -186,7 +182,7 @@ struct LobbyCard: View {
     if !online.note.isEmpty { Text(online.note).font(.callout.bold()) }
     if online.isHost {
       Button("START") {
-        profile(online.level)
+        profile()
         model.runOnline {
           let c = Calendar(identifier: .gregorian).dateComponents(in: .current, from: Date())
           let date = JS.object([
@@ -211,12 +207,12 @@ struct LobbyCard: View {
       if !m.connected { Text("Away").font(.caption) }
     }
   }
-  private func profile(_ level: String) {
+  /// The name as typed, and the device's level (Settings), as the room knows them.
+  private func profile() {
     model.perform {
-      try online.profile(name: draft, level: level)
+      try online.profile(name: draft, level: model.throwLevel)
       draft = online.name
       UserDefaults.standard.set(draft, forKey: "pitch.name")
-      UserDefaults.standard.set(level, forKey: "pitch.level")
     }
   }
 }
@@ -240,6 +236,7 @@ struct OnlineMenu: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Pitch menu").font(displayFont(36))
+      LevelSetting(model: model).frame(maxWidth: 300)
       FeedbackSettings(feedback: model.feedback, card: true).frame(maxWidth: 300)
       RaisingSetting(model: model).frame(maxWidth: 300)
       MeterSettings(meter: model.meter, card: true).frame(maxWidth: 300)
