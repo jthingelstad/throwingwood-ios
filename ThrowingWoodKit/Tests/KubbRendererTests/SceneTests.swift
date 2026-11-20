@@ -176,6 +176,21 @@ struct SceneTests {
     #expect(night.settled && neon.settled && calm.settled)
   }
 
+  /// The practice menu's Scene: a new practice in it, on the same surface.
+  @Test func practiceTakesAScene() throws {
+    let pitch = try PracticePitch(appVersion: "test")
+    #expect(pitch.scene.look == "day")
+    try pitch.practice(scene: "night", surface: .sand)
+    #expect(pitch.scene.look == "night")
+    #expect(pitch.scene.surface == .sand)
+    try pitch.practice(scene: "neon")
+    #expect(pitch.scene.look == "neon" && pitch.scene.surface == .grass)
+    try pitch.practice(scene: "sunset")
+    #expect(pitch.scene.look == "day")
+    try pitch.practice()
+    #expect(pitch.scene.look == "day")
+  }
+
   @Test func aSkippedThrowDropsItsDust() throws {
     let pitch = try PracticePitch(appVersion: "test")
     pitch.useLook("night", reduced: false)
@@ -193,5 +208,30 @@ struct SceneTests {
     #expect(pitch.effects?.look == "neon")
     pitch.useLook("sunset", reduced: false)
     #expect(pitch.effects == nil)
+  }
+}
+
+struct SceneSkinTests {
+  /// Every word a scene's controls show reads at 7:1 or better (WCAG AAA).
+  @Test(arguments: ["night", "neon"])
+  func textContrastIsSevenToOne(id: String) {
+    let skin = SceneSkin.of(id)
+    #expect(skin.id == id)
+    for pair in skin.textPairs {
+      let ratio = SkinPaint.contrast(pair.fg, pair.bg)
+      #expect(ratio >= 7, "\(id) \(pair.name): \(ratio)")
+    }
+  }
+
+  @Test func theDayIsTheAppsOwn() {
+    #expect(SceneSkin.of(nil) == .day)
+    #expect(SceneSkin.of("sunset") == .day)
+    #expect(SceneSkin.day.isDay && !SceneSkin.night.isDay)
+    // the day's plates as they were before scenes
+    #expect(SceneSkin.day.paper == SkinPaint(r: 251 / 255, g: 246 / 255, b: 234 / 255))
+    #expect(SkinPaint.contrast(SceneSkin.day.ink, SceneSkin.day.paper) >= 7)
+    // the web's figures (docs/SCENES.md): ink on paper
+    #expect(abs(SkinPaint.contrast(SceneSkin.night.ink, SceneSkin.night.paper) - 14.98) < 0.05)
+    #expect(abs(SkinPaint.contrast(SceneSkin.neon.ink, SceneSkin.neon.paper) - 18.42) < 0.05)
   }
 }

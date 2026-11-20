@@ -47,6 +47,31 @@ import Testing
     #expect(g.members.map(\.key) == ["client", "engine", "start", "log", "end"])
   }
 
+  /// A match shared in a scene sends it: its start carries the match's options,
+  /// the scene among them, so a sealed pitch watches it in its own.
+  @Test func aSharedMatchSendsItsScene() throws {
+    let dir = folder()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let save = MatchSave(file: dir.appending(path: "solo-match.json"))
+    let app = try PitchSession(appVersion: "test")
+    var choices = app.options.defaults
+    choices["scene"] = "night"
+    try app.startSolo(name: "Birch", selections: choices, save: save)
+    app.dismissHandoff()
+    try app.resign()
+    let m = try #require(app.shareableMatch(save: save))
+    guard case .message(let text, _) = try app.shareMessage(m.source, name: "Birch") else {
+      Issue.record("refused")
+      return
+    }
+    let start = try JSONNode.parse(try JSONNode.parse(text.text)["g"]!["start"]!.string!)
+    #expect(start["opts"]?["scene"]?.string == "night")
+    // and the start alone restores to a pitch in it
+    let watcher = try PitchSession(appVersion: "test")
+    try watcher.restore(m.source.start, save: nil)
+    #expect(watcher.scene.look == "night")
+  }
+
   @Test func theStandInYouStartsTheFieldEmpty() throws {
     let dir = folder()
     defer { try? FileManager.default.removeItem(at: dir) }

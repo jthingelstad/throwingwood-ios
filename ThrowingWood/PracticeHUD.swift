@@ -3,8 +3,15 @@ import UIKit
 
 @MainActor struct PracticeHUD {
   let context: CGContext, size: CGSize
-  let ink = UIColor(red: 0.09, green: 0.078, blue: 0.059, alpha: 1)
-  let paper = UIColor(red: 0.984, green: 0.965, blue: 0.918, alpha: 1)
+  /// The scene's skin (Skin.swift): the day's colours are the HUD's as they always were.
+  let skin = SkinStore.shared.skin
+  /// The meters' lines and type, and their faces (the web's HUD frame and face).
+  var ink: UIColor { UIColor(skin.frame) }
+  var paper: UIColor { UIColor(skin.face) }
+  /// A prompt plate's type and face.
+  var type: UIColor { UIColor(skin.promptInk) }
+  var plateFace: UIColor { UIColor(skin.prompt) }
+  private var drop: UIColor { skin.isDay ? ink : UIColor(skin.drop) }
 
   func disk(_ p: CGPoint, _ r: CGFloat, _ paint: UIColor) {
     context.setFillColor(paint.cgColor)
@@ -26,19 +33,19 @@ import UIKit
       UIFont(name: "LondrinaSolid-Black", size: size) ?? UIFont.boldSystemFont(ofSize: size)
     var attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
     if outlined {
-      attributes[.strokeColor] = ink
+      attributes[.strokeColor] = skin.isDay ? ink : UIColor(skin.star)
       attributes[.strokeWidth] = -5
     }
     let s = (word as NSString).size(withAttributes: attributes)
     let rect = CGRect(x: p.x - s.width / 2, y: p.y - s.height / 2, width: s.width, height: s.height)
     if plate {
       let box = rect.insetBy(dx: -9, dy: -3)
-      ink.setFill()
+      drop.setFill()
       UIBezierPath(roundedRect: box.offsetBy(dx: 2, dy: 3), cornerRadius: 4).fill()
-      paper.setFill()
+      plateFace.setFill()
       let path = UIBezierPath(roundedRect: box, cornerRadius: 4)
       path.fill()
-      ink.setStroke()
+      type.setStroke()
       path.lineWidth = 2
       path.stroke()
     }
@@ -56,7 +63,7 @@ import UIKit
     func at(_ a: Double, _ radius: Double) -> CGPoint {
       CGPoint(x: c.x + sin(a * .pi / 180) * radius, y: c.y + cos(a * .pi / 180) * radius)
     }
-    disk(CGPoint(x: c.x + r * 0.05, y: c.y + r * 0.06), r, ink)
+    disk(CGPoint(x: c.x + r * 0.05, y: c.y + r * 0.06), r, drop)
     disk(c, r, ink)
     disk(c, r * 0.96, paper)
     func sector(_ a: Double?, _ b: Double?, _ color: UIColor) {
@@ -70,24 +77,22 @@ import UIKit
         endAngle: (90 - a) * .pi / 180, clockwise: false)
       context.strokePath()
     }
-    sector(-180, 180, UIColor(red: 0.94, green: 0.91, blue: 0.82, alpha: 1))
-    sector(-180, -overStart(d), .systemRed)  // never over the power target
-    sector(-d.deadDeg, 0, .systemGray3)
-    sector(
-      d.powerHi.map { -$0 }, d.powerLo.map { -$0 },
-      UIColor(red: 1, green: 0.478, blue: 0.239, alpha: 1))
-    sector(d.releaseLo, d.releaseHi, UIColor(red: 0.2, green: 0.714, blue: 0.91, alpha: 1))
+    sector(-180, 180, UIColor(skin.ring))
+    sector(-180, -overStart(d), skin.isDay ? .systemRed : UIColor(skin.over))  // never over the power target
+    sector(-d.deadDeg, 0, skin.isDay ? .systemGray3 : UIColor(skin.dead))
+    sector(d.powerHi.map { -$0 }, d.powerLo.map { -$0 }, UIColor(skin.power))
+    sector(d.releaseLo, d.releaseHi, UIColor(skin.release))
     for h in 0..<12 {
       let major = h.isMultiple(of: 3)
       let angle = Double(h) * 30
-      line(at(angle, r * 0.76), at(angle, r * (major ? 0.58 : 0.66)), ink, major ? 3 : 1.7)
+      line(at(angle, r * 0.76), at(angle, r * (major ? 0.58 : 0.66)), UIColor(skin.tick), major ? 3 : 1.7)
     }
     // the last throw's peak and stop: ghosts of the knob where it was, never rings
     // (a tester read the rings as targets)
     for angle in [d.lastBack.map { -$0 }, d.lastStop].compactMap({ $0 }) {
       ghostKnob(at(angle, r * 0.82), r * 0.145) { p, kr in
         disk(p, kr, ink)
-        disk(p, kr * 0.115 / 0.145, UIColor(red: 0.95, green: 0.89, blue: 0.75, alpha: 1))
+        disk(p, kr * 0.115 / 0.145, UIColor(skin.meterKnob))
       }
     }
     context.setLineCap(.round)
@@ -103,12 +108,12 @@ import UIKit
       context.strokeEllipse(in: CGRect(x: f.x - r * 0.11, y: f.y - r * 0.11, width: r * 0.22, height: r * 0.22))
     }
     line(c, knob, ink, 0.08 * r)
-    line(c, knob, UIColor.brown, 0.04 * r)
+    line(c, knob, skin.isDay ? UIColor.brown : UIColor(skin.hand), 0.04 * r)
     disk(c, r * 0.07, ink)
     disk(knob, r * 0.145, ink)
-    disk(knob, r * 0.115, UIColor(red: 0.95, green: 0.89, blue: 0.75, alpha: 1))
+    disk(knob, r * 0.115, UIColor(skin.meterKnob))
     if let prompt = prompt ?? d.prompt {
-      text(prompt, at: CGPoint(x: c.x, y: c.y - r - 20), size: 20, color: ink, plate: true)
+      text(prompt, at: CGPoint(x: c.x, y: c.y - r - 20), size: 20, color: type, plate: true)
     }
     if showHint {
       let words = "Tap or drag to aim · Circle dial to throw"
@@ -119,7 +124,7 @@ import UIKit
         let off = r * 1.12 + 12 + half
         at = CGPoint(x: side == .right ? c.x - off : c.x + off, y: c.y + r * 0.85)
       }
-      text(words, at: at, size: 16, color: ink, plate: true)
+      text(words, at: at, size: 16, color: type, plate: true)
     }
   }
 
@@ -128,21 +133,24 @@ import UIKit
   func endLabel(_ e: RaiseEndPoint) {
     let r = RaiseTouch.numberR
     let p = e.label
-    disk(CGPoint(x: p.x + 3, y: p.y + 3), r, ink)
-    let fill =
-      !e.ok
-      ? UIColor(red: 0.79, green: 0.76, blue: 0.69, alpha: 1)
-      : e.lit ? UIColor(red: 0.95, green: 0.72, blue: 0.02, alpha: 1) : paper
+    disk(CGPoint(x: p.x + 3, y: p.y + 3), r, drop)
+    let fill = UIColor(!e.ok ? skin.endRefused : e.lit ? skin.endLit : skin.face)
     disk(p, r, fill)
     context.setStrokeColor(ink.cgColor)
     context.setLineWidth(3)
     context.strokeEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r))
-    text(String(e.index + 1), at: CGPoint(x: p.x, y: p.y + 1), size: 22, color: ink, plate: false)
+    // a scene's lit end is light: its number the skin's on-accent
+    let number = e.ok && e.lit && !skin.isDay ? UIColor(skin.onAccent) : skin.isDay ? ink : UIColor(skin.ink)
+    text(String(e.index + 1), at: CGPoint(x: p.x, y: p.y + 1), size: 22, color: number, plate: false)
   }
 
   func burst(_ b: HitBurst, at anchor: CGPoint) {
     let width = max(90, min(size.width, size.height) * 0.3)
-    let yellow = UIColor(red: 1, green: 0.82, blue: 0.25, alpha: 1)
+    // the day's: an ink star round a yellow inside; a scene's its own (BURST)
+    let ink = skin.isDay ? self.ink : UIColor(skin.star)
+    let paper = skin.isDay ? self.paper : UIColor(skin.flash)
+    let yellow = UIColor(skin.inner)
+    let crownFill = UIColor(skin.crown)
     func polygon(_ points: [CGPoint], _ color: UIColor) {
       let path = UIBezierPath()
       path.move(to: points[0])
@@ -186,9 +194,10 @@ import UIKit
         polygon(points.map { CGPoint(x: $0.x + shadow, y: $0.y + shadow) }, ink)
         polygon(points, ink)
         polygon(
-          points.map { CGPoint(x: c.x + ($0.x - c.x) * 0.84, y: c.y + ($0.y - c.y) * 0.84) }, yellow
+          points.map { CGPoint(x: c.x + ($0.x - c.x) * 0.84, y: c.y + ($0.y - c.y) * 0.84) },
+          b.kind == "king" ? UIColor(skin.kingInner) : yellow
         )
-        text(word, at: c, size: w * 0.27 * grow, color: .white, outlined: true)
+        text(word, at: c, size: w * 0.27 * grow, color: UIColor(skin.word), outlined: true)
         if b.kind == "king" {
           let by = c.y - w * 0.14
           let side = w * 0.14
@@ -203,7 +212,7 @@ import UIKit
           polygon(
             crown.map {
               CGPoint(x: c.x + ($0.x - c.x) * 0.77, y: by - h * 0.40 + ($0.y - by + h * 0.4) * 0.77)
-            }, yellow)
+            }, crownFill)
         }
       } else {
         let k = (age - 14.0 / 30) * 7.5
@@ -214,7 +223,8 @@ import UIKit
           context.saveGState()
           context.translateBy(x: c.x + cos(a) * d, y: c.y + sin(a) * d * 0.8 + k * k * w * 0.25)
           context.rotate(by: random() * .pi + k * (random() - 0.5) * 6)
-          context.setFillColor((i.isMultiple(of: 3) ? ink : UIColor.brown).cgColor)
+          let chip = skin.isDay ? (i.isMultiple(of: 3) ? ink : UIColor.brown) : UIColor(skin.chip[i % skin.chip.count])
+          context.setFillColor(chip.cgColor)
           context.fill(CGRect(x: -side / 2, y: -side * 0.35, width: side, height: side * 0.7))
           context.restoreGState()
         }
@@ -230,8 +240,9 @@ import UIKit
       let king = b.kind == "king"
       if king && b.age < 2.0 / 30 {
         context.saveGState()
-        context.setBlendMode(.difference)
-        context.setFillColor(UIColor.white.cgColor)
+        // the day inverts the screen; a scene lights it a moment instead
+        context.setBlendMode(skin.kingFlashInverts ? .difference : .plusLighter)
+        context.setFillColor(skin.kingFlashInverts ? UIColor.white.cgColor : UIColor(skin.flash).withAlphaComponent(0.22).cgColor)
         context.fill(CGRect(origin: .zero, size: size))
         context.restoreGState()
       }

@@ -161,6 +161,9 @@ struct LobbyCard: View {
       }
     }
     ForEach(online.optionRows) { option in
+      // a scene this build does not draw shows as the day it is drawn as, and is
+      // kept in the room until the host picks another
+      let value = option.id == "scene" ? SceneID.shown(online.options["scene"]) : online.options[option.id] ?? ""
       HStack {
         Text(option.label)
         Spacer()
@@ -168,13 +171,13 @@ struct LobbyCard: View {
           Picker(
             option.label,
             selection: Binding(
-              get: { online.options[option.id] ?? "" },
+              get: { value },
               set: { v in model.runOnline { try await online.option(option.id, v) } })
           ) {
             ForEach(option.choices, id: \.self) { c in Text(c[1]).tag(c[0]) }
           }.labelsHidden()
         } else {
-          Text(option.choices.first { $0[0] == online.options[option.id] }?.last ?? "")
+          Text(option.choices.first { $0[0] == value }?.last ?? "")
         }
       }.font(.subheadline)
     }

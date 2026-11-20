@@ -66,6 +66,51 @@ import Observation
       }
     }
   }
+  /// The practice pitch's scene (its menu's Scene), kept on the device.
+  var practiceScene = SceneID.shown(UserDefaults.standard.string(forKey: "pitch.practiceScene")) {
+    didSet {
+      guard practiceScene != oldValue else { return }
+      UserDefaults.standard.set(practiceScene, forKey: "pitch.practiceScene")
+      // the engine keeps a practice's scene from its start: a new practice in it, on the same surface
+      perform {
+        try offline?.practice(scene: practiceScene, surface: surface)
+        try offline?.useLevel(throwLevel)
+      }
+    }
+  }
+  /// The practice behind the home card in the practice's scene, then shown.
+  func openPractice() {
+    perform {
+      if let offline, SceneID.shown(offline.scene.look) != practiceScene {
+        try offline.practice(scene: practiceScene, surface: offline.scene.surface)
+        try offline.useLevel(throwLevel)
+      }
+      screen = .practice
+    }
+  }
+  /// The scene the screen shows (the pitch's look and the controls' skin): a
+  /// match's own (play, watching, a reopened or shared match, its replay), the
+  /// solo options' pick over the pitch behind them, the lobby's choice on a
+  /// pitch that takes one, the practice's; the day for the cards outside any
+  /// pitch. An unknown id is the day (SceneID.shown).
+  var shownScene: String {
+    switch screen {
+    case .home, .onlineEntry, .join, .invalidLink: return "day"
+    case .settings: return settingsReturn == .settings ? "day" : scene(on: settingsReturn)
+    default: return scene(on: screen)
+    }
+  }
+  private func scene(on screen: Screen) -> String {
+    switch screen {
+    case .home, .onlineEntry, .join, .invalidLink, .settings: return "day"
+    case .options:
+      return pitch?.options.takesScene == true ? SceneID.shown(selections["scene"]) : "day"
+    case .pitch:
+      if let online, online.stage != .match { return online.lobbyScene }
+      return SceneID.shown(pitch?.scene.look)
+    default: return SceneID.shown(pitch?.scene.look)
+    }
+  }
   /// Where Settings goes back to.
   var settingsReturn = Screen.home
   func openSettings() {
@@ -277,7 +322,7 @@ import Observation
     }
     perform {
       if pitch?.need?.kind == "over" { try save.clear() }
-      try pitch?.practice()
+      try pitch?.practice(scene: practiceScene)
       try pitch?.useLevel(throwLevel)
       screen = .home
     }

@@ -10,10 +10,10 @@ import SwiftUI
 // whole body takes the press: a press anywhere jumps the knob there and keeps
 // dragging. docs/MATCH.md "The plan".
 
-extension Color {
-  static let woodHeader = Color(red: 0.93, green: 0.85, blue: 0.68)
-  static let woodKnob = Color(red: 0.95, green: 0.89, blue: 0.75)
-  static let woodGrain = Color(red: 0.62, green: 0.42, blue: 0.22)
+@MainActor extension Color {
+  static var woodHeader: Color { Color(skin.header) }
+  static var woodKnob: Color { Color(skin.knob) }
+  static var woodGrain: Color { Color(skin.grain) }
 }
 
 private struct SliderPlate<Body: View>: View {
@@ -31,12 +31,12 @@ private struct SliderPlate<Body: View>: View {
     .background(Color.woodPaper, in: RoundedRectangle(cornerRadius: 5))
     .clipShape(RoundedRectangle(cornerRadius: 5))
     .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color.woodInk, lineWidth: 2))
-    .background(RoundedRectangle(cornerRadius: 5).fill(Color.woodInk).offset(x: 3, y: 4))
+    .background(RoundedRectangle(cornerRadius: 5).fill(Color.woodDrop).offset(x: 3, y: 4))
   }
 }
 
 /// The wooden knob: the dial's knob, end grain and all.
-private func knob(_ ctx: GraphicsContext, at p: CGPoint, radius r: CGFloat) {
+@MainActor private func knob(_ ctx: GraphicsContext, at p: CGPoint, radius r: CGFloat) {
   func disk(_ radius: CGFloat, _ color: Color, dx: CGFloat = 0, dy: CGFloat = 0) {
     ctx.fill(
       Path(ellipseIn: CGRect(x: p.x - radius + dx, y: p.y - radius + dy, width: radius * 2, height: radius * 2)),
@@ -233,10 +233,10 @@ struct StandPlate: View {
         func y(_ f: Double) -> CGFloat { run.minY + run.height * f }
         let line = span.fraction(x: 0, y: span.lineY).fy
         let limit = span.fraction(x: 0, y: span.limit).fy
-        ctx.fill(Path(roundedRect: run, cornerRadius: 2), with: .color(Color(red: 0.718, green: 0.78, blue: 0.604)))
+        ctx.fill(Path(roundedRect: run, cornerRadius: 2), with: .color(Color(skin.standRun)))
         ctx.fill(
           Path(CGRect(x: run.minX, y: y(limit), width: run.width, height: run.maxY - y(limit))),
-          with: .color(Color(red: 0.914, green: 0.941, blue: 0.839)))
+          with: .color(Color(skin.standZone)))
         ctx.fill(
           Path(CGRect(x: run.minX - 2, y: y(line) - 1.5, width: run.width + 4, height: 3)), with: .color(.woodInk))
         if span.advantage {
@@ -256,7 +256,7 @@ struct StandPlate: View {
         arrow.closeSubpath()
         ctx.fill(arrow, with: .color(.woodInk))
         let ring = Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2))
-        ctx.fill(ring, with: .color(.white))
+        ctx.fill(ring, with: .color(Color(skin.standRing)))
         ctx.stroke(
           Path(ellipseIn: CGRect(x: c.x - r + 1.25 * k, y: c.y - r + 1.25 * k, width: (r - 1.25 * k) * 2, height: (r - 1.25 * k) * 2)),
           with: .color(.woodInk), lineWidth: 2.5 * k)
