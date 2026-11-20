@@ -482,9 +482,16 @@ import Testing
     // the rematch has started (no finished match), or a newer one has finished
     #expect(!reel.staysOpen(on: .match, finished: nil))
     #expect(!reel.staysOpen(on: .match, finished: ReelMatch(n: 3, hash: nil)))
-    for stage in [OnlinePitch.Stage.notFound, .full, .unreachable, .replaced] {
+    // a sealed pitch (a shared match) shows its own card under the reel
+    for stage in [OnlinePitch.Stage.notFound, .full, .unreachable, .replaced, .sealed] {
       #expect(!reel.staysOpen(on: stage, finished: match))
     }
+    // a reel is a shared match's only when the share made it
+    #expect(!reel.linked)
+    let shared = HighlightReel(
+      code: Self.code, site: URL(string: "https://throwingwood.com")!, cache: cache,
+      hooks: .init(ask: { _ in .none(v: 0, why: .unavailable) }, fetch: { _, _ in }, reachable: { false }), linked: true)
+    #expect(shared.linked && shared.link.absoluteString == "https://throwingwood.com/p/" + Self.code)
   }
 
   @Test func withOnlyACodeThereIsNothingToCompare() async throws {

@@ -39,6 +39,9 @@ public struct PitchMember: Identifiable, Equatable {
 @Observable @MainActor public final class OnlinePitch {
   public enum Stage: Equatable {
     case connecting, lobby, match, reconnecting, notFound, full, unreachable, replaced
+    /// The join was refused `sealed`: a shared match against the computer, watched and
+    /// never joined (the web's docs/ROOMS.md 13.5). The app shows it from its replay.
+    case sealed
   }
   public enum VersionCard: String { case newer, older }
   public let controller: PitchController
@@ -181,6 +184,7 @@ public struct PitchMember: Identifiable, Equatable {
         if m["t"]?.string == "error", m["re"]?.string == "join" {
           switch m["code"]?.string {
           case "full": finish(.full)
+          case "sealed": finish(.sealed)
           case "bad-room": finish(.notFound)
           case "busy": return
           default: stage = .unreachable
