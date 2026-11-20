@@ -79,6 +79,8 @@ import KubbRooms
   public let match: ReelMatch?
   /// The pitch's page, `https://throwingwood.com/p/<code>`: COPY LINK.
   public let link: URL
+  /// A match just shared: the card says "The link:" before it (the web's `link`).
+  public let linked: Bool
   public private(set) var phase = Phase.idle
   /// TRY AGAIN was pressed after a failure: the next failure is final.
   public private(set) var retried = false
@@ -109,9 +111,10 @@ import KubbRooms
   /// `match`: the finished match on the screen, or nil with only a code.
   public init(
     code: String, site: URL, cache: URL, hooks: Hooks, match: ReelMatch? = nil,
-    every: Duration = .seconds(5), keptWait: Duration = .milliseconds(2500)
+    linked: Bool = false, every: Duration = .seconds(5), keptWait: Duration = .milliseconds(2500)
   ) {
     self.code = code
+    self.linked = linked
     self.match = match
     link = URL(string: "https://throwingwood.com/p/" + code)!
     self.site = site
@@ -373,7 +376,7 @@ extension HighlightReel {
     switch stage {
     case .connecting, .reconnecting, .lobby: true
     case .match: finished != nil && (match == nil || finished == match)
-    case .notFound, .full, .unreachable, .replaced: false
+    case .notFound, .full, .unreachable, .replaced, .sealed: false
     }
   }
 }
