@@ -391,9 +391,9 @@ import UIKit
         if WideLayout.isWide(bounds.size) {
           // on its side: beside the plan block at the far edge, toward the middle
           // (the web's wide minimap, layout.js planAt)
-          pitch.scene.drawMap(
-            in: ctx,
-            rect: WideLayout.plan(meter: meter, size: bounds.size, safe: insets, side: model.meter.side).minimap)
+          // (over the block in a narrow window beside the linear meter, or not at all)
+          let map = WideLayout.plan(meter: meter, size: bounds.size, safe: insets, side: model.meter.side).minimap
+          if !map.isNull { pitch.scene.drawMap(in: ctx, rect: map) }
         } else {
           let width = min(74, bounds.width * 0.18)
           let left = (pitch.marker(in: bounds.size)?.x ?? 0) > bounds.midX

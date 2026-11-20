@@ -158,6 +158,8 @@ public enum WideLayout {
   /// The block and the minimap keep this many pt short of the throwing line,
   /// the screen's centre, or the block stays beside the meter (tune.planClear).
   public static let planClear: CGFloat = 24
+  /// pt a minimap stacked over the block keeps under the rail and MENU.
+  public static let stackedMapGap: CGFloat = 10
 
   /// Where the plan block and the minimap go on a phone on its side.
   public struct Plan: Equatable, Sendable {
@@ -168,7 +170,9 @@ public enum WideLayout {
     /// minimap off the throwing line).
     public var edge: MeterSide?
     /// The minimap: the same y and size as in its corner, on the block's inner
-    /// side when the block is at the edge, else in its corner.
+    /// side when the block is at the edge, else in its corner. Beside a linear
+    /// meter in a narrow window, over the block (`stackedMapGap` under the rail and MENU), or `.null`
+    /// (not drawn) where even that has no room.
     public var minimap: CGRect
   }
 
@@ -189,7 +193,24 @@ public enum WideLayout {
     let mx = edge == .left ? x + block.width + planMapGap : x - planMapGap - corner.width
     let inner = edge == .left ? mx + corner.width : size.width - mx
     if inner > size.width / 2 - planClear {
-      return Plan(block: beside, edge: nil, minimap: corner)
+      // Too narrow for the block and the minimap side by side off the throwing
+      // line. Beside the clock the block goes back beside the meter (the web's
+      // planAt). Beside the linear meter that would put ARC over its prompt tab
+      // and the coach line, whatever the height, so the block stays at the far
+      // edge and the minimap goes over it, or is not drawn where it would meet
+      // the rail or MENU (it is a picture, never a control: the block's
+      // controls and the tab keep their places).
+      let blockInner = edge == .left ? x + block.width : size.width - x
+      guard meter.linear != nil, blockInner <= size.width / 2 - planClear else {
+        return Plan(block: beside, edge: nil, minimap: corner)
+      }
+      let b = CGRect(x: x, y: beside.minY, width: block.width, height: block.height)
+      var map = corner
+      map.origin.x = edge == .left ? b.maxX - corner.width : b.minX
+      map.origin.y = b.minY - planMapGap - corner.height
+      let top = max(
+        rail(size: size, safe: safe, meter: meter).maxY, menu(size: size, safe: safe, meter: meter).maxY)
+      return Plan(block: b, edge: edge, minimap: map.minY >= top + stackedMapGap ? map : .null)
     }
     var map = corner
     map.origin.x = mx
