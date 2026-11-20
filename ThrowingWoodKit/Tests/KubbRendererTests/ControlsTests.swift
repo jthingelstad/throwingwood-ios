@@ -189,6 +189,58 @@ import simd
     #expect(abs(g.y - 6) < 0.05)
   }
 
+  /// On a phone on its side the linear meter's whole-height box stands over the
+  /// far baseline's outer kubb on its side. A tap on the body there aims at it,
+  /// a drag from the same point strokes and aims at nothing, and the knob keeps
+  /// its press (the coordinator's call on the review, 2026-11-19).
+  @Test func aTapOnTheWideLinearMeterAimsAtTheKubbBehindIt() throws {
+    let phones: [(String, CGSize, ScreenInsets)] = [
+      ("13 mini", CGSize(width: 812, height: 375), ScreenInsets(top: 0, left: 50, bottom: 21, right: 50)),
+      ("17 Pro Max", CGSize(width: 956, height: 440), ScreenInsets(top: 0, left: 62, bottom: 21, right: 62)),
+    ]
+    for (name, size, safe) in phones {
+      for side in [MeterSide.left, .right] {
+        let tag = "\(name) \(side)"
+        let app = try aiming()
+        let ml = MeterLayout.make(
+          kind: .linear, side: side, bounds: CGRect(origin: .zero, size: size), safeTop: safe.top,
+          safeBottom: safe.bottom, safeLeft: safe.left, safeRight: safe.right)
+        let m = try #require(ml.linear, "\(tag)")
+        let p = app.scene.projection(size, app.camera)
+        // the far baseline's outermost standing kubb on the meter's side
+        let far = app.scene.items.filter { $0.kind == "kubb" && $0.y > 4 && $0.rotation.act(V3(0, 0, 1)).z > 0.9 }
+        let kubb = try #require(
+          side == .right ? far.max(by: { $0.x < $1.x }) : far.min(by: { $0.x < $1.x }), "\(tag)")
+        // the middle of its drawn body
+        let body = try #require(p.project(V3(kubb.x, kubb.y, kubb.z)), "\(tag)")
+        #expect(m.bodyHit(body) && m.knobHit(body), "\(tag): the meter's body covers the kubb, in the upright grab band")
+        #expect(!m.knobHit(body, wide: true), "\(tag): in the lane, off the knob's channel")
+        let start = try #require(app.scene.marker)
+        // a drag from the same point strokes, from the press as the knob's home
+        let claim = try #require(ml.first(body, wide: true), "\(tag)")
+        #expect(claim == .zone, "\(tag)")
+        #expect(ml.press(claim, from: body, moved: true) == .stroke(grab: body.y - m.yHome), "\(tag)")
+        let still = try #require(app.scene.marker)
+        #expect(still.x == start.x && still.y == start.y, "\(tag): a drag aims at nothing")
+        // a tap aims at the kubb behind the body
+        #expect(ml.press(claim, from: body, moved: false) == .tapAims, "\(tag)")
+        try app.tapAim(at: body, size: size)
+        let mk = try #require(app.scene.marker)
+        #expect(abs(mk.x - kubb.x) < 1e-6 && abs(mk.y - kubb.y) < 1e-6, "\(tag)")
+        // a tap on the knob is the throw, never an aim
+        let knob = CGPoint(x: m.knobX, y: m.yHome)
+        let k = try #require(ml.first(knob, wide: true))
+        #expect(ml.press(k, from: knob, moved: false) == .stroke(grab: 0), "\(tag)")
+        // the upright rules (a tall screen): the band across the body grabs, the
+        // rest of the body keeps its press
+        #expect(ml.first(body, wide: false) == .meter(grab: body.y - m.yHome), "\(tag)")
+        let low = CGPoint(x: m.laneX, y: m.yHome + 80)
+        #expect(ml.first(low, wide: false) == .body && ml.first(low, wide: true) == .zone, "\(tag)")
+        #expect(ml.press(.body, from: low, moved: false) == .nothing)
+      }
+    }
+  }
+
   // MARK: Automatic raising
 
   @Test func autoRaiseWaitsItsGapForEachKubb() {

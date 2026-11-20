@@ -146,7 +146,9 @@ its side has. The finger and the
 meter apart ("if you can have the control and the touch be slightly distant
 from each other, that could make that better"): a drag in the throw zone
 (the lower 40% upright, the meter's half on a wide screen) strokes the linear knob and a press beside the clock's ring turns its arm,
-while a tap there still aims. The nudge ("Have the UI show it not a separate
+while a tap there still aims. On a wide screen the linear body is throw zone
+too (it stands over the far baseline's outer kubb): a tap on it aims, a drag
+strokes, and only the knob's channel grabs at once. The nudge ("Have the UI show it not a separate
 how to page.") draws on the meter itself and is never fed to the engine, and so
 does the coach line (`Coach.swift`, the web's coach.js: a few words over the
 prompt for a device under 3 throws, or after a SLOW flick). Keep the linear

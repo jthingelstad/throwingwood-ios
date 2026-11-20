@@ -108,6 +108,21 @@ public enum WideLayout {
     return r
   }
 
+  /// Online, SHOUT beside MENU: the button's plate (the app's WoodButton, about
+  /// 88 x 50 with its shadow) and the gap to MENU. The shouts hang under it.
+  public static let shoutSize = CGSize(width: 88, height: 50)
+  public static let shoutGap: CGFloat = 8
+  /// The width the caption gives up for it.
+  public static var trayWidth: CGFloat { shoutSize.width + shoutGap }
+
+  /// SHOUT, `shoutGap` left of MENU wherever MENU is (moved in beside a linear
+  /// meter at the right, it goes with it), level with its top.
+  public static func shout(size: CGSize, safe: ScreenInsets, meter: MeterLayout? = nil) -> CGRect {
+    let m = menu(size: size, safe: safe, meter: meter)
+    return CGRect(
+      x: m.minX - shoutGap - shoutSize.width, y: m.minY, width: shoutSize.width, height: shoutSize.height)
+  }
+
   /// Where a slider's or STAND's caption, the verdict and SLOW MOTION go: the
   /// top between the rail and MENU (and any tray beside it), its top level with theirs.
   public static func caption(

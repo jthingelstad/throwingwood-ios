@@ -5,7 +5,7 @@ and the meter preferences as launch arguments (they are not saved), waits for
 the board's ready file and saves a screenshot. Pass the devices by name or
 UDID with --device; nothing here boots or shuts down a device it was not given.
 --landscape left|right turns the interface on its side (a phone held sideways
-lays out as the web's wide screen, always with the clock) and names the shots
+lays out as the web's wide screen, the linear meter at its edge) and names the shots
 <phone>-landscape-*. An iPad turns as a device (review_turn.py); pass --prefix
 ipad-mini or ipad-pro-13 for its pictures' names.
 """

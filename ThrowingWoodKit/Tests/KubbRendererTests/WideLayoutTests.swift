@@ -179,16 +179,20 @@ import Testing
           let meter = MeterLayout.make(
             kind: kind, side: side, bounds: CGRect(origin: .zero, size: p.size), safeTop: s.top,
             safeBottom: s.bottom, safeLeft: s.left, safeRight: s.right)
+         for online in [false, true] {
           var frames: [(String, CGRect)] = [
             ("rail", WideLayout.rail(size: p.size, safe: s, meter: meter)),
             ("menu", WideLayout.menu(size: p.size, safe: s, meter: meter)),
-            ("caption", WideLayout.caption(size: p.size, safe: s, meter: meter)),
+            ("caption", WideLayout.caption(
+              size: p.size, safe: s, trayWidth: online ? WideLayout.trayWidth : 0, meter: meter)),
             ("minimap", WideLayout.plan(meter: meter, size: p.size, safe: s, side: side).minimap),
             ("meter", WideLayout.meterBox(meter, size: p.size, safe: s, side: side)),
             ("plans", WideLayout.plan(meter: meter, size: p.size, safe: s, side: side).block),
           ]
           if let m = meter.linear { frames.append(("tab", Self.tab(m))) }
-          let what = "\(p.name) \(kind) \(side)"
+          // online, SHOUT beside MENU (and with it beside a linear meter at the right)
+          if online { frames.append(("shout", WideLayout.shout(size: p.size, safe: s, meter: meter))) }
+          let what = "\(p.name) \(kind) \(side)\(online ? " online" : "")"
           for (name, f) in frames {
             #expect(safeRect.contains(f), "\(what): \(name) \(f) outside \(safeRect)")
           }
@@ -199,6 +203,11 @@ import Testing
               #expect(!fa.intersects(fb), "\(what): \(a) \(fa) meets \(b) \(fb)")
             }
           }
+          // the caption keeps room for a word: at its narrowest, the SE online
+          // beside a linear meter, 112.6 pt (the verdict's flag shrinks to fit)
+          #expect(frames[2].1.width >= 112, "\(what): caption \(frames[2].1.width)")
+         }
+          let what = "\(p.name) \(kind) \(side)"
           // the ring and its rim are on the screen, clear of the home indicator
           if let c = meter.clock {
             #expect(c.center.y + c.radius * 1.12 <= p.size.height - s.bottom)
