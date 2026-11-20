@@ -384,6 +384,19 @@ import KubbEngine
     if !replay.isNull, room.keep(replay.raw, version: version) { kept = matchNumber }
   }
 
+  /// Whether the match on the pitch is over and carries its replay (the engine's
+  /// replayOf), the replay a finished match's keep sends: the web's winner card offers
+  /// WATCH REPLAY, EMBED and a highlight reel only then. A match from before replays,
+  /// or one too long to keep, has none. Cached per match number.
+  public var finishedWithReplay: Bool {
+    guard let m = match, m["over"]?.bool == true, let n = m["n"]?.int else { return false }
+    if let cached = replayChecked, cached.n == n { return cached.has }
+    let has = ((try? roomCall("replayOf", [("match", .raw(m.raw))]))?.isNull == false)
+    replayChecked = (n, has)
+    return has
+  }
+  private var replayChecked: (n: Int, has: Bool)?
+
   /// Take a user action only in this member's seat. The engine validates the action.
   @discardableResult public func take(_ action: JSONText, computer: Bool = false) async throws
     -> Bool

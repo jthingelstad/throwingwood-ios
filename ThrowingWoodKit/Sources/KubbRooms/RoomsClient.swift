@@ -129,13 +129,13 @@ import Foundation
     try await withCheckedThrowingContinuation { afterJoin.append($0) }
   }
 
-  private static func socketRequest(url: URL, appVersion: String) -> URLRequest {
+  static func socketRequest(url: URL, appVersion: String) -> URLRequest {
     var request = URLRequest(url: url)
     request.setValue("https://app.throwingwood.com", forHTTPHeaderField: "Origin")
     request.setValue("ThrowingWood/\(appVersion) (ios)", forHTTPHeaderField: "User-Agent")
     return request
   }
-  private func newTransport() -> any RoomsTransport {
+  func newTransport() -> any RoomsTransport {
     factory(Self.socketRequest(url: url, appVersion: appVersion))
   }
   private func open() {
@@ -415,8 +415,9 @@ import Foundation
     try await request("report", fields: [("r", tagged(report))])
   }
 
-  /// Reports use an unjoined socket. There is no member identity on this request.
-  private var reportSockets: [UUID: any RoomsTransport] = [:]
+  /// Reports and reel requests use an unjoined socket each. There is no member
+  /// identity on these requests. Closing the client closes them.
+  var reportSockets: [UUID: any RoomsTransport] = [:]
   public func sendPitchReport(_ report: JSONText) async throws {
     let transport = newTransport()
     let id = UUID()
@@ -432,21 +433,34 @@ import Foundation
   }
 
   private static func deliverReport(_ report: JS, transport: any RoomsTransport, timing: Timing) async throws {
+    let message = JS.object([("t", .string("report")), ("id", .int(1)), ("r", report)])
+    guard message.ascii.utf8.count <= 65536 else {
+      transport.close()
+      throw RoomError("too-big")
+    }
+    let reply = try await exchange(message, transport: transport, timing: timing) { _ in true }
+    if reply["t"]?.string == "reported", reply["id"]?.int == 1 { return }
+    throw RoomError(reply["code"]?.string ?? "unexpected-reply")
+  }
+
+  /// One message on a socket of its own, and the first reply `accept` takes; the
+  /// socket is closed after. An unanswered message fails at the answer deadline.
+  static func exchange(
+    _ message: JS, transport: any RoomsTransport, timing: Timing,
+    accept: (JSONNode) -> Bool
+  ) async throws -> JSONNode {
     defer { transport.close() }
-    let message = JS.object([("t", .string("report")), ("id", .int(1)), ("r", report)]).ascii
-    guard message.utf8.count <= 65536 else { throw RoomError("too-big") }
     let deadline = Task { [timing] in
       do { try await Task.sleep(for: timing.answer) } catch { return }
       transport.close()
     }
     defer { deadline.cancel() }
-    for part in Frames.split(message) { try await transport.send(part) }
+    for part in Frames.split(message.ascii) { try await transport.send(part) }
     var parts = Frames.Reassembler()
     while true {
       guard let text = parts.accept(try await transport.receive()) else { continue }
       let reply = try JSONNode.parse(text)
-      if reply["t"]?.string == "reported", reply["id"]?.int == 1 { return }
-      throw RoomError(reply["code"]?.string ?? "unexpected-reply")
+      if accept(reply) { return reply }
     }
   }
 

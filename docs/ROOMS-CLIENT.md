@@ -28,6 +28,20 @@ client tag allows no space, so the app version travels in the report's `build.ve
 commit riders carry `c: ios` and `e` from that engine. The low-level `request` and
 `send` methods are available for protocol work; use the tagged methods for records.
 
+A highlight reel (the web's docs/REEL.md and docs/ROOMS.md section 12) is asked for with
+`reel()` on a client, or `RoomsClient.reel(room:url:appVersion:)` with only a pitch code:
+one `{ t: "reel", id: 1, room }` on a socket of its own, with no join and no member id,
+closed once answered or at the answer deadline, as a report is sent. The answer is a
+`ReelAnswer`, a case for every state and why code: `rendering`, `done` (with `ReelFiles`,
+the tall and wide site paths), `failed` (`render`, `empty`, or `timedOut` when the server
+names no why), `none` (`unavailable`, `replay`, `engine`, `busy`), and the two error
+codes a reel has, `too-many` (`tooMany`) and `failed` (`notStarted`: nothing was kept, so
+asking again may start it). A code newer than the build is kept as `other`. Only paths
+under `/reels/<code>/` ending `.mp4` are taken. Asking how a reel stands is free; only a
+request that starts a render counts against the connection's three.
+`PitchController.finishedWithReplay` says whether the match on the pitch is over and
+carries its replay (`replayOf`), as the web's winner card decides WATCH REPLAY.
+
 `JS` and `ASCIIJSON` write JSON explicitly: UTF-16 units above U+007E become lowercase
 backslash-u escapes, emoji become surrogate pairs, lone surrogates are representable,
 controls use JSON.stringify's escapes, finite doubles use its notation thresholds and
