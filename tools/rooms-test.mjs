@@ -3,7 +3,7 @@
 // server is imported rather than launched as a CLI, so it writes no files anywhere.
 // Usage: node tools/rooms-test.mjs [--web <checkout>]
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { spawn, execFileSync } from "node:child_process";
@@ -92,6 +92,14 @@ const iosVersion = JSON.parse(
 ).version;
 const [major, minor] = iosVersion.split(".").map(Number);
 const compatible = `${major}.${minor}`;
+// The version this build plays a major.minor on: the newest, or the older engine it
+// carries for it (Engines/<major.minor>/), which may be a later patch than the web's.
+const iosVersionFor = (mm) => {
+  const mmOf = (v) => v.split(".").slice(0, 2).join(".");
+  if (!mm || mmOf(mm) === compatible) return iosVersion;
+  const older = join(root, "ThrowingWoodKit/Sources/KubbEngine/Engines", mmOf(mm), "engine.json");
+  return existsSync(older) ? JSON.parse(readFileSync(older)).version : manifest.version;
+};
 const report = {
   webCommit: execFileSync("git", ["-C", web, "rev-parse", "HEAD"], {
     encoding: "utf8",
@@ -691,8 +699,9 @@ try {
             n: m.n,
             seq: m.seq,
             action: w.a,
-            // a rider names no device (the default "web") and the match's own engine
-            engine: manifest.version,
+            // a rider names no device (the default "web") and the engine that played:
+            // this build's copy of the match's major.minor
+            engine: iosVersionFor(m.engine),
           }),
         );
       }
@@ -899,7 +908,7 @@ try {
         assert.equal(captured.v, browser.v);
         assert.equal(captured.match.seq, 2);
         assert.equal(captured.client, "ios");
-        assert.equal(captured.engine, browser.doc.match.engine === compatible ? iosVersion : manifest.version); // the engine that played
+        assert.equal(captured.engine, iosVersionFor(browser.doc.match.engine)); // the engine that played
         assert.ok(
           !latestReport.report.includes(nativeID) &&
             !latestReport.report.includes(browser.you),
