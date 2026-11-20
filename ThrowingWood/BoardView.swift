@@ -313,7 +313,9 @@ import UIKit
     private func writeReviewLayout() {
       guard WideLayout.isWide(bounds.size), model.screen == .match else { return }
       let s = insets
-      let plan = WideLayout.plan(meter: meter, size: bounds.size, safe: s, side: model.meter.side)
+      let plan = WideLayout.plan(
+        meter: meter, size: bounds.size, safe: s, side: model.meter.side,
+        trayWidth: model.online == nil ? 0 : WideLayout.trayWidth)
       func r(_ f: CGRect) -> [Double] {
         f.isNull ? [] : [f.minX, f.minY, f.width, f.height].map { (Double($0) * 10).rounded() / 10 }
       }
@@ -392,7 +394,9 @@ import UIKit
           // on its side: beside the plan block at the far edge, toward the middle
           // (the web's wide minimap, layout.js planAt)
           // (over the block in a narrow window beside the linear meter, or not at all)
-          let map = WideLayout.plan(meter: meter, size: bounds.size, safe: insets, side: model.meter.side).minimap
+          let map = WideLayout.plan(
+            meter: meter, size: bounds.size, safe: insets, side: model.meter.side,
+            trayWidth: model.online == nil ? 0 : WideLayout.trayWidth).minimap
           if !map.isNull { pitch.scene.drawMap(in: ctx, rect: map) }
         } else {
           let width = min(74, bounds.width * 0.18)
@@ -471,9 +475,20 @@ import UIKit
         hud.coach(line, place, left: room.left, width: room.width, beside: beside)
       }
       if let ghost {
+        // on its side the flick's top stays under the captions or the practice header
+        var ceiling: CGFloat = 0
+        if WideLayout.isWide(bounds.size) {
+          ceiling =
+            model.screen == .practice
+            ? WideLayout.practiceHeader(size: bounds.size, safe: insets, meter: meter).maxY
+            : WideLayout.caption(
+              size: bounds.size, safe: insets, trayWidth: model.online == nil ? 0 : WideLayout.trayWidth,
+              meter: meter, side: model.meter.side
+            ).maxY
+        }
         hud.nudge(
           ghost, swing: NudgeSwing(pitch.dial), on: meter, safeLeft: safeAreaInsets.left,
-          safeRight: safeAreaInsets.right, besideFree: model.screen == .practice)
+          safeRight: safeAreaInsets.right, besideFree: model.screen == .practice, ceiling: ceiling)
       }
     }
   }

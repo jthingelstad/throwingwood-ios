@@ -248,8 +248,9 @@ struct MatchScreen: View {
     let railBox = WideLayout.rail(size: size, safe: safe, meter: meter)
     let menuBox = WideLayout.menu(size: size, safe: safe, meter: meter)
     let tray: CGFloat = model.online == nil ? 0 : WideLayout.trayWidth
-    let captionBox = WideLayout.caption(size: size, safe: safe, trayWidth: tray, meter: meter)
-    let plan = WideLayout.plan(meter: meter, size: size, safe: safe, side: side)
+    // under the floor beside SHOUT (a narrow window), a line of their own under the header row
+    let captionBox = WideLayout.caption(size: size, safe: safe, trayWidth: tray, meter: meter, side: side)
+    let plan = WideLayout.plan(meter: meter, size: size, safe: safe, side: side, trayWidth: tray)
     // the held slider's caption grows from the block's side toward the middle
     let from: Alignment = (plan.edge ?? (side == .right ? .left : .right)) == .left ? .topLeading : .topTrailing
     let corner: Alignment = side == .left ? .bottomLeading : .bottomTrailing

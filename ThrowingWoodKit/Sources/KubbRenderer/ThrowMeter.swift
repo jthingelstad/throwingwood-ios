@@ -241,6 +241,65 @@ public struct LinearMeter: Equatable, Sendable {
     return meter.travel >= least - 0.001 ? meter : nil
   }
 
+  /// The prompt tab at the knob's home, as wide as its longest words could make
+  /// it (LinearMeterHUD's tab; the nudge keeps 5 tab heights for it too), its
+  /// own hard shadow falling on the body.
+  public var tab: CGRect {
+    let w = promptHeight * 5
+    return CGRect(x: side == .right ? left - w : cover.maxX, y: yHome - promptHeight / 2, width: w, height: promptHeight)
+  }
+
+  /// The nudge's fingertip radius and its gap from the prompt tab (NudgeHUD).
+  public static let nudgeFinger: CGFloat = 19
+  public static let nudgeZoneGap: CGFloat = 12
+
+  /// Where the nudge's fingertip strokes: its x and the y of the knob's home.
+  /// Beside the meter in what the meter leaves (where a thumb strokes), clear of
+  /// the prompt tab at the knob's home, starting low enough that the whole draw
+  /// back fits on the screen. On a wide screen, in the meter's half between the
+  /// centre line and the tab, its flick's top under `ceiling` (the captions'
+  /// foot, or the practice header's) where the screen has the height.
+  public func nudgePath(
+    swing: NudgeSwing, size: CGSize, safeLeft: CGFloat, safeRight: CGFloat, ceiling: CGFloat = 0
+  ) -> (x: CGFloat, y0: CGFloat) {
+    let R = Self.nudgeFinger
+    let right = side == .right
+    let plateW = promptHeight * 5
+    let tab =
+      right
+      ? left - frame * 2 - plateW - Self.nudgeZoneGap - R
+      : self.right + shadow + frame * 2 + plateW + Self.nudgeZoneGap + R
+    var x = right ? (safeLeft + 8 + box.minX - 6) / 2 : (box.maxX + 6 + size.width - safeRight - 8) / 2
+    x = right ? min(x, tab) : max(x, tab)
+    let backPt = CGFloat(abs(swing.back)) * scale
+    if WideLayout.isWide(size) {
+      // on its side the zone is the meter's half (MeterLayout.wideZone): the
+      // fingertip strokes there, halfway from the centre line to the prompt tab,
+      // level with the knob's home, whose whole swing is on the screen
+      let line = size.width * MeterLayout.wideZone
+      x = right ? max(line + R + 4, min(tab, (line + tab) / 2)) : min(line - R - 4, max(tab, (line + tab) / 2))
+      let releasePt = CGFloat(abs(swing.release)) * scale
+      // the stroke is relative: below the captions where the knob's home is under them
+      return (x, min(max(yHome, ceiling + 4 + R + releasePt), size.height - R - 8 - backPt))
+    }
+    let zoneTop = size.height * MeterLayout.zoneFrom
+    var y0 = max(zoneTop + R + 4, yHome)
+    y0 = min(y0, size.height - R - 8 - backPt)
+    return (x, max(zoneTop + 2, y0))
+  }
+
+  /// All the nudge's fingertip covers in one swing: from the flick's top to the
+  /// draw back's foot, a fingertip's radius round.
+  public func nudgeSweep(
+    swing: NudgeSwing, size: CGSize, safeLeft: CGFloat, safeRight: CGFloat, ceiling: CGFloat = 0
+  ) -> CGRect {
+    let p = nudgePath(swing: swing, size: size, safeLeft: safeLeft, safeRight: safeRight, ceiling: ceiling)
+    let R = Self.nudgeFinger
+    let top = p.y0 - CGFloat(abs(swing.release)) * scale - R
+    let foot = p.y0 + CGFloat(abs(swing.back)) * scale + R
+    return CGRect(x: p.x - R, y: top, width: 2 * R, height: foot - top)
+  }
+
   /// The body and its shadow: what the meter covers on the screen.
   public var cover: CGRect { CGRect(x: left, y: top, width: width + shadow, height: bottom + shadow - top) }
 }
