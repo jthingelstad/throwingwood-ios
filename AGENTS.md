@@ -227,6 +227,10 @@ Keep admission and seat decisions in room.*. Keep all simulator, script and revi
 sockets on 127.0.0.1. Use the numeric ROOMS_DEV_PORT for simulator review.
 Run `python3 tools/online-snapshots.py <simulator-app> --web <web checkout>`
 on both review phones. Only invented names belong in these pictures.
+The highlight reel card (`ReelCard.swift`, `HighlightReel`, the `reel` request) takes
+a pitch code only and keeps the web's docs/REEL.md words; its pictures come from
+`python3 tools/reel-snapshots.py <simulator-app> --videos <dir>` (docs/ONLINE.md
+"The highlight reel"). Never point it at production while testing.
 
 Local wire conformance and three complete cross-play matches run with
 `swift build --package-path ThrowingWoodKit --product RoomsProbe` then
