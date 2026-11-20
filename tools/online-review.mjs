@@ -117,7 +117,10 @@ try {
         return watcher ? d : lua("joinTeam", { doc: d, id: you, side: "B" });
       });
       if (watcher || mode === "handoff") {
-        const members = webRoom.members,
+        // as the web's own START does (src/net/pitch.js): each member that carries the
+        // engine speaks as it, so an app whose announcement still names its newest is
+        // not refused
+        const members = lua("speakAs", { members: webRoom.members, engine: manifest.version }),
           host = webRoom.host;
         const lineup = lua("lineup", { doc: webRoom.doc, members });
         const setup = lua("matchOptions", {
