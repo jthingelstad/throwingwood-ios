@@ -521,11 +521,21 @@ function throw.prepare(s, setup)
 	s.advText = s.advMeters and fmt("ADVANTAGE LINE  %.1f M", s.advMeters) or nil
 	s.markerFixed = false
 	if setup.projectile == "kubb" then
-		if not (s.drill and s.markerSide == setup.side) then markerHome(s) end
+		if not (s.drill and s.markerSide == setup.side) then
+			markerHome(s)
+			s.keptSpin = nil
+		end
 		s.markerSide = setup.side
 		s.drill = true
+		-- A kubb's spin is a turn setting (Jamie, 2026-11-20: "Keep between throws"): the
+		-- spin a person threw the side's last kubb with (s.keptSpin, set from the action
+		-- by Session:applyThrow) stays for the rest of the side's kubbs in this inkast
+		-- turn, rethrows included, with the same scope as the circle. Arc and tilt are
+		-- throw settings: freshPlan above put them back.
+		s.spin = s.keptSpin or 0
 	else
 		s.drill = false
+		s.keptSpin = nil
 		retarget(s, keep)
 	end
 	s.thisDrill = false
@@ -547,6 +557,7 @@ function throw.setDrill(s, on)
 	s.projectileId = nil
 	s.stanceSet = false
 	freshPlan(s)
+	s.keptSpin = nil
 	clearLast(s)
 	if on then
 		markerHome(s)
@@ -569,6 +580,9 @@ function throw.reset(s)
 	s.mode = "aim"
 	resetSwing(s)
 	if not s.drill then retarget(s, false) end
+	-- practice with KUBBS on keeps its spin from throw to throw until the pitch is reset
+	-- (a kubb's spin is a turn setting, Jamie, 2026-11-20)
+	if s.drill then s.spin, s.keptSpin = 0, nil end
 	s.planDirty = true
 	replan(s)
 	aimCamera(s)
@@ -634,6 +648,48 @@ function throw.stepSide(s, side)
 	else
 		s.tilt = max(-pt.tiltMaxDeg, min(pt.tiltMaxDeg, s.tilt + side * pt.tiltStepDeg))
 	end
+end
+
+-- Any value in range (Jamie, 2026-11-20): a baton's tilt in degrees, a kubb's spin in
+-- taps (fractions too). Each does nothing for the other projectile. setArc takes any
+-- release already (plan.clampRelease does not round).
+local function finite(v) return type(v) == "number" and v == v end
+
+function throw.setTilt(s, deg)
+	if s.projectile == "kubb" or not finite(deg) then return false end
+	s.tilt = plan.clampTilt(deg)
+	return true
+end
+
+function throw.setSpin(s, taps)
+	if s.projectile ~= "kubb" or not finite(taps) then return false end
+	s.spin = plan.clampSpin(taps)
+	s.planDirty = true
+	replan(s)
+	aimCamera(s)
+	return true
+end
+
+-- What a slider draws for each of the plan's controls: its range, default, value, the
+-- tick a held key slides by and the step a press jumps by. arc for every throw; tilt for
+-- a baton, spin for a kubb. scope: "throw" (back to default at every throw) or "turn"
+-- (kept for the side's next kubb in the inkast turn).
+function throw.controls(s)
+	local pt = plan.tune
+	local kubb = s.projectile == "kubb"
+	local out = {
+		arc = { min = pt.releaseMinDeg, max = pt.releaseMaxDeg, value = s.release, set = s.arcSet and true or false,
+			default = plan.arcFor(kubb and "drill" or s.markerKind), tick = pt.arcTickDeg, step = pt.arcStepDeg,
+			unit = "deg", scope = "throw" },
+	}
+	if kubb then
+		out.spin = { min = -pt.spinSteps, max = pt.spinSteps, value = s.spin, default = 0, tick = pt.spinTick,
+			step = 1, unit = "taps", radPerTap = pt.spinPerStep, baseRad = drill.tune.spiral, scope = "turn" }
+	else
+		out.tilt = { min = -pt.tiltMaxDeg, max = pt.tiltMaxDeg, value = s.tilt, default = 0, tick = pt.tiltTickDeg,
+			step = pt.tiltStepDeg, unit = "deg", scope = "throw" }
+	end
+	return out
 end
 
 -- The plan starts afresh (arc follows the target, no tilt or spin).
@@ -841,7 +897,10 @@ function throw.showAim(s, a)
 		s.spin = (a.drill.spin - drill.tune.spiral) / plan.tune.spinPerStep
 	end
 	s.cpuTarget = P ~= nil and P.tx ~= nil
-	if s.cpuTarget then s.markerX, s.markerY = P.tx, P.ty end
+	-- the circle and its label move together: the label names the piece the
+	-- computer aims at (a.on), not the one the circle was on before (a
+	-- play-test match: four batons of a turn labelled a4 were aimed at a3)
+	if s.cpuTarget then s.markerX, s.markerY, s.markerOnId = P.tx, P.ty, a.on end
 	aimCamera(s)
 end
 

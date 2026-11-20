@@ -143,13 +143,17 @@ local function carry(speed, e, h, k)
 		return u * T, T
 	end
 	local H = t.carryStep
+	-- the step's constant factors, worked out once (the products group as the
+	-- written-out ones do, left to right, so every step is the same bits)
+	local hH = 0.5 * H
+	local hHk, nk, ng = hH * k, -k, -g
 	local x, z, time = 0, h, 0
 	for _ = 1, 3000 do
 		local s = sqrt(u * u + w * w)
-		local hu = u - 0.5 * H * k * s * u
-		local hw = w - 0.5 * H * (g + k * s * w)
+		local hu = u - hHk * s * u
+		local hw = w - hH * (g + k * s * w)
 		local sm = sqrt(hu * hu + hw * hw)
-		local au, aw = -k * sm * hu, -g - k * sm * hw
+		local au, aw = nk * sm * hu, ng - k * sm * hw
 		local z1 = z + H * hw
 		if z1 <= 0 then
 			-- this step reaches the ground: z + w s + aw s^2 / 2 = 0 (aw < 0)
@@ -224,9 +228,14 @@ function flight.handAt(d)
 		if carry(t.nearSpeed, e, lo - z, k) >= R then
 			h = lo
 		else
+			-- (once a and b are neighbouring floats the midpoint is one of them,
+			-- whose side is known: b carries past R and a does not, so nothing
+			-- more can move. A 32-bit float gets there in about 24 steps, a
+			-- double never does; either way the hand is the same bits.)
 			local a, b = lo, h
 			for _ = 1, 30 do
 				local m = 0.5 * (a + b)
+				if m == a or m == b then break end
 				if carry(t.nearSpeed, e, m - z, k) > R then b = m else a = m end
 			end
 			h = 0.5 * (a + b)

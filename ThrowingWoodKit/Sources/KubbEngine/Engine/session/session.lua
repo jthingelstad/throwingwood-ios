@@ -36,6 +36,7 @@ import "core/gamefile"
 import "version"
 import "session/json"
 import "session/throw"
+import "room/lobby"
 
 local cmatch, cards, save, autothrow, wind = tw.match, tw.cards, tw.save, tw.autothrow, tw.wind
 local raising, frame, pitch, quat, swing, plan = tw.raising, tw.frame, tw.pitch, tw.quat, tw.swing, tw.plan
@@ -242,18 +243,32 @@ local function matchOptions(o)
 	out.start = o.start or { year = 2026, month = 1, day = 1, hour = 12, min = 0 }
 	for _, k in ipairs { "year", "month", "day", "hour", "min" } do out.start[k] = I(out.start[k] or 0) end
 	out.mode = o.modeName
+	-- the computer's level, a game setting (Jamie, 2026-11-20: "yes this should be a real
+	-- per game setting"): every computer player takes it unless its entry names its own.
+	-- Kept only when given and not the default, so a match without it (every one before
+	-- 0.9) and one that names club have the snapshot a match always had; absent, the
+	-- computer throws at club (autothrow.tune.level)
+	if plan.levels[o.computer] and o.computer ~= autothrow.tune.level then out.computer = o.computer end
+	-- the scene, a look only (room/lobby.isScene): kept only when given, valid and not
+	-- "day", the default, so the start is otherwise the one a match always had. The
+	-- physics and the rules never read it
+	if tw.room.lobby.isScene(o.scene) and o.scene ~= tw.room.lobby.OPTION_DEFAULTS.scene then out.scene = o.scene end
 	-- the teams: { A = { name, players = { { name, level } } }, B = ... }, 1 to 6 players each
 	local teams = {}
 	for _, side in ipairs { "A", "B" } do
 		local t = (o.teams or {})[side] or {}
+		local isCpuSide = false
+		for _, c2 in ipairs(cpu) do if c2 == side then isCpuSide = true end end
 		local name = t.name or ((#cpu == 1 and cpu[1] == side) and "Computer" or ("Team " .. side))
 		local players = {}
 		for i, p in ipairs(t.players or {}) do
 			if i > 6 then break end
 			if type(p) == "string" then p = { name = p } end
-			players[#players + 1] = { name = tostring(p.name or ("Player " .. i)), level = p.level, key = p.key }
+			local level = p.level
+			if level == nil and isCpuSide then level = out.computer end
+			players[#players + 1] = { name = tostring(p.name or ("Player " .. i)), level = level, key = p.key }
 		end
-		if #players == 0 then players[1] = { name = name } end
+		if #players == 0 then players[1] = { name = name, level = isCpuSide and out.computer or nil } end
 		teams[side] = { name = name, players = players }
 	end
 	out.teams = teams
@@ -282,7 +297,8 @@ function session.new(o)
 	s.throws = 0
 	s.recording = nil
 	if s.kind == "practice" then
-		s.opts = { surface = surfaceKey(o.surface), level = o.level, set = o.set or "classic" }
+		s.opts = { surface = surfaceKey(o.surface), level = o.level, set = o.set or "classic",
+			scene = tw.room.lobby.isScene(o.scene) and o.scene ~= "day" and o.scene or nil }
 		s.ts = throw.new { surface = s.opts.surface, level = o.level, set = s.opts.set }
 		s.phase = "throw"
 		if o.drill then throw.setDrill(s.ts, true) end
@@ -316,7 +332,7 @@ end
 -- snapshot as it was before that set-up, so a restore sets the throw up again
 -- exactly.
 local MEM = { "playerX", "playerY", "stanceSet", "stanceSide", "stanceKind", "markerX", "markerY", "markerSet",
-	"markerOnId", "markerSide", "drill", "lastBack", "lastStop" }
+	"markerOnId", "markerSide", "drill", "lastBack", "lastStop", "keptSpin" }
 
 local setMem
 
@@ -335,6 +351,10 @@ function setMem(ts, m)
 	ts.markerX, ts.markerY = F(ts.markerX) or 0, F(ts.markerY) or 0
 	ts.playerX, ts.playerY = F(ts.playerX) or 0, F(ts.playerY) or 0
 	ts.lastBack, ts.lastStop = F(ts.lastBack), F(ts.lastStop)
+	-- the kept spin (throw.prepare): absent unless a person threw a kubb with spin, so a
+	-- match that never had one keeps the snapshot it always had
+	ts.keptSpin = F(ts.keptSpin)
+	if ts.keptSpin == 0 then ts.keptSpin = nil end
 	ts.stanceSet, ts.markerSet, ts.drill = ts.stanceSet and true or false, ts.markerSet and true or false,
 		ts.drill and true or false
 end
@@ -658,6 +678,7 @@ function Session:aimView()
 			releaseLo = sol.releaseLo, releaseHi = sol.releaseHi,
 		},
 		arc = arc,
+		controls = throw.controls(ts),
 		projectile = ts.projectile, drill = ts.drill,
 		lineY = ts.lineY, forwardY = ts.forwardY, advY = ts.advY, advText = ts.advText,
 		halfWidth = throw.tune.halfWidth, backMax = throw.tune.backMax,
@@ -725,6 +746,8 @@ function Session:view()
 		camera = ts.aimCam,
 		dial = throw.dial(ts, true),
 		surface = ts.surface, set = ts.set,
+		-- the scene to draw (a look only; "day" when the match names none)
+		scene = self.opts.scene or tw.room.lobby.OPTION_DEFAULTS.scene,
 	}
 end
 
@@ -766,6 +789,16 @@ end
 
 function Session:stepSide(step)
 	if self:canAim() then throw.stepSide(self.ts, I(step or 1)) end
+	return aimOut(self)
+end
+
+function Session:setTilt(deg)
+	if self:canAim() and type(deg) == "number" then throw.setTilt(self.ts, F(deg)) end
+	return aimOut(self)
+end
+
+function Session:setSpin(taps)
+	if self:canAim() and type(taps) == "number" then throw.setSpin(self.ts, F(taps)) end
 	return aimOut(self)
 end
 
@@ -838,6 +871,18 @@ function Session:throwAction(L, how, info)
 		scripted = info.scripted or false, input = info.input,
 	}
 	if info.back then a.swing = { back = info.back, stop = info.stop } end
+	-- a person's throw names its plan (since 0.9): the planned release and the baton's tilt
+	-- or the kubb's spin as the thrower chose them. Every client applies the launch, never
+	-- these; the kubb's spin is kept for the side's next kubb (throw.prepare) and a server
+	-- checks against them (session/check)
+	if not info.scripted then
+		local sol = ts.sol or {}
+		if ts.projectile == "kubb" then
+			a.plan = { release = F(sol.release or ts.release), spin = F(ts.spin or 0) }
+		else
+			a.plan = { release = F(sol.release or ts.release), tilt = F(ts.tilt or 0) }
+		end
+	end
 	if info.verdicts then
 		a.verdicts = { powerV = info.verdicts.powerV, releaseV = info.verdicts.releaseV,
 			steady = info.verdicts.steady and true or false, sideV = info.verdicts.sideV }
@@ -851,14 +896,15 @@ end
 -- their own format; this checkpoint is only for replaying one practice throw.
 local function practiceCheckpoint(s)
 	local ts = s.ts
-	return json.encode { items = ts.items, surface = ts.surface, set = ts.set, level = throw.levelFor(ts),
+	return json.encode { items = ts.items, surface = ts.surface, set = ts.set, scene = s.opts.scene,
+		level = throw.levelFor(ts),
 		drill = ts.drill, drillSeq = ts.drillSeq, baton = ts.practiceBaton,
 		throws = s.throws }
 end
 
 function session.restorePractice(text)
 	local c = json.decode(text)
-	local s = session.new { mode = "practice", surface = c.surface, set = c.set, level = c.level }
+	local s = session.new { mode = "practice", surface = c.surface, set = c.set, scene = c.scene, level = c.level }
 	local ts = s.ts
 	ts.items, ts.drillSeq, ts.practiceBaton = c.items, c.drillSeq, c.baton
 	s.throws, ts.throws = c.throws, c.throws
@@ -917,6 +963,16 @@ function Session:applyThrow(a)
 		ts.flagText = session.short(m.text)
 		ts.mode = "aim"
 		ts.watching = false
+		-- a person's kubb keeps its spin for the side's next kubb (throw.prepare): taken
+		-- from the action, so every client and a restore hold the same value
+		if not cpuSide and how == "drill" and type(a.plan) == "table" then
+			local sp = a.plan.spin
+			if type(sp) == "number" and sp == sp then
+				local m3 = plan.tune.spinSteps
+				sp = F(max(-m3, min(m3, sp)))
+				ts.keptSpin = sp ~= 0 and sp or nil
+			end
+		end
 		self:advance()
 	end
 	rec.input = a.input

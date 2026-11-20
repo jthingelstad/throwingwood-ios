@@ -40,7 +40,7 @@ local M = {}
 local wideBox, wideCam = nil, nil
 local WIDE = { view = true, aim = true, frame = true, showAt = true, apply = true, recording = true,
 	showAim = true, setTarget = true, nudgeTarget = true, setStance = true, stepArc = true, setArc = true,
-	stepSide = true, freshPlan = true, setLevel = true, setDrill = true, reset = true, setSurface = true,
+	stepSide = true, setTilt = true, setSpin = true, freshPlan = true, setLevel = true, setDrill = true, reset = true, setSurface = true,
 	new = true, restore = true, replayLoad = true, replayStep = true, replayBack = true, replayRewind = true }
 
 -- { box = { left, top, right, bottom } } turns it on (frame px; kind "side"
@@ -100,6 +100,8 @@ function M.setStance(a) return need():setStance(a and a.x, a and a.y) end
 function M.stepArc(a) return need():stepArc(a and a.step) end
 function M.setArc(a) return need():setArc(a.deg) end
 function M.stepSide(a) return need():stepSide(a and a.step) end
+function M.setTilt(a) return need():setTilt(a and a.deg) end
+function M.setSpin(a) return need():setSpin(a and a.spin) end
 function M.freshPlan() return need():freshPlan() end
 function M.setLevel(a) return need():setLevel(a and a.level) end
 function M.setDrill(a) return need():setDrill(a and a.on) end

@@ -82,6 +82,9 @@ world.tune = {
 	sleepLin = 0.03,       -- m/s: below this ...
 	sleepAng = 0.3,        -- rad/s: ... and this ...
 	sleepTime = 0.25,      -- s: ... for this long while touching something: the body sleeps
+	flatTol = 0.002,       -- m: a box held by the ground alone sleeps only on a face, its corners
+	                       -- within this of each other (the contact margin; resting faces read
+	                       -- under 0.5 mm, edge and corner balances 20 mm and more)
 	wakeLin = 0.05,        -- m/s: a touching awake body moving faster than this (or turning
 	wakeAng = 0.5,         -- faster than this, rad/s) wakes a sleeping one
 	toppleDeg = 5,         -- toppled: the long axis came within this of parallel to the ground
@@ -855,6 +858,22 @@ local function solve(tk, list, n)
 	end
 	return dm
 end
+
+-- Is a box lying on a whole face? The face down is the one whose axis is
+-- nearest vertical; it is flat when the corners of that face stand within
+-- tol of each other (its tilt along each of its two sides, 2 h |r3j|).
+-- Off a face it stands on an edge or a corner.
+local function boxFlat(b, tol)
+	local a1, a2, a3 = b.r31, b.r32, b.r33
+	if a1 < 0 then a1 = -a1 end
+	if a2 < 0 then a2 = -a2 end
+	if a3 < 0 then a3 = -a3 end
+	local hx2, hy2, hz2 = 2 * b.hx, 2 * b.hy, 2 * b.hz
+	if a3 >= a1 and a3 >= a2 then return hx2 * a1 <= tol and hy2 * a2 <= tol end
+	if a1 >= a2 then return hy2 * a2 <= tol and hz2 * a3 <= tol end
+	return hx2 * a1 <= tol and hz2 * a3 <= tol
+end
+world.boxFlat = boxFlat
 
 -- Rolling resistance: an angular impulse of lever * normal impulse against
 -- the body's spin, never more than stops it.
@@ -1940,7 +1959,18 @@ function world.step(w)
 				local p = b.propBy
 				held = not p.awake or p.groundImpulse > 0 or p.restStep == stamp
 			end
-			if vx * vx + vy * vy + vz * vz < sleepLin2 and wx * wx + wy * wy + wz * wz < sleepAng2 and held then
+			local slow = vx * vx + vy * vy + vz * vz < sleepLin2 and wx * wx + wy * wy + wz * wz < sleepAng2
+			if slow and held and b.shape == 1 and b.restStep ~= stamp and b.propStep ~= stamp then
+				-- a box held by the ground alone rests only on a face: its support
+				-- is the corners on the ground, and on flat ground the centre is
+				-- over them only when a whole face is down. On an edge or a corner
+				-- the plumb line can at best meet a line or a point, a balance
+				-- nothing holds, so it may not sleep there (a play-test match: a
+				-- drilled kubb came to rest free on a long edge). A box propped on
+				-- another piece is the leaner rule's (below)
+				slow = boxFlat(b, t.flatTol)
+			end
+			if slow and held then
 				local st = b.sleepTime + dt
 				b.sleepTime = st
 				-- an awake piece it presses on that is still settling holds it
