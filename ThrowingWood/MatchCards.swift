@@ -187,6 +187,7 @@ struct MatchMenu: View {
         }.disabled(pitch.need?.resignPending != nil)
       }.buttonStyle(WoodButton())
       Button("BACK TO MATCH") { model.screen = .match }.buttonStyle(WoodButton(accent: true))
+      VersionFooter(label: pitch.versionLabel)
     }.frame(maxWidth: 330, alignment: .leading).modifier(Plate(inset: 20)).padding(20)
       .modifier(FitOrScroll())
   }
@@ -757,5 +758,19 @@ extension View {
   /// Set to one side of the width it is given, or as it is (nil).
   @ViewBuilder fileprivate func aligned(_ alignment: Alignment?) -> some View {
     if let alignment { frame(maxWidth: .infinity, alignment: alignment) } else { self }
+  }
+}
+
+/// The app's version at the foot of a menu, in small type (VersionLabel.swift):
+/// `0.2 (0.8.1)`, then the build number and any older engine this build also plays.
+struct VersionFooter: View {
+  let label: VersionLabel
+  var body: some View {
+    VStack(alignment: .leading, spacing: 2) {
+      Text("Throwing Wood \(label.text)")
+      ForEach(label.detail, id: \.self) { Text($0) }
+    }
+    .font(.caption2).foregroundStyle(.secondary)
+    .accessibilityElement(children: .combine)
   }
 }

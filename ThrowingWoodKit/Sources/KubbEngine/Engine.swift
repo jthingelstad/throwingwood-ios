@@ -96,6 +96,13 @@ public final class Engine {
     return out
   }()
 
+  /// The full version of every carried engine, newest first, as each one's engine.json
+  /// names it (which its `engineVersion` must equal, checked when it starts), read
+  /// without starting an older engine.
+  public static let carriedVersions: [String] = carried.compactMap { mm in
+    (try? bundled(minor: mm)).flatMap { try? manifest(in: $0).version }
+  }
+
   /// The newest engine's major.minor: what solo, practice and a new pitch play on.
   public static var newest: String { carried.first ?? "" }
 

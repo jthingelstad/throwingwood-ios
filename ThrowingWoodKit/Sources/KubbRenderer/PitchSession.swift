@@ -106,6 +106,8 @@ public final class PitchSession {
   /// The engine this session runs on now: the newest, or the one a match belongs to
   /// (`useEngine(minor:)`).
   public private(set) var engine: Engine
+  /// The newest engine's full version (its `engineVersion`), whatever this session runs now.
+  public let newestVersion: String
   /// One Lua state per major.minor this session has run, made the first time.
   private var engines: [String: Engine] = [:]
   private let decoder = JSONDecoder()
@@ -176,6 +178,7 @@ public final class PitchSession {
     self.appVersion = appVersion
     self.input = input
     engine = try Engine(appVersion: appVersion)
+    newestVersion = engine.engineVersion
     engines[engine.minor] = engine
     options = try SoloOptions(engine: engine)
     let v = try decoder.decode(
