@@ -73,6 +73,7 @@ struct GameView: View {
             switch model.screen {
             case .home: HomeCard(model: model)
             case .options: MatchOptionsCard(model: model)
+            case .settings: SettingsCard(model: model)
             case .practice: practice(wide: WideLayout.isWide(screen(geometry).size), room: meterRoom(geometry))
             case .match:
               MatchScreen(
@@ -208,6 +209,7 @@ struct GameView: View {
           }
           .pickerStyle(.menu).disabled(model.playing)
           ReportButton(model: model)
+          LevelSetting(model: model, card: false).disabled(model.playing)
           FeedbackSettings(feedback: model.feedback)
           MeterSettings(meter: model.meter)
           if let label = model.pitch?.versionLabel {

@@ -45,9 +45,13 @@ struct MatchOptionsCard: View {
         .onChange(of: model.name) { _, value in
           model.name = String(value.prefix(model.pitch?.options.nameLimit ?? value.count))
         }
+      // the player's own level is the device's (Settings); this card's Level row
+      // is the computer's, chosen for each game
+      LevelLine(model: model)
       ForEach(model.pitch?.options.rows ?? []) { row in
+        let label = row.id == "level" ? "Computer level" : row.label
         HStack {
-          Text(row.label).font(.subheadline.weight(.semibold))
+          Text(label).font(.subheadline.weight(.semibold))
           Spacer()
           Menu {
             ForEach(row.choices, id: \.self) { choice in
@@ -68,7 +72,7 @@ struct MatchOptionsCard: View {
               Image(systemName: "chevron.up.chevron.down").font(.caption)
             }
             .frame(minWidth: 100, minHeight: 32, alignment: .trailing)
-          }.accessibilityLabel(row.label)
+          }.accessibilityLabel(label)
         }
         Divider()
       }
@@ -158,13 +162,7 @@ struct MatchMenu: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       Text("Match menu").font(displayFont(36))
-      if let row = pitch.options.rows.first(where: { $0.id == "level" }) {
-        MenuRow("Your level") {
-          Picker("Your level", selection: $model.matchLevel) {
-            ForEach(row.choices, id: \.self) { c in Text(c[1]).tag(c[0]) }
-          }.pickerStyle(.segmented).accessibilityLabel("Your level")
-        }
-      }
+      LevelSetting(model: model)
       Text(
         model.meter.kind == .linear
           ? "Tap the pitch to aim, or drag anywhere to move the circle. Draw the knob back toward you, fling it up through the middle and let go on the blue."

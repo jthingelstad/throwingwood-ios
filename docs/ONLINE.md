@@ -11,7 +11,7 @@ The socket opens when the player starts or joins a pitch. The host initializes
 the lobby document. Presence sends the locally remembered name after room.cleanName,
 the level and the engines this build carries (`room.announce`, below). The lobby shows names, sides,
 watchers, host and connection state. A member can join either team or sit out.
-Team capacity and level and match options come from the engine. The host sets
+The player's own level is the device's (Settings, `ThrowLevel`): the lobby shows it as a line with a way to Settings and never asks. Team capacity, the levels and match options come from the engine. The host sets
 options, invite-only or open access, and starts. An empty side plays as the
 computer. An open pitch sends the web's counts-only listing on change and
 renews it every five minutes while the host is present.
@@ -228,7 +228,7 @@ The web's docs/REEL.md "The share card" is the contract: its words are `ShareWor
 
 - Joining sends the code, the persistent random member ID, name, level and
   the engines carried (`engine` as the room's engine with `+engines`, and
-  `engines`). Name and level edits update presence. Host and
+  `engines`). Name edits and a change of the level in Settings update presence (the same `setMe`; in a match it also applies to the player's next throw). Host and
   connection changes come from the rooms service.
 - Changed aim state goes as an ephemeral aim cast at most five times a second.
   The four shout choices are casts, limited to one per 700 ms. Up to four

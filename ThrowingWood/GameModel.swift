@@ -5,7 +5,7 @@ import Observation
 @MainActor @Observable final class GameModel {
   enum Screen {
     case home, options, practice, match, menu, sheet, onlineEntry, join, pitch, report, invalidLink,
-      reel, share, sealed
+      reel, share, sealed, settings
 
     var usesFeedback: Bool {
       switch self {
@@ -54,6 +54,24 @@ import Observation
   var revision = 0
   var sheet: ScoreSheet?
   var selections = [String: String]()
+  /// The player's own throw level, the device's one value (ThrowLevel). The solo
+  /// set-up's `selections["level"]` is the computer's.
+  var throwLevel = ThrowLevel.fallback {
+    didSet {
+      guard throwLevel != oldValue else { return }
+      ThrowLevel.store(throwLevel, in: .standard)
+      perform {
+        try offline?.useLevel(throwLevel)
+        if let online { try online.profile(name: online.name, level: throwLevel) }
+      }
+    }
+  }
+  /// Where Settings goes back to.
+  var settingsReturn = Screen.home
+  func openSettings() {
+    settingsReturn = screen
+    screen = .settings
+  }
   var name = "You"
   /// The menu's Raising (Jamie, 2026-11-19): every kubb of this device's raised by the
   /// engine's choice for the rest of this match (AutoRaise). Not kept on the device.
@@ -90,6 +108,11 @@ import Observation
       }
     }
     name = defaults.string(forKey: "solo.name") ?? "You"
+    throwLevel = ThrowLevel.load(
+      defaults,
+      choices: pitch.options.rows.first { $0.id == "level" }?.choices.map { $0[0] } ?? [],
+      soloInProgress: (try? save.read()) != nil)
+    try? pitch.useLevel(throwLevel)  // practice throws at it from the start
     perform {
       #if targetEnvironment(simulator)
         if let mode = ProcessInfo.processInfo.environment["ONLINE_REVIEW"] {
@@ -122,6 +145,10 @@ import Observation
             screen = .options
             return
           }
+          if mode == "settings" {
+            screen = .settings
+            return
+          }
           let snapshot = try String(
             contentsOf: URL.temporaryDirectory.appending(path: "review-solo.json"), encoding: .utf8)
           try pitch.restore(snapshot, save: nil)
@@ -140,10 +167,7 @@ import Observation
       #endif
       if let snapshot = try save.read() {
         try pitch.restore(snapshot, save: save)
-        if let level = defaults.string(forKey: "solo.matchLevel") {
-          try pitch.useLevel(level)
-          selections["level"] = level
-        }
+        try pitch.useLevel(throwLevel)
         screen = .match
       }
     }
@@ -169,7 +193,7 @@ import Observation
       let pitch = try OnlinePitch(
         url: RoomsConfiguration.url, link: link, create: create,
         name: defaults.string(forKey: "pitch.name") ?? "",
-        level: defaults.string(forKey: "pitch.level") ?? "club", appVersion: Self.version)
+        level: throwLevel, appVersion: Self.version)
       if online != nil { leaveOnline() }
       sealed = nil
       feedback.silence()
@@ -191,6 +215,8 @@ import Observation
           }
         } else if pitch.stage == .match {
           if screen == .pitch { screen = .match }
+        } else if screen == .settings {
+          if pitch.stage == .match { settingsReturn = .match }
         } else {
           screen = .pitch
         }
@@ -245,6 +271,7 @@ import Observation
     perform {
       if pitch?.need?.kind == "over" { try save.clear() }
       try pitch?.practice()
+      try pitch?.useLevel(throwLevel)
       screen = .home
     }
   }
@@ -252,9 +279,7 @@ import Observation
     perform {
       if let text = try save.read() {
         try pitch?.restore(text, save: save)
-        if let level = UserDefaults.standard.string(forKey: "solo.matchLevel") {
-          try pitch?.useLevel(level)
-        }
+        try pitch?.useLevel(throwLevel)
         screen = .match
       } else {
         screen = .options
@@ -264,23 +289,12 @@ import Observation
   func start() {
     share = nil
     perform {
-      try pitch?.startSolo(name: name, selections: selections, save: save)
+      try pitch?.startSolo(name: name, level: throwLevel, selections: selections, save: save)
       for (key, value) in selections {
         UserDefaults.standard.set(value, forKey: "solo.option." + key)
       }
-      UserDefaults.standard.removeObject(forKey: "solo.matchLevel")
       UserDefaults.standard.set(name, forKey: "solo.name")
       screen = .match
-    }
-  }
-  var matchLevel: String {
-    get { selections["level"] ?? "" }
-    set {
-      perform {
-        try pitch?.useLevel(newValue)
-        selections["level"] = newValue
-        UserDefaults.standard.set(newValue, forKey: "solo.matchLevel")
-      }
     }
   }
   /// BY HAND on the raise panel: back to choosing the ends.

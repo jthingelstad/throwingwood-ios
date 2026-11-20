@@ -345,6 +345,7 @@ public struct PitchMember: Identifiable, Equatable {
     if level != self.level {
       room.setMe([("level", .string(level))])
       self.level = level
+      if board.acceptsInput && board.need?.cpu == false { try board.useLevel(level) }
     }
   }
   public func team(_ side: String?) async throws { try await controller.joinTeam(side) }
