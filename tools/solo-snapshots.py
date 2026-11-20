@@ -95,7 +95,7 @@ def capture(phone, args):
                        text=True).stdout.strip()) / "tmp"
         if is_ipad(phone):
             turn_device(udid, args.landscape)  # an iPad turns as a device, not from the app
-        prefix = DEVICES[phone] + ("-landscape" if args.landscape else "")
+        prefix = DEVICES[phone] + (f"-{args.scene}" if args.scene else "") + ("-landscape" if args.landscape else "")
         turn = {"SIMCTL_CHILD_REVIEW_ORIENTATION": args.landscape} if args.landscape else {}
         for shot, (mode, fixture, meter, side) in SHOTS.items():
             if args.only and shot not in args.only:
@@ -109,11 +109,18 @@ def capture(phone, args):
             (tmp / "review-layout.json").unlink(missing_ok=True)
             if fixture:
                 src = ROOT / "ThrowingWoodKit/Tests/KubbRendererTests/Fixtures/solo" / (fixture + ".json")
-                shutil.copyfile(src, tmp / "review-solo.json")
+                if args.scene:
+                    # the same match in a scene: its options name it, as a match started in it does
+                    snap = json.loads(src.read_text())
+                    snap["opts"]["scene"] = args.scene
+                    (tmp / "review-solo.json").write_text(json.dumps(snap))
+                else:
+                    shutil.copyfile(src, tmp / "review-solo.json")
+            scene = {"SIMCTL_CHILD_REVIEW_SCENE": args.scene} if args.scene else {}
             sim("launch", "--terminate-running-process", udid, APP,
                 "-pitch.meter", meter, "-pitch.meterSide", side,
                 "-pitch.throwsMade", "0" if mode in LEARNING else "9",
-                env={**os.environ, **turn, "SIMCTL_CHILD_MATCH_REVIEW": mode},
+                env={**os.environ, **turn, **scene, "SIMCTL_CHILD_MATCH_REVIEW": mode},
                 stdout=subprocess.DEVNULL)
             deadline = time.monotonic() + 30
             while not ready.exists() or ready.read_text() != mode:
@@ -162,10 +169,12 @@ if __name__ == "__main__":
     parser.add_argument("--ipad", action="store_true", help="the two review iPads, not the phones")
     parser.add_argument("--landscape", choices=["left", "right"],
                         help="turn the interface this way (the landscape shots)")
+    parser.add_argument("--scene", choices=["night", "neon"],
+                        help="the shots in a scene (<phone>-<scene>-<shot>.png; implies --capture-only)")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     phones = args.phone or (IPADS if args.ipad else PHONES)
-    if args.only:
+    if args.only or args.scene:
         args.capture_only = True
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         list(pool.map(lambda phone: capture(phone, args), phones))
