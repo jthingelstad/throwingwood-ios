@@ -175,9 +175,11 @@ tilt, arc, stand controls should be pushed to the left hand side of the screen
 so the user can control those with the left hand and the throw with the right
 hand"): the plan block sits at the edge away from the meter, 8 pt inside the
 safe area with TILT and STAND at the screen's edge, its foot 10 pt above the
-meter box's, the minimap 12 pt on its inner side, and back beside the meter
+meter box's, the minimap 12 pt on its inner side, and back beside the clock
 only if the minimap would come within 24 pt of the centre (`WideLayout.plan`,
-the web's planAt). The raise and punishment panel is a bar along the bottom
+the web's planAt). Beside the linear meter the block never goes back over the
+prompt tab: it stays at the far edge and the minimap goes over it, or is not
+drawn where there is no room (a narrow, short iPad window). The raise and punishment panel is a bar along the bottom
 (`WideLayout.bar`, the web's game.css panel): it must never cover the kubb
 being raised, its numbers, a press or drag on it, or the ground a punishment
 kubb may go on, so the app reports the bar's measured height

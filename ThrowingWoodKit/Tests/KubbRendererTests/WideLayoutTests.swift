@@ -275,15 +275,16 @@ import Testing
     var frames: [(String, CGRect)] = [
       ("rail", WideLayout.rail(size: size, safe: s, meter: meter)),
       ("menu", WideLayout.menu(size: size, safe: s, meter: meter)),
-      ("minimap", plan.minimap),
       ("meter", WideLayout.meterBox(meter, size: size, safe: s, side: side)),
       ("plans", plan.block),
     ]
-    // The prompt tab, where the block is at the far edge. A window too narrow
-    // for that (about 600 pt across or less, an iPad's only) puts the block
-    // beside the meter, level with the tab, as it did before the linear meter
-    // took the whole height there: an open question, not checked here.
-    if let m = meter.linear, plan.edge != nil { frames.append(("tab", Self.tab(m))) }
+    // a minimap with no room over the block in a narrow window is not drawn
+    if !plan.minimap.isNull { frames.append(("minimap", plan.minimap)) }
+    // the prompt tab and the coach line hanging under it, in every window
+    if let m = meter.linear {
+      frames.append(("tab", Self.tab(m)))
+      frames.append(("coach", Self.coach(m, size: size)))
+    }
     let what = "\(name) \(Int(size.width)) x \(Int(size.height)) \(kind) \(side)"
     for (n, f) in frames {
       #expect(safeRect.contains(f), "\(what): \(n) \(f) outside \(safeRect)")
@@ -309,7 +310,7 @@ import Testing
     }
     if plan.edge != nil {
       let centre = size.width / 2
-      for f in [plan.block, plan.minimap] {
+      for f in [plan.block, plan.minimap] where !f.isNull {
         #expect(side == .right ? f.maxX <= centre - 24 : f.minX >= centre + 24, "\(what): \(f)")
       }
     }
@@ -409,6 +410,57 @@ import Testing
     let w = m.promptHeight * 5
     let x = m.side == .right ? m.left - w : m.cover.maxX  // its own hard shadow falls on the body's
     return CGRect(x: x, y: m.yHome - m.promptHeight / 2, width: w, height: m.promptHeight)
+  }
+
+  /// The coach line hanging under the tab on a wide screen (CoachHUD: 8 pt under
+  /// it, a band 76 pt deep, kept to the meter's half `planClear` off the centre).
+  static func coach(_ m: LinearMeter, size: CGSize) -> CGRect {
+    let t = tab(m)
+    let centre = size.width / 2
+    let lo = m.side == .right ? centre + WideLayout.planClear : m.cover.maxX
+    let hi = m.side == .right ? m.left : centre - WideLayout.planClear
+    return CGRect(x: lo, y: t.maxY + 8, width: max(0, hi - lo), height: 76)
+  }
+
+  /// Short, narrow windows (Codex on PR #25: 480 x 400 with 10 pt insets put
+  /// ARC over the tab): the block stays at the far edge beside a linear meter.
+  @Test func shortNarrowWindowsKeepTheBlockOffTheTab() throws {
+    let insets = [
+      ScreenInsets(top: 10, bottom: 10), ScreenInsets(top: 32, bottom: 20), ScreenInsets(top: 53, bottom: 10),
+    ]
+    for w in stride(from: CGFloat(480), through: 620, by: 10) {
+      for h in stride(from: CGFloat(360), through: 480, by: 10) {
+        let size = CGSize(width: w, height: h)
+        guard WideLayout.isWide(size) else { continue }
+        for s in insets {
+          for side in MeterSide.allCases {
+            let drawn = MeterLayout.make(
+              kind: .linear, side: side, bounds: CGRect(origin: .zero, size: size), safeTop: s.top,
+              safeBottom: s.bottom, safeLeft: s.left, safeRight: s.right)
+            // where the track has no 260 pt the clock is drawn, and its layout
+            // is the web's, unchanged here (under 380 tall it is not checked)
+            guard drawn.linear != nil || h >= 380 else { continue }
+            holds("short window \(Int(s.top))/\(Int(s.bottom))", size, s, kind: .linear, side: side)
+          }
+        }
+      }
+    }
+    // the reported window
+    let size = CGSize(width: 480, height: 400), s = ScreenInsets(top: 10, bottom: 10)
+    for side in MeterSide.allCases {
+      let meter = MeterLayout.make(
+        kind: .linear, side: side, bounds: CGRect(origin: .zero, size: size), safeTop: 10, safeBottom: 10)
+      let m = try #require(meter.linear)
+      let plan = WideLayout.plan(meter: meter, size: size, safe: s, side: side)
+      #expect(plan.edge == (side == .right ? .left : .right))
+      #expect(!plan.block.intersects(Self.tab(m)) && !plan.block.intersects(Self.coach(m, size: size)))
+      // no room over the block under the rail: the minimap gives way, never a control
+      #expect(plan.minimap.isNull)
+      // the clock keeps the web's fallback beside the meter
+      let clock = MeterLayout.make(
+        kind: .clock, side: side, bounds: CGRect(origin: .zero, size: size), safeTop: 10, safeBottom: 10)
+      #expect(WideLayout.plan(meter: clock, size: size, safe: s, side: side).edge == nil)
+    }
   }
 
   /// The nearest a rect comes to a point.
