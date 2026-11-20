@@ -140,6 +140,66 @@ the same pictures as upright and turned left.
 The winner card with the button is the online `winner` review mode
 ([16e](review/online/iphone-16e-winner.png)).
 
+## Sharing a match against the computer
+
+The web's docs/REEL.md "The share card" is the contract: its words are `ShareWords`
+(`KubbRooms/Share.swift`), and `ShareTests` checks each one against the web's own
+`SHARE_WORDS` in `Fixtures/share-vectors.json` (made by `node tools/share-vectors.mjs
+--web <web checkout>`, which only reads that checkout).
+
+- **Where.** The winner card of a finished solo match against the computer (not
+  practice, not online) shows MAKE A HIGHLIGHT REEL when the whole match is kept on the
+  device and ends on the match shown (`PitchSession.shareableMatch(save:)`: the
+  finished file's last hash is the engine's, side B alone is the computer). A finished
+  save restored by a build from before the trail has none, and the button is not shown.
+- **The card** (`ShareCard.swift`, `SoloShare`): the about line, "Name on the reel"
+  with the field prefilled from the match's team name unless the rules refuse it (the
+  stand-in "You" in any case, more than 16 characters counted as code points, nothing),
+  the sides line, the score sheet line, SHARE AND MAKE THE REEL and NOT NOW. Typing past
+  16 characters is cut and says "Up to 16 characters."; spaces around the name are
+  trimmed before it goes, as on the web. SHARE is faded while the name will not do.
+  NOT NOW closes the card and sends nothing.
+- **The message** (`ShareMessage.make`, section 13 of the web's docs/ROOMS.md): one
+  `{t: "share", id: 1, g: {client, engine, start, log, end}}` on a socket of its own
+  (`RoomsClient.share`), in 30000-byte parts when long, closed once answered, with a
+  45 s wait for the answer. `start` and `log` come from the engine's `renameStart`
+  with the name typed, as on the web; `engine` is the version the match was played on,
+  and a match from another major.minor than the running engine is refused here as
+  `engine`. `client` is `"ios"`, which the server checks and drops: it is never kept,
+  and the kept record is the same as a web share's. Nothing else about the device is
+  sent. The log's numbers are written as JavaScript writes them, so the message is
+  byte for byte the web's apart from `client` (the vectors check the bytes). Before
+  sending, the same "too long" checks as the web's: 256 KB, 1000 actions, a 16 KB
+  start, and the log as the kept document would hold it against the engine's
+  `LOG_BUDGET`.
+- **Answers** (`ShareState`, the web's reducer, walked against the web's vectors): a
+  code opens the reel card; `engine`, `does-not-replay` and `too-long` stay; `busy`,
+  `unavailable` and `too-many` start over when the card opens again; a `failed` error
+  gives TRY AGAIN once (the same message again), then "This match could not be shared.
+  Not this time."; no connection (`timeout`, `closed`, `unavailable`, or no network
+  path, when nothing is sent) gives TRY AGAIN as often as pressed. A share is
+  idempotent on the server, so TRY AGAIN after a lost answer gives one link.
+- **After the answer** the reel card opens for the returned code with "The link:
+  https://throwingwood.com/p/<code>", COPY LINK and, once the reel is done, SHARE (the
+  card's own share sheet). The code is kept in memory for that winner card: the button
+  then opens the reel card directly. If the share card was closed while checking, the
+  reel is not asked until the card is opened again (nothing is sent off screen), where
+  the web starts it at once.
+- **A sealed pitch.** A pitch code that is a shared match answers the join `sealed`
+  (`OnlinePitch.Stage.sealed`). The app reads its kept replay (`RoomsClient.kept`) and
+  restores its last snapshot on a board of its own: the winner card, with SCORE SHEET,
+  MAKE A HIGHLIGHT REEL for that code and HOME, and no REMATCH. No replay player.
+  While it loads the card says "Joining the pitch…"; if it cannot be read, the web's
+  words: "Could not show the match" and TRY AGAIN.
+- **Verification.** `ShareTests` and `SoloShareTests` in the Kit; `node
+  tools/rooms-test.mjs --web <web checkout>` sends the iPhone's message for the
+  vector match to the web's rooms server with the web's own share check (on
+  127.0.0.1, with a stand-in reel renderer that writes nothing) and checks the code,
+  the same code again, the server's `engine` and `does-not-replay`, a sealed join and
+  the reel request. Review pictures: `python3 tools/share-snapshots.py <simulator-app>`
+  (`--landscape left`, `--ipad`, `--sim-prefix`), into `build/share-shots/`, with no
+  network (SHARE_REVIEW stand-ins) and only invented names.
+
 ## What travels
 
 - Joining sends the code, the persistent random member ID, name, level and
