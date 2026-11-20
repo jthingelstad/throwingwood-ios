@@ -122,10 +122,14 @@ public struct KeptReplay: Equatable, Sendable {
   public let v: Int
   public let n: Int?
   public let hash: String?
-  public init(v: Int, n: Int?, hash: String?) {
+  /// The finished match's last snapshot (`snap`), when the replay carries one: a sealed
+  /// pitch (a shared match) is shown from it.
+  public let snap: String?
+  public init(v: Int, n: Int?, hash: String?, snap: String? = nil) {
     self.v = v
     self.n = n
     self.hash = hash
+    self.snap = snap
   }
 
   /// Whether this kept replay is `match` (always, with nothing to compare): the same
@@ -151,7 +155,7 @@ public struct KeptReplay: Equatable, Sendable {
       throw RoomError("unexpected-reply")
     }
     guard let v = reply["v"]?.int, let r = reply["replay"], !r.isNull else { return nil }
-    return KeptReplay(v: v, n: r["n"]?.int, hash: hashText(r["hash"]))
+    return KeptReplay(v: v, n: r["n"]?.int, hash: hashText(r["hash"]), snap: r["snap"]?.string)
   }
 }
 

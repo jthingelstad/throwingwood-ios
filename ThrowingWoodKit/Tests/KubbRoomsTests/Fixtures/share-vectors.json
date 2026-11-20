@@ -1,0 +1,7391 @@
+{
+ "made": "node tools/share-vectors.mjs",
+ "webCommit": "c94dd7f7577729070885693cfbb918a535dc5bb7",
+ "webEngine": "0.7.3",
+ "limits": {
+  "bytes": 262144,
+  "actions": 1000,
+  "startBytes": 16384,
+  "nameMax": 16,
+  "waitMs": 45000
+ },
+ "url": "https://throwingwood.com/p/",
+ "words": {
+  "title": "Share this match",
+  "about": "To make a reel, this match goes to throwingwood.com and gets its own link. Anyone with the link can watch the replay and the reel, for a year.",
+  "label": "Name on the reel",
+  "placeholder": "Your team's name",
+  "sides": "Your side is shown by this name. The other side is Computer. Nothing else about you is sent.",
+  "when": "The score sheet shows the day and time the match was played.",
+  "share": "SHARE AND MAKE THE REEL",
+  "notNow": "NOT NOW",
+  "checking": "CHECKING THE MATCH",
+  "checkingText": "This takes a few seconds.",
+  "link": "The link:",
+  "failed": "This match could not be shared.",
+  "notThisTime": "This match could not be shared. Not this time.",
+  "offline": "No connection.",
+  "name": {
+   "empty": "Type a name for your side.",
+   "you": "A reel needs a name, not \"You\".",
+   "long": "Up to 16 characters.",
+   "spaces": "No spaces at the start or end."
+  },
+  "why": {
+   "engine": "This match was played on another version of the game, so it cannot be shared.",
+   "does-not-replay": "This match did not pass the check, so it cannot be shared.",
+   "busy": "Sharing is busy right now. Try again later.",
+   "too-long": "This match is too long to share.",
+   "unavailable": "Matches cannot be shared right now.",
+   "too-many": "Too many matches shared at once. Try again later."
+  }
+ },
+ "match": {
+  "start": "{\"mem\":{\"drill\":false,\"markerOnId\":\"b3\",\"markerSet\":false,\"markerX\":0.0,\"markerY\":8.0,\"playerX\":0.0,\"playerY\":0.0,\"stanceSet\":false},\"opts\":{\"cpu\":[\"B\"],\"first\":\"A\",\"maxTurns\":40,\"opening\":\"2-4-6\",\"raising\":\"hand\",\"seed\":2,\"set\":\"classic\",\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"surface\":\"grass\",\"teams\":{\"A\":{\"name\":\"Riverside\",\"players\":[{\"level\":\"club\",\"name\":\"Riverside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"level\":\"club\",\"name\":\"Computer\"}]}},\"wind\":\"off\"},\"save\":{\"currentIndex\":1,\"debris\":{\"exact\":[],\"kind\":\"baton\",\"list\":[],\"turn\":1},\"game\":{\"attacker\":\"A\",\"batonIndex\":0,\"batonsLeft\":2,\"batonsTotal\":2,\"defender\":\"B\",\"first\":\"A\",\"firstQueue\":[],\"firstThrows\":0,\"hand\":{\"A\":[],\"B\":[]},\"ids\":[\"a1\",\"a2\",\"a3\",\"a4\",\"a5\",\"b1\",\"b2\",\"b3\",\"b4\",\"b5\"],\"king\":{\"id\":\"king\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":4}},\"kubbs\":{\"a1\":{\"established\":false,\"half\":\"A\",\"id\":\"a1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a2\":{\"established\":false,\"half\":\"A\",\"id\":\"a2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a3\":{\"established\":false,\"half\":\"A\",\"id\":\"a3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a4\":{\"established\":false,\"half\":\"A\",\"id\":\"a4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a5\":{\"established\":false,\"half\":\"A\",\"id\":\"a5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"b1\":{\"established\":false,\"half\":\"B\",\"id\":\"b1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b2\":{\"established\":false,\"half\":\"B\",\"id\":\"b2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b3\":{\"established\":false,\"half\":\"B\",\"id\":\"b3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b4\":{\"established\":false,\"half\":\"B\",\"id\":\"b4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b5\":{\"established\":false,\"half\":\"B\",\"id\":\"b5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"}},\"opening\":\"2-4-6\",\"phase\":\"batons\",\"punishQueue\":[],\"raisePolicy\":\"apart\",\"rethrowQueue\":[],\"roundThrows\":0,\"sheet\":{\"turns\":[{\"batons\":[],\"inkast\":[],\"inkastOrder\":[],\"n\":1,\"notes\":[],\"side\":\"A\"}]},\"surface\":\"Grass\",\"teams\":{\"A\":{\"name\":\"Riverside\",\"players\":[{\"id\":\"riverside\",\"name\":\"Riverside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"id\":\"computer\",\"name\":\"Computer\"}]}},\"tossSeq\":0,\"turn\":1},\"lineup\":{\"A\":[{\"id\":\"riverside\",\"level\":\"club\"}],\"B\":[{\"id\":\"computer\",\"level\":\"club\"}]},\"mode\":\"Vs Computer\",\"opts\":[],\"order\":{\"A\":{\"ids\":[\"riverside\"],\"start\":1},\"B\":{\"ids\":[\"computer\"],\"start\":1},\"batons\":2,\"deal\":[\"riverside\",\"riverside\"],\"inkaster\":\"riverside\",\"side\":\"A\",\"turn\":1},\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"tossed\":0,\"turn\":1,\"v\":2},\"throws\":0,\"v\":1}",
+  "actions": [
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 33.550530757009994,
+     "speed": 8.23185593037339,
+     "swivel": 0.005189297643552915,
+     "tilt": -1.4988010832439613e-14,
+     "tumble": 2.9872466432843265
+    },
+    "scripted": false,
+    "seq": 0,
+    "stance": {
+     "set": true,
+     "x": -2,
+     "y": 0
+    },
+    "swing": {
+     "back": 113.77378770744758,
+     "stop": 105.50530757009997
+    },
+    "target": {
+     "on": "b1",
+     "set": false,
+     "x": -2,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": -2,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 31.70948603563019,
+     "speed": 9.190833278947508,
+     "swivel": 0.016356515243396055,
+     "tilt": 7.494005416219807e-15,
+     "tumble": 2.811064706050215
+    },
+    "scripted": false,
+    "seq": 1,
+    "stance": {
+     "set": true,
+     "x": -2,
+     "y": 0
+    },
+    "swing": {
+     "back": 127.45700599102568,
+     "stop": 87.09486035630192
+    },
+    "target": {
+     "on": "b1",
+     "set": false,
+     "x": -2,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 0,
+     "sideV": 1,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": false,
+     "loft": 30.795898496428453,
+     "speed": 9.576260680554329,
+     "swivel": 0.006152928476810668,
+     "tilt": 31.108188061610036,
+     "tumble": 2.9965716587309914
+    },
+    "scripted": true,
+    "seq": 2,
+    "stance": {
+     "set": false,
+     "x": 2,
+     "y": 0
+    },
+    "swing": {
+     "back": 123.00047551406094,
+     "stop": 83.97949248214226
+    },
+    "target": {
+     "on": "a3",
+     "set": false,
+     "x": 2,
+     "y": 8
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 31.981133981550784,
+     "speed": 9.656304099182579,
+     "swivel": 0.017707831758408125,
+     "tilt": -9.865475193937751,
+     "tumble": 2.936573614866949
+    },
+    "scripted": true,
+    "seq": 3,
+    "stance": {
+     "set": false,
+     "x": 2,
+     "y": 0
+    },
+    "swing": {
+     "back": 123.67519144936233,
+     "stop": 89.90566990775392
+    },
+    "target": {
+     "on": "a3",
+     "set": false,
+     "x": 2,
+     "y": 8
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 31.995386114685964,
+     "speed": 9.048791693408244,
+     "swivel": -0.019916028956391746,
+     "tilt": -25.156771890369033,
+     "tumble": 3.159044059928441
+    },
+    "scripted": true,
+    "seq": 4,
+    "stance": {
+     "set": false,
+     "x": 2,
+     "y": 0
+    },
+    "swing": {
+     "back": 117.63717157426511,
+     "stop": 89.97693057342981
+    },
+    "target": {
+     "on": "a3",
+     "set": false,
+     "x": 2,
+     "y": 8
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 32.7568133575004,
+     "speed": 9.343989300090923,
+     "swivel": -0.03788269943488919,
+     "tilt": -23.278716295602468,
+     "tumble": 2.4842241295154013
+    },
+    "scripted": true,
+    "seq": 5,
+    "stance": {
+     "set": false,
+     "x": 2,
+     "y": 0
+    },
+    "swing": {
+     "back": 120.71374555541762,
+     "stop": 93.78406678750201
+    },
+    "target": {
+     "on": "a3",
+     "set": false,
+     "x": 2,
+     "y": 8
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 32.54353125020862,
+     "speed": 9.152164690009142,
+     "swivel": 0.0014469909064400571,
+     "tilt": 7.494005416219807e-15,
+     "tumble": 2.847504208412213
+    },
+    "scripted": false,
+    "seq": 6,
+    "stance": {
+     "set": true,
+     "x": -2,
+     "y": 0
+    },
+    "swing": {
+     "back": 122.92020662537183,
+     "stop": 95.43531250208625
+    },
+    "target": {
+     "on": "b1",
+     "set": false,
+     "x": -2,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 31.540526015311457,
+     "speed": 9.073973439630151,
+     "swivel": -0.020301636165304972,
+     "tilt": 7.494005416219807e-15,
+     "tumble": 3.5300929522067306
+    },
+    "scripted": false,
+    "seq": 7,
+    "stance": {
+     "set": true,
+     "x": -1,
+     "y": 0
+    },
+    "swing": {
+     "back": 117.72588842397923,
+     "stop": 85.40526015311458
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": -1,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 0,
+     "sideV": -1,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 31.64456843696542,
+     "speed": 8.407505820276432,
+     "swivel": 0.030220431446706414,
+     "tilt": -1.4988010832439613e-14,
+     "tumble": 2.921079671134463
+    },
+    "scripted": false,
+    "seq": 8,
+    "stance": {
+     "set": true,
+     "x": -1,
+     "y": 0
+    },
+    "swing": {
+     "back": 127.6483265463103,
+     "stop": 86.44568436965426
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": -1,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 0,
+     "sideV": 1,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 32.45632121339449,
+     "speed": 9.593229665777272,
+     "swivel": 0.008546106823681995,
+     "tilt": 1.4988010832439613e-14,
+     "tumble": 3.387554631091476
+    },
+    "scripted": false,
+    "seq": 9,
+    "stance": {
+     "set": true,
+     "x": -1,
+     "y": 0
+    },
+    "swing": {
+     "back": 127.09702016448867,
+     "stop": 94.56321213394489
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": -1,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 0,
+     "sideV": 1,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 29.492902309447437,
+     "speed": 9.473161039239525,
+     "swivel": 0.011249526265406797,
+     "tilt": 7.494005416219807e-15,
+     "tumble": 3.5717258639969427
+    },
+    "scripted": false,
+    "seq": 10,
+    "stance": {
+     "set": true,
+     "x": -1,
+     "y": 0
+    },
+    "swing": {
+     "back": 121.96097147873046,
+     "stop": 69.87870692834231
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": -1,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": -1,
+     "sideV": 1,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 35.529835513979485,
+     "speed": 9.361662452633558,
+     "swivel": -0.008235046445221956,
+     "tilt": 7.494005416219807e-15,
+     "tumble": 3.170492781838902
+    },
+    "scripted": false,
+    "seq": 11,
+    "stance": {
+     "set": true,
+     "x": -1,
+     "y": 0
+    },
+    "swing": {
+     "back": 126.21724795772028,
+     "stop": 113.18950654193844
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": -1,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 1,
+     "sideV": -1,
+     "steady": true
+    }
+   },
+   {
+    "how": "drill",
+    "launch": {
+     "legal": true,
+     "loft": 46.84308585064821,
+     "noseDown": 45.15691414935179,
+     "rollLand": 0,
+     "speed": 6.161194887716249,
+     "spin": 25,
+     "swivel": 0.0028076955776705657,
+     "tilt": 0,
+     "tumble": 0,
+     "wobble": 0
+    },
+    "scripted": true,
+    "seq": 12,
+    "stance": {
+     "set": false,
+     "x": -1.9,
+     "y": 0
+    },
+    "swing": {
+     "back": 91.10821462851723,
+     "stop": 134.21542925324104
+    },
+    "target": {
+     "set": false,
+     "x": -1.9,
+     "y": 4.75
+    },
+    "type": "throw"
+   },
+   {
+    "type": "raise"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 22.944675330390417,
+     "speed": 7.283760869553201,
+     "swivel": 0.008099221558512452,
+     "tilt": 17.92300377553609,
+     "tumble": 4.249264498086802
+    },
+    "scripted": true,
+    "seq": 13,
+    "stance": {
+     "set": false,
+     "x": -1.6878877439578046,
+     "y": 0
+    },
+    "swing": {
+     "back": 102.48312334489064,
+     "stop": 64.7233766519521
+    },
+    "target": {
+     "on": "b1",
+     "set": false,
+     "x": -1.6878877439578046,
+     "y": 4.421262927663911
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 31.634459899316997,
+     "speed": 9.392727422771072,
+     "swivel": -0.002906701491703516,
+     "tilt": 19.11859794463832,
+     "tumble": 2.9695382601345237
+    },
+    "scripted": true,
+    "seq": 14,
+    "stance": {
+     "set": false,
+     "x": 2,
+     "y": 0
+    },
+    "swing": {
+     "back": 120.82546530971302,
+     "stop": 88.172299496585
+    },
+    "target": {
+     "on": "a3",
+     "set": false,
+     "x": 2,
+     "y": 8
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 34.5627568688326,
+     "speed": 9.324833898346045,
+     "swivel": 0.00644293134887534,
+     "tilt": -12.820868408336182,
+     "tumble": 2.9342102571861894
+    },
+    "scripted": true,
+    "seq": 15,
+    "stance": {
+     "set": false,
+     "x": 2,
+     "y": 0
+    },
+    "swing": {
+     "back": 120.5548888911967,
+     "stop": 101.68827060649781
+    },
+    "target": {
+     "on": "a3",
+     "set": false,
+     "x": 2,
+     "y": 8
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 33.17580850923137,
+     "speed": 9.29731433600416,
+     "swivel": -0.018462036190220993,
+     "tilt": -12.445919009592311,
+     "tumble": 3.4028865511812145
+    },
+    "scripted": true,
+    "seq": 16,
+    "stance": {
+     "set": false,
+     "x": 2,
+     "y": 0
+    },
+    "swing": {
+     "back": 123.3747301465931,
+     "stop": 95.87904254615684
+    },
+    "target": {
+     "on": "a3",
+     "set": false,
+     "x": 2,
+     "y": 8
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 32.470088068453194,
+     "speed": 9.248040689296221,
+     "swivel": -0.012155029434427304,
+     "tilt": -2.850360485371538,
+     "tumble": 3.1445065348063186
+    },
+    "scripted": true,
+    "seq": 17,
+    "stance": {
+     "set": false,
+     "x": 2,
+     "y": 0
+    },
+    "swing": {
+     "back": 121.36079056643564,
+     "stop": 92.35044034226598
+    },
+    "target": {
+     "on": "a3",
+     "set": false,
+     "x": 2,
+     "y": 8
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 33.40066076479714,
+     "speed": 9.002712395581637,
+     "swivel": -0.012809238262804577,
+     "tilt": -19.618590195149732,
+     "tumble": 2.9553572820060015
+    },
+    "scripted": true,
+    "seq": 18,
+    "stance": {
+     "set": false,
+     "x": 2,
+     "y": 0
+    },
+    "swing": {
+     "back": 120.2899638953444,
+     "stop": 97.00330382398569
+    },
+    "target": {
+     "on": "a3",
+     "set": false,
+     "x": 2,
+     "y": 8
+    },
+    "type": "throw"
+   },
+   {
+    "how": "drill",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 48.66883533895019,
+     "noseDown": 43.33116466104981,
+     "rollLand": 0,
+     "speed": 5.591546368045472,
+     "spin": 3,
+     "swivel": 0.003983781992500128,
+     "tilt": 7.494005416219807e-15,
+     "tumble": 0,
+     "wobble": 0
+    },
+    "scripted": false,
+    "seq": 19,
+    "stance": {
+     "set": true,
+     "x": -1.9,
+     "y": 0
+    },
+    "swing": {
+     "back": 79.93929820220048,
+     "stop": 151.68835338950188
+    },
+    "target": {
+     "set": false,
+     "x": -1.8763860994391142,
+     "y": 4.771987213017419
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": -1,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "drill",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 50.41805206537241,
+     "noseDown": 41.58194793462759,
+     "rollLand": 0,
+     "speed": 6.361321246979012,
+     "spin": 3,
+     "swivel": 0.005507902509429647,
+     "tilt": -1.4988010832439613e-14,
+     "tumble": 0,
+     "wobble": 0
+    },
+    "scripted": false,
+    "seq": 20,
+    "stance": {
+     "set": true,
+     "x": -1.9,
+     "y": 0
+    },
+    "swing": {
+     "back": 96.48789735714796,
+     "stop": 157.8541561961172
+    },
+    "target": {
+     "set": false,
+     "x": -1.8771277641085906,
+     "y": 4.739479944673366
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 1,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 23.669246857985847,
+     "speed": 6.3469571661083615,
+     "swivel": -0.000849490369515378,
+     "tilt": 7.494005416219807e-15,
+     "tumble": 3.8664884086539333
+    },
+    "scripted": false,
+    "seq": 21,
+    "stance": {
+     "set": true,
+     "x": -1.299923478936198,
+     "y": 0
+    },
+    "swing": {
+     "back": 97.45545294205886,
+     "stop": 76.69246857985843
+    },
+    "target": {
+     "on": "b1",
+     "set": false,
+     "x": -1.299923478936198,
+     "y": 4.96957413010201
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": -1,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 21.60327730998394,
+     "speed": 7.455118954548718,
+     "swivel": 0.005709422134768618,
+     "tilt": 0,
+     "tumble": 4.440778758568905
+    },
+    "scripted": false,
+    "seq": 22,
+    "stance": {
+     "set": true,
+     "x": -1.299923478936198,
+     "y": 0
+    },
+    "swing": {
+     "back": 98.15170186455605,
+     "stop": 56.0327730998394
+    },
+    "target": {
+     "on": "b1",
+     "set": false,
+     "x": -1.299923478936198,
+     "y": 4.96957413010201
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": -1,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 28.558294151723306,
+     "speed": 9.45899444023258,
+     "swivel": 0.005714069722595026,
+     "tilt": 1.4988010832439613e-14,
+     "tumble": 3.195925225179254
+    },
+    "scripted": false,
+    "seq": 23,
+    "stance": {
+     "set": true,
+     "x": -1,
+     "y": 0
+    },
+    "swing": {
+     "back": 122.31187834626434,
+     "stop": 67.07488245516993
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": -1,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": -1,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 33.54762528203426,
+     "speed": 8.683438697353353,
+     "swivel": -0.016555251323256324,
+     "tilt": 7.494005416219807e-15,
+     "tumble": 3.0269116611095512
+    },
+    "scripted": false,
+    "seq": 24,
+    "stance": {
+     "set": true,
+     "x": 0,
+     "y": 0
+    },
+    "swing": {
+     "back": 110.81522941252585,
+     "stop": 105.4762528203426
+    },
+    "target": {
+     "on": "b3",
+     "set": false,
+     "x": 0,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": -1,
+     "releaseV": 0,
+     "sideV": -1,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 32.62942742817113,
+     "speed": 9.56859590065659,
+     "swivel": 0.003626405742669394,
+     "tilt": 0,
+     "tumble": 3.0238100332344477
+    },
+    "scripted": false,
+    "seq": 25,
+    "stance": {
+     "set": true,
+     "x": 0,
+     "y": 0
+    },
+    "swing": {
+     "back": 129.69337179733705,
+     "stop": 96.29427428171121
+    },
+    "target": {
+     "on": "b3",
+     "set": false,
+     "x": 0,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 1,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 31.610635416209657,
+     "speed": 9.014871287627628,
+     "swivel": -0.010043033004685904,
+     "tilt": 1.4988010832439613e-14,
+     "tumble": 2.4619640679486428
+    },
+    "scripted": false,
+    "seq": 26,
+    "stance": {
+     "set": true,
+     "x": 0,
+     "y": 0
+    },
+    "swing": {
+     "back": 116.62276952749504,
+     "stop": 86.10635416209658
+    },
+    "target": {
+     "on": "b3",
+     "set": false,
+     "x": 0,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 0,
+     "sideV": -1,
+     "steady": true
+    }
+   },
+   {
+    "how": "drill",
+    "launch": {
+     "legal": true,
+     "loft": 47.07919982139394,
+     "noseDown": 44.92080017860606,
+     "rollLand": 0,
+     "speed": 6.245876470963939,
+     "spin": 25,
+     "swivel": 0.0038097099365018783,
+     "tilt": 0,
+     "tumble": 0,
+     "wobble": 0
+    },
+    "scripted": true,
+    "seq": 27,
+    "stance": {
+     "set": false,
+     "x": -1.9,
+     "y": 0
+    },
+    "swing": {
+     "back": 92.28020722211123,
+     "stop": 135.39599910696973
+    },
+    "target": {
+     "set": false,
+     "x": -1.9,
+     "y": 4.75
+    },
+    "type": "throw"
+   },
+   {
+    "how": "drill",
+    "launch": {
+     "legal": true,
+     "loft": 47.32933190452815,
+     "noseDown": 44.67066809547185,
+     "rollLand": 0,
+     "speed": 5.683021060589738,
+     "spin": 25,
+     "swivel": 0.0012119683350283739,
+     "tilt": 0,
+     "tumble": 0,
+     "wobble": 0
+    },
+    "scripted": true,
+    "seq": 28,
+    "stance": {
+     "set": false,
+     "x": -2.06390696185787,
+     "y": 0
+    },
+    "swing": {
+     "back": 89.0090552969935,
+     "stop": 136.64665952264073
+    },
+    "target": {
+     "set": false,
+     "x": -2.06390696185787,
+     "y": 4.493794003093886
+    },
+    "type": "throw"
+   },
+   {
+    "type": "raise"
+   },
+   {
+    "type": "raise"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 21.56575100256344,
+     "speed": 6.741876947749951,
+     "swivel": -0.017082536769563658,
+     "tilt": -25.60205315347021,
+     "tumble": 4.7449422906256
+    },
+    "scripted": true,
+    "seq": 29,
+    "stance": {
+     "set": false,
+     "x": -2.198122633963217,
+     "y": 0
+    },
+    "swing": {
+     "back": 95.18539399168965,
+     "stop": 57.8287550128172
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": -2.198122633963217,
+     "y": 4.130632354913585
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 22.07383548033913,
+     "speed": 7.085142873272688,
+     "swivel": -0.010731653727269171,
+     "tilt": -14.383749584289035,
+     "tumble": 4.526700997197435
+    },
+    "scripted": true,
+    "seq": 30,
+    "stance": {
+     "set": false,
+     "x": -2.198122633963217,
+     "y": 0
+    },
+    "swing": {
+     "back": 100.53093388309834,
+     "stop": 60.36917740169565
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": -2.198122633963217,
+     "y": 4.130632354913585
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 20.820584748152267,
+     "speed": 7.1378274761235305,
+     "swivel": 0.013079421024240725,
+     "tilt": 15.674991229386059,
+     "tumble": 5.198742834435025
+    },
+    "scripted": true,
+    "seq": 31,
+    "stance": {
+     "set": false,
+     "x": -2.093380971546258,
+     "y": 0
+    },
+    "swing": {
+     "back": 98.9670752045386,
+     "stop": 54.102923740761334
+    },
+    "target": {
+     "on": "b1",
+     "set": false,
+     "x": -2.093380971546258,
+     "y": 4.711407398014851
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 22.727217951885272,
+     "speed": 6.726679076700645,
+     "swivel": 0.009132683694879592,
+     "tilt": 23.053381513546576,
+     "tumble": 4.092245846296933
+    },
+    "scripted": true,
+    "seq": 32,
+    "stance": {
+     "set": false,
+     "x": -2.093380971546258,
+     "y": 0
+    },
+    "swing": {
+     "back": 106.44205809233695,
+     "stop": 63.63608975942635
+    },
+    "target": {
+     "on": "b1",
+     "set": false,
+     "x": -2.093380971546258,
+     "y": 4.711407398014851
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 22.09242259365659,
+     "speed": 7.71092188573955,
+     "swivel": 0.006075861165362903,
+     "tilt": 12.791232159464837,
+     "tumble": 4.418116404482463
+    },
+    "scripted": true,
+    "seq": 33,
+    "stance": {
+     "set": false,
+     "x": -2.093380971546258,
+     "y": 0
+    },
+    "swing": {
+     "back": 106.91252210983612,
+     "stop": 60.46211296828295
+    },
+    "target": {
+     "on": "b1",
+     "set": false,
+     "x": -2.093380971546258,
+     "y": 4.711407398014851
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 32.72086966999018,
+     "speed": 9.567125120583167,
+     "swivel": 0.01618299728784621,
+     "tilt": 5.726886026828443,
+     "tumble": 3.187416448395964
+    },
+    "scripted": true,
+    "seq": 34,
+    "stance": {
+     "set": false,
+     "x": 2,
+     "y": 0
+    },
+    "swing": {
+     "back": 122.99469176209604,
+     "stop": 93.60434834995087
+    },
+    "target": {
+     "on": "a3",
+     "set": false,
+     "x": 2,
+     "y": 8
+    },
+    "type": "throw"
+   },
+   {
+    "how": "drill",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 44.55937536507836,
+     "noseDown": 47.44062463492164,
+     "rollLand": 0,
+     "speed": 6.439455527540607,
+     "spin": 3,
+     "swivel": 0.0030556735649748664,
+     "tilt": 7.570050243921153e-15,
+     "tumble": 0,
+     "wobble": 0
+    },
+    "scripted": false,
+    "seq": 35,
+    "stance": {
+     "set": true,
+     "x": 1.9,
+     "y": 0
+    },
+    "swing": {
+     "back": 99.83813727426534,
+     "stop": 115.07812609523508
+    },
+    "target": {
+     "set": false,
+     "x": 1.9211940382281318,
+     "y": 4.7230374872684475
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 1,
+     "releaseV": -1,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "drill",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 45.59089267961686,
+     "noseDown": 46.40910732038314,
+     "rollLand": 0,
+     "speed": 6.300798480034188,
+     "spin": 3,
+     "swivel": 0.006023132726213607,
+     "tilt": 1.4988010832439613e-14,
+     "tumble": 0,
+     "wobble": 0
+    },
+    "scripted": false,
+    "seq": 36,
+    "stance": {
+     "set": true,
+     "x": 2.0771113385755493,
+     "y": 0
+    },
+    "swing": {
+     "back": 96.2813739086596,
+     "stop": 120.9089267961685
+    },
+    "target": {
+     "set": false,
+     "x": 2.1032937514625414,
+     "y": 4.839862825581658
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 20.413568956032385,
+     "speed": 8.013101271232282,
+     "swivel": 0.00805349703935381,
+     "tilt": 1.5453770105585747e-14,
+     "tumble": 4.796902409107523
+    },
+    "scripted": false,
+    "seq": 37,
+    "stance": {
+     "set": true,
+     "x": 2.0651176941166534,
+     "y": 0
+    },
+    "swing": {
+     "back": 115.33078338943326,
+     "stop": 44.13568956032384
+    },
+    "target": {
+     "on": "b1",
+     "set": false,
+     "x": 2.0651176941166534,
+     "y": 4.844100715991591
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 1,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 23.35456498675046,
+     "speed": 7.1168713854088335,
+     "swivel": 0.005294130831632938,
+     "tilt": 1.4988010832439613e-14,
+     "tumble": 4.231235997418659
+    },
+    "scripted": false,
+    "seq": 38,
+    "stance": {
+     "set": true,
+     "x": 2.0651176941166534,
+     "y": 0
+    },
+    "swing": {
+     "back": 99.24921942308461,
+     "stop": 73.54564986750461
+    },
+    "target": {
+     "on": "b1",
+     "set": false,
+     "x": 2.0651176941166534,
+     "y": 4.844100715991591
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": -2,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 23.15155902914703,
+     "speed": 7.150360457528857,
+     "swivel": 0.003529955175803713,
+     "tilt": 7.494005416219807e-15,
+     "tumble": 3.657093888034942
+    },
+    "scripted": false,
+    "seq": 39,
+    "stance": {
+     "set": true,
+     "x": 2.0651176941166534,
+     "y": 0
+    },
+    "swing": {
+     "back": 99.91035365864528,
+     "stop": 71.51559029147029
+    },
+    "target": {
+     "on": "b1",
+     "set": false,
+     "x": 2.0651176941166534,
+     "y": 4.844100715991591
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": -2,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 23.138501346111276,
+     "speed": 7.426092976729377,
+     "swivel": 0.0035342587196319575,
+     "tilt": 7.494005416219807e-15,
+     "tumble": 4.826622437484378
+    },
+    "scripted": false,
+    "seq": 40,
+    "stance": {
+     "set": true,
+     "x": 2.0651176941166534,
+     "y": 0
+    },
+    "swing": {
+     "back": 99.27620663672602,
+     "stop": 71.38501346111275
+    },
+    "target": {
+     "on": "b1",
+     "set": false,
+     "x": 2.0651176941166534,
+     "y": 4.844100715991591
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 19.458180007338505,
+     "speed": 9.233054717093728,
+     "swivel": 0.011847115913387616,
+     "tilt": 1.4988010832439613e-14,
+     "tumble": 3.7234339926458526
+    },
+    "scripted": false,
+    "seq": 41,
+    "stance": {
+     "set": true,
+     "x": 1.474547800134042,
+     "y": 0
+    },
+    "swing": {
+     "back": 121.36548538424279,
+     "stop": 39.774540022015515
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": 1.474547800134042,
+     "y": 6.216256743640218
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": -1,
+     "sideV": 1,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 21.06736029908057,
+     "speed": 8.988842592306604,
+     "swivel": 0.0016503323563112544,
+     "tilt": 7.494005416219807e-15,
+     "tumble": 3.604294237330161
+    },
+    "scripted": false,
+    "seq": 42,
+    "stance": {
+     "set": true,
+     "x": 1.4523617899582588,
+     "y": 0
+    },
+    "swing": {
+     "back": 119.38665775022166,
+     "stop": 50.67360299080566
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": 1.4523617899582588,
+     "y": 6.26488688901784
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "drill",
+    "launch": {
+     "legal": true,
+     "loft": 47.05056097108445,
+     "noseDown": 44.94943902891555,
+     "rollLand": 0,
+     "speed": 6.181312523315412,
+     "spin": 25,
+     "swivel": -0.00066856238777459,
+     "tilt": 0,
+     "tumble": 0,
+     "wobble": 0
+    },
+    "scripted": true,
+    "seq": 43,
+    "stance": {
+     "set": false,
+     "x": 1.9,
+     "y": 0
+    },
+    "swing": {
+     "back": 91.25878282846995,
+     "stop": 135.25280485542226
+    },
+    "target": {
+     "set": false,
+     "x": 1.9,
+     "y": 4.75
+    },
+    "type": "throw"
+   },
+   {
+    "how": "drill",
+    "launch": {
+     "legal": true,
+     "loft": 46.86812984208332,
+     "noseDown": 45.13187015791668,
+     "rollLand": 0,
+     "speed": 5.728652630941839,
+     "spin": 25,
+     "swivel": 0.022691256029396426,
+     "tilt": 0,
+     "tumble": 0,
+     "wobble": 1.3128130125311634
+    },
+    "scripted": true,
+    "seq": 44,
+    "stance": {
+     "set": false,
+     "x": 2.115358667003093,
+     "y": 0
+    },
+    "swing": {
+     "back": 86.79451781647094,
+     "stop": 134.34064921041656
+    },
+    "target": {
+     "set": false,
+     "x": 2.115358667003093,
+     "y": 4.11695799517444
+    },
+    "type": "throw"
+   },
+   {
+    "how": "drill",
+    "launch": {
+     "legal": true,
+     "loft": 46.462422535654454,
+     "noseDown": 45.537577464345546,
+     "rollLand": 0,
+     "speed": 5.61972151064631,
+     "spin": 25,
+     "swivel": 0.003154204896251493,
+     "tilt": 0,
+     "tumble": 0,
+     "wobble": 0
+    },
+    "scripted": true,
+    "seq": 45,
+    "stance": {
+     "set": false,
+     "x": 2.115358667003093,
+     "y": 0
+    },
+    "swing": {
+     "back": 85.42961943411208,
+     "stop": 132.31211267827223
+    },
+    "target": {
+     "set": false,
+     "x": 2.115358667003093,
+     "y": 4.11695799517444
+    },
+    "type": "throw"
+   },
+   {
+    "type": "raise"
+   },
+   {
+    "type": "raise"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 23.687331863864117,
+     "speed": 6.9594331329699335,
+     "swivel": 0.012079566533091864,
+     "tilt": 18.102341876088026,
+     "tumble": 5.25788731007305
+    },
+    "scripted": true,
+    "seq": 46,
+    "stance": {
+     "set": false,
+     "x": 2.0576718705282047,
+     "y": 0
+    },
+    "swing": {
+     "back": 99.4457672216013,
+     "stop": 68.43665931932058
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": 2.0576718705282047,
+     "y": 4.015972820058876
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 21.75055100849725,
+     "speed": 5.768253458291301,
+     "swivel": 0.01387929547921843,
+     "tilt": 23.506781743882954,
+     "tumble": 3.806582436655071
+    },
+    "scripted": true,
+    "seq": 47,
+    "stance": {
+     "set": false,
+     "x": 2.0576718705282047,
+     "y": 0
+    },
+    "swing": {
+     "back": 96.20647855982374,
+     "stop": 58.75275504248626
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": 2.0576718705282047,
+     "y": 4.015972820058876
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 20.66367213622624,
+     "speed": 7.172273043346092,
+     "swivel": -0.003710512075800963,
+     "tilt": -10.033777909312073,
+     "tumble": 5.341466896523927
+    },
+    "scripted": true,
+    "seq": 48,
+    "stance": {
+     "set": false,
+     "x": 2.0576718705282047,
+     "y": 0
+    },
+    "swing": {
+     "back": 102.52815706410365,
+     "stop": 53.31836068113121
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": 2.0576718705282047,
+     "y": 4.015972820058876
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 21.009536335587036,
+     "speed": 7.08792118332464,
+     "swivel": -0.00820657869659297,
+     "tilt": -12.076292395718667,
+     "tumble": 5.178724747872775
+    },
+    "scripted": true,
+    "seq": 49,
+    "stance": {
+     "set": false,
+     "x": 2.0576718705282047,
+     "y": 0
+    },
+    "swing": {
+     "back": 101.89867092537169,
+     "stop": 55.04768167793519
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": 2.0576718705282047,
+     "y": 4.015972820058876
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 21.83663232629165,
+     "speed": 7.059452007891938,
+     "swivel": -0.004107732830490079,
+     "tilt": -9.4378347928895,
+     "tumble": 4.354298725594253
+    },
+    "scripted": true,
+    "seq": 50,
+    "stance": {
+     "set": false,
+     "x": 2.0576718705282047,
+     "y": 0
+    },
+    "swing": {
+     "back": 101.36710556868027,
+     "stop": 59.18316163145825
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": 2.0576718705282047,
+     "y": 4.015972820058876
+    },
+    "type": "throw"
+   },
+   {
+    "how": "baton",
+    "launch": {
+     "legal": true,
+     "loft": 21.83500617572134,
+     "speed": 6.601721466923162,
+     "swivel": 0.0030114002083318557,
+     "tilt": 3.7852372251686055,
+     "tumble": 5.077738622762111
+    },
+    "scripted": true,
+    "seq": 51,
+    "stance": {
+     "set": false,
+     "x": 2.0576718705282047,
+     "y": 0
+    },
+    "swing": {
+     "back": 93.868118684634,
+     "stop": 59.175030878606705
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": 2.0576718705282047,
+     "y": 4.015972820058876
+    },
+    "type": "throw"
+   },
+   {
+    "how": "drill",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 47.5949122998863,
+     "noseDown": 44.4050877001137,
+     "rollLand": 0,
+     "speed": 5.6327241785456295,
+     "spin": 3,
+     "swivel": 0.003046033285588166,
+     "tilt": 7.494005416219807e-15,
+     "tumble": 0,
+     "wobble": 0
+    },
+    "scripted": false,
+    "seq": 52,
+    "stance": {
+     "set": true,
+     "x": 1.9,
+     "y": 0
+    },
+    "swing": {
+     "back": 94.55067520558711,
+     "stop": 140.94912299886298
+    },
+    "target": {
+     "set": false,
+     "x": 1.9226048040343449,
+     "y": 4.736004626206122
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "drill",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 46.96489715501668,
+     "noseDown": 45.03510284498332,
+     "rollLand": 0,
+     "speed": 6.518494492561142,
+     "spin": 3,
+     "swivel": -0.005088490072690004,
+     "tilt": 7.864100216255882e-15,
+     "tumble": 0,
+     "wobble": 0
+    },
+    "scripted": false,
+    "seq": 53,
+    "stance": {
+     "set": true,
+     "x": 1.9,
+     "y": 0
+    },
+    "swing": {
+     "back": 101.43363603912121,
+     "stop": 134.64897155016672
+    },
+    "target": {
+     "set": false,
+     "x": 1.8746598751191048,
+     "y": 4.7264910264778885
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 1,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 19.959999565780038,
+     "speed": 4.935378928534492,
+     "swivel": -0.0030747946393817394,
+     "tilt": 0,
+     "tumble": 7.097100423240845
+    },
+    "scripted": false,
+    "seq": 54,
+    "stance": {
+     "set": true,
+     "x": 2.257220310807354,
+     "y": 2.7956656041405834
+    },
+    "swing": {
+     "back": 84.98226310793801,
+     "stop": 41.27999869734012
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": 2.257220310807354,
+     "y": 4.795665604140583
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 1,
+     "releaseV": -1,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 18.90134135708205,
+     "speed": 4.587820284622534,
+     "swivel": 0.0016621945715198012,
+     "tilt": 0,
+     "tumble": 6.069204525032386
+    },
+    "scripted": false,
+    "seq": 55,
+    "stance": {
+     "set": true,
+     "x": 2.257220310807354,
+     "y": 2.7956656041405834
+    },
+    "swing": {
+     "back": 80.61017672826083,
+     "stop": 38.104024071246144
+    },
+    "target": {
+     "on": "b2",
+     "set": false,
+     "x": 2.257220310807354,
+     "y": 4.795665604140583
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": -1,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 32.31129005253315,
+     "speed": 6.4455065840799755,
+     "swivel": -0.000034353675656080334,
+     "tilt": 1.4988010832439613e-14,
+     "tumble": 3.4536701006308412
+    },
+    "scripted": false,
+    "seq": 56,
+    "stance": {
+     "set": true,
+     "x": 0,
+     "y": 3.738895681706775
+    },
+    "swing": {
+     "back": 92.79032241569487,
+     "stop": 93.11290052533158
+    },
+    "target": {
+     "on": "b3",
+     "set": false,
+     "x": 0,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 33.06225586123765,
+     "speed": 5.805553459876203,
+     "swivel": -0.004546640600632974,
+     "tilt": 1.4988010832439613e-14,
+     "tumble": 3.728150791466411
+    },
+    "scripted": false,
+    "seq": 57,
+    "stance": {
+     "set": true,
+     "x": 1,
+     "y": 3.738895681706775
+    },
+    "swing": {
+     "back": 96.43547913448538,
+     "stop": 100.62255861237657
+    },
+    "target": {
+     "on": "b4",
+     "set": false,
+     "x": 1,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 30.85979798361662,
+     "speed": 6.386661196854397,
+     "swivel": -0.0007046383631211833,
+     "tilt": 7.494005416219807e-15,
+     "tumble": 4.118969324826947
+    },
+    "scripted": false,
+    "seq": 58,
+    "stance": {
+     "set": true,
+     "x": 2,
+     "y": 3.738895681706775
+    },
+    "swing": {
+     "back": 91.02414441311369,
+     "stop": 78.5979798361662
+    },
+    "target": {
+     "on": "b5",
+     "set": false,
+     "x": 2,
+     "y": 8
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   },
+   {
+    "how": "baton",
+    "input": "pointer",
+    "launch": {
+     "legal": true,
+     "loft": 25.567051731795083,
+     "speed": 6.776228681940946,
+     "swivel": -0.0005218602944508506,
+     "tilt": 1.4988010832439613e-14,
+     "tumble": 5.168154482339132
+    },
+    "scripted": false,
+    "seq": 59,
+    "stance": {
+     "set": true,
+     "x": 0,
+     "y": 0
+    },
+    "swing": {
+     "back": 101.6965707341644,
+     "stop": 60.67051731795084
+    },
+    "target": {
+     "on": "king",
+     "set": false,
+     "x": 0,
+     "y": 4
+    },
+    "type": "throw",
+    "verdicts": {
+     "powerV": 0,
+     "releaseV": 0,
+     "sideV": 0,
+     "steady": true
+    }
+   }
+  ],
+  "winner": "A",
+  "throws": 60
+ },
+ "messages": [
+  {
+   "name": "Lakeside",
+   "g": {
+    "client": "web",
+    "engine": "0.7.3",
+    "start": "{\"mem\":{\"drill\":false,\"markerOnId\":\"b3\",\"markerSet\":false,\"markerX\":0.0,\"markerY\":8.0,\"playerX\":0.0,\"playerY\":0.0,\"stanceSet\":false},\"opts\":{\"cpu\":[\"B\"],\"first\":\"A\",\"maxTurns\":40,\"opening\":\"2-4-6\",\"raising\":\"hand\",\"seed\":2,\"set\":\"classic\",\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"surface\":\"grass\",\"teams\":{\"A\":{\"name\":\"Lakeside\",\"players\":[{\"level\":\"club\",\"name\":\"Lakeside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"level\":\"club\",\"name\":\"Computer\"}]}},\"wind\":\"off\"},\"save\":{\"currentIndex\":1,\"debris\":{\"exact\":[],\"kind\":\"baton\",\"list\":[],\"turn\":1},\"game\":{\"attacker\":\"A\",\"batonIndex\":0,\"batonsLeft\":2,\"batonsTotal\":2,\"defender\":\"B\",\"first\":\"A\",\"firstQueue\":[],\"firstThrows\":0,\"hand\":{\"A\":[],\"B\":[]},\"ids\":[\"a1\",\"a2\",\"a3\",\"a4\",\"a5\",\"b1\",\"b2\",\"b3\",\"b4\",\"b5\"],\"king\":{\"id\":\"king\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":4}},\"kubbs\":{\"a1\":{\"established\":false,\"half\":\"A\",\"id\":\"a1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a2\":{\"established\":false,\"half\":\"A\",\"id\":\"a2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a3\":{\"established\":false,\"half\":\"A\",\"id\":\"a3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a4\":{\"established\":false,\"half\":\"A\",\"id\":\"a4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a5\":{\"established\":false,\"half\":\"A\",\"id\":\"a5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"b1\":{\"established\":false,\"half\":\"B\",\"id\":\"b1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b2\":{\"established\":false,\"half\":\"B\",\"id\":\"b2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b3\":{\"established\":false,\"half\":\"B\",\"id\":\"b3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b4\":{\"established\":false,\"half\":\"B\",\"id\":\"b4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b5\":{\"established\":false,\"half\":\"B\",\"id\":\"b5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"}},\"opening\":\"2-4-6\",\"phase\":\"batons\",\"punishQueue\":[],\"raisePolicy\":\"apart\",\"rethrowQueue\":[],\"roundThrows\":0,\"sheet\":{\"turns\":[{\"batons\":[],\"inkast\":[],\"inkastOrder\":[],\"n\":1,\"notes\":[],\"side\":\"A\"}]},\"surface\":\"Grass\",\"teams\":{\"A\":{\"name\":\"Lakeside\",\"players\":[{\"id\":\"lakeside\",\"name\":\"Lakeside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"id\":\"computer\",\"name\":\"Computer\"}]}},\"tossSeq\":0,\"turn\":1},\"lineup\":{\"A\":[{\"id\":\"lakeside\",\"level\":\"club\"}],\"B\":[{\"id\":\"computer\",\"level\":\"club\"}]},\"mode\":\"Vs Computer\",\"opts\":[],\"order\":{\"A\":{\"ids\":[\"lakeside\"],\"start\":1},\"B\":{\"ids\":[\"computer\"],\"start\":1},\"batons\":2,\"deal\":[\"lakeside\",\"lakeside\"],\"inkaster\":\"lakeside\",\"side\":\"A\",\"turn\":1},\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"tossed\":0,\"turn\":1,\"v\":2},\"throws\":0,\"v\":1}",
+    "log": [
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 33.550530757009994,
+        "speed": 8.23185593037339,
+        "swivel": 0.005189297643552915,
+        "tilt": -1.4988010832439613e-14,
+        "tumble": 2.9872466432843265
+       },
+       "scripted": false,
+       "seq": 0,
+       "stance": {
+        "set": true,
+        "x": -2,
+        "y": 0
+       },
+       "swing": {
+        "back": 113.77378770744758,
+        "stop": 105.50530757009997
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -2,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": -2,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 31.70948603563019,
+        "speed": 9.190833278947508,
+        "swivel": 0.016356515243396055,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 2.811064706050215
+       },
+       "scripted": false,
+       "seq": 1,
+       "stance": {
+        "set": true,
+        "x": -2,
+        "y": 0
+       },
+       "swing": {
+        "back": 127.45700599102568,
+        "stop": 87.09486035630192
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -2,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": false,
+        "loft": 30.795898496428453,
+        "speed": 9.576260680554329,
+        "swivel": 0.006152928476810668,
+        "tilt": 31.108188061610036,
+        "tumble": 2.9965716587309914
+       },
+       "scripted": true,
+       "seq": 2,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 123.00047551406094,
+        "stop": 83.97949248214226
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 31.981133981550784,
+        "speed": 9.656304099182579,
+        "swivel": 0.017707831758408125,
+        "tilt": -9.865475193937751,
+        "tumble": 2.936573614866949
+       },
+       "scripted": true,
+       "seq": 3,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 123.67519144936233,
+        "stop": 89.90566990775392
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 31.995386114685964,
+        "speed": 9.048791693408244,
+        "swivel": -0.019916028956391746,
+        "tilt": -25.156771890369033,
+        "tumble": 3.159044059928441
+       },
+       "scripted": true,
+       "seq": 4,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 117.63717157426511,
+        "stop": 89.97693057342981
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 32.7568133575004,
+        "speed": 9.343989300090923,
+        "swivel": -0.03788269943488919,
+        "tilt": -23.278716295602468,
+        "tumble": 2.4842241295154013
+       },
+       "scripted": true,
+       "seq": 5,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 120.71374555541762,
+        "stop": 93.78406678750201
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 32.54353125020862,
+        "speed": 9.152164690009142,
+        "swivel": 0.0014469909064400571,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 2.847504208412213
+       },
+       "scripted": false,
+       "seq": 6,
+       "stance": {
+        "set": true,
+        "x": -2,
+        "y": 0
+       },
+       "swing": {
+        "back": 122.92020662537183,
+        "stop": 95.43531250208625
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -2,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 31.540526015311457,
+        "speed": 9.073973439630151,
+        "swivel": -0.020301636165304972,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 3.5300929522067306
+       },
+       "scripted": false,
+       "seq": 7,
+       "stance": {
+        "set": true,
+        "x": -1,
+        "y": 0
+       },
+       "swing": {
+        "back": 117.72588842397923,
+        "stop": 85.40526015311458
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -1,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": -1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 31.64456843696542,
+        "speed": 8.407505820276432,
+        "swivel": 0.030220431446706414,
+        "tilt": -1.4988010832439613e-14,
+        "tumble": 2.921079671134463
+       },
+       "scripted": false,
+       "seq": 8,
+       "stance": {
+        "set": true,
+        "x": -1,
+        "y": 0
+       },
+       "swing": {
+        "back": 127.6483265463103,
+        "stop": 86.44568436965426
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -1,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 32.45632121339449,
+        "speed": 9.593229665777272,
+        "swivel": 0.008546106823681995,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 3.387554631091476
+       },
+       "scripted": false,
+       "seq": 9,
+       "stance": {
+        "set": true,
+        "x": -1,
+        "y": 0
+       },
+       "swing": {
+        "back": 127.09702016448867,
+        "stop": 94.56321213394489
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -1,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 29.492902309447437,
+        "speed": 9.473161039239525,
+        "swivel": 0.011249526265406797,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 3.5717258639969427
+       },
+       "scripted": false,
+       "seq": 10,
+       "stance": {
+        "set": true,
+        "x": -1,
+        "y": 0
+       },
+       "swing": {
+        "back": 121.96097147873046,
+        "stop": 69.87870692834231
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -1,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": -1,
+        "sideV": 1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 35.529835513979485,
+        "speed": 9.361662452633558,
+        "swivel": -0.008235046445221956,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 3.170492781838902
+       },
+       "scripted": false,
+       "seq": 11,
+       "stance": {
+        "set": true,
+        "x": -1,
+        "y": 0
+       },
+       "swing": {
+        "back": 126.21724795772028,
+        "stop": 113.18950654193844
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -1,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 1,
+        "sideV": -1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "launch": {
+        "legal": true,
+        "loft": 46.84308585064821,
+        "noseDown": 45.15691414935179,
+        "rollLand": 0,
+        "speed": 6.161194887716249,
+        "spin": 25,
+        "swivel": 0.0028076955776705657,
+        "tilt": 0,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": true,
+       "seq": 12,
+       "stance": {
+        "set": false,
+        "x": -1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 91.10821462851723,
+        "stop": 134.21542925324104
+       },
+       "target": {
+        "set": false,
+        "x": -1.9,
+        "y": 4.75
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "type": "raise"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 22.944675330390417,
+        "speed": 7.283760869553201,
+        "swivel": 0.008099221558512452,
+        "tilt": 17.92300377553609,
+        "tumble": 4.249264498086802
+       },
+       "scripted": true,
+       "seq": 13,
+       "stance": {
+        "set": false,
+        "x": -1.6878877439578046,
+        "y": 0
+       },
+       "swing": {
+        "back": 102.48312334489064,
+        "stop": 64.7233766519521
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -1.6878877439578046,
+        "y": 4.421262927663911
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 31.634459899316997,
+        "speed": 9.392727422771072,
+        "swivel": -0.002906701491703516,
+        "tilt": 19.11859794463832,
+        "tumble": 2.9695382601345237
+       },
+       "scripted": true,
+       "seq": 14,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 120.82546530971302,
+        "stop": 88.172299496585
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 34.5627568688326,
+        "speed": 9.324833898346045,
+        "swivel": 0.00644293134887534,
+        "tilt": -12.820868408336182,
+        "tumble": 2.9342102571861894
+       },
+       "scripted": true,
+       "seq": 15,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 120.5548888911967,
+        "stop": 101.68827060649781
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 33.17580850923137,
+        "speed": 9.29731433600416,
+        "swivel": -0.018462036190220993,
+        "tilt": -12.445919009592311,
+        "tumble": 3.4028865511812145
+       },
+       "scripted": true,
+       "seq": 16,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 123.3747301465931,
+        "stop": 95.87904254615684
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 32.470088068453194,
+        "speed": 9.248040689296221,
+        "swivel": -0.012155029434427304,
+        "tilt": -2.850360485371538,
+        "tumble": 3.1445065348063186
+       },
+       "scripted": true,
+       "seq": 17,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 121.36079056643564,
+        "stop": 92.35044034226598
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 33.40066076479714,
+        "speed": 9.002712395581637,
+        "swivel": -0.012809238262804577,
+        "tilt": -19.618590195149732,
+        "tumble": 2.9553572820060015
+       },
+       "scripted": true,
+       "seq": 18,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 120.2899638953444,
+        "stop": 97.00330382398569
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 48.66883533895019,
+        "noseDown": 43.33116466104981,
+        "rollLand": 0,
+        "speed": 5.591546368045472,
+        "spin": 3,
+        "swivel": 0.003983781992500128,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": false,
+       "seq": 19,
+       "stance": {
+        "set": true,
+        "x": -1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 79.93929820220048,
+        "stop": 151.68835338950188
+       },
+       "target": {
+        "set": false,
+        "x": -1.8763860994391142,
+        "y": 4.771987213017419
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": -1,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 50.41805206537241,
+        "noseDown": 41.58194793462759,
+        "rollLand": 0,
+        "speed": 6.361321246979012,
+        "spin": 3,
+        "swivel": 0.005507902509429647,
+        "tilt": -1.4988010832439613e-14,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": false,
+       "seq": 20,
+       "stance": {
+        "set": true,
+        "x": -1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 96.48789735714796,
+        "stop": 157.8541561961172
+       },
+       "target": {
+        "set": false,
+        "x": -1.8771277641085906,
+        "y": 4.739479944673366
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 1,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 23.669246857985847,
+        "speed": 6.3469571661083615,
+        "swivel": -0.000849490369515378,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 3.8664884086539333
+       },
+       "scripted": false,
+       "seq": 21,
+       "stance": {
+        "set": true,
+        "x": -1.299923478936198,
+        "y": 0
+       },
+       "swing": {
+        "back": 97.45545294205886,
+        "stop": 76.69246857985843
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -1.299923478936198,
+        "y": 4.96957413010201
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": -1,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 21.60327730998394,
+        "speed": 7.455118954548718,
+        "swivel": 0.005709422134768618,
+        "tilt": 0,
+        "tumble": 4.440778758568905
+       },
+       "scripted": false,
+       "seq": 22,
+       "stance": {
+        "set": true,
+        "x": -1.299923478936198,
+        "y": 0
+       },
+       "swing": {
+        "back": 98.15170186455605,
+        "stop": 56.0327730998394
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -1.299923478936198,
+        "y": 4.96957413010201
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": -1,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 28.558294151723306,
+        "speed": 9.45899444023258,
+        "swivel": 0.005714069722595026,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 3.195925225179254
+       },
+       "scripted": false,
+       "seq": 23,
+       "stance": {
+        "set": true,
+        "x": -1,
+        "y": 0
+       },
+       "swing": {
+        "back": 122.31187834626434,
+        "stop": 67.07488245516993
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -1,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": -1,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 33.54762528203426,
+        "speed": 8.683438697353353,
+        "swivel": -0.016555251323256324,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 3.0269116611095512
+       },
+       "scripted": false,
+       "seq": 24,
+       "stance": {
+        "set": true,
+        "x": 0,
+        "y": 0
+       },
+       "swing": {
+        "back": 110.81522941252585,
+        "stop": 105.4762528203426
+       },
+       "target": {
+        "on": "b3",
+        "set": false,
+        "x": 0,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": -1,
+        "releaseV": 0,
+        "sideV": -1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 32.62942742817113,
+        "speed": 9.56859590065659,
+        "swivel": 0.003626405742669394,
+        "tilt": 0,
+        "tumble": 3.0238100332344477
+       },
+       "scripted": false,
+       "seq": 25,
+       "stance": {
+        "set": true,
+        "x": 0,
+        "y": 0
+       },
+       "swing": {
+        "back": 129.69337179733705,
+        "stop": 96.29427428171121
+       },
+       "target": {
+        "on": "b3",
+        "set": false,
+        "x": 0,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 1,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 31.610635416209657,
+        "speed": 9.014871287627628,
+        "swivel": -0.010043033004685904,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 2.4619640679486428
+       },
+       "scripted": false,
+       "seq": 26,
+       "stance": {
+        "set": true,
+        "x": 0,
+        "y": 0
+       },
+       "swing": {
+        "back": 116.62276952749504,
+        "stop": 86.10635416209658
+       },
+       "target": {
+        "on": "b3",
+        "set": false,
+        "x": 0,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": -1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "launch": {
+        "legal": true,
+        "loft": 47.07919982139394,
+        "noseDown": 44.92080017860606,
+        "rollLand": 0,
+        "speed": 6.245876470963939,
+        "spin": 25,
+        "swivel": 0.0038097099365018783,
+        "tilt": 0,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": true,
+       "seq": 27,
+       "stance": {
+        "set": false,
+        "x": -1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 92.28020722211123,
+        "stop": 135.39599910696973
+       },
+       "target": {
+        "set": false,
+        "x": -1.9,
+        "y": 4.75
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "launch": {
+        "legal": true,
+        "loft": 47.32933190452815,
+        "noseDown": 44.67066809547185,
+        "rollLand": 0,
+        "speed": 5.683021060589738,
+        "spin": 25,
+        "swivel": 0.0012119683350283739,
+        "tilt": 0,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": true,
+       "seq": 28,
+       "stance": {
+        "set": false,
+        "x": -2.06390696185787,
+        "y": 0
+       },
+       "swing": {
+        "back": 89.0090552969935,
+        "stop": 136.64665952264073
+       },
+       "target": {
+        "set": false,
+        "x": -2.06390696185787,
+        "y": 4.493794003093886
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "type": "raise"
+      }
+     },
+     {
+      "a": {
+       "type": "raise"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 21.56575100256344,
+        "speed": 6.741876947749951,
+        "swivel": -0.017082536769563658,
+        "tilt": -25.60205315347021,
+        "tumble": 4.7449422906256
+       },
+       "scripted": true,
+       "seq": 29,
+       "stance": {
+        "set": false,
+        "x": -2.198122633963217,
+        "y": 0
+       },
+       "swing": {
+        "back": 95.18539399168965,
+        "stop": 57.8287550128172
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -2.198122633963217,
+        "y": 4.130632354913585
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 22.07383548033913,
+        "speed": 7.085142873272688,
+        "swivel": -0.010731653727269171,
+        "tilt": -14.383749584289035,
+        "tumble": 4.526700997197435
+       },
+       "scripted": true,
+       "seq": 30,
+       "stance": {
+        "set": false,
+        "x": -2.198122633963217,
+        "y": 0
+       },
+       "swing": {
+        "back": 100.53093388309834,
+        "stop": 60.36917740169565
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -2.198122633963217,
+        "y": 4.130632354913585
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 20.820584748152267,
+        "speed": 7.1378274761235305,
+        "swivel": 0.013079421024240725,
+        "tilt": 15.674991229386059,
+        "tumble": 5.198742834435025
+       },
+       "scripted": true,
+       "seq": 31,
+       "stance": {
+        "set": false,
+        "x": -2.093380971546258,
+        "y": 0
+       },
+       "swing": {
+        "back": 98.9670752045386,
+        "stop": 54.102923740761334
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -2.093380971546258,
+        "y": 4.711407398014851
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 22.727217951885272,
+        "speed": 6.726679076700645,
+        "swivel": 0.009132683694879592,
+        "tilt": 23.053381513546576,
+        "tumble": 4.092245846296933
+       },
+       "scripted": true,
+       "seq": 32,
+       "stance": {
+        "set": false,
+        "x": -2.093380971546258,
+        "y": 0
+       },
+       "swing": {
+        "back": 106.44205809233695,
+        "stop": 63.63608975942635
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -2.093380971546258,
+        "y": 4.711407398014851
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 22.09242259365659,
+        "speed": 7.71092188573955,
+        "swivel": 0.006075861165362903,
+        "tilt": 12.791232159464837,
+        "tumble": 4.418116404482463
+       },
+       "scripted": true,
+       "seq": 33,
+       "stance": {
+        "set": false,
+        "x": -2.093380971546258,
+        "y": 0
+       },
+       "swing": {
+        "back": 106.91252210983612,
+        "stop": 60.46211296828295
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -2.093380971546258,
+        "y": 4.711407398014851
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 32.72086966999018,
+        "speed": 9.567125120583167,
+        "swivel": 0.01618299728784621,
+        "tilt": 5.726886026828443,
+        "tumble": 3.187416448395964
+       },
+       "scripted": true,
+       "seq": 34,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 122.99469176209604,
+        "stop": 93.60434834995087
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 44.55937536507836,
+        "noseDown": 47.44062463492164,
+        "rollLand": 0,
+        "speed": 6.439455527540607,
+        "spin": 3,
+        "swivel": 0.0030556735649748664,
+        "tilt": 7.570050243921153e-15,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": false,
+       "seq": 35,
+       "stance": {
+        "set": true,
+        "x": 1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 99.83813727426534,
+        "stop": 115.07812609523508
+       },
+       "target": {
+        "set": false,
+        "x": 1.9211940382281318,
+        "y": 4.7230374872684475
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 1,
+        "releaseV": -1,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 45.59089267961686,
+        "noseDown": 46.40910732038314,
+        "rollLand": 0,
+        "speed": 6.300798480034188,
+        "spin": 3,
+        "swivel": 0.006023132726213607,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": false,
+       "seq": 36,
+       "stance": {
+        "set": true,
+        "x": 2.0771113385755493,
+        "y": 0
+       },
+       "swing": {
+        "back": 96.2813739086596,
+        "stop": 120.9089267961685
+       },
+       "target": {
+        "set": false,
+        "x": 2.1032937514625414,
+        "y": 4.839862825581658
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 20.413568956032385,
+        "speed": 8.013101271232282,
+        "swivel": 0.00805349703935381,
+        "tilt": 1.5453770105585747e-14,
+        "tumble": 4.796902409107523
+       },
+       "scripted": false,
+       "seq": 37,
+       "stance": {
+        "set": true,
+        "x": 2.0651176941166534,
+        "y": 0
+       },
+       "swing": {
+        "back": 115.33078338943326,
+        "stop": 44.13568956032384
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": 2.0651176941166534,
+        "y": 4.844100715991591
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 1,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 23.35456498675046,
+        "speed": 7.1168713854088335,
+        "swivel": 0.005294130831632938,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 4.231235997418659
+       },
+       "scripted": false,
+       "seq": 38,
+       "stance": {
+        "set": true,
+        "x": 2.0651176941166534,
+        "y": 0
+       },
+       "swing": {
+        "back": 99.24921942308461,
+        "stop": 73.54564986750461
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": 2.0651176941166534,
+        "y": 4.844100715991591
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": -2,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 23.15155902914703,
+        "speed": 7.150360457528857,
+        "swivel": 0.003529955175803713,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 3.657093888034942
+       },
+       "scripted": false,
+       "seq": 39,
+       "stance": {
+        "set": true,
+        "x": 2.0651176941166534,
+        "y": 0
+       },
+       "swing": {
+        "back": 99.91035365864528,
+        "stop": 71.51559029147029
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": 2.0651176941166534,
+        "y": 4.844100715991591
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": -2,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 23.138501346111276,
+        "speed": 7.426092976729377,
+        "swivel": 0.0035342587196319575,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 4.826622437484378
+       },
+       "scripted": false,
+       "seq": 40,
+       "stance": {
+        "set": true,
+        "x": 2.0651176941166534,
+        "y": 0
+       },
+       "swing": {
+        "back": 99.27620663672602,
+        "stop": 71.38501346111275
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": 2.0651176941166534,
+        "y": 4.844100715991591
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 19.458180007338505,
+        "speed": 9.233054717093728,
+        "swivel": 0.011847115913387616,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 3.7234339926458526
+       },
+       "scripted": false,
+       "seq": 41,
+       "stance": {
+        "set": true,
+        "x": 1.474547800134042,
+        "y": 0
+       },
+       "swing": {
+        "back": 121.36548538424279,
+        "stop": 39.774540022015515
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 1.474547800134042,
+        "y": 6.216256743640218
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": -1,
+        "sideV": 1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 21.06736029908057,
+        "speed": 8.988842592306604,
+        "swivel": 0.0016503323563112544,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 3.604294237330161
+       },
+       "scripted": false,
+       "seq": 42,
+       "stance": {
+        "set": true,
+        "x": 1.4523617899582588,
+        "y": 0
+       },
+       "swing": {
+        "back": 119.38665775022166,
+        "stop": 50.67360299080566
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 1.4523617899582588,
+        "y": 6.26488688901784
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "launch": {
+        "legal": true,
+        "loft": 47.05056097108445,
+        "noseDown": 44.94943902891555,
+        "rollLand": 0,
+        "speed": 6.181312523315412,
+        "spin": 25,
+        "swivel": -0.00066856238777459,
+        "tilt": 0,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": true,
+       "seq": 43,
+       "stance": {
+        "set": false,
+        "x": 1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 91.25878282846995,
+        "stop": 135.25280485542226
+       },
+       "target": {
+        "set": false,
+        "x": 1.9,
+        "y": 4.75
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "launch": {
+        "legal": true,
+        "loft": 46.86812984208332,
+        "noseDown": 45.13187015791668,
+        "rollLand": 0,
+        "speed": 5.728652630941839,
+        "spin": 25,
+        "swivel": 0.022691256029396426,
+        "tilt": 0,
+        "tumble": 0,
+        "wobble": 1.3128130125311634
+       },
+       "scripted": true,
+       "seq": 44,
+       "stance": {
+        "set": false,
+        "x": 2.115358667003093,
+        "y": 0
+       },
+       "swing": {
+        "back": 86.79451781647094,
+        "stop": 134.34064921041656
+       },
+       "target": {
+        "set": false,
+        "x": 2.115358667003093,
+        "y": 4.11695799517444
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "launch": {
+        "legal": true,
+        "loft": 46.462422535654454,
+        "noseDown": 45.537577464345546,
+        "rollLand": 0,
+        "speed": 5.61972151064631,
+        "spin": 25,
+        "swivel": 0.003154204896251493,
+        "tilt": 0,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": true,
+       "seq": 45,
+       "stance": {
+        "set": false,
+        "x": 2.115358667003093,
+        "y": 0
+       },
+       "swing": {
+        "back": 85.42961943411208,
+        "stop": 132.31211267827223
+       },
+       "target": {
+        "set": false,
+        "x": 2.115358667003093,
+        "y": 4.11695799517444
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "type": "raise"
+      }
+     },
+     {
+      "a": {
+       "type": "raise"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 23.687331863864117,
+        "speed": 6.9594331329699335,
+        "swivel": 0.012079566533091864,
+        "tilt": 18.102341876088026,
+        "tumble": 5.25788731007305
+       },
+       "scripted": true,
+       "seq": 46,
+       "stance": {
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 0
+       },
+       "swing": {
+        "back": 99.4457672216013,
+        "stop": 68.43665931932058
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 4.015972820058876
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 21.75055100849725,
+        "speed": 5.768253458291301,
+        "swivel": 0.01387929547921843,
+        "tilt": 23.506781743882954,
+        "tumble": 3.806582436655071
+       },
+       "scripted": true,
+       "seq": 47,
+       "stance": {
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 0
+       },
+       "swing": {
+        "back": 96.20647855982374,
+        "stop": 58.75275504248626
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 4.015972820058876
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 20.66367213622624,
+        "speed": 7.172273043346092,
+        "swivel": -0.003710512075800963,
+        "tilt": -10.033777909312073,
+        "tumble": 5.341466896523927
+       },
+       "scripted": true,
+       "seq": 48,
+       "stance": {
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 0
+       },
+       "swing": {
+        "back": 102.52815706410365,
+        "stop": 53.31836068113121
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 4.015972820058876
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 21.009536335587036,
+        "speed": 7.08792118332464,
+        "swivel": -0.00820657869659297,
+        "tilt": -12.076292395718667,
+        "tumble": 5.178724747872775
+       },
+       "scripted": true,
+       "seq": 49,
+       "stance": {
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 0
+       },
+       "swing": {
+        "back": 101.89867092537169,
+        "stop": 55.04768167793519
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 4.015972820058876
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 21.83663232629165,
+        "speed": 7.059452007891938,
+        "swivel": -0.004107732830490079,
+        "tilt": -9.4378347928895,
+        "tumble": 4.354298725594253
+       },
+       "scripted": true,
+       "seq": 50,
+       "stance": {
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 0
+       },
+       "swing": {
+        "back": 101.36710556868027,
+        "stop": 59.18316163145825
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 4.015972820058876
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 21.83500617572134,
+        "speed": 6.601721466923162,
+        "swivel": 0.0030114002083318557,
+        "tilt": 3.7852372251686055,
+        "tumble": 5.077738622762111
+       },
+       "scripted": true,
+       "seq": 51,
+       "stance": {
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 0
+       },
+       "swing": {
+        "back": 93.868118684634,
+        "stop": 59.175030878606705
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 4.015972820058876
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 47.5949122998863,
+        "noseDown": 44.4050877001137,
+        "rollLand": 0,
+        "speed": 5.6327241785456295,
+        "spin": 3,
+        "swivel": 0.003046033285588166,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": false,
+       "seq": 52,
+       "stance": {
+        "set": true,
+        "x": 1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 94.55067520558711,
+        "stop": 140.94912299886298
+       },
+       "target": {
+        "set": false,
+        "x": 1.9226048040343449,
+        "y": 4.736004626206122
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 46.96489715501668,
+        "noseDown": 45.03510284498332,
+        "rollLand": 0,
+        "speed": 6.518494492561142,
+        "spin": 3,
+        "swivel": -0.005088490072690004,
+        "tilt": 7.864100216255882e-15,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": false,
+       "seq": 53,
+       "stance": {
+        "set": true,
+        "x": 1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 101.43363603912121,
+        "stop": 134.64897155016672
+       },
+       "target": {
+        "set": false,
+        "x": 1.8746598751191048,
+        "y": 4.7264910264778885
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 1,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 19.959999565780038,
+        "speed": 4.935378928534492,
+        "swivel": -0.0030747946393817394,
+        "tilt": 0,
+        "tumble": 7.097100423240845
+       },
+       "scripted": false,
+       "seq": 54,
+       "stance": {
+        "set": true,
+        "x": 2.257220310807354,
+        "y": 2.7956656041405834
+       },
+       "swing": {
+        "back": 84.98226310793801,
+        "stop": 41.27999869734012
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.257220310807354,
+        "y": 4.795665604140583
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 1,
+        "releaseV": -1,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 18.90134135708205,
+        "speed": 4.587820284622534,
+        "swivel": 0.0016621945715198012,
+        "tilt": 0,
+        "tumble": 6.069204525032386
+       },
+       "scripted": false,
+       "seq": 55,
+       "stance": {
+        "set": true,
+        "x": 2.257220310807354,
+        "y": 2.7956656041405834
+       },
+       "swing": {
+        "back": 80.61017672826083,
+        "stop": 38.104024071246144
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.257220310807354,
+        "y": 4.795665604140583
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": -1,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 32.31129005253315,
+        "speed": 6.4455065840799755,
+        "swivel": -0.000034353675656080334,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 3.4536701006308412
+       },
+       "scripted": false,
+       "seq": 56,
+       "stance": {
+        "set": true,
+        "x": 0,
+        "y": 3.738895681706775
+       },
+       "swing": {
+        "back": 92.79032241569487,
+        "stop": 93.11290052533158
+       },
+       "target": {
+        "on": "b3",
+        "set": false,
+        "x": 0,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 33.06225586123765,
+        "speed": 5.805553459876203,
+        "swivel": -0.004546640600632974,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 3.728150791466411
+       },
+       "scripted": false,
+       "seq": 57,
+       "stance": {
+        "set": true,
+        "x": 1,
+        "y": 3.738895681706775
+       },
+       "swing": {
+        "back": 96.43547913448538,
+        "stop": 100.62255861237657
+       },
+       "target": {
+        "on": "b4",
+        "set": false,
+        "x": 1,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 30.85979798361662,
+        "speed": 6.386661196854397,
+        "swivel": -0.0007046383631211833,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 4.118969324826947
+       },
+       "scripted": false,
+       "seq": 58,
+       "stance": {
+        "set": true,
+        "x": 2,
+        "y": 3.738895681706775
+       },
+       "swing": {
+        "back": 91.02414441311369,
+        "stop": 78.5979798361662
+       },
+       "target": {
+        "on": "b5",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 25.567051731795083,
+        "speed": 6.776228681940946,
+        "swivel": -0.0005218602944508506,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 5.168154482339132
+       },
+       "scripted": false,
+       "seq": 59,
+       "stance": {
+        "set": true,
+        "x": 0,
+        "y": 0
+       },
+       "swing": {
+        "back": 101.6965707341644,
+        "stop": 60.67051731795084
+       },
+       "target": {
+        "on": "king",
+        "set": false,
+        "x": 0,
+        "y": 4
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     }
+    ],
+    "end": {
+     "winner": "A",
+     "throws": 60
+    }
+   },
+   "bytes": 30106
+  },
+  {
+   "name": "Ünïcödé 🪵",
+   "g": {
+    "client": "web",
+    "engine": "0.7.3",
+    "start": "{\"mem\":{\"drill\":false,\"markerOnId\":\"b3\",\"markerSet\":false,\"markerX\":0.0,\"markerY\":8.0,\"playerX\":0.0,\"playerY\":0.0,\"stanceSet\":false},\"opts\":{\"cpu\":[\"B\"],\"first\":\"A\",\"maxTurns\":40,\"opening\":\"2-4-6\",\"raising\":\"hand\",\"seed\":2,\"set\":\"classic\",\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"surface\":\"grass\",\"teams\":{\"A\":{\"name\":\"Ünïcödé 🪵\",\"players\":[{\"level\":\"club\",\"name\":\"Ünïcödé 🪵\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"level\":\"club\",\"name\":\"Computer\"}]}},\"wind\":\"off\"},\"save\":{\"currentIndex\":1,\"debris\":{\"exact\":[],\"kind\":\"baton\",\"list\":[],\"turn\":1},\"game\":{\"attacker\":\"A\",\"batonIndex\":0,\"batonsLeft\":2,\"batonsTotal\":2,\"defender\":\"B\",\"first\":\"A\",\"firstQueue\":[],\"firstThrows\":0,\"hand\":{\"A\":[],\"B\":[]},\"ids\":[\"a1\",\"a2\",\"a3\",\"a4\",\"a5\",\"b1\",\"b2\",\"b3\",\"b4\",\"b5\"],\"king\":{\"id\":\"king\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":4}},\"kubbs\":{\"a1\":{\"established\":false,\"half\":\"A\",\"id\":\"a1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a2\":{\"established\":false,\"half\":\"A\",\"id\":\"a2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a3\":{\"established\":false,\"half\":\"A\",\"id\":\"a3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a4\":{\"established\":false,\"half\":\"A\",\"id\":\"a4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a5\":{\"established\":false,\"half\":\"A\",\"id\":\"a5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"b1\":{\"established\":false,\"half\":\"B\",\"id\":\"b1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b2\":{\"established\":false,\"half\":\"B\",\"id\":\"b2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b3\":{\"established\":false,\"half\":\"B\",\"id\":\"b3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b4\":{\"established\":false,\"half\":\"B\",\"id\":\"b4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b5\":{\"established\":false,\"half\":\"B\",\"id\":\"b5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"}},\"opening\":\"2-4-6\",\"phase\":\"batons\",\"punishQueue\":[],\"raisePolicy\":\"apart\",\"rethrowQueue\":[],\"roundThrows\":0,\"sheet\":{\"turns\":[{\"batons\":[],\"inkast\":[],\"inkastOrder\":[],\"n\":1,\"notes\":[],\"side\":\"A\"}]},\"surface\":\"Grass\",\"teams\":{\"A\":{\"name\":\"Ünïcödé 🪵\",\"players\":[{\"id\":\"ncd\",\"name\":\"Ünïcödé 🪵\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"id\":\"computer\",\"name\":\"Computer\"}]}},\"tossSeq\":0,\"turn\":1},\"lineup\":{\"A\":[{\"id\":\"ncd\",\"level\":\"club\"}],\"B\":[{\"id\":\"computer\",\"level\":\"club\"}]},\"mode\":\"Vs Computer\",\"opts\":[],\"order\":{\"A\":{\"ids\":[\"ncd\"],\"start\":1},\"B\":{\"ids\":[\"computer\"],\"start\":1},\"batons\":2,\"deal\":[\"ncd\",\"ncd\"],\"inkaster\":\"ncd\",\"side\":\"A\",\"turn\":1},\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"tossed\":0,\"turn\":1,\"v\":2},\"throws\":0,\"v\":1}",
+    "log": [
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 33.550530757009994,
+        "speed": 8.23185593037339,
+        "swivel": 0.005189297643552915,
+        "tilt": -1.4988010832439613e-14,
+        "tumble": 2.9872466432843265
+       },
+       "scripted": false,
+       "seq": 0,
+       "stance": {
+        "set": true,
+        "x": -2,
+        "y": 0
+       },
+       "swing": {
+        "back": 113.77378770744758,
+        "stop": 105.50530757009997
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -2,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": -2,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 31.70948603563019,
+        "speed": 9.190833278947508,
+        "swivel": 0.016356515243396055,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 2.811064706050215
+       },
+       "scripted": false,
+       "seq": 1,
+       "stance": {
+        "set": true,
+        "x": -2,
+        "y": 0
+       },
+       "swing": {
+        "back": 127.45700599102568,
+        "stop": 87.09486035630192
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -2,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": false,
+        "loft": 30.795898496428453,
+        "speed": 9.576260680554329,
+        "swivel": 0.006152928476810668,
+        "tilt": 31.108188061610036,
+        "tumble": 2.9965716587309914
+       },
+       "scripted": true,
+       "seq": 2,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 123.00047551406094,
+        "stop": 83.97949248214226
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 31.981133981550784,
+        "speed": 9.656304099182579,
+        "swivel": 0.017707831758408125,
+        "tilt": -9.865475193937751,
+        "tumble": 2.936573614866949
+       },
+       "scripted": true,
+       "seq": 3,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 123.67519144936233,
+        "stop": 89.90566990775392
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 31.995386114685964,
+        "speed": 9.048791693408244,
+        "swivel": -0.019916028956391746,
+        "tilt": -25.156771890369033,
+        "tumble": 3.159044059928441
+       },
+       "scripted": true,
+       "seq": 4,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 117.63717157426511,
+        "stop": 89.97693057342981
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 32.7568133575004,
+        "speed": 9.343989300090923,
+        "swivel": -0.03788269943488919,
+        "tilt": -23.278716295602468,
+        "tumble": 2.4842241295154013
+       },
+       "scripted": true,
+       "seq": 5,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 120.71374555541762,
+        "stop": 93.78406678750201
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 32.54353125020862,
+        "speed": 9.152164690009142,
+        "swivel": 0.0014469909064400571,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 2.847504208412213
+       },
+       "scripted": false,
+       "seq": 6,
+       "stance": {
+        "set": true,
+        "x": -2,
+        "y": 0
+       },
+       "swing": {
+        "back": 122.92020662537183,
+        "stop": 95.43531250208625
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -2,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 31.540526015311457,
+        "speed": 9.073973439630151,
+        "swivel": -0.020301636165304972,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 3.5300929522067306
+       },
+       "scripted": false,
+       "seq": 7,
+       "stance": {
+        "set": true,
+        "x": -1,
+        "y": 0
+       },
+       "swing": {
+        "back": 117.72588842397923,
+        "stop": 85.40526015311458
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -1,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": -1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 31.64456843696542,
+        "speed": 8.407505820276432,
+        "swivel": 0.030220431446706414,
+        "tilt": -1.4988010832439613e-14,
+        "tumble": 2.921079671134463
+       },
+       "scripted": false,
+       "seq": 8,
+       "stance": {
+        "set": true,
+        "x": -1,
+        "y": 0
+       },
+       "swing": {
+        "back": 127.6483265463103,
+        "stop": 86.44568436965426
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -1,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 32.45632121339449,
+        "speed": 9.593229665777272,
+        "swivel": 0.008546106823681995,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 3.387554631091476
+       },
+       "scripted": false,
+       "seq": 9,
+       "stance": {
+        "set": true,
+        "x": -1,
+        "y": 0
+       },
+       "swing": {
+        "back": 127.09702016448867,
+        "stop": 94.56321213394489
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -1,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 29.492902309447437,
+        "speed": 9.473161039239525,
+        "swivel": 0.011249526265406797,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 3.5717258639969427
+       },
+       "scripted": false,
+       "seq": 10,
+       "stance": {
+        "set": true,
+        "x": -1,
+        "y": 0
+       },
+       "swing": {
+        "back": 121.96097147873046,
+        "stop": 69.87870692834231
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -1,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": -1,
+        "sideV": 1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 35.529835513979485,
+        "speed": 9.361662452633558,
+        "swivel": -0.008235046445221956,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 3.170492781838902
+       },
+       "scripted": false,
+       "seq": 11,
+       "stance": {
+        "set": true,
+        "x": -1,
+        "y": 0
+       },
+       "swing": {
+        "back": 126.21724795772028,
+        "stop": 113.18950654193844
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -1,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 1,
+        "sideV": -1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "launch": {
+        "legal": true,
+        "loft": 46.84308585064821,
+        "noseDown": 45.15691414935179,
+        "rollLand": 0,
+        "speed": 6.161194887716249,
+        "spin": 25,
+        "swivel": 0.0028076955776705657,
+        "tilt": 0,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": true,
+       "seq": 12,
+       "stance": {
+        "set": false,
+        "x": -1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 91.10821462851723,
+        "stop": 134.21542925324104
+       },
+       "target": {
+        "set": false,
+        "x": -1.9,
+        "y": 4.75
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "type": "raise"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 22.944675330390417,
+        "speed": 7.283760869553201,
+        "swivel": 0.008099221558512452,
+        "tilt": 17.92300377553609,
+        "tumble": 4.249264498086802
+       },
+       "scripted": true,
+       "seq": 13,
+       "stance": {
+        "set": false,
+        "x": -1.6878877439578046,
+        "y": 0
+       },
+       "swing": {
+        "back": 102.48312334489064,
+        "stop": 64.7233766519521
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -1.6878877439578046,
+        "y": 4.421262927663911
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 31.634459899316997,
+        "speed": 9.392727422771072,
+        "swivel": -0.002906701491703516,
+        "tilt": 19.11859794463832,
+        "tumble": 2.9695382601345237
+       },
+       "scripted": true,
+       "seq": 14,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 120.82546530971302,
+        "stop": 88.172299496585
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 34.5627568688326,
+        "speed": 9.324833898346045,
+        "swivel": 0.00644293134887534,
+        "tilt": -12.820868408336182,
+        "tumble": 2.9342102571861894
+       },
+       "scripted": true,
+       "seq": 15,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 120.5548888911967,
+        "stop": 101.68827060649781
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 33.17580850923137,
+        "speed": 9.29731433600416,
+        "swivel": -0.018462036190220993,
+        "tilt": -12.445919009592311,
+        "tumble": 3.4028865511812145
+       },
+       "scripted": true,
+       "seq": 16,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 123.3747301465931,
+        "stop": 95.87904254615684
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 32.470088068453194,
+        "speed": 9.248040689296221,
+        "swivel": -0.012155029434427304,
+        "tilt": -2.850360485371538,
+        "tumble": 3.1445065348063186
+       },
+       "scripted": true,
+       "seq": 17,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 121.36079056643564,
+        "stop": 92.35044034226598
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 33.40066076479714,
+        "speed": 9.002712395581637,
+        "swivel": -0.012809238262804577,
+        "tilt": -19.618590195149732,
+        "tumble": 2.9553572820060015
+       },
+       "scripted": true,
+       "seq": 18,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 120.2899638953444,
+        "stop": 97.00330382398569
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 48.66883533895019,
+        "noseDown": 43.33116466104981,
+        "rollLand": 0,
+        "speed": 5.591546368045472,
+        "spin": 3,
+        "swivel": 0.003983781992500128,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": false,
+       "seq": 19,
+       "stance": {
+        "set": true,
+        "x": -1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 79.93929820220048,
+        "stop": 151.68835338950188
+       },
+       "target": {
+        "set": false,
+        "x": -1.8763860994391142,
+        "y": 4.771987213017419
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": -1,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 50.41805206537241,
+        "noseDown": 41.58194793462759,
+        "rollLand": 0,
+        "speed": 6.361321246979012,
+        "spin": 3,
+        "swivel": 0.005507902509429647,
+        "tilt": -1.4988010832439613e-14,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": false,
+       "seq": 20,
+       "stance": {
+        "set": true,
+        "x": -1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 96.48789735714796,
+        "stop": 157.8541561961172
+       },
+       "target": {
+        "set": false,
+        "x": -1.8771277641085906,
+        "y": 4.739479944673366
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 1,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 23.669246857985847,
+        "speed": 6.3469571661083615,
+        "swivel": -0.000849490369515378,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 3.8664884086539333
+       },
+       "scripted": false,
+       "seq": 21,
+       "stance": {
+        "set": true,
+        "x": -1.299923478936198,
+        "y": 0
+       },
+       "swing": {
+        "back": 97.45545294205886,
+        "stop": 76.69246857985843
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -1.299923478936198,
+        "y": 4.96957413010201
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": -1,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 21.60327730998394,
+        "speed": 7.455118954548718,
+        "swivel": 0.005709422134768618,
+        "tilt": 0,
+        "tumble": 4.440778758568905
+       },
+       "scripted": false,
+       "seq": 22,
+       "stance": {
+        "set": true,
+        "x": -1.299923478936198,
+        "y": 0
+       },
+       "swing": {
+        "back": 98.15170186455605,
+        "stop": 56.0327730998394
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -1.299923478936198,
+        "y": 4.96957413010201
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": -1,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 28.558294151723306,
+        "speed": 9.45899444023258,
+        "swivel": 0.005714069722595026,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 3.195925225179254
+       },
+       "scripted": false,
+       "seq": 23,
+       "stance": {
+        "set": true,
+        "x": -1,
+        "y": 0
+       },
+       "swing": {
+        "back": 122.31187834626434,
+        "stop": 67.07488245516993
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -1,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": -1,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 33.54762528203426,
+        "speed": 8.683438697353353,
+        "swivel": -0.016555251323256324,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 3.0269116611095512
+       },
+       "scripted": false,
+       "seq": 24,
+       "stance": {
+        "set": true,
+        "x": 0,
+        "y": 0
+       },
+       "swing": {
+        "back": 110.81522941252585,
+        "stop": 105.4762528203426
+       },
+       "target": {
+        "on": "b3",
+        "set": false,
+        "x": 0,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": -1,
+        "releaseV": 0,
+        "sideV": -1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 32.62942742817113,
+        "speed": 9.56859590065659,
+        "swivel": 0.003626405742669394,
+        "tilt": 0,
+        "tumble": 3.0238100332344477
+       },
+       "scripted": false,
+       "seq": 25,
+       "stance": {
+        "set": true,
+        "x": 0,
+        "y": 0
+       },
+       "swing": {
+        "back": 129.69337179733705,
+        "stop": 96.29427428171121
+       },
+       "target": {
+        "on": "b3",
+        "set": false,
+        "x": 0,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 1,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 31.610635416209657,
+        "speed": 9.014871287627628,
+        "swivel": -0.010043033004685904,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 2.4619640679486428
+       },
+       "scripted": false,
+       "seq": 26,
+       "stance": {
+        "set": true,
+        "x": 0,
+        "y": 0
+       },
+       "swing": {
+        "back": 116.62276952749504,
+        "stop": 86.10635416209658
+       },
+       "target": {
+        "on": "b3",
+        "set": false,
+        "x": 0,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": -1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "launch": {
+        "legal": true,
+        "loft": 47.07919982139394,
+        "noseDown": 44.92080017860606,
+        "rollLand": 0,
+        "speed": 6.245876470963939,
+        "spin": 25,
+        "swivel": 0.0038097099365018783,
+        "tilt": 0,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": true,
+       "seq": 27,
+       "stance": {
+        "set": false,
+        "x": -1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 92.28020722211123,
+        "stop": 135.39599910696973
+       },
+       "target": {
+        "set": false,
+        "x": -1.9,
+        "y": 4.75
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "launch": {
+        "legal": true,
+        "loft": 47.32933190452815,
+        "noseDown": 44.67066809547185,
+        "rollLand": 0,
+        "speed": 5.683021060589738,
+        "spin": 25,
+        "swivel": 0.0012119683350283739,
+        "tilt": 0,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": true,
+       "seq": 28,
+       "stance": {
+        "set": false,
+        "x": -2.06390696185787,
+        "y": 0
+       },
+       "swing": {
+        "back": 89.0090552969935,
+        "stop": 136.64665952264073
+       },
+       "target": {
+        "set": false,
+        "x": -2.06390696185787,
+        "y": 4.493794003093886
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "type": "raise"
+      }
+     },
+     {
+      "a": {
+       "type": "raise"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 21.56575100256344,
+        "speed": 6.741876947749951,
+        "swivel": -0.017082536769563658,
+        "tilt": -25.60205315347021,
+        "tumble": 4.7449422906256
+       },
+       "scripted": true,
+       "seq": 29,
+       "stance": {
+        "set": false,
+        "x": -2.198122633963217,
+        "y": 0
+       },
+       "swing": {
+        "back": 95.18539399168965,
+        "stop": 57.8287550128172
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -2.198122633963217,
+        "y": 4.130632354913585
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 22.07383548033913,
+        "speed": 7.085142873272688,
+        "swivel": -0.010731653727269171,
+        "tilt": -14.383749584289035,
+        "tumble": 4.526700997197435
+       },
+       "scripted": true,
+       "seq": 30,
+       "stance": {
+        "set": false,
+        "x": -2.198122633963217,
+        "y": 0
+       },
+       "swing": {
+        "back": 100.53093388309834,
+        "stop": 60.36917740169565
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": -2.198122633963217,
+        "y": 4.130632354913585
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 20.820584748152267,
+        "speed": 7.1378274761235305,
+        "swivel": 0.013079421024240725,
+        "tilt": 15.674991229386059,
+        "tumble": 5.198742834435025
+       },
+       "scripted": true,
+       "seq": 31,
+       "stance": {
+        "set": false,
+        "x": -2.093380971546258,
+        "y": 0
+       },
+       "swing": {
+        "back": 98.9670752045386,
+        "stop": 54.102923740761334
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -2.093380971546258,
+        "y": 4.711407398014851
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 22.727217951885272,
+        "speed": 6.726679076700645,
+        "swivel": 0.009132683694879592,
+        "tilt": 23.053381513546576,
+        "tumble": 4.092245846296933
+       },
+       "scripted": true,
+       "seq": 32,
+       "stance": {
+        "set": false,
+        "x": -2.093380971546258,
+        "y": 0
+       },
+       "swing": {
+        "back": 106.44205809233695,
+        "stop": 63.63608975942635
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -2.093380971546258,
+        "y": 4.711407398014851
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 22.09242259365659,
+        "speed": 7.71092188573955,
+        "swivel": 0.006075861165362903,
+        "tilt": 12.791232159464837,
+        "tumble": 4.418116404482463
+       },
+       "scripted": true,
+       "seq": 33,
+       "stance": {
+        "set": false,
+        "x": -2.093380971546258,
+        "y": 0
+       },
+       "swing": {
+        "back": 106.91252210983612,
+        "stop": 60.46211296828295
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": -2.093380971546258,
+        "y": 4.711407398014851
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 32.72086966999018,
+        "speed": 9.567125120583167,
+        "swivel": 0.01618299728784621,
+        "tilt": 5.726886026828443,
+        "tumble": 3.187416448395964
+       },
+       "scripted": true,
+       "seq": 34,
+       "stance": {
+        "set": false,
+        "x": 2,
+        "y": 0
+       },
+       "swing": {
+        "back": 122.99469176209604,
+        "stop": 93.60434834995087
+       },
+       "target": {
+        "on": "a3",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 44.55937536507836,
+        "noseDown": 47.44062463492164,
+        "rollLand": 0,
+        "speed": 6.439455527540607,
+        "spin": 3,
+        "swivel": 0.0030556735649748664,
+        "tilt": 7.570050243921153e-15,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": false,
+       "seq": 35,
+       "stance": {
+        "set": true,
+        "x": 1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 99.83813727426534,
+        "stop": 115.07812609523508
+       },
+       "target": {
+        "set": false,
+        "x": 1.9211940382281318,
+        "y": 4.7230374872684475
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 1,
+        "releaseV": -1,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 45.59089267961686,
+        "noseDown": 46.40910732038314,
+        "rollLand": 0,
+        "speed": 6.300798480034188,
+        "spin": 3,
+        "swivel": 0.006023132726213607,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": false,
+       "seq": 36,
+       "stance": {
+        "set": true,
+        "x": 2.0771113385755493,
+        "y": 0
+       },
+       "swing": {
+        "back": 96.2813739086596,
+        "stop": 120.9089267961685
+       },
+       "target": {
+        "set": false,
+        "x": 2.1032937514625414,
+        "y": 4.839862825581658
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 20.413568956032385,
+        "speed": 8.013101271232282,
+        "swivel": 0.00805349703935381,
+        "tilt": 1.5453770105585747e-14,
+        "tumble": 4.796902409107523
+       },
+       "scripted": false,
+       "seq": 37,
+       "stance": {
+        "set": true,
+        "x": 2.0651176941166534,
+        "y": 0
+       },
+       "swing": {
+        "back": 115.33078338943326,
+        "stop": 44.13568956032384
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": 2.0651176941166534,
+        "y": 4.844100715991591
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 1,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 23.35456498675046,
+        "speed": 7.1168713854088335,
+        "swivel": 0.005294130831632938,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 4.231235997418659
+       },
+       "scripted": false,
+       "seq": 38,
+       "stance": {
+        "set": true,
+        "x": 2.0651176941166534,
+        "y": 0
+       },
+       "swing": {
+        "back": 99.24921942308461,
+        "stop": 73.54564986750461
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": 2.0651176941166534,
+        "y": 4.844100715991591
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": -2,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 23.15155902914703,
+        "speed": 7.150360457528857,
+        "swivel": 0.003529955175803713,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 3.657093888034942
+       },
+       "scripted": false,
+       "seq": 39,
+       "stance": {
+        "set": true,
+        "x": 2.0651176941166534,
+        "y": 0
+       },
+       "swing": {
+        "back": 99.91035365864528,
+        "stop": 71.51559029147029
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": 2.0651176941166534,
+        "y": 4.844100715991591
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": -2,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 23.138501346111276,
+        "speed": 7.426092976729377,
+        "swivel": 0.0035342587196319575,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 4.826622437484378
+       },
+       "scripted": false,
+       "seq": 40,
+       "stance": {
+        "set": true,
+        "x": 2.0651176941166534,
+        "y": 0
+       },
+       "swing": {
+        "back": 99.27620663672602,
+        "stop": 71.38501346111275
+       },
+       "target": {
+        "on": "b1",
+        "set": false,
+        "x": 2.0651176941166534,
+        "y": 4.844100715991591
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 19.458180007338505,
+        "speed": 9.233054717093728,
+        "swivel": 0.011847115913387616,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 3.7234339926458526
+       },
+       "scripted": false,
+       "seq": 41,
+       "stance": {
+        "set": true,
+        "x": 1.474547800134042,
+        "y": 0
+       },
+       "swing": {
+        "back": 121.36548538424279,
+        "stop": 39.774540022015515
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 1.474547800134042,
+        "y": 6.216256743640218
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": -1,
+        "sideV": 1,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 21.06736029908057,
+        "speed": 8.988842592306604,
+        "swivel": 0.0016503323563112544,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 3.604294237330161
+       },
+       "scripted": false,
+       "seq": 42,
+       "stance": {
+        "set": true,
+        "x": 1.4523617899582588,
+        "y": 0
+       },
+       "swing": {
+        "back": 119.38665775022166,
+        "stop": 50.67360299080566
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 1.4523617899582588,
+        "y": 6.26488688901784
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "launch": {
+        "legal": true,
+        "loft": 47.05056097108445,
+        "noseDown": 44.94943902891555,
+        "rollLand": 0,
+        "speed": 6.181312523315412,
+        "spin": 25,
+        "swivel": -0.00066856238777459,
+        "tilt": 0,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": true,
+       "seq": 43,
+       "stance": {
+        "set": false,
+        "x": 1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 91.25878282846995,
+        "stop": 135.25280485542226
+       },
+       "target": {
+        "set": false,
+        "x": 1.9,
+        "y": 4.75
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "launch": {
+        "legal": true,
+        "loft": 46.86812984208332,
+        "noseDown": 45.13187015791668,
+        "rollLand": 0,
+        "speed": 5.728652630941839,
+        "spin": 25,
+        "swivel": 0.022691256029396426,
+        "tilt": 0,
+        "tumble": 0,
+        "wobble": 1.3128130125311634
+       },
+       "scripted": true,
+       "seq": 44,
+       "stance": {
+        "set": false,
+        "x": 2.115358667003093,
+        "y": 0
+       },
+       "swing": {
+        "back": 86.79451781647094,
+        "stop": 134.34064921041656
+       },
+       "target": {
+        "set": false,
+        "x": 2.115358667003093,
+        "y": 4.11695799517444
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "launch": {
+        "legal": true,
+        "loft": 46.462422535654454,
+        "noseDown": 45.537577464345546,
+        "rollLand": 0,
+        "speed": 5.61972151064631,
+        "spin": 25,
+        "swivel": 0.003154204896251493,
+        "tilt": 0,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": true,
+       "seq": 45,
+       "stance": {
+        "set": false,
+        "x": 2.115358667003093,
+        "y": 0
+       },
+       "swing": {
+        "back": 85.42961943411208,
+        "stop": 132.31211267827223
+       },
+       "target": {
+        "set": false,
+        "x": 2.115358667003093,
+        "y": 4.11695799517444
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "type": "raise"
+      }
+     },
+     {
+      "a": {
+       "type": "raise"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 23.687331863864117,
+        "speed": 6.9594331329699335,
+        "swivel": 0.012079566533091864,
+        "tilt": 18.102341876088026,
+        "tumble": 5.25788731007305
+       },
+       "scripted": true,
+       "seq": 46,
+       "stance": {
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 0
+       },
+       "swing": {
+        "back": 99.4457672216013,
+        "stop": 68.43665931932058
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 4.015972820058876
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 21.75055100849725,
+        "speed": 5.768253458291301,
+        "swivel": 0.01387929547921843,
+        "tilt": 23.506781743882954,
+        "tumble": 3.806582436655071
+       },
+       "scripted": true,
+       "seq": 47,
+       "stance": {
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 0
+       },
+       "swing": {
+        "back": 96.20647855982374,
+        "stop": 58.75275504248626
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 4.015972820058876
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 20.66367213622624,
+        "speed": 7.172273043346092,
+        "swivel": -0.003710512075800963,
+        "tilt": -10.033777909312073,
+        "tumble": 5.341466896523927
+       },
+       "scripted": true,
+       "seq": 48,
+       "stance": {
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 0
+       },
+       "swing": {
+        "back": 102.52815706410365,
+        "stop": 53.31836068113121
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 4.015972820058876
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 21.009536335587036,
+        "speed": 7.08792118332464,
+        "swivel": -0.00820657869659297,
+        "tilt": -12.076292395718667,
+        "tumble": 5.178724747872775
+       },
+       "scripted": true,
+       "seq": 49,
+       "stance": {
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 0
+       },
+       "swing": {
+        "back": 101.89867092537169,
+        "stop": 55.04768167793519
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 4.015972820058876
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 21.83663232629165,
+        "speed": 7.059452007891938,
+        "swivel": -0.004107732830490079,
+        "tilt": -9.4378347928895,
+        "tumble": 4.354298725594253
+       },
+       "scripted": true,
+       "seq": 50,
+       "stance": {
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 0
+       },
+       "swing": {
+        "back": 101.36710556868027,
+        "stop": 59.18316163145825
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 4.015972820058876
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "launch": {
+        "legal": true,
+        "loft": 21.83500617572134,
+        "speed": 6.601721466923162,
+        "swivel": 0.0030114002083318557,
+        "tilt": 3.7852372251686055,
+        "tumble": 5.077738622762111
+       },
+       "scripted": true,
+       "seq": 51,
+       "stance": {
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 0
+       },
+       "swing": {
+        "back": 93.868118684634,
+        "stop": 59.175030878606705
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.0576718705282047,
+        "y": 4.015972820058876
+       },
+       "type": "throw"
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 47.5949122998863,
+        "noseDown": 44.4050877001137,
+        "rollLand": 0,
+        "speed": 5.6327241785456295,
+        "spin": 3,
+        "swivel": 0.003046033285588166,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": false,
+       "seq": 52,
+       "stance": {
+        "set": true,
+        "x": 1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 94.55067520558711,
+        "stop": 140.94912299886298
+       },
+       "target": {
+        "set": false,
+        "x": 1.9226048040343449,
+        "y": 4.736004626206122
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "drill",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 46.96489715501668,
+        "noseDown": 45.03510284498332,
+        "rollLand": 0,
+        "speed": 6.518494492561142,
+        "spin": 3,
+        "swivel": -0.005088490072690004,
+        "tilt": 7.864100216255882e-15,
+        "tumble": 0,
+        "wobble": 0
+       },
+       "scripted": false,
+       "seq": 53,
+       "stance": {
+        "set": true,
+        "x": 1.9,
+        "y": 0
+       },
+       "swing": {
+        "back": 101.43363603912121,
+        "stop": 134.64897155016672
+       },
+       "target": {
+        "set": false,
+        "x": 1.8746598751191048,
+        "y": 4.7264910264778885
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 1,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 19.959999565780038,
+        "speed": 4.935378928534492,
+        "swivel": -0.0030747946393817394,
+        "tilt": 0,
+        "tumble": 7.097100423240845
+       },
+       "scripted": false,
+       "seq": 54,
+       "stance": {
+        "set": true,
+        "x": 2.257220310807354,
+        "y": 2.7956656041405834
+       },
+       "swing": {
+        "back": 84.98226310793801,
+        "stop": 41.27999869734012
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.257220310807354,
+        "y": 4.795665604140583
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 1,
+        "releaseV": -1,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 18.90134135708205,
+        "speed": 4.587820284622534,
+        "swivel": 0.0016621945715198012,
+        "tilt": 0,
+        "tumble": 6.069204525032386
+       },
+       "scripted": false,
+       "seq": 55,
+       "stance": {
+        "set": true,
+        "x": 2.257220310807354,
+        "y": 2.7956656041405834
+       },
+       "swing": {
+        "back": 80.61017672826083,
+        "stop": 38.104024071246144
+       },
+       "target": {
+        "on": "b2",
+        "set": false,
+        "x": 2.257220310807354,
+        "y": 4.795665604140583
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": -1,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 32.31129005253315,
+        "speed": 6.4455065840799755,
+        "swivel": -0.000034353675656080334,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 3.4536701006308412
+       },
+       "scripted": false,
+       "seq": 56,
+       "stance": {
+        "set": true,
+        "x": 0,
+        "y": 3.738895681706775
+       },
+       "swing": {
+        "back": 92.79032241569487,
+        "stop": 93.11290052533158
+       },
+       "target": {
+        "on": "b3",
+        "set": false,
+        "x": 0,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 33.06225586123765,
+        "speed": 5.805553459876203,
+        "swivel": -0.004546640600632974,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 3.728150791466411
+       },
+       "scripted": false,
+       "seq": 57,
+       "stance": {
+        "set": true,
+        "x": 1,
+        "y": 3.738895681706775
+       },
+       "swing": {
+        "back": 96.43547913448538,
+        "stop": 100.62255861237657
+       },
+       "target": {
+        "on": "b4",
+        "set": false,
+        "x": 1,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 30.85979798361662,
+        "speed": 6.386661196854397,
+        "swivel": -0.0007046383631211833,
+        "tilt": 7.494005416219807e-15,
+        "tumble": 4.118969324826947
+       },
+       "scripted": false,
+       "seq": 58,
+       "stance": {
+        "set": true,
+        "x": 2,
+        "y": 3.738895681706775
+       },
+       "swing": {
+        "back": 91.02414441311369,
+        "stop": 78.5979798361662
+       },
+       "target": {
+        "on": "b5",
+        "set": false,
+        "x": 2,
+        "y": 8
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     },
+     {
+      "a": {
+       "how": "baton",
+       "input": "pointer",
+       "launch": {
+        "legal": true,
+        "loft": 25.567051731795083,
+        "speed": 6.776228681940946,
+        "swivel": -0.0005218602944508506,
+        "tilt": 1.4988010832439613e-14,
+        "tumble": 5.168154482339132
+       },
+       "scripted": false,
+       "seq": 59,
+       "stance": {
+        "set": true,
+        "x": 0,
+        "y": 0
+       },
+       "swing": {
+        "back": 101.6965707341644,
+        "stop": 60.67051731795084
+       },
+       "target": {
+        "on": "king",
+        "set": false,
+        "x": 0,
+        "y": 4
+       },
+       "type": "throw",
+       "verdicts": {
+        "powerV": 0,
+        "releaseV": 0,
+        "sideV": 0,
+        "steady": true
+       }
+      }
+     }
+    ],
+    "end": {
+     "winner": "A",
+     "throws": 60
+    }
+   },
+   "bytes": 30204
+  }
+ ],
+ "names": [
+  {
+   "name": "Ann",
+   "problem": null
+  },
+  {
+   "name": "Riverside",
+   "problem": null
+  },
+  {
+   "name": "aaaaaaaaaaaaaaaa",
+   "problem": null
+  },
+  {
+   "name": "Ünïcödé 🪵",
+   "problem": null
+  },
+  {
+   "name": "",
+   "problem": "empty"
+  },
+  {
+   "name": "   ",
+   "problem": "empty"
+  },
+  {
+   "name": " Ann",
+   "problem": "spaces"
+  },
+  {
+   "name": "Ann ",
+   "problem": "spaces"
+  },
+  {
+   "name": "You",
+   "problem": "you"
+  },
+  {
+   "name": "YOU",
+   "problem": "you"
+  },
+  {
+   "name": "yOu",
+   "problem": "you"
+  },
+  {
+   "name": " you",
+   "problem": "spaces"
+  },
+  {
+   "name": "aaaaaaaaaaaaaaaaa",
+   "problem": "long"
+  },
+  {
+   "name": "🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵",
+   "problem": null
+  },
+  {
+   "name": "🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵",
+   "problem": "long"
+  },
+  {
+   "name": "éééééééé",
+   "problem": null
+  },
+  {
+   "name": "ééééééééé",
+   "problem": "long"
+  },
+  {
+   "name": "\tAnn",
+   "problem": "spaces"
+  },
+  {
+   "name": "Ann\n",
+   "problem": "spaces"
+  },
+  {
+   "name": "Y o u",
+   "problem": null
+  },
+  {
+   "name": "Yous",
+   "problem": null
+  }
+ ],
+ "fromMatch": [
+  {
+   "start": "{\"mem\":{\"drill\":false,\"markerOnId\":\"b3\",\"markerSet\":false,\"markerX\":0.0,\"markerY\":8.0,\"playerX\":0.0,\"playerY\":0.0,\"stanceSet\":false},\"opts\":{\"cpu\":[\"B\"],\"first\":\"A\",\"maxTurns\":40,\"opening\":\"2-4-6\",\"raising\":\"hand\",\"seed\":2,\"set\":\"classic\",\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"surface\":\"grass\",\"teams\":{\"A\":{\"name\":\"Riverside\",\"players\":[{\"level\":\"club\",\"name\":\"Riverside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"level\":\"club\",\"name\":\"Computer\"}]}},\"wind\":\"off\"},\"save\":{\"currentIndex\":1,\"debris\":{\"exact\":[],\"kind\":\"baton\",\"list\":[],\"turn\":1},\"game\":{\"attacker\":\"A\",\"batonIndex\":0,\"batonsLeft\":2,\"batonsTotal\":2,\"defender\":\"B\",\"first\":\"A\",\"firstQueue\":[],\"firstThrows\":0,\"hand\":{\"A\":[],\"B\":[]},\"ids\":[\"a1\",\"a2\",\"a3\",\"a4\",\"a5\",\"b1\",\"b2\",\"b3\",\"b4\",\"b5\"],\"king\":{\"id\":\"king\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":4}},\"kubbs\":{\"a1\":{\"established\":false,\"half\":\"A\",\"id\":\"a1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a2\":{\"established\":false,\"half\":\"A\",\"id\":\"a2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a3\":{\"established\":false,\"half\":\"A\",\"id\":\"a3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a4\":{\"established\":false,\"half\":\"A\",\"id\":\"a4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a5\":{\"established\":false,\"half\":\"A\",\"id\":\"a5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"b1\":{\"established\":false,\"half\":\"B\",\"id\":\"b1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b2\":{\"established\":false,\"half\":\"B\",\"id\":\"b2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b3\":{\"established\":false,\"half\":\"B\",\"id\":\"b3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b4\":{\"established\":false,\"half\":\"B\",\"id\":\"b4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b5\":{\"established\":false,\"half\":\"B\",\"id\":\"b5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"}},\"opening\":\"2-4-6\",\"phase\":\"batons\",\"punishQueue\":[],\"raisePolicy\":\"apart\",\"rethrowQueue\":[],\"roundThrows\":0,\"sheet\":{\"turns\":[{\"batons\":[],\"inkast\":[],\"inkastOrder\":[],\"n\":1,\"notes\":[],\"side\":\"A\"}]},\"surface\":\"Grass\",\"teams\":{\"A\":{\"name\":\"Riverside\",\"players\":[{\"id\":\"riverside\",\"name\":\"Riverside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"id\":\"computer\",\"name\":\"Computer\"}]}},\"tossSeq\":0,\"turn\":1},\"lineup\":{\"A\":[{\"id\":\"riverside\",\"level\":\"club\"}],\"B\":[{\"id\":\"computer\",\"level\":\"club\"}]},\"mode\":\"Vs Computer\",\"opts\":[],\"order\":{\"A\":{\"ids\":[\"riverside\"],\"start\":1},\"B\":{\"ids\":[\"computer\"],\"start\":1},\"batons\":2,\"deal\":[\"riverside\",\"riverside\"],\"inkaster\":\"riverside\",\"side\":\"A\",\"turn\":1},\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"tossed\":0,\"turn\":1,\"v\":2},\"throws\":0,\"v\":1}",
+   "name": "Riverside"
+  },
+  {
+   "start": "{\"mem\":{\"drill\":false,\"markerOnId\":\"b3\",\"markerSet\":false,\"markerX\":0,\"markerY\":8,\"playerX\":0,\"playerY\":0,\"stanceSet\":false},\"opts\":{\"cpu\":[\"B\"],\"first\":\"A\",\"maxTurns\":40,\"opening\":\"2-4-6\",\"raising\":\"hand\",\"seed\":2,\"set\":\"classic\",\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"surface\":\"grass\",\"teams\":{\"A\":{\"name\":\"You\",\"players\":[{\"level\":\"club\",\"name\":\"Riverside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"level\":\"club\",\"name\":\"Computer\"}]}},\"wind\":\"off\"},\"save\":{\"currentIndex\":1,\"debris\":{\"exact\":[],\"kind\":\"baton\",\"list\":[],\"turn\":1},\"game\":{\"attacker\":\"A\",\"batonIndex\":0,\"batonsLeft\":2,\"batonsTotal\":2,\"defender\":\"B\",\"first\":\"A\",\"firstQueue\":[],\"firstThrows\":0,\"hand\":{\"A\":[],\"B\":[]},\"ids\":[\"a1\",\"a2\",\"a3\",\"a4\",\"a5\",\"b1\",\"b2\",\"b3\",\"b4\",\"b5\"],\"king\":{\"id\":\"king\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":4}},\"kubbs\":{\"a1\":{\"established\":false,\"half\":\"A\",\"id\":\"a1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a2\":{\"established\":false,\"half\":\"A\",\"id\":\"a2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a3\":{\"established\":false,\"half\":\"A\",\"id\":\"a3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a4\":{\"established\":false,\"half\":\"A\",\"id\":\"a4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a5\":{\"established\":false,\"half\":\"A\",\"id\":\"a5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"b1\":{\"established\":false,\"half\":\"B\",\"id\":\"b1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b2\":{\"established\":false,\"half\":\"B\",\"id\":\"b2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b3\":{\"established\":false,\"half\":\"B\",\"id\":\"b3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b4\":{\"established\":false,\"half\":\"B\",\"id\":\"b4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b5\":{\"established\":false,\"half\":\"B\",\"id\":\"b5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"}},\"opening\":\"2-4-6\",\"phase\":\"batons\",\"punishQueue\":[],\"raisePolicy\":\"apart\",\"rethrowQueue\":[],\"roundThrows\":0,\"sheet\":{\"turns\":[{\"batons\":[],\"inkast\":[],\"inkastOrder\":[],\"n\":1,\"notes\":[],\"side\":\"A\"}]},\"surface\":\"Grass\",\"teams\":{\"A\":{\"name\":\"Riverside\",\"players\":[{\"id\":\"riverside\",\"name\":\"Riverside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"id\":\"computer\",\"name\":\"Computer\"}]}},\"tossSeq\":0,\"turn\":1},\"lineup\":{\"A\":[{\"id\":\"riverside\",\"level\":\"club\"}],\"B\":[{\"id\":\"computer\",\"level\":\"club\"}]},\"mode\":\"Vs Computer\",\"opts\":[],\"order\":{\"A\":{\"ids\":[\"riverside\"],\"start\":1},\"B\":{\"ids\":[\"computer\"],\"start\":1},\"batons\":2,\"deal\":[\"riverside\",\"riverside\"],\"inkaster\":\"riverside\",\"side\":\"A\",\"turn\":1},\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"tossed\":0,\"turn\":1,\"v\":2},\"throws\":0,\"v\":1}",
+   "name": ""
+  },
+  {
+   "start": "{\"mem\":{\"drill\":false,\"markerOnId\":\"b3\",\"markerSet\":false,\"markerX\":0,\"markerY\":8,\"playerX\":0,\"playerY\":0,\"stanceSet\":false},\"opts\":{\"cpu\":[\"B\"],\"first\":\"A\",\"maxTurns\":40,\"opening\":\"2-4-6\",\"raising\":\"hand\",\"seed\":2,\"set\":\"classic\",\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"surface\":\"grass\",\"teams\":{\"A\":{\"name\":\"you\",\"players\":[{\"level\":\"club\",\"name\":\"Riverside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"level\":\"club\",\"name\":\"Computer\"}]}},\"wind\":\"off\"},\"save\":{\"currentIndex\":1,\"debris\":{\"exact\":[],\"kind\":\"baton\",\"list\":[],\"turn\":1},\"game\":{\"attacker\":\"A\",\"batonIndex\":0,\"batonsLeft\":2,\"batonsTotal\":2,\"defender\":\"B\",\"first\":\"A\",\"firstQueue\":[],\"firstThrows\":0,\"hand\":{\"A\":[],\"B\":[]},\"ids\":[\"a1\",\"a2\",\"a3\",\"a4\",\"a5\",\"b1\",\"b2\",\"b3\",\"b4\",\"b5\"],\"king\":{\"id\":\"king\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":4}},\"kubbs\":{\"a1\":{\"established\":false,\"half\":\"A\",\"id\":\"a1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a2\":{\"established\":false,\"half\":\"A\",\"id\":\"a2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a3\":{\"established\":false,\"half\":\"A\",\"id\":\"a3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a4\":{\"established\":false,\"half\":\"A\",\"id\":\"a4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a5\":{\"established\":false,\"half\":\"A\",\"id\":\"a5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"b1\":{\"established\":false,\"half\":\"B\",\"id\":\"b1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b2\":{\"established\":false,\"half\":\"B\",\"id\":\"b2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b3\":{\"established\":false,\"half\":\"B\",\"id\":\"b3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b4\":{\"established\":false,\"half\":\"B\",\"id\":\"b4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b5\":{\"established\":false,\"half\":\"B\",\"id\":\"b5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"}},\"opening\":\"2-4-6\",\"phase\":\"batons\",\"punishQueue\":[],\"raisePolicy\":\"apart\",\"rethrowQueue\":[],\"roundThrows\":0,\"sheet\":{\"turns\":[{\"batons\":[],\"inkast\":[],\"inkastOrder\":[],\"n\":1,\"notes\":[],\"side\":\"A\"}]},\"surface\":\"Grass\",\"teams\":{\"A\":{\"name\":\"Riverside\",\"players\":[{\"id\":\"riverside\",\"name\":\"Riverside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"id\":\"computer\",\"name\":\"Computer\"}]}},\"tossSeq\":0,\"turn\":1},\"lineup\":{\"A\":[{\"id\":\"riverside\",\"level\":\"club\"}],\"B\":[{\"id\":\"computer\",\"level\":\"club\"}]},\"mode\":\"Vs Computer\",\"opts\":[],\"order\":{\"A\":{\"ids\":[\"riverside\"],\"start\":1},\"B\":{\"ids\":[\"computer\"],\"start\":1},\"batons\":2,\"deal\":[\"riverside\",\"riverside\"],\"inkaster\":\"riverside\",\"side\":\"A\",\"turn\":1},\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"tossed\":0,\"turn\":1,\"v\":2},\"throws\":0,\"v\":1}",
+   "name": ""
+  },
+  {
+   "start": "{\"mem\":{\"drill\":false,\"markerOnId\":\"b3\",\"markerSet\":false,\"markerX\":0,\"markerY\":8,\"playerX\":0,\"playerY\":0,\"stanceSet\":false},\"opts\":{\"cpu\":[\"B\"],\"first\":\"A\",\"maxTurns\":40,\"opening\":\"2-4-6\",\"raising\":\"hand\",\"seed\":2,\"set\":\"classic\",\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"surface\":\"grass\",\"teams\":{\"A\":{\"name\":\" Pine \",\"players\":[{\"level\":\"club\",\"name\":\"Riverside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"level\":\"club\",\"name\":\"Computer\"}]}},\"wind\":\"off\"},\"save\":{\"currentIndex\":1,\"debris\":{\"exact\":[],\"kind\":\"baton\",\"list\":[],\"turn\":1},\"game\":{\"attacker\":\"A\",\"batonIndex\":0,\"batonsLeft\":2,\"batonsTotal\":2,\"defender\":\"B\",\"first\":\"A\",\"firstQueue\":[],\"firstThrows\":0,\"hand\":{\"A\":[],\"B\":[]},\"ids\":[\"a1\",\"a2\",\"a3\",\"a4\",\"a5\",\"b1\",\"b2\",\"b3\",\"b4\",\"b5\"],\"king\":{\"id\":\"king\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":4}},\"kubbs\":{\"a1\":{\"established\":false,\"half\":\"A\",\"id\":\"a1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a2\":{\"established\":false,\"half\":\"A\",\"id\":\"a2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a3\":{\"established\":false,\"half\":\"A\",\"id\":\"a3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a4\":{\"established\":false,\"half\":\"A\",\"id\":\"a4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a5\":{\"established\":false,\"half\":\"A\",\"id\":\"a5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"b1\":{\"established\":false,\"half\":\"B\",\"id\":\"b1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b2\":{\"established\":false,\"half\":\"B\",\"id\":\"b2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b3\":{\"established\":false,\"half\":\"B\",\"id\":\"b3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b4\":{\"established\":false,\"half\":\"B\",\"id\":\"b4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b5\":{\"established\":false,\"half\":\"B\",\"id\":\"b5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"}},\"opening\":\"2-4-6\",\"phase\":\"batons\",\"punishQueue\":[],\"raisePolicy\":\"apart\",\"rethrowQueue\":[],\"roundThrows\":0,\"sheet\":{\"turns\":[{\"batons\":[],\"inkast\":[],\"inkastOrder\":[],\"n\":1,\"notes\":[],\"side\":\"A\"}]},\"surface\":\"Grass\",\"teams\":{\"A\":{\"name\":\"Riverside\",\"players\":[{\"id\":\"riverside\",\"name\":\"Riverside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"id\":\"computer\",\"name\":\"Computer\"}]}},\"tossSeq\":0,\"turn\":1},\"lineup\":{\"A\":[{\"id\":\"riverside\",\"level\":\"club\"}],\"B\":[{\"id\":\"computer\",\"level\":\"club\"}]},\"mode\":\"Vs Computer\",\"opts\":[],\"order\":{\"A\":{\"ids\":[\"riverside\"],\"start\":1},\"B\":{\"ids\":[\"computer\"],\"start\":1},\"batons\":2,\"deal\":[\"riverside\",\"riverside\"],\"inkaster\":\"riverside\",\"side\":\"A\",\"turn\":1},\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"tossed\":0,\"turn\":1,\"v\":2},\"throws\":0,\"v\":1}",
+   "name": "Pine"
+  },
+  {
+   "start": "{\"mem\":{\"drill\":false,\"markerOnId\":\"b3\",\"markerSet\":false,\"markerX\":0,\"markerY\":8,\"playerX\":0,\"playerY\":0,\"stanceSet\":false},\"opts\":{\"cpu\":[\"B\"],\"first\":\"A\",\"maxTurns\":40,\"opening\":\"2-4-6\",\"raising\":\"hand\",\"seed\":2,\"set\":\"classic\",\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"surface\":\"grass\",\"teams\":{\"A\":{\"name\":\"\",\"players\":[{\"level\":\"club\",\"name\":\"Riverside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"level\":\"club\",\"name\":\"Computer\"}]}},\"wind\":\"off\"},\"save\":{\"currentIndex\":1,\"debris\":{\"exact\":[],\"kind\":\"baton\",\"list\":[],\"turn\":1},\"game\":{\"attacker\":\"A\",\"batonIndex\":0,\"batonsLeft\":2,\"batonsTotal\":2,\"defender\":\"B\",\"first\":\"A\",\"firstQueue\":[],\"firstThrows\":0,\"hand\":{\"A\":[],\"B\":[]},\"ids\":[\"a1\",\"a2\",\"a3\",\"a4\",\"a5\",\"b1\",\"b2\",\"b3\",\"b4\",\"b5\"],\"king\":{\"id\":\"king\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":4}},\"kubbs\":{\"a1\":{\"established\":false,\"half\":\"A\",\"id\":\"a1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a2\":{\"established\":false,\"half\":\"A\",\"id\":\"a2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a3\":{\"established\":false,\"half\":\"A\",\"id\":\"a3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a4\":{\"established\":false,\"half\":\"A\",\"id\":\"a4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a5\":{\"established\":false,\"half\":\"A\",\"id\":\"a5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"b1\":{\"established\":false,\"half\":\"B\",\"id\":\"b1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b2\":{\"established\":false,\"half\":\"B\",\"id\":\"b2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b3\":{\"established\":false,\"half\":\"B\",\"id\":\"b3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b4\":{\"established\":false,\"half\":\"B\",\"id\":\"b4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b5\":{\"established\":false,\"half\":\"B\",\"id\":\"b5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"}},\"opening\":\"2-4-6\",\"phase\":\"batons\",\"punishQueue\":[],\"raisePolicy\":\"apart\",\"rethrowQueue\":[],\"roundThrows\":0,\"sheet\":{\"turns\":[{\"batons\":[],\"inkast\":[],\"inkastOrder\":[],\"n\":1,\"notes\":[],\"side\":\"A\"}]},\"surface\":\"Grass\",\"teams\":{\"A\":{\"name\":\"Riverside\",\"players\":[{\"id\":\"riverside\",\"name\":\"Riverside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"id\":\"computer\",\"name\":\"Computer\"}]}},\"tossSeq\":0,\"turn\":1},\"lineup\":{\"A\":[{\"id\":\"riverside\",\"level\":\"club\"}],\"B\":[{\"id\":\"computer\",\"level\":\"club\"}]},\"mode\":\"Vs Computer\",\"opts\":[],\"order\":{\"A\":{\"ids\":[\"riverside\"],\"start\":1},\"B\":{\"ids\":[\"computer\"],\"start\":1},\"batons\":2,\"deal\":[\"riverside\",\"riverside\"],\"inkaster\":\"riverside\",\"side\":\"A\",\"turn\":1},\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"tossed\":0,\"turn\":1,\"v\":2},\"throws\":0,\"v\":1}",
+   "name": ""
+  },
+  {
+   "start": "{\"mem\":{\"drill\":false,\"markerOnId\":\"b3\",\"markerSet\":false,\"markerX\":0,\"markerY\":8,\"playerX\":0,\"playerY\":0,\"stanceSet\":false},\"opts\":{\"cpu\":[\"B\"],\"first\":\"A\",\"maxTurns\":40,\"opening\":\"2-4-6\",\"raising\":\"hand\",\"seed\":2,\"set\":\"classic\",\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"surface\":\"grass\",\"teams\":{\"A\":{\"name\":\"aaaaaaaaaaaaaaaaaaaa\",\"players\":[{\"level\":\"club\",\"name\":\"Riverside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"level\":\"club\",\"name\":\"Computer\"}]}},\"wind\":\"off\"},\"save\":{\"currentIndex\":1,\"debris\":{\"exact\":[],\"kind\":\"baton\",\"list\":[],\"turn\":1},\"game\":{\"attacker\":\"A\",\"batonIndex\":0,\"batonsLeft\":2,\"batonsTotal\":2,\"defender\":\"B\",\"first\":\"A\",\"firstQueue\":[],\"firstThrows\":0,\"hand\":{\"A\":[],\"B\":[]},\"ids\":[\"a1\",\"a2\",\"a3\",\"a4\",\"a5\",\"b1\",\"b2\",\"b3\",\"b4\",\"b5\"],\"king\":{\"id\":\"king\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":4}},\"kubbs\":{\"a1\":{\"established\":false,\"half\":\"A\",\"id\":\"a1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a2\":{\"established\":false,\"half\":\"A\",\"id\":\"a2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a3\":{\"established\":false,\"half\":\"A\",\"id\":\"a3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a4\":{\"established\":false,\"half\":\"A\",\"id\":\"a4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"a5\":{\"established\":false,\"half\":\"A\",\"id\":\"a5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":0},\"thrown\":0,\"where\":\"pitch\"},\"b1\":{\"established\":false,\"half\":\"B\",\"id\":\"b1\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b2\":{\"established\":false,\"half\":\"B\",\"id\":\"b2\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":-1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b3\":{\"established\":false,\"half\":\"B\",\"id\":\"b3\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":0,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b4\":{\"established\":false,\"half\":\"B\",\"id\":\"b4\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":1,\"y\":8},\"thrown\":0,\"where\":\"pitch\"},\"b5\":{\"established\":false,\"half\":\"B\",\"id\":\"b5\",\"kind\":\"base\",\"pose\":{\"angle\":0,\"standing\":true,\"x\":2,\"y\":8},\"thrown\":0,\"where\":\"pitch\"}},\"opening\":\"2-4-6\",\"phase\":\"batons\",\"punishQueue\":[],\"raisePolicy\":\"apart\",\"rethrowQueue\":[],\"roundThrows\":0,\"sheet\":{\"turns\":[{\"batons\":[],\"inkast\":[],\"inkastOrder\":[],\"n\":1,\"notes\":[],\"side\":\"A\"}]},\"surface\":\"Grass\",\"teams\":{\"A\":{\"name\":\"Riverside\",\"players\":[{\"id\":\"riverside\",\"name\":\"Riverside\"}]},\"B\":{\"name\":\"Computer\",\"players\":[{\"id\":\"computer\",\"name\":\"Computer\"}]}},\"tossSeq\":0,\"turn\":1},\"lineup\":{\"A\":[{\"id\":\"riverside\",\"level\":\"club\"}],\"B\":[{\"id\":\"computer\",\"level\":\"club\"}]},\"mode\":\"Vs Computer\",\"opts\":[],\"order\":{\"A\":{\"ids\":[\"riverside\"],\"start\":1},\"B\":{\"ids\":[\"computer\"],\"start\":1},\"batons\":2,\"deal\":[\"riverside\",\"riverside\"],\"inkaster\":\"riverside\",\"side\":\"A\",\"turn\":1},\"start\":{\"day\":19,\"hour\":12,\"min\":0,\"month\":11,\"year\":2026},\"tossed\":0,\"turn\":1,\"v\":2},\"throws\":0,\"v\":1}",
+   "name": ""
+  },
+  {
+   "start": "not json",
+   "name": ""
+  }
+ ],
+ "clips": [
+  {
+   "text": "🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵",
+   "clipped": "🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵🪵"
+  },
+  {
+   "text": "abcdefghijklmnopqrs",
+   "clipped": "abcdefghijklmnop"
+  },
+  {
+   "text": "Ann",
+   "clipped": "Ann"
+  },
+  {
+   "text": "éééééééééé",
+   "clipped": "éééééééé"
+  }
+ ],
+ "walks": [
+  {
+   "events": [
+    {
+     "type": "send"
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "answer",
+     "answer": {
+      "t": "shared",
+      "code": "abcdefgh23",
+      "v": 1
+     }
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "shared",
+     "line": "",
+     "text": "",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": "abcdefgh23"
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "answer",
+     "answer": {
+      "t": "shared",
+      "code": null,
+      "v": 0,
+      "why": "engine"
+     }
+    },
+    {
+     "type": "open"
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "This match was played on another version of the game, so it cannot be shared.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "This match was played on another version of the game, so it cannot be shared.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "answer",
+     "answer": {
+      "t": "shared",
+      "code": null,
+      "v": 0,
+      "why": "does-not-replay"
+     }
+    },
+    {
+     "type": "open"
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "This match did not pass the check, so it cannot be shared.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "This match did not pass the check, so it cannot be shared.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "answer",
+     "answer": {
+      "t": "shared",
+      "code": null,
+      "v": 0,
+      "why": "busy"
+     }
+    },
+    {
+     "type": "open"
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "Sharing is busy right now. Try again later.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "idle",
+     "line": "",
+     "text": "",
+     "bar": false,
+     "retry": false,
+     "form": true,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "answer",
+     "answer": {
+      "t": "shared",
+      "code": null,
+      "v": 0,
+      "why": "too-long"
+     }
+    },
+    {
+     "type": "open"
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "This match is too long to share.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "This match is too long to share.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "answer",
+     "answer": {
+      "t": "shared",
+      "code": null,
+      "v": 0,
+      "why": "unavailable"
+     }
+    },
+    {
+     "type": "open"
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "Matches cannot be shared right now.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "idle",
+     "line": "",
+     "text": "",
+     "bar": false,
+     "retry": false,
+     "form": true,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "answer",
+     "answer": {
+      "t": "shared",
+      "code": null,
+      "v": 0,
+      "why": "something-new"
+     }
+    },
+    {
+     "type": "open"
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "Matches cannot be shared right now.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "idle",
+     "line": "",
+     "text": "",
+     "bar": false,
+     "retry": false,
+     "form": true,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "answer",
+     "answer": {
+      "t": "shared",
+      "code": null,
+      "v": 0
+     }
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "Matches cannot be shared right now.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "error",
+     "code": "too-many"
+    },
+    {
+     "type": "open"
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "Too many matches shared at once. Try again later.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "idle",
+     "line": "",
+     "text": "",
+     "bar": false,
+     "retry": false,
+     "form": true,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "error",
+     "code": "too-big"
+    },
+    {
+     "type": "open"
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "This match is too long to share.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "This match is too long to share.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "error",
+     "code": "bad-message"
+    },
+    {
+     "type": "open"
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "This match did not pass the check, so it cannot be shared.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "This match did not pass the check, so it cannot be shared.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "error",
+     "code": "failed"
+    },
+    {
+     "type": "send"
+    },
+    {
+     "type": "error",
+     "code": "failed"
+    },
+    {
+     "type": "send"
+    },
+    {
+     "type": "open"
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "error",
+     "line": "",
+     "text": "This match could not be shared.",
+     "bar": false,
+     "retry": true,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "failed",
+     "line": "",
+     "text": "This match could not be shared. Not this time.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "failed",
+     "line": "",
+     "text": "This match could not be shared. Not this time.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "failed",
+     "line": "",
+     "text": "This match could not be shared. Not this time.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "error",
+     "code": "failed"
+    },
+    {
+     "type": "send"
+    },
+    {
+     "type": "answer",
+     "answer": {
+      "t": "shared",
+      "code": "abcdefgh23",
+      "v": 1
+     }
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "error",
+     "line": "",
+     "text": "This match could not be shared.",
+     "bar": false,
+     "retry": true,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "shared",
+     "line": "",
+     "text": "",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": "abcdefgh23"
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "error",
+     "code": "timeout"
+    },
+    {
+     "type": "send"
+    },
+    {
+     "type": "error",
+     "code": "closed"
+    },
+    {
+     "type": "send"
+    },
+    {
+     "type": "error",
+     "code": "unavailable"
+    },
+    {
+     "type": "send"
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "error",
+     "line": "",
+     "text": "No connection.",
+     "bar": false,
+     "retry": true,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "error",
+     "line": "",
+     "text": "No connection.",
+     "bar": false,
+     "retry": true,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "error",
+     "line": "",
+     "text": "No connection.",
+     "bar": false,
+     "retry": true,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "error",
+     "code": "odd-code"
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "error",
+     "line": "",
+     "text": "This match could not be shared.",
+     "bar": false,
+     "retry": true,
+     "form": false,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "refuse",
+     "why": "too-long"
+    },
+    {
+     "type": "open"
+    },
+    {
+     "type": "send"
+    }
+   ],
+   "views": [
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "This match is too long to share.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "This match is too long to share.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "This match is too long to share.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    }
+   ]
+  },
+  {
+   "events": [
+    {
+     "type": "send"
+    },
+    {
+     "type": "send"
+    },
+    {
+     "type": "open"
+    },
+    {
+     "type": "refuse",
+     "why": "busy"
+    }
+   ],
+   "views": [
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "sending",
+     "line": "CHECKING THE MATCH",
+     "text": "This takes a few seconds.",
+     "bar": true,
+     "retry": false,
+     "form": false,
+     "code": null
+    },
+    {
+     "phase": "refused",
+     "line": "",
+     "text": "Sharing is busy right now. Try again later.",
+     "bar": false,
+     "retry": false,
+     "form": false,
+     "code": null
+    }
+   ]
+  }
+ ],
+ "asciiCheck": 30204
+}
