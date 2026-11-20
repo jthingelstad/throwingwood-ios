@@ -234,19 +234,21 @@ struct MatchScreen: View {
   }
 
   /// A phone on its side (WideLayout, the web's wide screen): the rail top
-  /// left, SHOUT and MENU top right, the captions between them, the plan in one
+  /// left, SHOUT and MENU top right (moved in beside a linear meter at that
+  /// edge), the captions between them, the plan in one
   /// block at the screen's edge away from the clock (WideLayout.plan), the
   /// panels and SKIP in the clock's corner.
   private func wide(_ n: MatchNeed) -> some View {
     let size = screen.size, safe = screen.safe
     let side = model.meter.side
-    let railBox = WideLayout.rail(size: size, safe: safe)
-    let menuBox = WideLayout.menu(size: size, safe: safe)
-    let tray: CGFloat = model.online == nil ? 0 : 96
-    let captionBox = WideLayout.caption(size: size, safe: safe, trayWidth: tray)
     let meter = model.meter.layout(
       bounds: CGRect(origin: .zero, size: size),
       safe: UIEdgeInsets(top: safe.top, left: safe.left, bottom: safe.bottom, right: safe.right))
+    // the linear meter takes its edge's whole height: the rail or MENU moves in beside it
+    let railBox = WideLayout.rail(size: size, safe: safe, meter: meter)
+    let menuBox = WideLayout.menu(size: size, safe: safe, meter: meter)
+    let tray: CGFloat = model.online == nil ? 0 : 96
+    let captionBox = WideLayout.caption(size: size, safe: safe, trayWidth: tray, meter: meter)
     let plan = WideLayout.plan(meter: meter, size: size, safe: safe, side: side)
     // the held slider's caption grows from the block's side toward the middle
     let from: Alignment = (plan.edge ?? (side == .right ? .left : .right)) == .left ? .topLeading : .topTrailing

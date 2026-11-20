@@ -30,24 +30,119 @@ import Testing
     }
   }
 
-  @Test func noPhoneOnItsSideHasTheLinearMetersRoomSoItShowsTheClock() {
-    for p in Self.phones {
+  /// Every iPhone iOS 26 supports, on its side: the points and Apple's safe
+  /// area in landscape (the sensor housing's inset on both sides, the home
+  /// indicator's 21 at the bottom; the SE has none). The review phones above
+  /// are the simulator's own; these are the rest, for the meter's room.
+  static let iPhones: [(name: String, size: CGSize, safe: ScreenInsets)] = [
+    ("iPhone SE (2nd, 3rd)", CGSize(width: 667, height: 375), ScreenInsets()),
+    ("iPhone 12 mini, 13 mini", CGSize(width: 812, height: 375), ScreenInsets(top: 0, left: 50, bottom: 21, right: 50)),
+    ("iPhone 11 Pro", CGSize(width: 812, height: 375), ScreenInsets(top: 0, left: 44, bottom: 21, right: 44)),
+    ("iPhone 11, 11 Pro Max", CGSize(width: 896, height: 414), ScreenInsets(top: 0, left: 48, bottom: 21, right: 48)),
+    ("iPhone 12 to 14, 16e", CGSize(width: 844, height: 390), ScreenInsets(top: 0, left: 47, bottom: 21, right: 47)),
+    ("iPhone 14 Pro, 15, 16", CGSize(width: 852, height: 393), ScreenInsets(top: 0, left: 59, bottom: 21, right: 59)),
+    ("iPhone 16 Pro, 17, 17 Pro", CGSize(width: 874, height: 402), ScreenInsets(top: 0, left: 62, bottom: 21, right: 62)),
+    ("iPhone Air", CGSize(width: 912, height: 420), ScreenInsets(top: 0, left: 62, bottom: 21, right: 62)),
+    ("iPhone 12 Pro Max to 14 Plus", CGSize(width: 926, height: 428), ScreenInsets(top: 0, left: 47, bottom: 21, right: 47)),
+    ("iPhone 14 Pro Max to 16 Plus", CGSize(width: 932, height: 430), ScreenInsets(top: 0, left: 59, bottom: 21, right: 59)),
+    ("iPhone 16 Pro Max, 17 Pro Max", CGSize(width: 956, height: 440), ScreenInsets(top: 0, left: 62, bottom: 21, right: 62)),
+  ]
+
+  private func make(_ kind: MeterKind, _ side: MeterSide, _ size: CGSize, _ s: ScreenInsets) -> MeterLayout {
+    MeterLayout.make(
+      kind: kind, side: side, bounds: CGRect(origin: .zero, size: size), safeTop: s.top,
+      safeBottom: s.bottom, safeLeft: s.left, safeRight: s.right)
+  }
+
+  /// The reported bug (Jamie, 2026-11-19: "On iPhone if I turn on linear and then
+  /// rotate it goes back to the circular swing."): Linear chosen is the linear
+  /// meter on a phone on its side.
+  @Test func linearChosenStaysLinearWhenTheIPhoneTurns() {
+    let s = ScreenInsets(top: 0, left: 47, bottom: 20, right: 47)
+    for side in MeterSide.allCases {
+      #expect(make(.linear, side, CGSize(width: 390, height: 844), ScreenInsets(top: 47, bottom: 34)).linear != nil)
+      #expect(make(.linear, side, CGSize(width: 844, height: 390), s).linear != nil, "\(side)")
+    }
+  }
+
+  /// Every iPhone on its side gives the linear meter its wide room: the whole
+  /// safe height at its edge, a track of at least `wideMinTravel`.
+  @Test func everyIPhoneOnItsSideShowsTheLinearMeter() throws {
+    for p in Self.iPhones + Self.phones {
       for side in MeterSide.allCases {
-        let s = p.safe
-        #expect(
-          LinearMeter.layout(
-            size: p.size, safeTop: s.top, safeBottom: s.bottom, safeLeft: s.left, safeRight: s.right,
-            side: side) == nil)
-        let m = MeterLayout.make(
-          kind: .linear, side: side, bounds: CGRect(origin: .zero, size: p.size), safeTop: s.top,
-          safeBottom: s.bottom, safeLeft: s.left, safeRight: s.right)
-        #expect(m == .clock(WideLayout.clock(size: p.size, safe: s, side: side)))
+        let m = try #require(make(.linear, side, p.size, p.safe).linear, "\(p.name) \(side)")
+        #expect(m.travel >= LinearMeter.tune.wideMinTravel, "\(p.name)")
+        // the whole safe height: MENU's top to the bottom margin
+        #expect(abs(m.box.minY - (p.safe.top + WideLayout.edge)) < 0.001, "\(p.name)")
+        #expect(abs(m.box.maxY - (p.size.height - p.safe.bottom - LinearMeter.tune.margin)) < 0.001)
+        #expect(side == .left ? m.box.minX == p.safe.left + 7 : m.box.maxX == p.size.width - p.safe.right - 7)
+        // the clock is still what Clock shows
+        #expect(make(.clock, side, p.size, p.safe) == .clock(WideLayout.clock(size: p.size, safe: p.safe, side: side)))
+      }
+    }
+    // the shortest (375 pt with a home indicator) and the tallest, to the tenth
+    let mini = try #require(make(.linear, .right, Self.iPhones[1].size, Self.iPhones[1].safe).linear)
+    #expect(abs(mini.travel - 265.3) < 0.05)
+    let max = try #require(make(.linear, .right, Self.iPhones.last!.size, Self.iPhones.last!.safe).linear)
+    #expect(abs(max.travel - 330.3) < 0.05)
+  }
+
+  /// Where a wide screen cannot give even `wideMinTravel` (a window no iPhone
+  /// has), the clock is shown, and the menu's note says so (MeterSettings).
+  @Test func aWideScreenTooShortForTheTrackShowsTheClock() {
+    let size = CGSize(width: 700, height: 330)
+    for side in MeterSide.allCases {
+      let m = make(.linear, side, size, ScreenInsets(top: 0, bottom: 21))
+      #expect(m == .clock(WideLayout.clock(size: size, safe: ScreenInsets(top: 0, bottom: 21), side: side)))
+    }
+  }
+
+  /// The plate at the meter's top corner moves in beside it, `edge` off its
+  /// body; the other stays where it was.
+  @Test func menuOrTheRailMovesInBesideTheLinearMeter() throws {
+    for p in Self.iPhones + Self.phones {
+      let s = p.safe
+      let right = try #require(make(.linear, .right, p.size, s).linear)
+      let menu = WideLayout.menu(size: p.size, safe: s, meter: .linear(right))
+      #expect(abs(menu.maxX - (right.cover.minX - WideLayout.edge)) < 0.001, "\(p.name)")
+      #expect(WideLayout.rail(size: p.size, safe: s, meter: .linear(right)) == WideLayout.rail(size: p.size, safe: s))
+      let left = try #require(make(.linear, .left, p.size, s).linear)
+      let rail = WideLayout.rail(size: p.size, safe: s, meter: .linear(left))
+      #expect(abs(rail.minX - (left.cover.maxX + WideLayout.edge)) < 0.001, "\(p.name)")
+      #expect(WideLayout.menu(size: p.size, safe: s, meter: .linear(left)) == WideLayout.menu(size: p.size, safe: s))
+      // the clock moves nothing
+      let clock = make(.clock, .right, p.size, s)
+      #expect(WideLayout.menu(size: p.size, safe: s, meter: clock) == WideLayout.menu(size: p.size, safe: s))
+    }
+  }
+
+  /// The throw zone on a wide screen is the meter's half; a tap there still aims.
+  @Test func theWideThrowZoneIsTheMetersHalf() throws {
+    for p in Self.iPhones + Self.phones {
+      for side in MeterSide.allCases {
+        let ml = make(.linear, side, p.size, p.safe)
+        let mid = p.size.width / 2
+        let inside = side == .right ? mid + 1 : mid - 1
+        let outside = side == .right ? mid - 1 : mid + 1
+        for y in [p.size.height * 0.1, p.size.height * 0.5, p.size.height - 2] {
+          #expect(ml.after(CGPoint(x: inside, y: y), in: p.size, aimable: true) == .zone, "\(p.name) \(side)")
+          #expect(ml.after(CGPoint(x: outside, y: y), in: p.size, aimable: true) == nil, "\(p.name) \(side)")
+        }
+        // the plan block and the minimap are on the other half
+        let plan = WideLayout.plan(meter: ml, size: p.size, safe: p.safe, side: side)
+        for f in [plan.block, plan.minimap] {
+          #expect(side == .right ? f.maxX < mid : f.minX > mid, "\(p.name) \(side)")
+        }
+        // a whole stroke fits: from home, the track's full draw back and flick
+        // are on the screen for a press level with the knob's home
+        let m = try #require(ml.linear)
+        #expect(m.yHome - 180 * m.scale >= 0 && m.yHome + 180 * m.scale <= p.size.height - p.safe.bottom)
       }
     }
   }
 
   @Test func aWideLinearMeterFollowsTheWebsRuleWhereThereIsTheRoom() throws {
-    // a tablet-sized wide screen has the room: at its edge, under the rail or MENU
+    // a tablet-sized wide screen: at its edge, 450 pt on the bottom margin, under the rail or MENU
     let size = CGSize(width: 1180, height: 820)
     let safe = ScreenInsets(top: 24, bottom: 20)
     let left = try #require(
@@ -74,7 +169,7 @@ import Testing
   }
 
   @Test func nothingOverlapsAndAllIsInsideTheSafeArea() {
-    for p in Self.phones {
+    for p in Self.phones + Self.iPhones {
       let safeRect = CGRect(
         x: p.safe.left, y: p.safe.top, width: p.size.width - p.safe.left - p.safe.right,
         height: p.size.height - p.safe.top - p.safe.bottom)
@@ -84,14 +179,15 @@ import Testing
           let meter = MeterLayout.make(
             kind: kind, side: side, bounds: CGRect(origin: .zero, size: p.size), safeTop: s.top,
             safeBottom: s.bottom, safeLeft: s.left, safeRight: s.right)
-          let frames: [(String, CGRect)] = [
-            ("rail", WideLayout.rail(size: p.size, safe: s)),
-            ("menu", WideLayout.menu(size: p.size, safe: s)),
-            ("caption", WideLayout.caption(size: p.size, safe: s)),
+          var frames: [(String, CGRect)] = [
+            ("rail", WideLayout.rail(size: p.size, safe: s, meter: meter)),
+            ("menu", WideLayout.menu(size: p.size, safe: s, meter: meter)),
+            ("caption", WideLayout.caption(size: p.size, safe: s, meter: meter)),
             ("minimap", WideLayout.plan(meter: meter, size: p.size, safe: s, side: side).minimap),
             ("meter", WideLayout.meterBox(meter, size: p.size, safe: s, side: side)),
             ("plans", WideLayout.plan(meter: meter, size: p.size, safe: s, side: side).block),
           ]
+          if let m = meter.linear { frames.append(("tab", Self.tab(m))) }
           let what = "\(p.name) \(kind) \(side)"
           for (name, f) in frames {
             #expect(safeRect.contains(f), "\(what): \(name) \(f) outside \(safeRect)")
@@ -167,13 +263,18 @@ import Testing
       kind: kind, side: side, bounds: CGRect(origin: .zero, size: size), safeTop: s.top,
       safeBottom: s.bottom, safeLeft: s.left, safeRight: s.right)
     let plan = WideLayout.plan(meter: meter, size: size, safe: s, side: side)
-    let frames: [(String, CGRect)] = [
-      ("rail", WideLayout.rail(size: size, safe: s)),
-      ("menu", WideLayout.menu(size: size, safe: s)),
+    var frames: [(String, CGRect)] = [
+      ("rail", WideLayout.rail(size: size, safe: s, meter: meter)),
+      ("menu", WideLayout.menu(size: size, safe: s, meter: meter)),
       ("minimap", plan.minimap),
       ("meter", WideLayout.meterBox(meter, size: size, safe: s, side: side)),
       ("plans", plan.block),
     ]
+    // The prompt tab, where the block is at the far edge. A window too narrow
+    // for that (about 600 pt across or less, an iPad's only) puts the block
+    // beside the meter, level with the tab, as it did before the linear meter
+    // took the whole height there: an open question, not checked here.
+    if let m = meter.linear, plan.edge != nil { frames.append(("tab", Self.tab(m))) }
     let what = "\(name) \(Int(size.width)) x \(Int(size.height)) \(kind) \(side)"
     for (n, f) in frames {
       #expect(safeRect.contains(f), "\(what): \(n) \(f) outside \(safeRect)")
@@ -214,6 +315,10 @@ import Testing
           LinearMeter.layout(size: p.size, safeTop: p.safe.top, safeBottom: p.safe.bottom, side: side), "\(p.name)")
         #expect(m.box.height == 450 && m.travel >= 320)
         #expect(side == .left ? m.box.minX == 7 : m.box.maxX == p.size.width - 7)
+        // standing on the bottom margin as before: the rail and MENU keep their corners
+        #expect(abs(m.box.maxY - (p.size.height - p.safe.bottom - 7)) < 0.001)
+        #expect(WideLayout.rail(size: p.size, safe: p.safe, meter: .linear(m)) == WideLayout.rail(size: p.size, safe: p.safe))
+        #expect(WideLayout.menu(size: p.size, safe: p.safe, meter: .linear(m)) == WideLayout.menu(size: p.size, safe: p.safe))
         for kind in MeterKind.allCases {
           holds(p.name, p.size, p.safe, kind: kind, side: side)
           // the plan block at the edge away from the meter: two hands, as on a phone
@@ -287,6 +392,14 @@ import Testing
         }
       }
     }
+  }
+
+  /// The prompt tab at the knob's home, as wide as its longest words could make
+  /// it (LinearMeterHUD's tab; the nudge keeps 5 tab heights for it too).
+  static func tab(_ m: LinearMeter) -> CGRect {
+    let w = m.promptHeight * 5
+    let x = m.side == .right ? m.left - w : m.cover.maxX  // its own hard shadow falls on the body's
+    return CGRect(x: x, y: m.yHome - m.promptHeight / 2, width: w, height: m.promptHeight)
   }
 
   /// The nearest a rect comes to a point.

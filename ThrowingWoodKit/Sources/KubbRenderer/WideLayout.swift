@@ -6,10 +6,13 @@ import Foundation
 // arrangement (src/game/layout.js, its numbers): the clock lower right or lower
 // left by Meter side, the plan (TILT, STAND, ARC, SIDE VIEW) in one block at the
 // other edge with TILT and STAND at the screen's edge, the minimap on the
-// block's inner side (`plan`), the turn rail top left and MENU top right. The linear meter goes at its edge only
-// where its track has `LinearMeter.Tune.minTravel`, which no iPhone on its side
-// has, so there the clock is shown, as on the web. The camera is the thrower's
-// view as ever: the projection's wide rule (the 400 x 240 frame fitted whole).
+// block's inner side (`plan`), the turn rail top left and MENU top right. The
+// player's choice of meter holds on a phone on its side: the linear meter goes
+// at its edge with the whole safe height (`LinearMeter.layout`, its track at
+// least `LinearMeter.Tune.wideMinTravel`, which every iPhone on its side has),
+// and the plate at that top corner, MENU or the rail, moves inward beside it.
+// The camera is the thrower's view as ever: the projection's wide rule (the
+// 400 x 240 frame fitted whole).
 //
 // Pure: the app places its views on these frames, and the tests check the same
 // frames for overlaps and the safe areas.
@@ -68,7 +71,7 @@ public enum WideLayout {
   {
     switch meter {
     case .clock: return clockBox(size: size, safe: safe, side: side)
-    case .linear(let m): return CGRect(x: m.left, y: m.top, width: m.width + m.shadow, height: m.bottom + m.shadow - m.top)
+    case .linear(let m): return m.cover
     }
   }
 
@@ -81,25 +84,37 @@ public enum WideLayout {
     return CGRect(x: x, y: size.height - safe.bottom - margin - h, width: w, height: h)
   }
 
-  /// The turn rail, top left.
-  public static func rail(size: CGSize, safe: ScreenInsets) -> CGRect {
-    CGRect(
+  /// The turn rail, top left; beside the linear meter, `edge` off its body, where
+  /// the meter is at the left and would meet it there.
+  public static func rail(size: CGSize, safe: ScreenInsets, meter: MeterLayout? = nil) -> CGRect {
+    var r = CGRect(
       x: safe.left + edge, y: safe.top + edge,
       width: min(railSize.width, size.width * 0.4), height: railSize.height)
+    if let m = meter?.linear, m.side == .left, r.intersects(m.cover.insetBy(dx: -edge, dy: -edge)) {
+      r.origin.x = m.cover.maxX + edge
+    }
+    return r
   }
 
-  /// MENU, top right.
-  public static func menu(size: CGSize, safe: ScreenInsets) -> CGRect {
-    CGRect(
+  /// MENU, top right; beside the linear meter, `edge` off its body, where the
+  /// meter is at the right and would meet it there.
+  public static func menu(size: CGSize, safe: ScreenInsets, meter: MeterLayout? = nil) -> CGRect {
+    var r = CGRect(
       x: size.width - safe.right - edge - menuSize.width, y: safe.top + edge,
       width: menuSize.width, height: menuSize.height)
+    if let m = meter?.linear, m.side == .right, r.intersects(m.cover.insetBy(dx: -edge, dy: -edge)) {
+      r.origin.x = m.cover.minX - edge - menuSize.width
+    }
+    return r
   }
 
   /// Where a slider's or STAND's caption, the verdict and SLOW MOTION go: the
   /// top between the rail and MENU (and any tray beside it), its top level with theirs.
-  public static func caption(size: CGSize, safe: ScreenInsets, trayWidth: CGFloat = 0) -> CGRect {
-    let r = rail(size: size, safe: safe)
-    let m = menu(size: size, safe: safe)
+  public static func caption(
+    size: CGSize, safe: ScreenInsets, trayWidth: CGFloat = 0, meter: MeterLayout? = nil
+  ) -> CGRect {
+    let r = rail(size: size, safe: safe, meter: meter)
+    let m = menu(size: size, safe: safe, meter: meter)
     let left = r.maxX + edge
     let right = m.minX - edge - trayWidth
     return CGRect(x: left, y: r.minY, width: max(0, right - left), height: r.height)

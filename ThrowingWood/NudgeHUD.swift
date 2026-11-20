@@ -38,6 +38,7 @@ extension PracticeHUD {
   /// The fingertip's path on the linear meter: in the throw zone, in the middle of
   /// what the meter leaves (where a thumb strokes), clear of the prompt tab at the
   /// knob's home, starting low enough that the whole draw back fits on the screen.
+  /// On a wide screen, in the meter's half between the centre line and the tab.
   static func nudgePath(
     _ g: LinearMeter, swing: NudgeSwing, size: CGSize, safeLeft: CGFloat, safeRight: CGFloat
   ) -> (x: CGFloat, y0: CGFloat) {
@@ -53,6 +54,14 @@ extension PracticeHUD {
       ? (safeLeft + 8 + g.box.minX - 6) / 2 : (g.box.maxX + 6 + size.width - safeRight - 8) / 2
     x = right ? min(x, tab) : max(x, tab)
     let backPt = CGFloat(abs(swing.back)) * g.scale
+    if WideLayout.isWide(size) {
+      // on its side the zone is the meter's half (MeterLayout.wideZone): the
+      // fingertip strokes there, halfway from the centre line to the prompt tab,
+      // level with the knob's home, whose whole swing is on the screen
+      let line = size.width * MeterLayout.wideZone
+      x = right ? max(line + R + 4, min(tab, (line + tab) / 2)) : min(line - R - 4, max(tab, (line + tab) / 2))
+      return (x, min(g.yHome, size.height - R - 8 - backPt))
+    }
     let zoneTop = size.height * MeterLayout.zoneFrom
     var y0 = max(zoneTop + R + 4, g.yHome)
     y0 = min(y0, size.height - R - 8 - backPt)
