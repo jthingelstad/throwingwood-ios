@@ -21,6 +21,8 @@ import Testing
     var sentV: [Int?] = []
     var fetched: [URL] = []
     var fetchFails = false
+    /// Run as each download comes back (a card closed mid-download).
+    var onFetch: (() -> Void)?
     /// The room's kept replay at each look (the last repeats); nil: no kept check.
     var kept: [KeptReplay?]?
     var looks = 0
@@ -60,6 +62,7 @@ import Testing
         if stub.fetchFails { throw URLError(.notConnectedToInternet) }
         stub.fetched.append(from)
         try Data("mp4".utf8).write(to: to)
+        stub.onFetch?()
       },
       reachable: { stub.online })
     return (
@@ -432,6 +435,23 @@ import Testing
     for _ in 0..<2000 where done.fetched.isEmpty { try await Task.sleep(for: .milliseconds(2)) }
     try await settle(reel3) { $0 == .ready }
     #expect(done.fetched.count == 1 && reel3.file(.tall) != nil)
+  }
+
+  @Test func closedWhileTheTallFileDownloadsTheWideOneWaitsForTheCard() async throws {
+    let stub = Stub([.success(.done(v: 4, tag: "r1-0.7", files: Self.files))])
+    let (reel, cache) = reel(stub)
+    defer { try? FileManager.default.removeItem(at: cache) }
+    reel.want(.wide)
+    stub.onFetch = { reel.hide() }
+    reel.show()
+    try await landed { stub.fetched.count == 1 && reel.phase == .ready }
+    #expect(stub.fetched.count == 1 && reel.file(.tall) != nil && reel.file(.wide) == nil)
+    #expect(ReelWords.button(reel.phase) == "WATCH THE REEL")
+    // shown again, the wide file is downloaded
+    stub.onFetch = nil
+    reel.show()
+    try await settle(reel) { $0 == .ready && reel.file(.wide) != nil }
+    #expect(stub.fetched.count == 2)
   }
 
   @Test func backgroundAndReturnWhileItRendersKeepsTheCardAndAsksOn() async throws {
