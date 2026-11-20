@@ -10,6 +10,9 @@ import KubbRooms
 ///
 /// The state is the server's: closing the card, or the app going to the background,
 /// only stops the asking (`hide`); showing it again asks once and goes on (`show`).
+/// One rule holds off screen: a request already sent is read when it comes back, but
+/// nothing it leads to is sent (a reel ask, a look again, a poll, the download). The
+/// phase keeps where it got to, and `show` sends that next request.
 @Observable @MainActor public final class HighlightReel {
   public enum Format: String, Sendable { case tall, wide }
 
@@ -186,7 +189,7 @@ import KubbRooms
   private func check() {
     guard !inFlight, let kept = hooks.kept else { return }
     phase = .checking
-    guard sendable() else { return }
+    guard onScreen, sendable() else { return }  // off screen: `show` looks
     Task { [weak self] in
       let result: Result<KeptReplay?, Error>
       do { result = .success(try await kept()) } catch { result = .failure(error) }
@@ -220,6 +223,12 @@ import KubbRooms
 
   private func ask() {
     guard !inFlight else { return }
+    guard onScreen else {
+      // off screen: `show` asks, naming the kept version already read, so a rematch
+      // kept meanwhile is answered "moved" and nothing of it is started
+      if phase != .making { phase = .asking }
+      return
+    }
     if phase == .making, !hooks.reachable() {
       offline = true  // nothing is sent; the render goes on without us
       schedule(every) { $0.phase == .making ? $0.ask() : () }
@@ -318,6 +327,10 @@ import KubbRooms
 
   private func fetch() {
     guard let done, !inFlight else { return }
+    guard onScreen else {
+      phase = .ready  // the reel is done; `show` downloads what is missing
+      return
+    }
     guard hooks.reachable() else {
       phase = .problem(.offline)
       return
@@ -343,6 +356,23 @@ import KubbRooms
       guard let self else { return }
       self.inFlight = false
       self.phase = failed ? .problem(.offline) : .ready
+    }
+  }
+}
+
+extension HighlightReel {
+  /// Whether the card stays open as the pitch behind it changes (`OnlinePitch.changed`).
+  /// It stays through the pitch's own comings and goings (connecting, reconnecting:
+  /// coming back from the background is one), while the room sets up a rematch (the
+  /// reel is still this match's, and BACK goes to the lobby), and while the pitch is
+  /// still on the finished match it is for. It closes when a match starts on the pitch
+  /// (a player there may be the next to throw) and when the pitch is gone (unreachable,
+  /// not found, full, replaced), so the pitch's own card shows.
+  public func staysOpen(on stage: OnlinePitch.Stage, finished: ReelMatch?) -> Bool {
+    switch stage {
+    case .connecting, .reconnecting, .lobby: true
+    case .match: finished != nil && (match == nil || finished == match)
+    case .notFound, .full, .unreachable, .replaced: false
     }
   }
 }

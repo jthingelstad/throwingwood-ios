@@ -24,6 +24,12 @@ import Testing
     /// The room's kept replay at each look (the last repeats); nil: no kept check.
     var kept: [KeptReplay?]?
     var looks = 0
+    /// How long each kept read and each reel ask takes to come back.
+    var keptDelay: Duration?
+    var askDelay: Duration?
+    /// Kept reads and reel asks that have come back.
+    var keptBack = 0
+    var askBack = 0
     init(_ answers: [Result<ReelAnswer, Error>], kept: [KeptReplay?]? = nil) {
       self.answers = answers
       self.kept = kept
@@ -34,20 +40,22 @@ import Testing
     _ stub: Stub, every: Duration = .milliseconds(20), match: ReelMatch? = nil
   ) -> (HighlightReel, URL) {
     let cache = FileManager.default.temporaryDirectory.appending(path: "reel-tests-\(UUID())")
+    let look: @MainActor () async throws -> KeptReplay? = {
+      stub.looks += 1
+      if let d = stub.keptDelay { try await Task.sleep(for: d) }
+      stub.keptBack += 1
+      return stub.kept!.count > 1 ? stub.kept!.removeFirst() : stub.kept![0]
+    }
     let hooks = HighlightReel.Hooks(
-      ask: { v in
+      ask: { @MainActor (v: Int?) async throws -> ReelAnswer in
         stub.asks += 1
         stub.sentV.append(v)
+        if let d = stub.askDelay { try await Task.sleep(for: d) }
+        stub.askBack += 1
         let next = stub.answers.count > 1 ? stub.answers.removeFirst() : stub.answers[0]
         return try next.get()
       },
-      kept: stub.kept == nil
-        ? nil
-        : { @MainActor in
-          stub.looks += 1
-          let next = stub.kept!.count > 1 ? stub.kept!.removeFirst() : stub.kept![0]
-          return next
-        },
+      kept: stub.kept == nil ? nil : look,
       fetch: { from, to in
         if stub.fetchFails { throw URLError(.notConnectedToInternet) }
         stub.fetched.append(from)
@@ -59,6 +67,14 @@ import Testing
         code: Self.code, site: URL(string: "https://throwingwood.com")!, cache: cache,
         hooks: hooks, match: match, every: every, keptWait: .milliseconds(5)), cache
     )
+  }
+
+  /// Wait until `cond` holds (the suite may run under load), then a little more, so
+  /// whatever the reply leads to has had its chance to be sent.
+  private func landed(_ cond: () -> Bool) async throws {
+    for _ in 0..<5000 where !cond() { try await Task.sleep(for: .milliseconds(2)) }
+    #expect(cond())
+    try await Task.sleep(for: .milliseconds(60))
   }
 
   private func settle(_ reel: HighlightReel, until: (HighlightReel.Phase) -> Bool) async throws {
@@ -361,6 +377,94 @@ import Testing
     try await Task.sleep(for: .milliseconds(100))
     #expect(stub.asks == 1 && stub.sentV == [7])
     reel.hide()
+  }
+
+  @Test func aKeptReplyAfterTheCardClosedSendsNothingUntilItShows() async throws {
+    let stub = Stub([.success(.rendering(v: 7, tag: "r1-0.7"))], kept: [KeptReplay(v: 7, n: 2, hash: nil)])
+    stub.keptDelay = .milliseconds(40)
+    let (reel, cache) = reel(stub, every: .seconds(60), match: ReelMatch(n: 2, hash: nil))
+    defer { try? FileManager.default.removeItem(at: cache) }
+    reel.show()
+    reel.hide()  // BACK while the kept read is on its way
+    try await landed { stub.keptBack == 1 }
+    #expect(stub.looks == 1 && stub.asks == 0 && reel.phase == .asking)
+    reel.show()  // the checked version is kept: no second look, the ask names it
+    try await settle(reel) { $0 == .making }
+    #expect(stub.looks == 1 && stub.sentV == [7])
+    reel.hide()
+  }
+
+  @Test func offScreenNothingARepliesLeadsToIsSent() async throws {
+    // a keep still on its way: no look again until the card shows
+    let looks = Stub(
+      [.success(.rendering(v: 7, tag: "r1-0.7"))], kept: [nil, KeptReplay(v: 7, n: 2, hash: nil)])
+    looks.keptDelay = .milliseconds(40)
+    let (reel, cache) = reel(looks, every: .seconds(60), match: ReelMatch(n: 2, hash: nil))
+    defer { try? FileManager.default.removeItem(at: cache) }
+    reel.show()
+    reel.hide()
+    try await landed { looks.keptBack == 1 }
+    #expect(looks.looks == 1 && looks.asks == 0 && reel.phase == .checking)
+    reel.show()
+    try await settle(reel) { $0 == .making }
+    #expect(looks.looks == 2)
+    reel.hide()
+    // a rendering answer after the card closed: no poll follows
+    let polls = Stub([.success(.rendering(v: 7, tag: "r1-0.7"))])
+    polls.askDelay = .milliseconds(40)
+    let (reel2, cache2) = self.reel(polls)
+    defer { try? FileManager.default.removeItem(at: cache2) }
+    reel2.show()
+    reel2.hide()
+    try await landed { polls.askBack == 1 }
+    #expect(polls.asks == 1 && reel2.phase == .making)
+    // a done answer after the card closed: the download waits for the card
+    let done = Stub([.success(.done(v: 4, tag: "r1-0.7", files: Self.files))])
+    done.askDelay = .milliseconds(40)
+    let (reel3, cache3) = self.reel(done)
+    defer { try? FileManager.default.removeItem(at: cache3) }
+    reel3.show()
+    reel3.hide()
+    try await landed { done.askBack == 1 }
+    #expect(done.fetched.isEmpty && reel3.phase == .ready)
+    #expect(ReelWords.button(reel3.phase) == "WATCH THE REEL")
+    reel3.show()
+    for _ in 0..<2000 where done.fetched.isEmpty { try await Task.sleep(for: .milliseconds(2)) }
+    try await settle(reel3) { $0 == .ready }
+    #expect(done.fetched.count == 1 && reel3.file(.tall) != nil)
+  }
+
+  @Test func backgroundAndReturnWhileItRendersKeepsTheCardAndAsksOn() async throws {
+    let match = ReelMatch(n: 2, hash: "\"h\"")
+    let stub = Stub([.success(.rendering(v: 7, tag: "r1-0.7"))], kept: [KeptReplay(v: 7, n: 2, hash: "\"h\"")])
+    let (reel, cache) = reel(stub, every: .seconds(60), match: match)
+    defer { try? FileManager.default.removeItem(at: cache) }
+    reel.show()
+    try await settle(reel) { $0 == .making }
+    reel.hide()  // the app goes to the background
+    let before = stub.asks
+    // coming back, the pitch reconnects before it is on its match again: the card stays
+    for stage in [OnlinePitch.Stage.connecting, .reconnecting, .match] {
+      #expect(reel.staysOpen(on: stage, finished: match))
+    }
+    reel.show()
+    for _ in 0..<2000 where stub.asks == before { try await Task.sleep(for: .milliseconds(2)) }
+    #expect(stub.asks == before + 1 && stub.sentV.last == 7 && reel.phase == .making)
+    reel.hide()
+  }
+
+  @Test func theCardClosesWhenAMatchStartsOrThePitchIsGone() {
+    let match = ReelMatch(n: 2, hash: nil)
+    let (reel, cache) = reel(Stub([.success(.rendering(v: 7, tag: "r1-0.7"))]), match: match)
+    defer { try? FileManager.default.removeItem(at: cache) }
+    // a rematch being set up: the reel is still this match's
+    #expect(reel.staysOpen(on: .lobby, finished: nil))
+    // the rematch has started (no finished match), or a newer one has finished
+    #expect(!reel.staysOpen(on: .match, finished: nil))
+    #expect(!reel.staysOpen(on: .match, finished: ReelMatch(n: 3, hash: nil)))
+    for stage in [OnlinePitch.Stage.notFound, .full, .unreachable, .replaced] {
+      #expect(!reel.staysOpen(on: stage, finished: match))
+    }
   }
 
   @Test func withOnlyACodeThereIsNothingToCompare() async throws {
