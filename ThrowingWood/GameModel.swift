@@ -215,8 +215,12 @@ import Observation
           }
         } else if pitch.stage == .match {
           if screen == .pitch { screen = .match }
+          // Settings opened from the lobby stays open when another player starts
+          // the match; its BACK then goes to the match, not to a lobby that is gone
+          if screen == .settings, settingsReturn == .pitch { settingsReturn = .match }
         } else if screen == .settings {
-          if pitch.stage == .match { settingsReturn = .match }
+          // and back to the lobby when the match it would return to is over
+          if settingsReturn == .match { settingsReturn = .pitch }
         } else {
           screen = .pitch
         }
