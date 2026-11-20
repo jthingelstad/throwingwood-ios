@@ -11,6 +11,8 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Save Video in the share sheet adds your highlight reel to Photos.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>LondrinaSolid-Black.ttf</string>
