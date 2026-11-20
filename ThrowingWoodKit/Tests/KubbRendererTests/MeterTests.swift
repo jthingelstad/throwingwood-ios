@@ -223,10 +223,12 @@ import Testing
     try clockPitch.tick(dt)
     try linearPitch.tick(dt)
     let c = try #require(clockPitch.playback), l = try #require(linearPitch.playback)
-    #expect(c.recording.result == l.recording.result)
-    // The verdict is the same; the flight is not hash for hash. The finger 1.6
-    // radii out on the clock and the knob's height give the same arm only to the
+    let cv = c.recording.result.verdicts, lv = l.recording.result.verdicts
+    #expect(cv?.power == lv?.power && cv?.release == lv?.release && cv?.steady == lv?.steady)
+    // The swing's verdicts are the same; the flight is not hash for hash. The finger
+    // 1.6 radii out on the clock and the knob's height give the same arm only to the
     // last bits, and the pieces' tumble magnifies that, as with two fingers on one
-    // clock.
+    // clock. Since engine 0.9 the pull (PULLED LEFT or RIGHT) and so the flag can
+    // follow those bits too; the same points on both give the same throw exactly.
   }
 }

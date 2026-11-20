@@ -72,7 +72,9 @@ extension View {
 }
 
 struct ArcSlider: View {
-  let release: Double?, loft: Int?, held: Double?
+  /// `place`: the knob (0 the bottom); `marks`: the marks for a track so many points long.
+  let place: Double, loft: Int?, held: Double?
+  let marks: (Double) -> [(f: Double, long: Bool)]
   let enabled: Bool
   let slide: (Double, SlidePhase) -> Void
   let step: (Int) -> Void
@@ -88,13 +90,13 @@ struct ArcSlider: View {
         ctx.fill(
           Path(roundedRect: CGRect(x: slotX - 3, y: inset - 4, width: 6, height: run + 8), cornerRadius: 3),
           with: .color(.woodInk))
-        for m in PlanScale.arcMarks {
+        for m in marks(run) {
           var line = Path()
           line.move(to: CGPoint(x: 50, y: y(m.f)))
           line.addLine(to: CGPoint(x: m.long ? 74 : 64, y: y(m.f)))
           ctx.stroke(line, with: .color(.woodInk), lineWidth: m.long ? 3 : 2)
         }
-        let f = held ?? PlanScale.arcFraction(release)
+        let f = held ?? place
         var index = Path()
         index.move(to: CGPoint(x: 40, y: y(f)))
         index.addLine(to: CGPoint(x: 47, y: y(f) - 5))
@@ -133,7 +135,9 @@ struct ArcSlider: View {
 }
 
 struct SideSlider: View {
-  let value: Int, kubb: Bool, held: Double?
+  /// `value`: the tilt in degrees or the spin in taps; `place`: the knob (0 the left end).
+  let value: Double, place: Double, kubb: Bool, held: Double?
+  let marks: (Double) -> [(f: Double, long: Bool)]
   let enabled: Bool
   let slide: (Double, SlidePhase) -> Void
   let step: (Int) -> Void
@@ -149,13 +153,13 @@ struct SideSlider: View {
         ctx.fill(
           Path(roundedRect: CGRect(x: inset - 4, y: slotY - 3, width: run + 8, height: 6), cornerRadius: 3),
           with: .color(.woodInk))
-        for m in PlanScale.sideMarks(kubb: kubb) {
+        for m in marks(run) {
           var line = Path()
           line.move(to: CGPoint(x: x(m.f), y: 24))
           line.addLine(to: CGPoint(x: x(m.f), y: m.long ? 8 : 15))
           ctx.stroke(line, with: .color(.woodInk), lineWidth: m.long ? 3 : 1.6)
         }
-        let f = held ?? PlanScale.sideFraction(PlanScale.steps(of: value, kubb: kubb), kubb: kubb)
+        let f = held ?? place
         knob(ctx, at: CGPoint(x: x(f), y: slotY), radius: 14)
       }
       .contentShape(Rectangle())

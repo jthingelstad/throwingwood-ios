@@ -90,8 +90,12 @@ import simd
     #expect(app.mix == 0 && !app.wantsFrames)
   }
 
-  @Test func tiltSliderMovesByTheStepDifference() throws {
-    let app = try aiming()
+  /// On a 0.8 match (no `aim.controls`) the side keeps its steps, as before 0.9.
+  @Test func onAnOlderEngineTiltMovesByTheStepDifference() throws {
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(fixture("aim"), save: nil, engine: "0.8")
+    app.dismissHandoff()
+    #expect(app.engine.minor == "0.8" && app.sideControl == nil && app.arcControl == nil)
     #expect(!app.throwsKubb && app.sideSteps == 0)
     app.slide(.side, to: 1, phase: .down)
     #expect(app.heldFraction == 1)
@@ -105,6 +109,94 @@ import simd
     #expect(app.sideStep == 5 && app.heldFraction == nil)
     try app.stepPlan(.side, by: 1)
     #expect(app.sideStep == 10)
+    #expect(app.sideMarks(run: 64).count == 9)
+  }
+
+  /// On 0.9 the slider sends where the finger is (`setTilt`): any value, no steps.
+  @Test func tiltSliderTakesAnyValue() throws {
+    let app = try aiming()
+    #expect(app.engine.minor == Engine.newest)
+    let c = try #require(app.sideControl)
+    #expect(c.min == -20 && c.max == 20 && c.tick == 1 && c.step == 5 && c.scope == "throw")
+    #expect(try #require(app.arcControl).min == 15)
+    app.slide(.side, to: 0.36, phase: .down)
+    try app.tick(1.0 / 60)
+    #expect(abs(try #require(app.sideStep) - -5.6) < 1e-9)
+    #expect(abs(app.sidePlace - 0.36) < 1e-9)
+    #expect(PlanScale.sideLabel(-5.6, kubb: false) == "TILT 6L")
+    app.slide(.side, to: 1.3, phase: .up)
+    try app.tick(1.0 / 60)
+    #expect(app.sideStep == 20)
+    // a press (VoiceOver) still steps
+    try app.stepPlan(.side, by: -1)
+    #expect(app.sideStep == 15)
+    // ARC is free in the engine's range too
+    app.slide(.arc, to: 0.123, phase: .up)
+    try app.tick(1.0 / 60)
+    #expect(abs(try #require(app.release) - (15 + 0.123 * 150)) < 1e-9)
+    // marks: 1 degree ticks would be 1.6 pt apart on 64 pt, so one every 5
+    #expect(app.sideMarks(run: 64).count == 9)
+    #expect(app.sideMarks(run: 64).filter(\.long).count == 1)
+  }
+
+  @Test func marksComeFromTheTick() {
+    let spin = PlanControl(min: -3, max: 3, value: 0, tick: 0.25, step: 1)
+    // quarter taps are 2.7 pt apart on 64 pt: every half tap
+    #expect(spin.marks(run: 64) == stride(from: -3.0, through: 3, by: 0.5).map { $0 })
+    // with room, every tick
+    #expect(spin.marks(run: 200).count == 25)
+    let arc = PlanControl(min: 15, max: 165, value: 90, tick: 5, step: 15)
+    #expect(arc.marks(run: 88) == stride(from: 15.0, through: 165, by: 15).map { $0 })
+    #expect(PlanScale.sideLabel(1.25, kubb: true) == "SPIN 1.25R")
+    #expect(PlanScale.sideLabel(-0.5, kubb: true) == "SPIN 0.5L")
+    #expect(PlanScale.sideValueText(2, kubb: true) == "Spin 2 right")
+  }
+
+  private func armPoints(_ d: DialState) throws -> [CGPoint] {
+    let dt = 1.0 / 60
+    let back = try #require(d.powerLo.flatMap { lo in d.powerHi.map { (lo + $0) / 2 } })
+    let stop = try #require(d.releaseLo.flatMap { lo in d.releaseHi.map { (lo + $0) / 2 } })
+    var a = -5.0
+    var angles = [0.0, a]
+    while a > -back {
+      a = max(-back, a - 400 * dt)
+      angles.append(a)
+    }
+    while a < stop {
+      a = min(stop, a + 2400 * dt)
+      angles.append(a)
+    }
+    return angles.map { a in CGPoint(x: sin(a * .pi / 180), y: cos(a * .pi / 180)) }
+  }
+
+  /// A kubb's spin is a turn setting on 0.9 (Jamie, 2026-11-20, "Keep between
+  /// throws"): the engine starts the side's next kubb from it, and the slider shows it.
+  @Test func aKubbsSpinIsKeptForTheSidesNextKubb() throws {
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(fixture("inkast"), save: nil)
+    app.dismissHandoff()
+    #expect(app.throwsKubb && app.need?.setup?.n == 1 && app.canAim)
+    let c = try #require(app.sideControl)
+    #expect(c.min == -3 && c.max == 3 && c.scope == "turn")
+    app.slide(.side, to: 0.75, phase: .up)
+    try app.tick(1.0 / 60)
+    #expect(app.sideStep == 1.5)
+    for _ in 0..<60 { try app.tick(1.0 / 60) }  // the side view's peek goes
+    #expect(!app.showsSide && app.sideStep == 1.5)
+    for p in try armPoints(app.dial) {
+      app.sample(p)
+      try app.tick(1.0 / 60)
+    }
+    app.sample(nil)
+    try app.tick(1.0 / 60)
+    var ticks = 0
+    while !(app.need?.setup?.n == 2 && app.canAim) && ticks < 3000 {
+      try app.tick(1.0 / 60)
+      ticks += 1
+    }
+    #expect(app.need?.kind == "throw" && app.need?.setup?.n == 2 && app.throwsKubb)
+    #expect(app.sideStep == 1.5 && abs(app.sidePlace - 0.75) < 1e-9)
+    #expect(PlanScale.sideLabel(app.sideStep ?? 0, kubb: true) == "SPIN 1.5R")
   }
 
   @Test func aHeldSliderThatIsCancelledLetsTheSideViewGo() throws {
@@ -605,5 +697,63 @@ import simd
       }
     }
     Issue.record("no raise of two or more kubbs for side A")
+  }
+
+  /// Writes Fixtures/solo/inkast.json: side A about to throw the first of two or more
+  /// kubbs in a synthetic match (no names but You and Computer), engine 0.9. Run with
+  /// TW_WRITE_INKAST_FIXTURE=1; the planner engine throws for side A.
+  @Test(.enabled(if: ProcessInfo.processInfo.environment["TW_WRITE_INKAST_FIXTURE"] == "1"))
+  func writeInkastFixture() throws {
+    let match = try Engine(appVersion: "test"), planner = try Engine(appVersion: "test")
+    for seed in 1001..<1040 {
+      _ = try match.call(
+        "new",
+        json:
+          #"{"mode":"match","seed":\#(seed),"first":"A","cpu":"B","raising":"auto","surface":"grass","opening":"2-4-6","wind":"off","set":"classic","teams":{"A":{"name":"You","players":[{"name":"You","level":"club"}]},"B":{"name":"Computer","players":[{"name":"Computer"}]}},"start":{"year":2026,"month":11,"day":17,"hour":12,"min":0}}"#
+      )
+      _ = try match.call("setControl", json: #"{"sides":["A"],"cpu":true}"#)
+      for _ in 0..<3000 {
+        let need = try JSONNode.parse(match.call("need"))
+        let kind = need["kind"]?.string
+        if kind == "over" { break }
+        if kind == "throw", need["side"]?.string == "A", need["setup"]?["projectile"]?.string == "kubb",
+          need["setup"]?["n"]?.int == 1, (need["setup"]?["of"]?.int ?? 0) >= 2
+        {
+          let out = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appending(path: "Fixtures/solo/inkast.json")
+          try Data(match.call("snapshot").utf8).write(to: out, options: .atomic)
+          print("inkast: seed \(seed), \(need["setup"]?["of"]?.int ?? 0) kubbs")
+          return
+        }
+        let action: String
+        if kind == "raise" {
+          action = #"{"type":"raise"}"#
+        } else if kind == "punish", let c = need["cursor"] {
+          action = #"{"type":"punish","x":\#(c["x"]!.double!),"y":\#(c["y"]!.double!)}"#
+        } else if kind == "throw", need["cpu"]?.bool == true {
+          _ = try match.call("frame", json: #"{"dt":0.1}"#)
+          continue
+        } else {
+          var snap =
+            try JSONSerialization.jsonObject(with: Data(match.call("snapshot").utf8))
+            as! [String: Any]
+          var opts = snap["opts"] as! [String: Any]
+          opts["cpu"] = ["A", "B"]
+          snap["opts"] = opts
+          _ = try planner.call(
+            "restore",
+            json: String(decoding: try JSONSerialization.data(withJSONObject: snap), as: UTF8.self))
+          var found: String?
+          for _ in 0..<400 where found == nil {
+            found = try JSONNode.parse(planner.call("frame", json: #"{"dt":0.1}"#))["action"]?.raw
+              .text
+          }
+          action = try #require(found)
+        }
+        let r = try JSONNode.parse(match.call("apply", json: action))
+        try #require(r["ok"]?.bool == true, "seed \(seed) stopped")
+      }
+    }
+    Issue.record("no inkast of two or more kubbs for side A")
   }
 }

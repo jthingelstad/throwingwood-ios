@@ -216,9 +216,10 @@ struct RendererTests {
     let shadow = V3(piece.x + 0.55 * piece.z, piece.y - 0.3 * piece.z, 0)
     let reference = PitchProjection(size: CGSize(width: 400, height: 240), camera: pitch.camera)
     let old = try #require(reference.project(shadow))
-    // Check the 16e shadow in the original centred framing for the tuned release.
-    #expect(abs(old.x * 0.975 - 317.44) < 1)
-    #expect(abs((old.y - 120) * 0.975 + 422 - 684.96) < 1)
+    // Check the 16e shadow in the original centred framing for the tuned release
+    // (engine 0.9: batons aim lower, at a kubb's body).
+    #expect(abs(old.x * 0.975 - 312.67) < 1)
+    #expect(abs((old.y - 120) * 0.975 + 422 - 692.93) < 1)
     let center = try #require(pitch.scene.projection(size, pitch.camera).project(shadow))
     var ground = pitch.scene
     ground.items.removeAll { $0.kind == "baton" }
