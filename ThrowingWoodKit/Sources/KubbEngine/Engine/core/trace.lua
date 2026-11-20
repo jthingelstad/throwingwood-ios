@@ -22,7 +22,9 @@
 --   "tx","ty"     the target circle; "px","py" the stance
 --   "plan"        the planned release (clock degrees); "loft" its launch angle
 --   "powerLo","powerHi","releaseLo","releaseHi"   the clock's targets
---   "planTilt"    a baton's planned tilt (degrees); "spin" a kubb's (taps)
+--   "planTilt"    a baton's planned tilt (degrees); "spin" a kubb's (taps; since 0.9
+--                 any value in range, so a fraction is written like any number here, to
+--                 six significant digits)
 --   "launchSpeed","launchLoft","swivelOff"   the launch (m/s, degrees, degrees
 --                 off the plan's swivel: the shake's pull and the nerves);
 --                 "tumbleRate", "tilt"

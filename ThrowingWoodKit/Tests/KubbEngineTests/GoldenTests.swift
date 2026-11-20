@@ -54,6 +54,7 @@ func goldenFolder(_ minor: String) -> String {
 /// The corpus each carried engine is pinned to, and its size: a new engine, or a
 /// dropped one, changes this on purpose.
 let pinnedCorpora: [String: (corpus: String, matches: Int)] = [
+  "0.9": ("0.9.0", 13),
   "0.8": ("0.8.0", 13),
   "0.7": ("0.5.0", 12),
 ]
@@ -122,7 +123,7 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
   @Test func corpusIsForTheVendoredEngine() throws {
     let engine = try Engine(appVersion: testAppVersion)
     // Hash-neutral releases retain the exact corpus from the last change to match physics.
-    let expected = ["0.4.1": "0.2.0", "0.5.1": "0.5.0", "0.7.1": "0.5.0", "0.7.2": "0.5.0", "0.7.3": "0.5.0", "0.7.4": "0.5.0", "0.8.1": "0.8.0"][engine.engineVersion] ?? engine.engineVersion
+    let expected = ["0.4.1": "0.2.0", "0.5.1": "0.5.0", "0.7.1": "0.5.0", "0.7.2": "0.5.0", "0.7.3": "0.5.0", "0.7.4": "0.5.0", "0.8.1": "0.8.0", "0.8.2": "0.8.0"][engine.engineVersion] ?? engine.engineVersion
     #expect(corpus.version == expected, "run scripts/vendor-engine.sh sync")
     #expect(corpus.tune == Engine.tune)
     #expect(corpus.matches.count == 13)
@@ -132,7 +133,7 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
   /// Every engine the build carries, each with the corpus it is pinned to: 0.8
   /// (the newest) and 0.7, kept so a match started on it plays on as it was.
   @Test func everyCarriedEngineHasItsOwnCorpus() throws {
-    #expect(Engine.carried == ["0.8", "0.7"])
+    #expect(Engine.carried == ["0.9", "0.8", "0.7"])
     #expect(Set(pinnedCorpora.keys) == Set(Engine.carried))
     for mm in Engine.carried {
       let engine = try Engine(minor: mm, appVersion: testAppVersion)

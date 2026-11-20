@@ -43,8 +43,15 @@ end
 save.plain = function(v) return plain(v, {}, "") end
 
 -- Hands writer(d) what a resume needs of match `m`, plus `opts` (the match
--- scene's options: names, teams, vs, autoSettle, set, wind; the surface and opening are the
--- engine's own): the live tables, not a copy (copying the game
+-- scene's options: names, teams, vs, autoSettle, wind, and set when the caller has one:
+-- since 0.9 the Playdate chooses no kubb set, and a save from before keeps the one it
+-- had; the surface and opening are the engine's own) and autoRaise: true when the
+-- player switched raising to automatic for the rest of the match (a match that raises
+-- by hand, MENU Raising or REST OF GAME), absent when raising by hand. The client sets
+-- it on its options mid-match, as it changes, and the next write keeps it, so a resumed
+-- match goes on raising as it was. It records who raises, nothing more: what a raise
+-- does is the same either way, and the session's snapshot (save.pack with no options)
+-- never holds it, so no hash moves): the live tables, not a copy (copying the game
 -- cost 43 ms on the device at turn 4), so writer must write it at once
 -- (playdate.datastore.write). The score sheet's current turn is also its
 -- last entry in turns, the one table the engine reaches two ways: it is
@@ -62,8 +69,9 @@ function save.write(m, opts, writer)
 		text = m.text, debris = m.debris, order = m.order, lineup = m.lineup,
 		opts = { vs = opts and opts.vs, names = opts and opts.names, teams = opts and opts.teams,
 			autoSettle = opts and opts.autoSettle or nil,   -- the match options' raising
-			set = opts and opts.set or nil,                 -- kubb set
-			wind = opts and opts.wind or nil },             -- and wind
+			set = opts and opts.set or nil,                 -- kubb set (older saves)
+			wind = opts and opts.wind or nil,               -- and wind
+			autoRaise = opts and opts.autoRaise and true or nil },  -- raising: automatic from here
 	})
 	if sheet then sheet.current = cur end
 	if not ok then error(err, 0) end

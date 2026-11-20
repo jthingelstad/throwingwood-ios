@@ -14,9 +14,13 @@
 --
 --   the plan     plan.solve again for the stance and the target in the action, with
 --                every planned release the plan allows (releaseMinDeg..releaseMaxDeg,
---                continuous: the ARC slider is setArc), every planned tilt (a baton:
---                -tiltMaxDeg..tiltMaxDeg in tiltStepDeg) and every level (plan.LEVELS: a
---                player may change level mid-match, Session:setLevel)
+--                continuous: the ARC slider is setArc), the planned tilt (a baton: any
+--                value in -tiltMaxDeg..tiltMaxDeg since 0.9, setTilt; tried at the
+--                action's plan.tilt, the tilt with no shake, every tiltStepDeg and every
+--                tiltTickDeg) and every level (plan.LEVELS: a player may change level
+--                mid-match, Session:setLevel). The action's plan (since 0.9) names the
+--                release and tilt or spin the thrower set, so the honest plan is tried
+--                first; an action without it (0.8 and older) is searched as before
 --   loft         exactly loftFor of the release as the level forgives it (the stop is in
 --                the action), so the planned release is pinned or bounded by it; a baton
 --                planned under flight.tune.nearM keeps the plan's loftShare of it, plus
@@ -34,7 +38,9 @@
 --   tumble       a baton's: the plan's rate x the flick, plus at most ZMAX sds of turns
 --                over the planned flight, never under tumbleMin. A kubb's is 0
 --   kubb         noseDown, spin, wobble and rollLand exactly drill.body's for the shake,
---                the pull, the planned spin (-spinSteps..spinSteps) and the loft
+--                the pull, the planned spin (any value in -spinSteps..spinSteps taps since
+--                0.9: the launch's spin less the spiral, over spinPerStep; an action's
+--                plan.spin must be that) and the loft
 --   swing        back startBackDeg..backswingMaxDeg; stop over 0; a sky ball (stop at or
 --                past skyDeg) has releaseV 1, else releaseV is the stop against the window
 --   stance       within halfWidth of the middle, backMax behind the line and no further
@@ -304,6 +310,9 @@ local function releases(ctx, levelName)
 		end
 	end
 	local L = ctx.L
+	-- the release the action's plan names (since 0.9): the honest one, tried first
+	local pl = ctx.a.plan
+	if type(pl) == "table" and num(pl.release) then add(pl.release) end
 	local _, _, _, near = flight.handAt(sqrt((ctx.tx - ctx.px) ^ 2 + (ctx.ty - ctx.py) ^ 2))
 	if not ctx.kubb and near > 0 then
 		-- a baton planned under nearM: its loft (launchLoft) depends on the planned release
@@ -435,24 +444,41 @@ local function personThrow(s, a)
 		surface = ts.surface, aimZ = aimZ, back = sw.back, stop = sw.stop, sky = sw.stop >= st.skyDeg,
 	}
 	-- a kubb's planned spin, from its spin
+	-- (a planned spin is any value in range since 0.9; a whole tap gives exactly the
+	-- whole number, as before)
+	local pl = type(a.plan) == "table" and a.plan or {}
 	local tapsList = { 0 }
 	if kubb then
-		local taps = floor((L.spin - dt.spiral) / t.spinPerStep + 0.5)
-		if abs(taps) > t.spinSteps or abs(taps * t.spinPerStep + dt.spiral - L.spin) > TOL then
-			return fail("the kubb's spin is not a planned spin")
+		local taps = (L.spin - dt.spiral) / t.spinPerStep
+		local whole = floor(taps + 0.5)
+		if abs(whole * t.spinPerStep + dt.spiral - L.spin) <= TOL then taps = whole end
+		if abs(taps) > t.spinSteps + EPS then return fail("the kubb's spin is not a planned spin") end
+		if pl.spin ~= nil and not (num(pl.spin) and abs(pl.spin - taps) <= TOL) then
+			return fail("the plan's spin is not the launch's")
 		end
 		tapsList = { taps }
 	end
 	local tilts = { 0 }
 	if not kubb then
 		tilts = {}
-		for p = -t.tiltMaxDeg, t.tiltMaxDeg, t.tiltStepDeg do tilts[#tilts + 1] = p end
+		local seen = {}
+		local function addTilt(p)
+			if p >= -t.tiltMaxDeg - EPS and p <= t.tiltMaxDeg + EPS then
+				p = plan.clampTilt(p)
+				if not seen[p] then seen[p] = true; tilts[#tilts + 1] = p end
+			end
+		end
+		for p = -t.tiltMaxDeg, t.tiltMaxDeg, t.tiltStepDeg do addTilt(p) end
+		addTilt(plan.clampTilt(L.tilt))
+		for p = -t.tiltMaxDeg, t.tiltMaxDeg, t.tiltTickDeg do addTilt(p) end
 		-- the nearest planned tilt first: the least shake
 		table.sort(tilts, function(x, y)
 			local dx, dy = abs(L.tilt - x), abs(L.tilt - y)
 			if dx ~= dy then return dx < dy end
 			return x < y
 		end)
+		-- the plan's own tilt (since 0.9) before them all
+		if num(pl.tilt) and abs(pl.tilt) <= t.tiltMaxDeg + EPS then table.insert(tilts, 1, plan.clampTilt(pl.tilt)) end
 	end
 	-- every level, the thrower's first
 	local own = throw.levelFor(ts)

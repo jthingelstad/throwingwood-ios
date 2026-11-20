@@ -42,6 +42,7 @@ end
 
 -- lobby.js
 function R.cleanOptions(a) return lobby.cleanOptions(a.options) end
+function R.optionsOf(a) return lobby.optionsOf(a.doc) end
 function R.optionLabel(a) return lobby.optionLabel(a.key, a.value) end
 function R.cleanName(a) return lobby.cleanName(a.name) end
 function R.lobbyOf(a) return lobby.lobbyOf(a.doc) end

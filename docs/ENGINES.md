@@ -18,8 +18,10 @@ engine and the older minors it still plays, one per major.minor, laid out as the
 
 `scripts/vendor-engine.sh sync` writes every one from its own tag; `check` verifies each
 against its own `engine.json` and corpus, and fails on an engine folder `OLDER` does not
-name. None is ever edited. Today: 0.8 (v0.8.1, corpus 0.8.0, 13 matches) and 0.7
-(v0.7.4, corpus 0.5.0, 12 matches). `GoldenTests` plays every carried engine's corpus.
+name. None is ever edited. Today: 0.9 (v0.9.0, corpus 0.9.0, 13 matches), 0.8
+(v0.8.2, corpus 0.8.0, 13 matches) and 0.7 (v0.7.4, corpus 0.5.0, 12 matches). 0.8 stays
+for testers on build 121 and kept 0.8 matches; 0.7 for build 113 and kept 0.7 matches.
+Each older engine is about 0.8 MB and loads only when a match on it is met. `GoldenTests` plays every carried engine's corpus.
 
 ## In the app
 
