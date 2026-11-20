@@ -176,6 +176,37 @@ struct SceneTests {
     #expect(night.settled && neon.settled && calm.settled)
   }
 
+  /// PITCH_SCENE_TIMING=1: each scene's draw of a practice throw at 3x, every
+  /// frame into a phone-sized bitmap, timed (not in CI: it only prints).
+  @Test func sceneDrawTiming() throws {
+    guard ProcessInfo.processInfo.environment["PITCH_SCENE_TIMING"] != nil else { return }
+    for look in ["day", "night", "neon"] {
+      let pitch = try PracticePitch(appVersion: "test")
+      pitch.useLook(look, reduced: false)
+      for p in try armPoints(pitch.dial) {
+        pitch.sample(p)
+        try pitch.tick(dt)
+      }
+      pitch.sample(nil)
+      try pitch.tick(dt)
+      let size = CGSize(width: 390, height: 844)
+      let ctx = bitmap(1170, 2532)
+      ctx.scaleBy(x: 3, y: 3)
+      var ms: [Double] = []
+      while pitch.playing && ms.count < 2000 {
+        try pitch.tick(dt)
+        let t0 = DispatchTime.now().uptimeNanoseconds
+        PitchRenderer.draw(
+          in: ctx, size: size, camera: pitch.camera, scene: pitch.scene, look: look,
+          effects: pitch.effects, time: pitch.lookTime, reduced: false)
+        ms.append(Double(DispatchTime.now().uptimeNanoseconds - t0) / 1e6)
+      }
+      let sorted = ms.sorted()
+      let q = [0.5, 0.95, 1].map { String(format: "%.2f", sorted[Int(Double(sorted.count - 1) * $0)]) }
+      print("scene timing \(look): \(ms.count) frames at 3x, p50/p95/max ms \(q.joined(separator: "/"))")
+    }
+  }
+
   /// The practice menu's Scene: a new practice in it, on the same surface.
   @Test func practiceTakesAScene() throws {
     let pitch = try PracticePitch(appVersion: "test")

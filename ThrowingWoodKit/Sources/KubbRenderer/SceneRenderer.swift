@@ -245,15 +245,7 @@ extension Painter {
     let dip = -3 * Double.pi / 180
     let lowAt = direction(V3(c.fx / hl * cos(dip), c.fy / hl * cos(dip), sin(dip)))
     let y1 = lowAt.map { min(size.height, max(20, $0.y)) } ?? size.height
-    if let space = CGColorSpace(name: CGColorSpace.sRGB),
-      let gradient = CGGradient(
-        colorsSpace: space, colors: [color(0x02040b), color(0x081127), color(0x16264a)] as CFArray,
-        locations: [0, 0.6, 1])
-    {
-      ctx.drawLinearGradient(
-        gradient, start: .zero, end: CGPoint(x: 0, y: y1),
-        options: [.drawsBeforeStartLocation, .drawsAfterEndLocation])
-    }
+    rowGradient(box, from: 0, to: y1, [(0, 0x02040b, 1), (0.6, 0x081127, 1), (1, 0x16264a, 1)])
     ctx.setBlendMode(.plusLighter)
     let (u, v) = stars.band
     let r0 = 0.12 * c.f * projection.k
@@ -272,7 +264,8 @@ extension Painter {
     // the stars: the steady ones in a few batches by colour and brightness, the
     // twinklers and the bright ones as glows
     let cols = [0xffffff, 0xfff1d2, 0xd6e4ff, 0xc9d8ff]
-    var batches = (0..<12).map { _ in CGMutablePath() }
+    var batches = [[CGRect]](repeating: [], count: 12)
+    let px = max(1, abs(ctx.userSpaceToDeviceSpaceTransform.d))
     var glows: [(CGPoint, Int)] = []
     for i in stars.dir.indices {
       guard let p = direction(stars.dir[i]), box.contains(p) else { continue }
@@ -281,11 +274,21 @@ extension Painter {
       if stars.tw[i] > 0 { continue }
       let band = m < 0.3 ? 0 : (m < 0.6 ? 1 : 2)
       let r = max(0.45, 0.35 + 1.3 * m * m)
-      batches[stars.col[i] * 3 + band].addRect(CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r))
+      // its square in whole device pixels, about its own area, on the nearest pixels
+      let side = max(1, (2 * r * px).rounded())
+      batches[stars.col[i] * 3 + band].append(
+        CGRect(
+          x: (p.x * px - side / 2).rounded() / px, y: (p.y * px - side / 2).rounded() / px, width: side / px,
+          height: side / px))
     }
-    for (k, path) in batches.enumerated() where !path.isEmpty {
-      fill(path, cols[k / 3], alpha: [0.38, 0.65, 0.95][k % 3])
+    // a steady star is a few whole pixels, filled without antialiasing: thousands
+    // of tiny antialiased squares were most of a night frame
+    ctx.setShouldAntialias(false)
+    for (k, rects) in batches.enumerated() where !rects.isEmpty {
+      ctx.setFillColor(color(cols[k / 3], [0.38, 0.65, 0.95][k % 3]))
+      ctx.fill(rects)
     }
+    ctx.setShouldAntialias(true)
     for (p, i) in glows {
       let tw = stars.tw[i] > 0 ? 0.55 + 0.45 * sin(time * stars.tw[i] + Double(i)) : 1
       let r = 0.6 + 1.8 * stars.mag[i]
@@ -317,6 +320,48 @@ extension Painter {
         transform: CGAffineTransform(translationX: mp.x + ox * R, y: mp.y + oy * R).rotated(by: 0.4))
     }
     fill(mares, 0xcfc7ad, alpha: 0.55)
+  }
+
+  /// A vertical gradient over `box`, from `y0` to `y1` (held past both ends),
+  /// each device pixel row in its 8-bit colour: a run of rows of one colour is
+  /// one rectangle, filled whole. The same picture as shading every pixel, for a
+  /// few dozen fills (CG shades a gradient pixel by pixel, the slowest part of a
+  /// night frame).
+  private func rowGradient(
+    _ box: CGRect, from y0: Double, to y1: Double, _ stops: [(t: Double, rgb: Int, a: Double)]
+  ) {
+    let scale = max(1, abs(ctx.userSpaceToDeviceSpaceTransform.d))
+    let h = Int((box.height * scale).rounded(.up))
+    guard h > 0, stops.count > 1, y1 > y0 else { return }
+    // a row's colour as 0xAARRGGBB
+    func at(_ j: Int) -> Int {
+      let t = min(1, max(0, (box.minY + (Double(j) + 0.5) / scale - y0) / (y1 - y0)))
+      let k = min(stops.count - 2, max(0, stops.lastIndex { $0.t <= t } ?? 0))
+      let f = min(1, max(0, (t - stops[k].t) / max(1e-12, stops[k + 1].t - stops[k].t)))
+      let a = stops[k], b = stops[k + 1]
+      func ch(_ x: Double, _ y: Double) -> Int { Int((x + (y - x) * f).rounded()) }
+      var v = ch(a.a * 255, b.a * 255) << 24
+      for sh in [16, 8, 0] { v |= ch(Double((a.rgb >> sh) & 0xff), Double((b.rgb >> sh) & 0xff)) << sh }
+      return v
+    }
+    ctx.saveGState()
+    ctx.setShouldAntialias(false)
+    var start = 0
+    var run = at(0)
+    for j in 1...h {
+      let next = j < h ? at(j) : -1
+      if next == run { continue }
+      if run >> 24 > 0 {
+        ctx.setFillColor(color(run & 0xffffff, Double(run >> 24) / 255))
+        ctx.fill(
+          CGRect(
+            x: box.minX, y: box.minY + Double(start) / scale, width: box.width,
+            height: Double(j - start) / scale))
+      }
+      start = j
+      run = next
+    }
+    ctx.restoreGState()
   }
 
   /// The clearing: the ground ends round the pitch, darker toward its rim, and the
@@ -354,17 +399,16 @@ extension Painter {
         let y = projection.principal.y - projection.k * c.f * (hx * c.ux + hy * c.uy) / df
         let up = size.height * 0.1
         let down = size.height * 0.16
-        if y + down >= 0, y - up <= size.height,
-          let space = CGColorSpace(name: CGColorSpace.sRGB),
-          let gradient = CGGradient(
-            colorsSpace: space, colors: [color(g.glow, 0), color(g.glow, 0.4), color(g.glow, 0)] as CFArray,
-            locations: [0, up / (up + down), 1])
-        {
+        if y + down >= 0, y - up <= size.height {
           ctx.saveGState()
           ctx.setBlendMode(.plusLighter)
-          ctx.clip(to: CGRect(x: -2, y: y - up, width: size.width + 4, height: up + down))
-          ctx.drawLinearGradient(
-            gradient, start: CGPoint(x: 0, y: y - up), end: CGPoint(x: 0, y: y + down), options: [])
+          // the band's rows on the screen, whole device pixels
+          let scale = max(1, abs(ctx.userSpaceToDeviceSpaceTransform.d))
+          let top = (max(-2, y - up) * scale).rounded(.down) / scale
+          let foot = (min(size.height + 2, y + down) * scale).rounded(.up) / scale
+          rowGradient(
+            CGRect(x: -2, y: top, width: size.width + 4, height: foot - top), from: y - up, to: y + down,
+            [(0, g.glow, 0), (up / (up + down), g.glow, 0.4), (1, g.glow, 0)])
           ctx.restoreGState()
         }
       }
