@@ -397,12 +397,51 @@ local function copy(t)
 	return o
 end
 
+-- js.asciiSize(l), the size the log budget is held to, for a document whose match
+-- carries a log. Without `sizes` it is js.asciiSize(l) itself. With `sizes`, a table the
+-- caller keeps for one document from commit to commit (session/replay.lua, which commits
+-- a whole match in one pass), the log's entries are not encoded again on every action:
+-- the document's text is the text with an empty log, "[]", with the entries put between
+-- the brackets, a comma between each two. Every piece starts and ends on an ASCII
+-- character, so asciiSize, counted character by character, is the sum of the pieces':
+--   asciiSize(l) = asciiSize(l with log = []) + sum of asciiSize(entry) + (#log - 1)
+-- An entry's size is kept the first time it is measured, keyed by the entry itself (the
+-- same table, or the same value), so a log that is not the one measured before, past
+-- the first entry that differs, is measured afresh. The entries are taken as unchanged
+-- once committed, as they are in a replay.
+function lobby.docSize(l, sizes)
+	local m = get(l, "match")
+	local log = get(m, "log")
+	if not sizes or not js.isArray(log) then return js.asciiSize(l) end
+	local entry, sum = sizes.entry, sizes.sum
+	if not entry then
+		entry, sum = {}, {}
+		sizes.entry, sizes.sum, sizes.n = entry, sum, 0
+	end
+	local n, k = #log, 0
+	local known = math.min(sizes.n, n)
+	while k < known and rawequal(entry[k + 1], log[k + 1]) do k = k + 1 end
+	for i = k + 1, n do
+		entry[i] = log[i]
+		sum[i] = (i > 1 and sum[i - 1] or 0) + js.asciiSize(log[i])
+	end
+	for i = n + 1, sizes.n do entry[i], sum[i] = nil, nil end
+	sizes.n = n
+	m.log = {}
+	local ok, base = pcall(js.asciiSize, l)
+	m.log = log
+	if not ok then error(base, 0) end
+	if n == 0 then return base end
+	return base + sum[n] + (n - 1)
+end
+
 -- An action committed: the snapshot after it, as action number `seq` of match `n`.
 -- Refused (nil) unless it follows the document's own last action: the compare-and-set's
 -- loser drops its action and adopts. `action` goes on the replay's log with the hash after
 -- it; `over` when it ended the match. A log that cannot stay whole (no action, a gap, or
--- the document past LOG_BUDGET) is dropped: that match has no replay.
-function lobby.commitAction(doc, a)
+-- the document past LOG_BUDGET) is dropped: that match has no replay. `sizes` (optional,
+-- not part of the room's call): see docSize; the same size, so the same decision.
+function lobby.commitAction(doc, a, sizes)
 	local l = lobby.lobbyOf(doc)
 	local m = l.match
 	if not l.started or not truthy(m) or not same(get(m, "n"), a.n) or not same(get(m, "seq"), js.minus1(a.seq)) then
@@ -423,7 +462,7 @@ function lobby.commitAction(doc, a)
 	end
 	if truthy(a.over) then nm.over = true end
 	l.match = nm
-	if truthy(nm.log) and js.asciiSize(l) > lobby.LOG_BUDGET then nm.log = NULL end
+	if truthy(nm.log) and lobby.docSize(l, sizes) > lobby.LOG_BUDGET then nm.log = NULL end
 	return l
 end
 
