@@ -50,6 +50,32 @@ import Testing
     #expect(p.state == .versionMismatch)
   }
 
+  @Test func aRoomThatCameBackIsNotAnsweredFromTheOldMatchsReplay() async throws {
+    let resign = JSONText(#"{"type":"resign","side":"A"}"#)
+    let (p, _) = try await setup()
+    defer { p.close() }
+    try await p.joinTeam("A")
+    #expect(try await p.start(seed: 1001, at: at))
+    #expect(try await p.take(resign))
+    let first = try #require(p.finishedReplay)
+    // another room's finished match, also its first, from another seed
+    let (q, _) = try await setup()
+    defer { q.close() }
+    try await q.joinTeam("A")
+    #expect(try await q.start(seed: 2002, at: at))
+    #expect(try await q.take(resign))
+    let second = try #require(q.finishedReplay)
+    #expect(first.n == second.n && first != second)
+    // the room expired and came back with that match under the same number
+    p.room.receive(
+      JS.object([
+        ("t", .string("joined")), ("host", .string("Native_Member")), ("rev", .int(1)),
+        ("members", .raw(JSONText("[]"))), ("v", .int(q.room.version)),
+        ("doc", .raw(q.room.document)),
+      ]).ascii)
+    #expect(p.finishedReplay == second)
+  }
+
   @Test func applyGapCorrectionAndRunningVersionMismatch() async throws {
     let (p, _) = try await setup()
     defer { p.close() }
