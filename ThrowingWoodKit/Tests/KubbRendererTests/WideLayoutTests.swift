@@ -183,8 +183,9 @@ import Testing
           var frames: [(String, CGRect)] = [
             ("rail", WideLayout.rail(size: p.size, safe: s, meter: meter)),
             ("menu", WideLayout.menu(size: p.size, safe: s, meter: meter)),
-            ("caption", WideLayout.caption(
-              size: p.size, safe: s, trayWidth: online ? WideLayout.trayWidth : 0, meter: meter)),
+            // the room the caption stack may grow into, not only its line
+            ("caption", WideLayout.captionRoom(
+              size: p.size, safe: s, trayWidth: online ? WideLayout.trayWidth : 0, meter: meter, side: side)),
             ("minimap", WideLayout.plan(meter: meter, size: p.size, safe: s, side: side).minimap),
             ("meter", WideLayout.meterBox(meter, size: p.size, safe: s, side: side)),
             ("plans", WideLayout.plan(meter: meter, size: p.size, safe: s, side: side).block),
@@ -278,10 +279,13 @@ import Testing
       let tray = online ? WideLayout.trayWidth : 0
       let plan = WideLayout.plan(meter: meter, size: size, safe: s, side: side, trayWidth: tray)
       let caption = WideLayout.caption(size: size, safe: s, trayWidth: tray, meter: meter, side: side)
+      // the stack (wind or a held slider's words over the verdict) is framed to
+      // this room, from the caption's line down to the first frame under it
+      let room = WideLayout.captionRoom(size: size, safe: s, trayWidth: tray, meter: meter, side: side)
       var frames: [(String, CGRect)] = [
         ("rail", WideLayout.rail(size: size, safe: s, meter: meter)),
         ("menu", WideLayout.menu(size: size, safe: s, meter: meter)),
-        ("caption", caption),
+        ("caption", room),
         ("meter", WideLayout.meterBox(meter, size: size, safe: s, side: side)),
         ("plans", plan.block),
       ]
@@ -295,6 +299,8 @@ import Testing
       }
       let what = "\(name) \(Int(size.width)) x \(Int(size.height)) \(kind) \(side)\(online ? " online" : "")"
       #expect(caption.width >= WideLayout.captionMin, "\(what): caption \(caption.width) pt")
+      #expect(room.minY == caption.minY && room.width == caption.width && room.height >= caption.height,
+        "\(what): caption room \(room) for \(caption)")
       for (n, f) in frames {
         #expect(safeRect.contains(f), "\(what): \(n) \(f) outside \(safeRect)")
       }
@@ -314,7 +320,9 @@ import Testing
         let R = LinearMeter.nudgeFinger
         let narrow = m.side == .right ? m.tab.minX < size.width / 2 + 2 * R + 4 : m.tab.maxX > size.width / 2 - 2 * R - 4
         #expect(nudge.minY >= 0 && nudge.maxY <= size.height, "\(what): nudge \(nudge)")
-        for (n, f) in frames where n != "coach" && !(n == "tab" && narrow) {
+        // the ghost may pass over the verdict below the caption's line (a
+        // drawing over a drawing), never over the line itself
+        for (n, f) in frames + [("caption line", caption)] where n != "coach" && n != "caption" && !(n == "tab" && narrow) {
           #expect(!nudge.intersects(f), "\(what): nudge \(nudge) meets \(n) \(f)")
         }
       }

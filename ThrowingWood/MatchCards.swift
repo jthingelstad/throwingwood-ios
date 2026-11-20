@@ -248,8 +248,9 @@ struct MatchScreen: View {
     let railBox = WideLayout.rail(size: size, safe: safe, meter: meter)
     let menuBox = WideLayout.menu(size: size, safe: safe, meter: meter)
     let tray: CGFloat = model.online == nil ? 0 : WideLayout.trayWidth
-    // under the floor beside SHOUT (a narrow window), a line of their own under the header row
-    let captionBox = WideLayout.caption(size: size, safe: safe, trayWidth: tray, meter: meter, side: side)
+    // under the floor beside SHOUT (a narrow window), a line of their own under
+    // the header row; the stack may grow down to the first frame under it
+    let captionBox = WideLayout.captionRoom(size: size, safe: safe, trayWidth: tray, meter: meter, side: side)
     let plan = WideLayout.plan(meter: meter, size: size, safe: safe, side: side, trayWidth: tray)
     // the held slider's caption grows from the block's side toward the middle
     let from: Alignment = (plan.edge ?? (side == .right ? .left : .right)) == .left ? .topLeading : .topTrailing
@@ -263,8 +264,9 @@ struct MatchScreen: View {
       menuButton.modifier(Plate(inset: 4))
         .frame(width: menuBox.width, height: menuBox.height)
         .offset(x: menuBox.minX, y: menuBox.minY)
-      captions(n, held: from)
-        .frame(width: captionBox.width, alignment: .top)
+      captions(n, held: from, room: captionBox.size)
+        .frame(width: captionBox.width, height: captionBox.height, alignment: .top)
+        .clipShape(Rectangle().inset(by: -4))  // the plates' shadows, inside captionGap
         .offset(x: captionBox.minX, y: captionBox.minY)
       if let online = model.online {
         // the tray beside MENU, the shouts under it
@@ -366,19 +368,50 @@ struct MatchScreen: View {
   }
 
   /// `held`: on a phone on its side, where the held slider's or STAND's caption
-  /// sits in the top strip (nil: centred, as upright).
-  @ViewBuilder private func captions(_ n: MatchNeed, held from: Alignment? = nil) -> some View {
+  /// sits in the top strip (nil: centred, as upright). `room`: on its side, the
+  /// room the stack has (WideLayout.captionRoom). Where all of it does not fit,
+  /// the verdict gives way while a slider is held (its words are live), else the
+  /// wind does, then the verdict's rest and words (the flag beside them first in
+  /// a wide room); the room is never shorter than the flag alone, and the frame
+  /// clips so nothing reaches a control.
+  @ViewBuilder private func captions(_ n: MatchNeed, held from: Alignment? = nil, room: CGSize? = nil) -> some View {
+    if let room {
+      let live = model.slow || (n.kind == "throw" && (pitch.standCaption != nil || pitch.held != nil))
+      ViewThatFits(in: .vertical) {
+        captionStack(n, held: from, top: true, verdict: .full)
+        if live {
+          captionStack(n, held: from, top: true, verdict: .short)
+          captionStack(n, held: from, top: true, verdict: nil)
+          // a held slider's words across a short, wide room take fewer lines
+          captionStack(n, held: from, top: true, verdict: nil, wide: room.width)
+        } else {
+          captionStack(n, held: from, top: false, verdict: .full)
+          if room.width >= 300 { captionStack(n, held: from, top: false, verdict: .full, row: true) }
+          captionStack(n, held: from, top: false, verdict: .short)
+          captionStack(n, held: from, top: false, verdict: .flag)
+        }
+      }
+    } else {
+      captionStack(n, held: from, top: true, verdict: .full)
+    }
+  }
+
+  @ViewBuilder private func captionStack(
+    _ n: MatchNeed, held from: Alignment?, top: Bool, verdict cut: Verdict.Cut?, row: Bool = false,
+    wide: CGFloat = 180
+  ) -> some View {
     VStack(spacing: 8) {
-      if model.slow {
+      if !top {
+      } else if model.slow {
         Text("SLOW MOTION").font(.caption.bold()).modifier(Plate(inset: 5))
       } else if let stand = pitch.standCaption, n.kind == "throw" {
-        SliderCaption(text: stand).aligned(from)
+        SliderCaption(text: stand, maxWidth: wide).aligned(from)
       } else if let held = pitch.held, n.kind == "throw" {
-        SliderCaption(text: PlanScale.caption(held, kubb: pitch.throwsKubb)).aligned(from)
+        SliderCaption(text: PlanScale.caption(held, kubb: pitch.throwsKubb), maxWidth: wide).aligned(from)
       } else if let wind = pitch.windText, n.kind == "throw" {
         Text(wind).font(.caption.bold()).modifier(Plate(inset: 5))
       }
-      if let result = model.result, n.kind == "throw" { Verdict(result: result) }
+      if let cut, let result = model.result, n.kind == "throw" { Verdict(result: result, cut: cut, row: row) }
     }
   }
 

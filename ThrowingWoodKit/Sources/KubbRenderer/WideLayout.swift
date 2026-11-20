@@ -173,6 +173,33 @@ public enum WideLayout {
     return row
   }
 
+  /// pt the caption stack keeps above the next frame under it (its plate's
+  /// shadow reaches 4 pt below the plate).
+  public static let captionGap: CGFloat = 6
+
+  /// The room the caption stack may fill (MatchScreen.wide frames it to this):
+  /// the caption's x and width, from its top down to `captionGap` above the
+  /// first frame under it (the meter's box, the plan block, the minimap, the
+  /// linear meter's tab and coach line) or `edge` above the safe bottom, and
+  /// never shorter than the caption itself. `caption` is the line the layout
+  /// places the rest by; this is how far down the stack (wind or a held
+  /// slider's words over the verdict) may grow.
+  public static func captionRoom(
+    size: CGSize, safe: ScreenInsets, trayWidth: CGFloat = 0, meter: MeterLayout, side: MeterSide? = nil
+  ) -> CGRect {
+    let side = side ?? meter.linear?.side ?? .right
+    let c = caption(size: size, safe: safe, trayWidth: trayWidth, meter: meter, side: side)
+    let p = plan(meter: meter, size: size, safe: safe, side: side, trayWidth: trayWidth)
+    var under = [meterBox(meter, size: size, safe: safe, side: side), p.block]
+    if !p.minimap.isNull { under.append(p.minimap) }
+    if let lm = meter.linear { under += [lm.tab, coachBand(lm, size: size)] }
+    var foot = size.height - safe.bottom - edge
+    for f in under where f.minX < c.maxX && f.maxX > c.minX && f.maxY > c.minY {
+      foot = min(foot, f.minY - captionGap)
+    }
+    return CGRect(x: c.minX, y: c.minY, width: c.width, height: max(c.height, foot - c.minY))
+  }
+
   /// Is the caption a line of its own under the header row?
   public static func captionHasItsOwnLine(_ c: CGRect, size: CGSize, safe: ScreenInsets, meter: MeterLayout?) -> Bool {
     c.minY > rail(size: size, safe: safe, meter: meter).minY

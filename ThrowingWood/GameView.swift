@@ -211,20 +211,45 @@ struct GameView: View {
 
 struct Verdict: View {
   let result: ThrowResult
+  /// How much of it shows where the room is short (MatchScreen.wide fits the
+  /// caption stack to `WideLayout.captionRoom`): all of it, the flag and the
+  /// words, or the flag alone (the words where there is no flag).
+  enum Cut { case full, short, flag }
+  var cut = Cut.full
+  /// The flag beside the words and the rest, for a wide, short room.
+  var row = false
   var body: some View {
-    VStack(spacing: 3) {
-      // the caption strip online beside a linear meter on its side is as narrow
-      // as 112.6 pt (the SE): a long flag (HELICOPTER) shrinks, never truncates
-      if let flag = result.flag { Text(flag).font(displayFont(29)).lineLimit(1).minimumScaleFactor(0.6) }
-      HStack(spacing: 4) {
-        ForEach(Array(result.words.enumerated()), id: \.offset) { _, word in
-          Text(word.text).font(.caption2.bold()).padding(3)
-            .foregroundStyle(word.offTarget ? Color.woodPaper : Color.woodInk)
-            .background(word.offTarget ? Color.woodInk : Color.clear)
+    Group {
+      if row {
+        HStack(spacing: 8) {
+          flag
+          VStack(spacing: 3) { words; rest }
         }
-      }.lineLimit(1).minimumScaleFactor(0.7)
-      if let rest = result.restText, !rest.isEmpty { Text(rest).font(.caption) }
+      } else {
+        VStack(spacing: 3) {
+          flag
+          if cut != .flag || result.flag == nil { words }
+          if cut == .full { rest }
+        }
+      }
     }.modifier(Plate(inset: 7)).allowsHitTesting(false)
+  }
+  // the caption strip online beside a linear meter on its side is as narrow
+  // as 112.6 pt (the SE): a long flag (HELICOPTER) shrinks, never truncates
+  @ViewBuilder private var flag: some View {
+    if let flag = result.flag { Text(flag).font(displayFont(29)).lineLimit(1).minimumScaleFactor(0.6) }
+  }
+  private var words: some View {
+    HStack(spacing: 4) {
+      ForEach(Array(result.words.enumerated()), id: \.offset) { _, word in
+        Text(word.text).font(.caption2.bold()).padding(3)
+          .foregroundStyle(word.offTarget ? Color.woodPaper : Color.woodInk)
+          .background(word.offTarget ? Color.woodInk : Color.clear)
+      }
+    }.lineLimit(1).minimumScaleFactor(0.7)
+  }
+  @ViewBuilder private var rest: some View {
+    if let rest = result.restText, !rest.isEmpty { Text(rest).font(.caption) }
   }
 }
 

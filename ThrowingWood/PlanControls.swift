@@ -196,10 +196,12 @@ struct SideSlider: View {
 /// 74 pt wide: BoardView), so it never covers the map in either view.
 struct SliderCaption: View {
   let text: String
+  /// Wider in a short, wide caption room (MatchScreen.wide), so it takes fewer lines.
+  var maxWidth: CGFloat = 180
   var body: some View {
     Text(text).font(displayFont(15)).multilineTextAlignment(.center)
       .fixedSize(horizontal: false, vertical: true)
-      .frame(maxWidth: 180).modifier(Plate(inset: 7)).allowsHitTesting(false)
+      .frame(maxWidth: maxWidth).modifier(Plate(inset: 7)).allowsHitTesting(false)
   }
 }
 
