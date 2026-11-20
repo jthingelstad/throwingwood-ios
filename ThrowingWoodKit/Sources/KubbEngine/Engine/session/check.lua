@@ -18,7 +18,9 @@
 --                -tiltMaxDeg..tiltMaxDeg in tiltStepDeg) and every level (plan.LEVELS: a
 --                player may change level mid-match, Session:setLevel)
 --   loft         exactly loftFor of the release as the level forgives it (the stop is in
---                the action), so the planned release is pinned or bounded by it
+--                the action), so the planned release is pinned or bounded by it; a baton
+--                planned under flight.tune.nearM keeps the plan's loftShare of it, plus
+--                nearOverLoft x the backswing past the power target x nearShare (0.8.0)
 --   tilt         the planned tilt plus the shake's tilt (shakeTiltDeg x the shake as it
 --                counts), which pins the shake as it counts and the pull's sign
 --   shake        that over shakeGain x the overpower multiplier: 0..1, and under
@@ -45,13 +47,14 @@
 -- degrees to the same swing (core/swing) and the same setStance.
 import "core/tw"
 import "core/throwplan"
+import "core/flight"
 import "core/swing"
 import "core/drill"
 import "session/json"
 import "session/session"
 import "session/throw"
 
-local plan, swing, drill = tw.plan, tw.swing, tw.drill
+local plan, swing, drill, flight = tw.plan, tw.swing, tw.drill, tw.flight
 local json, session, throw = tw.web.json, tw.web.session, tw.web.throw
 
 local abs, max, min, sqrt, floor = math.abs, math.max, math.min, math.sqrt, math.floor
@@ -242,6 +245,18 @@ local function tryTilt(ctx, levelName, sol, ptilt, taps)
 	return true
 end
 
+-- The loft plan.launch gives a baton from the release's loft: a short baton's share of
+-- it (sol.loftShare) and its overpower heave (flight.tune.nearOverLoft); a kubb's as is.
+local function launchLoft(sol, loft, back, kubb)
+	if kubb then return loft end
+	if sol.loftShare and sol.loftShare ~= 1 then loft = loft * sol.loftShare end
+	local past = back - sol.powerHi
+	if past > 0 and sol.nearShare and sol.nearShare > 0 then
+		loft = loft + flight.tune.nearOverLoft * past * sol.nearShare
+	end
+	return loft
+end
+
 -- The plan at one level and planned release: solved once, its release verdict and loft
 -- checked, then each planned tilt.
 local function tryPlan(ctx, levelName, rel, tilts, taps)
@@ -264,7 +279,9 @@ local function tryPlan(ctx, levelName, rel, tilts, taps)
 	if ctx.sky then relA = max(stop, 180) + t.skyExtraDeg end
 	if relA < 0 then relA = 0 end
 	local effRel = sol.release + plan.shrink(relA - sol.release, lv.releaseHalf, lv.inGain)
-	if abs(plan.loftFor(effRel) - L.loft) > TOL then return false, 2, "the loft is not one the stop gives" end
+	if abs(launchLoft(sol, plan.loftFor(effRel), ctx.back, kubb) - L.loft) > TOL then
+		return false, 2, "the loft is not one the stop gives"
+	end
 	local bestStage, bestWhy = 0, nil
 	for _, p in ipairs(tilts) do
 		local ok, stage, why = tryTilt(ctx, levelName, sol, p, taps)
@@ -274,8 +291,9 @@ local function tryPlan(ctx, levelName, rel, tilts, taps)
 	return false, bestStage, bestWhy
 end
 
--- The planned releases to try: the one the loft pins when the stop is inside the window,
--- the arcs a plan starts on and steps to, and a fine grid for the ARC slider.
+-- The planned releases to try: the one the loft pins when the stop is inside the window
+-- (a short baton's: every one whose launch loft is the throw's), the arcs a plan starts
+-- on and steps to, and a fine grid for the ARC slider.
 local function releases(ctx, levelName)
 	local t, lv = plan.tune, plan.level(levelName)
 	local out, seen = {}, {}
@@ -286,7 +304,42 @@ local function releases(ctx, levelName)
 		end
 	end
 	local L = ctx.L
-	if not ctx.sky and L.loft > t.loftMinDeg and L.loft < t.loftMaxDeg and lv.inGain < 1 then
+	local _, _, _, near = flight.handAt(sqrt((ctx.tx - ctx.px) ^ 2 + (ctx.ty - ctx.py) ^ 2))
+	if not ctx.kubb and near > 0 then
+		-- a baton planned under nearM: its loft (launchLoft) depends on the planned release
+		-- through the release's loft and through the power target the heave counts from,
+		-- and outside the window only through the latter. Find every release whose loft
+		-- is the throw's: a scan on arcStepDeg, then bisection inside each crossing
+		local q = { projectile = "baton", px = ctx.px, py = ctx.py, tx = ctx.tx, ty = ctx.ty,
+			level = levelName, surface = ctx.surface, spin = 0, aimZ = ctx.aimZ }
+		local relA = ctx.stop
+		if ctx.sky then relA = max(relA, 180) + t.skyExtraDeg end
+		if relA < 0 then relA = 0 end
+		local function gap(rel)
+			q.release = rel
+			local sol = plan.solve(q, {})
+			local effRel = sol.release + plan.shrink(relA - sol.release, lv.releaseHalf, lv.inGain)
+			return launchLoft(sol, plan.loftFor(effRel), ctx.back, false) - L.loft
+		end
+		local r0, g0 = t.releaseMinDeg, gap(t.releaseMinDeg)
+		local r1 = r0
+		while r1 < t.releaseMaxDeg do
+			r1 = min(t.releaseMaxDeg, r0 + t.arcStepDeg)
+			local g1 = gap(r1)
+			if g0 == 0 then add(r0) end
+			if (g0 < 0) ~= (g1 < 0) and g0 ~= 0 and g1 ~= 0 then
+				local lo, hi, glo = r0, r1, g0
+				for _ = 1, 60 do
+					local mid = (lo + hi) / 2
+					local gm = gap(mid)
+					if (gm < 0) == (glo < 0) then lo, glo = mid, gm else hi = mid end
+				end
+				add(lo); add(hi)
+			end
+			r0, g0 = r1, g1
+		end
+		if g0 == 0 then add(r0) end
+	elseif not ctx.sky and L.loft > t.loftMinDeg and L.loft < t.loftMaxDeg and lv.inGain < 1 then
 		local effRel = plan.releaseFor(L.loft)
 		add((effRel - lv.inGain * ctx.stop) / (1 - lv.inGain))
 	end

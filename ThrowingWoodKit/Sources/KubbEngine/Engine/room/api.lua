@@ -13,8 +13,10 @@ import "room/js"
 import "room/lobby"
 import "room/seats"
 import "room/sync"
+import "room/engines"
 
 local json, js, lobby, seats, sync = tw.web.json, tw.room.js, tw.room.lobby, tw.room.seats, tw.room.sync
+local engines = tw.room.engines
 local object, NULL = json.object, json.null
 
 local R = {}
@@ -64,6 +66,12 @@ function R.replayOf(a) return lobby.replayOf(a.match) end
 function R.isReplay(a) return lobby.isReplay(a.replay) end
 function R.backToLobby(a) return lobby.backToLobby(a.doc, a.n) end
 function R.mayPlay(a) return lobby.mayPlay(a.engine, a.match, js.truthy(a.lenient)) end
+-- several engines in one room (room/engines.lua, since 0.8.1)
+function R.engineFor(a) return engines.engineFor(a.doc, a.members, a.host, a.me, a.carries) end
+function R.carried(a) return engines.carried(a.me) end
+function R.announce(a) return engines.announce(a.carries, a.engine) end
+function R.speakAs(a) return engines.speakAs(a.members, a.engine) end
+function R.compareEngines(a) return engines.compare(lobby.majorMinor(a.a), lobby.majorMinor(a.b)) end
 -- seats.js
 function R.teamIds(a) return seats.teamIds(a.ctx, a.side) end
 function R.actorsFor(a) return seats.actorsFor(a.need, a.ctx) end

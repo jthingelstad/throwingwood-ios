@@ -51,6 +51,68 @@ flight.tune = {
 	--          is 1.07 face on, 0.81 edge on): Cd A = 0.0130 m^2, k = 0.0194
 	-- At 10 m/s that is 1.2 m/s^2 on a baton, 1.9 on a kubb.
 	dragK = { baton = 0.0118, kubb = 0.0194 },
+	-- The hand at a short throw (a player's report, 2026-11-20: two batons at a
+	-- field kubb 35 cm away came down on its top and it stood). Thrown from the
+	-- feet at handHeight, upright and turning slowly, a baton meant for a kubb a
+	-- step away has to fall most of half a metre in a few tenths of a metre: it
+	-- comes down at 60 degrees or steeper onto the kubb's top edge, and a blow
+	-- from above presses a kubb into the ground instead of tipping it. A thrower
+	-- a step from a kubb bends, reaches and bowls the baton low and flat into its
+	-- face, firmly. Under nearM (the planned distance, flight.handAt), by
+	-- s = 1 - d / nearM:
+	--   the hand goes down toward nearHandHeight and ahead of the feet toward
+	--     nearReach (never more than half the distance), and the baton leaves it
+	--     tipped forward by nearTip * s
+	--   the loft keeps 1 - nearFlatten * s of itself: a short swing lets go nearer
+	--     the bottom of its arc, so the same stop on the clock is a flatter throw
+	--   a baton aimed through a piece (plan.aimZFor) is aimed toward nearAimZ: the
+	--     aim height counts a baton that has made half a turn by the time it
+	--     arrives, and a short throw has turned a fraction of one, so it goes
+	--     into the kubb's face, not over its top
+	--   the firm bowl: where a throw at nearSpeed would carry past the aim, the
+	--     hand goes lower still until it does not (down to the baton's lower end
+	--     nearLow off the grass); where the hand is that low and the throw would
+	--     still be softer, plan.solve aims higher through the face. A soft lob
+	--     comes down on the top; and a firm bowl keeps the power target clear of
+	--     the bottom of the clock, where a swing hardly moves the baton
+	-- Jamie (2026-11-20): "Real player when hitting a field Kubb that close will
+	-- hit it low and hard in an attempt to roll the Kubb into other field kubbs
+	-- or even on a hope to roll it to the baseline to hit a baseline Kubb!" /
+	-- "It would be 1 in 100 to role a field 4M into a baseline." / "It is common
+	-- to hit a big cluster of field kubbs that close." / "And players miss when
+	-- they attempt to overpower those throws."
+	-- At nearM and over all of it is off and every number is as before. The
+	-- computer never stands nearer than autothrow.tune.minRange, which is nearM.
+	nearM = 2.0,           -- m
+	nearHandHeight = 0.20, -- m: the hand at d = 0 before the firm bowl lowers it
+	nearReach = 0.25,      -- m: how far ahead of the feet at d = 0
+	nearFlatten = 1.0,     -- share of the loft taken off at d = 0
+	nearAimZ = 0.04,       -- m: the aim height through a kubb at d = 0 (its height 0.15)
+	nearAimRef = 0.203,    -- m: a kubb's aim height at nearM (plan.aimZFor("kubb")), which the
+	                       -- firm bowl's hand counts on
+	nearSpeed = 3.7,       -- m/s: the firm bowl's speed (backswing 67.4 with a full flick)
+	nearLoftDeg = 22,      -- degrees: the loft the firm bowl counts on before flattening (the
+	                       -- field arc's, plan.loftFor(60); a baton under nearM is on it)
+	nearTip = 1.2,         -- rad the baton leaves tipped forward from upright at d = 0 (a bowl
+	                       -- lets go of it leaning toward the target, not standing in the hand)
+	nearLow = 0.03,        -- m: the baton's lower end at the release is never nearer the grass
+	-- the turn a short throw arrives with (flight.nearTurn, plan.solve's tumble,
+	-- the tip included). A short flight is too quick for the wrist's half turn,
+	-- and a baton that comes in part way through it, end down, plants that end
+	-- in the grass when it is a little short. Under nearTurnM: nearTurnDeg from
+	-- upright, flat into the face (within the wrist's range); from nearTurnM:
+	-- nearTurnOverDeg past a half turn (end over end, the top end coming down
+	-- into the kubb), easing to the level's own (plan.tumbleFor) by nearM. There
+	-- are two good ways to bowl a kubb a metre away and the mixture of them is
+	-- the bad one, so the turn steps at nearTurnM
+	nearTurnM = 0.97,      -- m
+	nearTurnDeg = 110,     -- degrees
+	nearTurnOverDeg = 45,  -- degrees
+	-- the cost of overpowering a short throw. The level's overpower cost scales
+	-- shake and nerves, which are too small to miss a kubb a step away by; a
+	-- swing past the power target there lets go later in its arc and the baton
+	-- rises over the kubb. Only past the band; on it nothing changes
+	nearOverLoft = 2.5,    -- degrees of loft per degree of backswing past the power target, times s
 	carryStep = 1 / 20,    -- s: flight.carry's midpoint step (within 2.5 mm of a fine one on
 	                       -- any throw the game makes; cheap enough to solve every aim frame)
 }
@@ -133,14 +195,69 @@ function flight.speedForCarry(R, e, h, k)
 	return v0, T0
 end
 
+-- The hand for a baton planned d metres from the stance (tune "The hand at a
+-- short throw"): its height (m), how far ahead of the feet along the throw it
+-- lets go (m), the share of the loft kept, s (0 at nearM and over, 1 at d = 0:
+-- how far into the short throw it is) and the tip (rad forward from upright).
+-- It depends on d alone, so a throw's action (its stance and circle) gives the
+-- same hand on every client. nil or d >= nearM: handHeight, 0, 1, 0 and 0,
+-- exactly. No tables.
+function flight.handAt(d)
+	local t = flight.tune
+	if not d or d >= t.nearM then return t.handHeight, 0, 1, 0, 0 end
+	if d < 0 then d = 0 end
+	local s = 1 - d / t.nearM
+	local fwd = t.nearReach * s
+	if fwd > 0.5 * d then fwd = 0.5 * d end
+	local h = t.handHeight - (t.handHeight - t.nearHandHeight) * s
+	local tip = t.nearTip * s
+	-- the firm bowl: lower the hand until a release at nearSpeed and the flattened
+	-- field loft carries just to the aim at the target, a kubb's (nearAimRef
+	-- toward nearAimZ, as plan.solve; bisection; the carry
+	-- grows with the height; the carry is never taken under 0.1 m, as plan.solve)
+	local R, z, k = d - fwd, t.nearAimRef + (t.nearAimZ - t.nearAimRef) * s, t.dragK.baton
+	if R < 0.1 then R = 0.1 end
+	local e = rad(t.nearLoftDeg * (1 - t.nearFlatten * s))
+	local lo = (0.5 * t.batonLength - t.batonRadius) * cos(tip) + t.batonRadius + t.nearLow
+	if lo < z + 0.005 then lo = z + 0.005 end
+	if h > lo and carry(t.nearSpeed, e, h - z, k) > R then
+		if carry(t.nearSpeed, e, lo - z, k) >= R then
+			h = lo
+		else
+			local a, b = lo, h
+			for _ = 1, 30 do
+				local m = 0.5 * (a + b)
+				if carry(t.nearSpeed, e, m - z, k) > R then b = m else a = m end
+			end
+			h = 0.5 * (a + b)
+		end
+	end
+	return h, fwd, 1 - t.nearFlatten * s, s, tip
+end
+
+-- The turn (degrees from upright, the tip included) a baton planned d metres
+-- from the stance is meant to arrive with, and how much of the way from its
+-- level's own (plan.tumbleFor's) to that it goes (tune "The hand at a short
+-- throw"): nearTurnDeg in full under nearTurnM, then 180 + nearTurnOverDeg
+-- easing out to none at nearM and over.
+function flight.nearTurn(d)
+	local t = flight.tune
+	if not d or d >= t.nearM then return 0, 0 end
+	if d < t.nearTurnM then return t.nearTurnDeg, 1 end
+	return 180 + t.nearTurnOverDeg, 1 - (d - t.nearTurnM) / (t.nearM - t.nearTurnM)
+end
+
 -- Predicted landing point and flight time of the baton's center:
 -- lx, ly, T (flight.carry with the baton's drag): the arc flight.step follows.
 -- z (nil: 0, the ground) is the height the centre comes down to: plan.solve
--- aims it through a piece at its aim height (plan.aimZFor).
-function flight.predict(x, lineY, swivel, loftDeg, speed, z)
+-- aims it through a piece at its aim height (plan.aimZFor). h and fwd (nil:
+-- handHeight, 0) are the hand (flight.handAt): its height and how far ahead of
+-- (x, lineY) along the swivel it lets go.
+function flight.predict(x, lineY, swivel, loftDeg, speed, z, h, fwd)
 	local t = flight.tune
 	local dx, dy = sin(swivel), cos(swivel)
-	local R, T = carry(speed, rad(loftDeg), t.handHeight - (z or 0), t.dragK.baton)
+	local R, T = carry(speed, rad(loftDeg), (h or t.handHeight) - (z or 0), t.dragK.baton)
+	if fwd then R = R + fwd end
 	return x + R * dx, lineY + R * dy, T
 end
 
@@ -164,16 +281,18 @@ function flight.new()
 	}
 end
 
--- Start a throw. tiltDeg comes from the swing (0 = clean).
-function flight.launch(fl, x, lineY, swivel, loftDeg, speed, tumbleRate, tiltDeg)
+-- Start a throw. tiltDeg comes from the swing (0 = clean). h, fwd, tip: the
+-- hand (flight.handAt; nil: handHeight at the feet, upright).
+function flight.launch(fl, x, lineY, swivel, loftDeg, speed, tumbleRate, tiltDeg, h, fwd, tip)
 	local t = flight.tune
 	local dx, dy, dz = launchDir(swivel, loftDeg)
-	fl.x, fl.y, fl.z = x, lineY, t.handHeight
+	fl.x, fl.y, fl.z = x, lineY, h or t.handHeight
+	if fwd then fl.x, fl.y = x + fwd * sin(swivel), lineY + fwd * cos(swivel) end
 	fl.vx, fl.vy, fl.vz = speed * dx, speed * dy, speed * dz
 	fl.ox, fl.oy = x, lineY
 	fl.dx, fl.dy = sin(swivel), cos(swivel)
-	fl.t, fl.phi, fl.rate, fl.tilt = 0, t.startAngle, tumbleRate, rad(tiltDeg or 0)
-	fl.lx, fl.ly, fl.T = flight.predict(x, lineY, swivel, loftDeg, speed)
+	fl.t, fl.phi, fl.rate, fl.tilt = 0, t.startAngle - (tip or 0), tumbleRate, rad(tiltDeg or 0)
+	fl.lx, fl.ly, fl.T = flight.predict(x, lineY, swivel, loftDeg, speed, nil, h, fwd)
 	fl.landed = false
 	return fl
 end

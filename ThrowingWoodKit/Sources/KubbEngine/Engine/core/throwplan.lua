@@ -325,6 +325,8 @@ end
 --   projectile, px, py, tx, ty, level (the level table)
 --   tumble, flightT   a baton's planned tumble (rad/s) and clean flight time to the
 --              target at aimZ (plan.tumbleFor)
+--   handZ, handFwd    a baton's hand: height and how far ahead of the stance it lets
+--              go (flight.handAt of dist; handHeight and 0 from flight.tune.nearM out)
 -- For a kubb also drill.solveAt's x, band and T.
 function plan.solve(q, out)
 	local lv = levelOf(q.level)
@@ -333,16 +335,55 @@ function plan.solve(q, out)
 	local px, py, tx, ty = q.px, q.py, q.tx, q.ty
 	if q.projectile == "kubb" then
 		drill.solveAt(tx, ty, py, loft, out, px, q.surface, (q.spin or 0) * plan.tune.spinPerStep)
-		out.tumble, out.flightT, out.aimZ = nil, nil, 0
+		out.tumble, out.flightT, out.aimZ, out.handZ, out.handFwd, out.loftShare, out.handTip = nil, nil, 0, nil, nil, nil, nil
+		out.nearShare = nil
 	else
 		local dx, dy = tx - px, ty - py
 		local d = sqrt(dx * dx + dy * dy)
 		local ft = flight.tune
 		local z = q.aimZ or 0
+		-- a short throw (flight.tune "The hand at a short throw"): the hand lower
+		-- and ahead of the feet, the loft flatter, and the centre aimed through a
+		-- piece's face rather than over its top
+		local h, fwd, flat, near, tip = flight.handAt(d)
+		out.handZ, out.handFwd, out.loftShare, out.handTip, out.nearShare = h, fwd, flat, tip, near
+		if near > 0 and z > 0 then z = z + (ft.nearAimZ - z) * near end
+		if flat ~= 1 then loft = loft * flat end
+		local R = d - fwd
+		if R < 0.1 then R = 0.1 end
+		local speed, T = carrySpeed(R, rad(loft), h - z)
+		if near > 0 and z > 0 and speed < ft.nearSpeed and h - z > 0.005 then
+			-- the hand is as low as it goes (flight.handAt) and the bowl would still
+			-- be soft: aim higher through the face until it is firm again (the
+			-- carry shortens as the drop does), never within 5 mm of the hand
+			local a, b = z, h - 0.005
+			if carrySpeed(R, rad(loft), h - b) <= ft.nearSpeed then
+				z = b
+			else
+				for _ = 1, 20 do
+					local m = 0.5 * (a + b)
+					if carrySpeed(R, rad(loft), h - m) < ft.nearSpeed then a = m else b = m end
+				end
+				z = b
+			end
+			speed, T = carrySpeed(R, rad(loft), h - z)
+		end
 		out.swivel, out.dist, out.loft, out.aimZ = atan(dx, dy), d, loft, z
-		local speed, T = carrySpeed(d > 0.1 and d or 0.1, rad(loft), ft.handHeight - z)
 		out.speed = speed
 		out.tumble, out.flightT = plan.tumbleFor(speed, loft, T, lv), T
+		if near > 0 and T > 0 then
+			-- the turn it arrives with (flight.nearTurn): a share of the way from
+			-- the level's own rate to the one that makes it; flat into the face is
+			-- kept inside the wrist's range (plan.tumbleFor's)
+			local turnDeg, share = flight.nearTurn(d)
+			local r = out.tumble + ((rad(turnDeg) - tip) / T - out.tumble) * share
+			if d < ft.nearTurnM then
+				local arm = speed / plan.tune.armR
+				local lo, hi = arm * (1 - plan.tune.wristShare), arm * (1 + plan.tune.wristShare)
+				if r < lo then r = lo elseif r > hi then r = hi end
+			end
+			out.tumble = r > plan.tune.tumbleMin and r or plan.tune.tumbleMin
+		end
 	end
 	local back = plan.backForSpeed(out.speed)
 	out.back, out.powerLo, out.powerHi = back, back - lv.powerHalf, back + lv.powerHalf
@@ -519,10 +560,17 @@ function plan.launch(sol, r, opts, out)
 	if rel < 0 then rel = 0 end
 	local effRel = sol.release + shrink(rel - sol.release, lv.releaseHalf, lv.inGain)
 	out.loft = plan.loftFor(effRel)
+	-- a short baton's flatter release (flight.handAt, plan.solve's loftShare)
+	if not kubb and sol.loftShare and sol.loftShare ~= 1 then out.loft = out.loft * sol.loftShare end
 	-- overpower: every 30 degrees past the power target multiplies the shake's costs
 	local past = back - sol.powerHi
 	local m = 1 + lv.overGain * (past > 0 and past or 0) / t.overPerDeg
 	local se = shake * lv.shakeGain * m -- the shake as it counts
+	-- overpowering a short bowl heaves it up (flight.tune.nearOverLoft): the
+	-- red zone's cost where the shake and the nerves are too small to miss by
+	if not kubb and past > 0 and sol.nearShare and sol.nearShare > 0 then
+		out.loft = out.loft + flight.tune.nearOverLoft * past * sol.nearShare
+	end
 	local shakeTilt = t.shakeTiltDeg * se
 	-- sideways and along: the shake's pull (the swing's roughness, one way)
 	-- and the nerves (two seeded draws, either way: opts.nerves)

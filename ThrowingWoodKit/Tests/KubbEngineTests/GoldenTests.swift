@@ -5,8 +5,9 @@ import Testing
 
 /// kubb-engine's golden corpus (`Fixtures/golden/hashes.json`, vendored with
 /// its driver `Fixtures/golden/drive.lua` from the same release by
-/// scripts/vendor-engine.sh): the hash after every action of twelve seeded
-/// computer-against-computer matches on the engine's reference platform, the
+/// scripts/vendor-engine.sh): the hash after every action of its seeded
+/// matches (twelve computer against computer, and since 0.8.0 a thirteenth of
+/// a person's short batons against the computer) on the engine's reference platform, the
 /// web's WebAssembly Lua with musl's libm (kubb-engine docs/DETERMINISM.md).
 /// The native engine must give every hash identically: then a match started
 /// on a phone and one in a browser are the same match, throw for throw.
@@ -92,10 +93,10 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
   @Test func corpusIsForTheVendoredEngine() throws {
     let engine = try Engine(appVersion: testAppVersion)
     // Hash-neutral releases retain the exact corpus from the last change to match physics.
-    let expected = ["0.4.1": "0.2.0", "0.5.1": "0.5.0", "0.7.1": "0.5.0", "0.7.2": "0.5.0", "0.7.3": "0.5.0", "0.7.4": "0.5.0"][engine.engineVersion] ?? engine.engineVersion
+    let expected = ["0.4.1": "0.2.0", "0.5.1": "0.5.0", "0.7.1": "0.5.0", "0.7.2": "0.5.0", "0.7.3": "0.5.0", "0.7.4": "0.5.0", "0.8.1": "0.8.0"][engine.engineVersion] ?? engine.engineVersion
     #expect(corpus.version == expected, "run scripts/vendor-engine.sh sync")
     #expect(corpus.tune == Engine.tune)
-    #expect(corpus.matches.count == 12)
+    #expect(corpus.matches.count == 13)
     #expect(engine.luaVersion == "Lua 5.4.5")
   }
 
@@ -135,7 +136,7 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
     #expect(differing.count > 0)
   }
 
-  @Test(arguments: 0..<12) func matchPlaysAsOnTheReference(index: Int) throws {
+  @Test(arguments: 0..<13) func matchPlaysAsOnTheReference(index: Int) throws {
     let want = try #require(corpus.matches.indices.contains(index) ? corpus.matches[index] : nil)
     let engine = try drivingEngine()
     let started = ContinuousClock.now
