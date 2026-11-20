@@ -13,7 +13,16 @@ the level and the engines this build carries (`room.announce`, below). The lobby
 watchers, host and connection state. A member can join either team or sit out.
 The player's own level is the device's (Settings, `ThrowLevel`): the lobby shows it as a line with a way to Settings and never asks. Team capacity, the levels and match options come from the engine. The host sets
 options, invite-only or open access, and starts. An empty side plays as the
-computer. An open pitch sends the web's counts-only listing on change and
+computer. The options offered are the `MATCH_OPTIONS` of the engine the next match
+would run on (`PitchController.lobbyEngine`, the room's engine counting this member),
+and every option is read through that engine's `optionsOf` (since 0.9: the five in
+`options` and the engine's own `computer` and `scene` from the document's `settings`,
+kubb-engine docs/ROOM.md difference 9), or `lobbyOf`'s `options` on an older engine,
+which has no such call. So on 0.9 the host sets Computer (the computer's level,
+Beginner, Club or Pro) for the match; once a tester on 0.8 takes a seat, the row goes,
+since a 0.8 match would not take it, and a 0.8 client's own writes keep the host's
+setting. A scene a host set elsewhere stays in `settings` untouched; it is never
+offered and every scene is drawn as the day (not approved to go live). An open pitch sends the web's counts-only listing on change and
 renews it every five minutes while the host is present.
 
 ### Engines in one room

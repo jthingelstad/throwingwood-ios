@@ -146,7 +146,7 @@ A raise is a touch on the kubb (`RaiseTouch.swift`, the web's raise-touch.js
 numbers), and Raising (by hand or automatic) is the match's choice, never a
 device setting. SEND FEEDBACK sends a throw report (`kind: "throw"`) or
 anything else (`kind: "feedback"`), the web's wire.
-The six option lists come from the pinned engine. Store the raw snapshot after
+The six option lists come from the pinned engine (Computer among them on 0.9). Store the raw snapshot after
 each action, including a release before the throw has finished playing.
 The solo host uses the pointer dial. The simulator-only card and HUD tests
 use synthetic checkpoints and both iOS 26.2 review phones. Run
@@ -286,7 +286,15 @@ options card and the lobby show it as a line with a way to Settings
 solo and online all throw at it. The engine reads a thrower's level for each
 throw, so a change applies from the next throw; the match's record keeps the
 levels it started with. The computer's level is a separate, per-game choice: the
-options card's Computer level, side B's player.
+options card's Computer level and the lobby's Computer, the match's `computer`
+option on engine 0.9 (kubb-engine docs/SESSION.md `newMatch`), kept per game in
+`solo.option.computer` (read from the older `solo.option.level` once).
+
+## Scenes
+
+A match's scene (`scene`, since engine 0.9) is carried untouched and every scene is
+drawn as the day. No picker and no word about scenes anywhere: not approved to go
+live.
 
 ## Sound and haptics
 
