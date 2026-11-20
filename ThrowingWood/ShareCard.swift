@@ -45,7 +45,11 @@ extension GameModel {
           try await RoomsClient.share(message, url: RoomsConfiguration.url, appVersion: Self.version)
         },
         reachable: { NetworkPath.shared.reachable }))
-    share.onShared = { [weak self] code in self?.shared(code) }
+    share.onShared = { [weak self, weak share] code in
+      // an answer for a match that is no longer the winner card's changes nothing
+      guard let self, let share, self.share === share else { return }
+      self.shared(code)
+    }
     self.share = share
   }
 
@@ -68,10 +72,11 @@ extension GameModel {
 
   /// A code came back: the reel card for it takes over when the share card is still
   /// shown, and asks for the reel at once (the press was SHARE AND MAKE THE REEL). Closed
-  /// meanwhile, the reel is asked for when its card is opened (nothing is sent off screen).
+  /// meanwhile, the share keeps the code and the reel is made when its card is opened
+  /// (nothing is sent off screen, and another pitch's reel card is never replaced).
   func shared(_ code: String) {
-    makeReel(code: code, linked: true)
     guard screen == .share else { return }
+    makeReel(code: code, linked: true)
     reelReturn = shareReturn
     screen = .reel
   }
@@ -281,7 +286,10 @@ struct SealedCard: View {
             return answers[mode] ?? ShareReply(code: nil, v: 0, why: "unavailable")
           },
           reachable: { mode != "offline" }))
-      share.onShared = { [weak self] code in self?.shared(code) }
+      share.onShared = { [weak self, weak share] code in
+        guard let self, let share, self.share === share else { return }
+        self.shared(code)
+      }
       self.share = share
       screen = .match
       if mode == "winner" || mode == "sharedwinner" {
