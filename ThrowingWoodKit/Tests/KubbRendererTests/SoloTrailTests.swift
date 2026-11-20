@@ -191,6 +191,8 @@ import Testing
     try plain.restore(snapshot, save: nil)
     #expect(try app.engine.hash() == plain.engine.hash())
     #expect(!app.trailComplete)
+    // an unrelated trail names nothing: the save plays on the newest, not on 0.7
+    #expect(app.engine.minor == Engine.newest)
     try computerThrows(app)
     try computerThrows(plain)
     #expect(try app.engine.hash() == plain.engine.hash())
@@ -198,6 +200,7 @@ import Testing
     // the trail from here on is kept, lines up on the next resume, and stays incomplete
     let kept = try #require(save.readTrail()?.trail)
     #expect(!kept.complete && kept.start == snapshot && kept.entries.count == 1)
+    #expect(Engine.majorMinor(kept.engine) == Engine.newest)
     let again = try PitchSession(appVersion: "test")
     try again.restore(#require(try save.read()), save: save)
     #expect(!again.trailComplete && save.readTrail()?.trail.entries.count == 1)
