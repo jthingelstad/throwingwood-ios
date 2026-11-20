@@ -125,11 +125,15 @@ public struct KeptReplay: Equatable, Sendable {
   /// The finished match's last snapshot (`snap`), when the replay carries one: a sealed
   /// pitch (a shared match) is shown from it.
   public let snap: String?
-  public init(v: Int, n: Int?, hash: String?, snap: String? = nil) {
+  /// The engine the match was played on (`engine`, `room.replayOf`'s copy of
+  /// `match.engine`), when the replay names one.
+  public let engine: String?
+  public init(v: Int, n: Int?, hash: String?, snap: String? = nil, engine: String? = nil) {
     self.v = v
     self.n = n
     self.hash = hash
     self.snap = snap
+    self.engine = engine
   }
 
   /// Whether this kept replay is `match` (always, with nothing to compare): the same
@@ -155,7 +159,8 @@ public struct KeptReplay: Equatable, Sendable {
       throw RoomError("unexpected-reply")
     }
     guard let v = reply["v"]?.int, let r = reply["replay"], !r.isNull else { return nil }
-    return KeptReplay(v: v, n: r["n"]?.int, hash: hashText(r["hash"]), snap: r["snap"]?.string)
+    return KeptReplay(v: v, n: r["n"]?.int, hash: hashText(r["hash"]), snap: r["snap"]?.string,
+      engine: r["engine"]?.string)
   }
 }
 

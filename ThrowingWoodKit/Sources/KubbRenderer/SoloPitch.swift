@@ -1,9 +1,11 @@
 import CoreGraphics
 import Foundation
+import KubbEngine
 import KubbRooms
 
 extension PitchSession {
   public func practice() throws {
+    try useEngine(minor: nil)  // practice is always on the newest
     resetPresentation()
     trail = ReportTrail()
     need = nil
@@ -31,11 +33,19 @@ extension PitchSession {
       ],
     ]) { _, new in new }
     let data = try JSONSerialization.data(withJSONObject: setup)
+    try useEngine(minor: nil)  // a new match is always on the newest
     try openMatch("new", json: String(decoding: data, as: UTF8.self), save: save)
     try checkpoint()
   }
 
-  public func restore(_ snapshot: String, save: MatchSave?) throws {
+  /// Puts a kept match back on the pitch, on its own engine: `engine` (a version, or
+  /// its major.minor) when the caller knows it (a shared match's kept replay), else the
+  /// engine its kept trail names (SoloTrail.swift), when this build carries it. A save
+  /// with neither (written before the trail) plays on the newest, as it always did.
+  public func restore(_ snapshot: String, save: MatchSave?, engine: String? = nil) throws {
+    let named = engine ?? save?.readTrail()?.trail.engine
+    let mm = Engine.majorMinor(named)
+    try useEngine(minor: mm.flatMap { Engine.carried.contains($0) ? $0 : nil })
     try openMatch("restore", json: snapshot, save: save)
   }
 

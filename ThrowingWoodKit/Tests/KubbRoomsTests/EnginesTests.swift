@@ -134,7 +134,7 @@ import Testing
     try await p.joinTeam("A")
     try await seat(p, "Guest_07", me: #"{"name":"Old","engine":"\#(older)"}"#, side: "B", rev: 3)
     #expect(try p.roomEngine()["engine"]?.string == older)
-    #expect(lastMe(t)?["engine"]?.string == older + "+engines")
+    try await eventually { lastMe(t)?["engine"]?.string == older + "+engines" }
     #expect(try await p.start(seed: 1001, at: at))
     let match = try #require(JSONNode.parse(p.room.document)["match"])
     #expect(match["engine"]?.string == older)
@@ -142,6 +142,6 @@ import Testing
     #expect(Set(p.engines.loaded) == Set([Engine.newest, older]))
     // the player leaves for good: back to the newest
     p.room.receive(#"{"t":"left","id":"Guest_07","rev":4}"#)
-    #expect(lastMe(t)?["engine"]?.string == Engine.newest + "+engines")
+    try await eventually { lastMe(t)?["engine"]?.string == Engine.newest + "+engines" }
   }
 }
