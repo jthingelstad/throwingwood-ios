@@ -4,7 +4,8 @@ import Observation
 
 @MainActor @Observable final class GameModel {
   enum Screen {
-    case home, options, practice, match, menu, sheet, onlineEntry, join, pitch, report, invalidLink
+    case home, options, practice, match, menu, sheet, onlineEntry, join, pitch, report, invalidLink,
+      reel
 
     var usesFeedback: Bool {
       switch self {
@@ -21,6 +22,11 @@ import Observation
   var onlineRevision = 0
   var report: PitchReport?
   var reportReturn = Screen.match
+  /// The highlight reel of the pitch on the winner card (ReelCard.swift), kept while
+  /// the card is closed so its button shows how the reel stands.
+  var reel: HighlightReel?
+  var reelMatch: Int?
+  var reelReturn = Screen.match
   /// The plan's two columns on the screen (window points; PlanControls reports them):
   /// the coach line keeps out of any level with it. Drawing only, not observed.
   @ObservationIgnored var planFrames: [Int: CGRect] = [:]
@@ -63,6 +69,7 @@ import Observation
       return
     }
     defer { feedback.onPitch = screen.usesFeedback }
+    _ = NetworkPath.shared  // a reel asked for offline knows at once
     guard let pitch = offline else { return }
     feedback.attach(pitch)
     let defaults = UserDefaults.standard
@@ -79,6 +86,15 @@ import Observation
       #if targetEnvironment(simulator)
         if let mode = ProcessInfo.processInfo.environment["ONLINE_REVIEW"] {
           beginReview(mode)
+          return
+        }
+        if let mode = ProcessInfo.processInfo.environment["REEL_REVIEW"] {
+          // a finished match behind the card, as on the winner card
+          let snapshot = try String(
+            contentsOf: URL.temporaryDirectory.appending(path: "review-solo.json"), encoding: .utf8)
+          try pitch.restore(snapshot, save: nil)
+          pitch.dismissHandoff()
+          beginReelReview(mode)
           return
         }
         if let mode = ProcessInfo.processInfo.environment["MATCH_REVIEW"] {
@@ -177,6 +193,8 @@ import Observation
     online.board.cancelFeedback = nil
     self.online = nil
     report = nil
+    reel?.hide()
+    reel = nil
     Task { await online.leave() }
   }
   func home() {

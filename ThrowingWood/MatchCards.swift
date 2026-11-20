@@ -629,6 +629,16 @@ struct MatchScreen: View {
         }
         Button("SCORE SHEET", action: model.showSheet).buttonStyle(WoodButton())
       }
+      // a finished pitch with its replay (the web's docs/REEL.md); a match against
+      // the computer gets it once it can be shared
+      if let code = model.onlineReelCode {
+        let shown = model.reel?.code == code && model.reelMatch == model.online?.controller.matchNumber
+        Button {
+          model.openReel(code: code, match: model.online?.controller.matchNumber)
+        } label: {
+          Text(ReelWords.button(shown ? model.reel?.phase : nil)).lineLimit(1).minimumScaleFactor(0.8)
+        }.buttonStyle(WoodButton())
+      }
       Button("HOME", action: model.home).font(.caption.bold()).padding(.vertical, 8)
     }.frame(maxWidth: .infinity, alignment: .leading)
   }

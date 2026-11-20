@@ -88,6 +88,8 @@ struct GameView: View {
               if let report = model.report {
                 ReportCard(model: model, report: report, kind: reviewReportKind)
               }
+            case .reel:
+              if let reel = model.reel { ReelCard(model: model, reel: reel) }
             case .sheet:
               if let sheet = model.sheet {
                 SheetCard(sheet: sheet) { model.screen = model.sheetReturn }
@@ -111,8 +113,14 @@ struct GameView: View {
     }
     .onChange(of: phase, initial: true) { _, phase in
       model.feedback.setActive(phase == .active)
-      if phase == .background { model.online?.background() }
-      if phase == .active { model.online?.connect() }
+      if phase == .background {
+        model.online?.background()
+        model.reel?.hide()  // no asking in the background
+      }
+      if phase == .active {
+        model.online?.connect()
+        if model.screen == .reel { model.reel?.show() }  // asks once and goes on
+      }
     }
     .onReceive(NotificationCenter.default.publisher(for: .AVAudioEngineConfigurationChange).receive(on: RunLoop.main)) { _ in
       model.feedback.prepare()

@@ -68,6 +68,8 @@ import KubbRooms
   public private(set) var wanted = Format.tall
   /// Requests sent, for tests.
   public private(set) var asked = 0
+  /// When this device first asked: the card's slow bar runs from it.
+  public private(set) var since: Date?
 
   private let site: URL
   private let cache: URL
@@ -145,6 +147,7 @@ import KubbRooms
       return
     }
     if phase != .making { phase = .asking }
+    if since == nil { since = Date() }
     inFlight = true
     asked += 1
     Task { [weak self, hooks] in
