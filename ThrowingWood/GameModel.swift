@@ -5,7 +5,7 @@ import Observation
 @MainActor @Observable final class GameModel {
   enum Screen {
     case home, options, practice, match, menu, sheet, onlineEntry, join, pitch, report, invalidLink,
-      reel
+      reel, share, sealed
 
     var usesFeedback: Bool {
       switch self {
@@ -17,7 +17,7 @@ import Observation
   let feedback = GameFeedback()
   let meter = MeterChoice()
   let offline: PitchSession?
-  var pitch: PitchSession? { online?.board ?? offline }
+  var pitch: PitchSession? { online?.board ?? sealed?.board ?? offline }
   var online: OnlinePitch?
   var onlineRevision = 0
   var report: PitchReport?
@@ -26,6 +26,15 @@ import Observation
   /// the card is closed so its button shows how the reel stands.
   var reel: HighlightReel?
   var reelReturn = Screen.match
+  /// The finished match against the computer on the winner card, and its share card
+  /// (ShareCard.swift), while it is the match on the screen.
+  var share: SoloShare?
+  var shareReturn = Screen.match
+  /// A shared match opened by its code (a sealed pitch, ShareCard.swift): shown from its
+  /// kept replay on a session of its own, never joined.
+  var sealed: SealedPitch?
+  /// Review pictures stand in for the reel's server (simulator only).
+  @ObservationIgnored var reelHooksOverride: ((String) -> HighlightReel.Hooks)?
   /// The plan's two columns on the screen (window points; PlanControls reports them):
   /// the coach line keeps out of any level with it. Drawing only, not observed.
   @ObservationIgnored var planFrames: [Int: CGRect] = [:]
@@ -96,6 +105,15 @@ import Observation
           beginReelReview(mode)
           return
         }
+        if let mode = ProcessInfo.processInfo.environment["SHARE_REVIEW"] {
+          // a finished match against the computer behind the card, as on the winner card
+          let snapshot = try String(
+            contentsOf: URL.temporaryDirectory.appending(path: "review-solo.json"), encoding: .utf8)
+          try pitch.restore(snapshot, save: nil)
+          pitch.dismissHandoff()
+          beginShareReview(mode)
+          return
+        }
         if let mode = ProcessInfo.processInfo.environment["MATCH_REVIEW"] {
           selections = pitch.options.defaults
           name = "You"
@@ -153,12 +171,17 @@ import Observation
         name: defaults.string(forKey: "pitch.name") ?? "",
         level: defaults.string(forKey: "pitch.level") ?? "club", appVersion: Self.version)
       if online != nil { leaveOnline() }
+      sealed = nil
       feedback.silence()
       feedback.attach(pitch.board)
       online = pitch
       screen = .pitch
       pitch.changed = { [weak self, weak pitch] in
         guard let self, let pitch, online === pitch else { return }
+        if pitch.stage == .sealed {
+          openSealed(pitch.link)  // a shared match: watched from its replay
+          return
+        }
         if screen == .reel, let reel {
           // the card stays through a reconnect (the foreground's among them) and a
           // rematch's lobby; a match starting, or the pitch gone, closes it
@@ -192,7 +215,7 @@ import Observation
     }
     enter(link, create: false)
   }
-  private func leaveOnline() {
+  func leaveOnline() {
     guard let online else { return }
     online.changed = nil
     online.board.onFeedback = nil
@@ -205,6 +228,14 @@ import Observation
   }
   func home() {
     feedback.silence()
+    if sealed != nil {
+      // the solo match behind it, if any, stays as it was
+      sealed = nil
+      reel?.hide()
+      screen = .home
+      refresh()
+      return
+    }
     if online != nil {
       leaveOnline()
       screen = .home
@@ -231,6 +262,7 @@ import Observation
     }
   }
   func start() {
+    share = nil
     perform {
       try pitch?.startSolo(name: name, selections: selections, save: save)
       for (key, value) in selections {

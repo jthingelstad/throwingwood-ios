@@ -624,14 +624,27 @@ struct MatchScreen: View {
             Button("REMATCH") { model.runOnline { try await online.rematch() } }.buttonStyle(
               WoodButton(accent: true))
           }
-        } else {
+        } else if model.sealed == nil {
           Button("REMATCH") { model.screen = .options }.buttonStyle(WoodButton(accent: true))
         }
         Button("SCORE SHEET", action: model.showSheet).buttonStyle(WoodButton())
       }
-      // a finished pitch with its replay (the web's docs/REEL.md); a match against
-      // the computer gets it once it can be shared
-      if let code = model.onlineReelCode {
+      // a finished pitch with its replay (the web's docs/REEL.md); a match against the
+      // computer once shared (the share card first, ShareCard.swift); a shared match
+      // opened by its code, whose reel is of its kept match
+      if let sealed = model.sealed {
+        let code = sealed.code
+        let shown = model.reel?.code == code && model.reel?.match == sealed.match
+        Button {
+          model.openReel(code: code, match: sealed.match)
+        } label: {
+          Text(ReelWords.button(shown ? model.reel?.phase : nil)).lineLimit(1).minimumScaleFactor(0.8)
+        }.buttonStyle(WoodButton())
+      } else if model.online == nil, model.share != nil {
+        Button(action: model.openShare) {
+          Text(model.shareButton).lineLimit(1).minimumScaleFactor(0.8)
+        }.buttonStyle(WoodButton())
+      } else if let code = model.onlineReelCode {
         let match = model.online?.controller.finishedReplay
         let shown = model.reel?.code == code && model.reel?.match == match
         Button {
@@ -642,6 +655,7 @@ struct MatchScreen: View {
       }
       Button("HOME", action: model.home).font(.caption.bold()).padding(.vertical, 8)
     }.frame(maxWidth: .infinity, alignment: .leading)
+      .onAppear { model.prepareShare() }
   }
 }
 
