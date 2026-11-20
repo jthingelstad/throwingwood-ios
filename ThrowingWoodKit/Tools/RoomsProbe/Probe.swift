@@ -39,8 +39,11 @@ import KubbRooms
           try await RoomsClient.sendReport(message, url: url, appVersion: "0.0-test")
           response = .bool(true)
         case "shareMake":
-          // the iPhone's `share` message for a finished match against the computer
-          let engine = try Engine(appVersion: "0.0-test")
+          // the iPhone's `share` message for a finished match against the computer, made
+          // on the match's own engine when this build carries it (as the app's session is)
+          let mm = Engine.majorMinor(cmd["engine"]?.string)
+          let engine = try Engine(
+            minor: mm.flatMap { Engine.carried.contains($0) ? $0 : nil }, appVersion: "0.0-test")
           let source = ShareSource(
             engine: cmd["engine"]!.string!, start: cmd["start"]!.string!,
             actions: cmd["actions"]!.items.map(\.raw), winner: cmd["winner"]!.string!)

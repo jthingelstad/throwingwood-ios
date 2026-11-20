@@ -468,7 +468,7 @@ try {
     "17/17 documented server error codes; full room (16 connected); set/no; injected busy/failed/unavailable",
   );
 
-  // Native controller refuses a mixed-version START through engine room.startCheck.
+  // Native controller refuses a START with no engine every player carries (room.engineFor).
   await connect("mismatch", "efghjkmnpq", "Native_Mismatch", true);
   const old = await room("efghjkmnpq", "Web_Older", "0.3.0");
   await rpc({ op: "team", key: "mismatch", side: "A" });
@@ -488,7 +488,7 @@ try {
   assert.equal(old.doc.started, false);
   assert.equal(
     (await state("mismatch")).note,
-    "Web_Older is on another version of Throwing Wood: reload to play.",
+    "Web_Older is on an older version of Throwing Wood. To play together, they need to update the app or reload the page.",
   );
   for (const [version, card] of [
     ["0.3", "older"],
@@ -524,7 +524,10 @@ try {
         players: lineup.players,
         cpu: lineup.cpu,
         host: host.you,
-        members: host.members,
+        // spoken down to this engine: the native seat announces every engine it carries
+        members: host.members.map((m) =>
+          m.me?.engines ? { ...m, me: { ...m.me, engine: manifest.version } } : m,
+        ),
       });
       next.match.engine = version;
       return next;
@@ -688,8 +691,8 @@ try {
             n: m.n,
             seq: m.seq,
             action: w.a,
-            client: "ios",
-            engine: iosVersion,
+            // a rider names no device (the default "web") and the match's own engine
+            engine: manifest.version,
           }),
         );
       }
@@ -776,11 +779,12 @@ try {
     );
     assert.deepEqual(
       Object.keys(browser.members.find((m) => m.id === nativeID).me).sort(),
-      ["engine", "level", "name"],
+      ["engine", "engines", "level", "name"],
     );
+    // spoken down to the web's engine (docs/ONLINE.md "Engines in one room")
     assert.equal(
       browser.members.find((m) => m.id === nativeID).me.engine,
-      compatible,
+      manifest.version.split(".").slice(0, 2).join(".") + "+engines",
     );
     let nativeCommits = 0,
       webCommits = 0,
@@ -895,7 +899,7 @@ try {
         assert.equal(captured.v, browser.v);
         assert.equal(captured.match.seq, 2);
         assert.equal(captured.client, "ios");
-        assert.equal(captured.engine, iosVersion);
+        assert.equal(captured.engine, browser.doc.match.engine === compatible ? iosVersion : manifest.version); // the engine that played
         assert.ok(
           !latestReport.report.includes(nativeID) &&
             !latestReport.report.includes(browser.you),
