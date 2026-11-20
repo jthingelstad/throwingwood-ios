@@ -351,7 +351,8 @@ import KubbRooms
           failed = true
           break
         }
-        format = self.firstMissing()
+        // the card closed meanwhile: what is still missing waits for `show`
+        format = self.onScreen ? self.firstMissing() : nil
       }
       guard let self else { return }
       self.inFlight = false
