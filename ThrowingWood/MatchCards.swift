@@ -247,7 +247,7 @@ struct MatchScreen: View {
     // the linear meter takes its edge's whole height: the rail or MENU moves in beside it
     let railBox = WideLayout.rail(size: size, safe: safe, meter: meter)
     let menuBox = WideLayout.menu(size: size, safe: safe, meter: meter)
-    let tray: CGFloat = model.online == nil ? 0 : 96
+    let tray: CGFloat = model.online == nil ? 0 : WideLayout.trayWidth
     let captionBox = WideLayout.caption(size: size, safe: safe, trayWidth: tray, meter: meter)
     let plan = WideLayout.plan(meter: meter, size: size, safe: safe, side: side)
     // the held slider's caption grows from the block's side toward the middle
@@ -272,7 +272,7 @@ struct MatchScreen: View {
           shouts(online)
         }
         .frame(width: 220, alignment: .trailing)
-        .offset(x: menuBox.minX - 8 - 220, y: menuBox.minY)
+        .offset(x: menuBox.minX - WideLayout.shoutGap - 220, y: menuBox.minY)
       }
       if (n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput && WideLayout.isShort(size) {
         // a bar along the bottom (WideLayout.bar); its measured height keeps the

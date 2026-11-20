@@ -187,9 +187,19 @@ public struct LinearMeter: Equatable, Sendable {
     let r = Self.tune.range
     return min(r, max(-r, Double((yHome - y) / scale)))
   }
-  /// Is a press on the knob at its home? (Within `grabTouch` up or down.)
-  public func knobHit(_ p: CGPoint, reach: CGFloat = LinearMeter.tune.grabTouch) -> Bool {
-    p.x >= left - 6 && p.x <= right + 6 && abs(p.y - yHome) <= reach
+  /// Is a press on the knob at its home? (Within `grabTouch` up or down, across
+  /// the body.) On a wide screen only across the knob's channel (and 6 pt past
+  /// the body's outer edge): the lane beside it stands over the far baseline's
+  /// outer kubb (on the 13 mini at its side the kubb is 34 pt above home, 9 pt
+  /// into the lane), and a press in the lane is throw zone, so a tap there aims
+  /// and a drag strokes from the press as a grab does.
+  public func knobHit(_ p: CGPoint, reach: CGFloat = LinearMeter.tune.grabTouch, wide: Bool = false) -> Bool {
+    guard abs(p.y - yHome) <= reach else { return false }
+    guard wide else { return p.x >= left - 6 && p.x <= right + 6 }
+    let outer: CGFloat = 6
+    let lo = channelLeft - (side == .left ? outer : 0)
+    let hi = channelLeft + channelWidth + (side == .right ? outer : 0)
+    return p.x >= lo && p.x <= hi
   }
   /// Is it anywhere on the body? (The body keeps a press from the pitch behind it.)
   public func bodyHit(_ p: CGPoint) -> Bool {
@@ -292,7 +302,8 @@ public enum MeterLayout: Equatable, Sendable {
   /// 1. `first(_:)`, before anything else (the target circle, the
   ///    thrower): the clock's ring (within 1.25 radii), the linear meter's knob
   ///    (46 pt up or down from home, across the body), then the rest of its body,
-  ///    which takes the press and does nothing.
+  ///    which takes the press and does nothing upright; on a wide screen the
+///    body is throw zone (a tap aims, a drag strokes).
   /// 2. `after(_:in:aimable:)`, only when nothing else took the press (after the
   ///    target circle and the thrower, before a tap on the pitch): beside the
   ///    clock's ring (1.25 to 2.1 radii), or the linear meter's throw zone (the
@@ -316,12 +327,44 @@ public enum MeterLayout: Equatable, Sendable {
   /// pt a press may move and still be a tap.
   public static let tapSlop: CGFloat = 10
 
-  public func first(_ p: CGPoint) -> Claim? {
+  /// `wide`: the screen is wide (`WideLayout.isWide`). There the knob is
+  /// grabbed across its channel only, and the linear meter's body away from it
+  /// is part of the throw zone (`.zone`: a tap aims, a
+  /// drag strokes), since its whole-height box stands over the far baseline's
+  /// outer kubb on its side and a tap there must still aim at it. Upright the
+  /// body keeps the press (`.body`): nothing to aim at lies behind it.
+  public func first(_ p: CGPoint, wide: Bool = false) -> Claim? {
     switch self {
     case .clock(let c): return c.onRing(p) ? .meter(grab: 0) : nil
     case .linear(let m):
-      if m.knobHit(p) { return .meter(grab: p.y - m.yHome) }
-      return m.bodyHit(p) ? .body : nil
+      if m.knobHit(p, wide: wide) { return .meter(grab: p.y - m.yHome) }
+      guard m.bodyHit(p) else { return nil }
+      return wide ? .zone : .body
+    }
+  }
+
+  /// What a press comes to once it lifts or first moves past `tapSlop`.
+  public enum Press: Equatable, Sendable {
+    /// A tap on the pitch: the pitch's tap rules aim (`PitchSession.tapAim`).
+    case tapAims
+    /// The throw: the stroke or the arm, `grab` the linear meter's offset from
+    /// home (the press point is home), 0 on the clock.
+    case stroke(grab: CGFloat)
+    /// Swallowed: the linear meter's body upright.
+    case nothing
+  }
+
+  /// The press a claim comes to: `start` is where the finger went down, `moved`
+  /// whether it went past `tapSlop` (the host's rule, BoardView's touches).
+  public func press(_ claim: Claim, from start: CGPoint, moved: Bool) -> Press {
+    switch claim {
+    case .meter(let grab): return .stroke(grab: grab)
+    case .beside: return .stroke(grab: 0)
+    case .body: return .nothing
+    case .besidePending: return moved ? .stroke(grab: 0) : .tapAims
+    case .zone:
+      guard moved else { return .tapAims }
+      return .stroke(grab: linear.map { start.y - $0.yHome } ?? 0)
     }
   }
 

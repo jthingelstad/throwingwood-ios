@@ -496,15 +496,21 @@ import UIKit
       run { try pitch.movePunishment(to: p, size: bounds.size) }
     } else if !pitch.canAim {
       return
-    } else if let claim = meter.first(p) {
-      nudge.meterPressed()
-      if case .meter(let grab) = claim {
+    } else if let claim = meter.first(p, wide: WideLayout.isWide(bounds.size)) {
+      if claim == .zone {
+        // the linear meter's body on a wide screen: a tap still aims at the
+        // kubb behind it; a drag strokes the knob, as in the throw zone
+        nudge.zonePressed()
+        gesture = .zone
+      } else if case .meter(let grab) = claim {
+        nudge.meterPressed()
         gesture = .dial
         meterGrab = grab
         pitch.beginDial()
         wake()
         sampleDial(p)
       } else {
+        nudge.meterPressed()
         gesture = .body
       }
     } else if let stance = pitch.stancePoint(in: bounds.size),
@@ -551,12 +557,9 @@ import UIKit
     case .zone where moved, .track where moved:
       // a drag after all: the press is where the stroke starts (the knob's home
       // for the zone), fed this frame, and the finger the next, as a grab is
-      if gesture == .zone, let m = meter.linear {
-        meterGrab = startPoint.y - m.yHome
-      } else {
-        meterGrab = 0
-        besideRing = true
-      }
+      let grab = meter.press(gesture == .zone ? .zone : .besidePending, from: startPoint, moved: true)
+      meterGrab = if case .stroke(let g) = grab { g } else { 0 }
+      besideRing = gesture != .zone
       gesture = .dial
       nudge.meterPressed()
       pitch.beginDial()

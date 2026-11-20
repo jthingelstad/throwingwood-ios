@@ -213,14 +213,16 @@ struct Verdict: View {
   let result: ThrowResult
   var body: some View {
     VStack(spacing: 3) {
-      if let flag = result.flag { Text(flag).font(displayFont(29)) }
+      // the caption strip online beside a linear meter on its side is as narrow
+      // as 112.6 pt (the SE): a long flag (HELICOPTER) shrinks, never truncates
+      if let flag = result.flag { Text(flag).font(displayFont(29)).lineLimit(1).minimumScaleFactor(0.6) }
       HStack(spacing: 4) {
         ForEach(Array(result.words.enumerated()), id: \.offset) { _, word in
           Text(word.text).font(.caption2.bold()).padding(3)
             .foregroundStyle(word.offTarget ? Color.woodPaper : Color.woodInk)
             .background(word.offTarget ? Color.woodInk : Color.clear)
         }
-      }
+      }.lineLimit(1).minimumScaleFactor(0.7)
       if let rest = result.restText, !rest.isEmpty { Text(rest).font(.caption) }
     }.modifier(Plate(inset: 7)).allowsHitTesting(false)
   }
