@@ -15,23 +15,29 @@ extension PitchSession {
     try adopt(read("new", #"{"mode":"practice","surface":"grass"}"#))
   }
 
-  /// `level` is the player's own (ThrowLevel, the device's); `selections["level"]`
+  /// `level` is the player's own (ThrowLevel, the device's); `selections["computer"]`
   /// is the computer's, the set-up's per-game choice (and the player's when no
-  /// level is given).
+  /// level is given). On 0.9 it is the match's `computer` option; on an older
+  /// engine it goes on the computer's player entry, as it always did.
   public func startSolo(
     name: String, level: String? = nil, selections: [String: String], save: MatchSave?
   ) throws {
     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
     let player = trimmed.isEmpty ? "You" : String(trimmed.prefix(options.nameLimit))
-    let computer = selections["level"] ?? options.defaults["level"]!
+    let computer = selections["computer"] ?? options.defaults["computer"]!
     let level = level ?? computer
     let time = Calendar(identifier: .gregorian).dateComponents(in: .current, from: Date())
-    var setup: [String: Any] = selections
+    var setup: [String: Any] = selections.filter { options.rows.map(\.id).contains($0.key) }
+    var cpu: [String: Any] = ["name": "Computer"]
+    if !options.takesComputer {
+      setup["computer"] = nil
+      cpu["level"] = computer
+    }
     setup.merge([
       "mode": "match", "cpu": "B", "first": "A", "seed": Int.random(in: 0..<2_147_483_648),
       "teams": [
         "A": ["name": player, "players": [["name": player, "level": level]]],
-        "B": ["name": "Computer", "players": [["name": "Computer", "level": computer]]],
+        "B": ["name": "Computer", "players": [cpu]],
       ],
       "start": [
         "year": time.year!, "month": time.month!, "day": time.day!, "hour": time.hour!,
@@ -167,10 +173,7 @@ extension PitchSession {
   }
 
   public func useLevel(_ level: String) throws {
-    guard
-      options.rows.first(where: { $0.id == "level" })?.choices.contains(where: { $0.first == level }
-      ) == true
-    else { return }
+    guard options.levels.contains(level) else { return }
     levelOverride = level
     // practice (no need) sets its level for good; a match, the throw in hand
     if !playing, need == nil || (need?.kind == "throw" && need?.cpu == false) {

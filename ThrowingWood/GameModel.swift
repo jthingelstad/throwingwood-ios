@@ -55,7 +55,7 @@ import Observation
   var sheet: ScoreSheet?
   var selections = [String: String]()
   /// The player's own throw level, the device's one value (ThrowLevel). The solo
-  /// set-up's `selections["level"]` is the computer's.
+  /// set-up's `selections["computer"]` is the computer's.
   var throwLevel = ThrowLevel.fallback {
     didSet {
       guard throwLevel != oldValue else { return }
@@ -101,7 +101,10 @@ import Observation
     let defaults = UserDefaults.standard
     selections = pitch.options.defaults
     for row in pitch.options.rows {
-      if let saved = defaults.string(forKey: "solo.option." + row.id),
+      // the computer's level was kept as `solo.option.level` before it was the
+      // engine's `computer` option (0.9)
+      let keys = row.id == "computer" ? ["solo.option.computer", "solo.option.level"] : ["solo.option." + row.id]
+      if let saved = keys.lazy.compactMap({ defaults.string(forKey: $0) }).first,
         row.choices.contains(where: { $0.first == saved })
       {
         selections[row.id] = saved
@@ -110,7 +113,7 @@ import Observation
     name = defaults.string(forKey: "solo.name") ?? "You"
     throwLevel = ThrowLevel.load(
       defaults,
-      choices: pitch.options.rows.first { $0.id == "level" }?.choices.map { $0[0] } ?? [],
+      choices: pitch.options.levels,
       soloInProgress: (try? save.read()) != nil)
     try? pitch.useLevel(throwLevel)  // practice throws at it from the start
     perform {

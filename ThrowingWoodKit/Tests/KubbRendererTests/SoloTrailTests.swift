@@ -239,7 +239,7 @@ import Testing
     try again.practice()
     #expect(again.engine.minor == Engine.newest)
     var choices = again.options.defaults
-    choices["level"] = "pro"
+    choices["computer"] = "pro"
     try again.startSolo(name: "Bo", selections: choices, save: save)
     #expect(again.engine.minor == Engine.newest)
     #expect(Engine.majorMinor(save.readTrail()?.trail.engine) == Engine.newest)
@@ -289,7 +289,7 @@ import Testing
   private func startSolo(_ save: MatchSave, name: String) throws -> PitchSession {
     let app = try PitchSession(appVersion: "test")
     var choices = app.options.defaults
-    choices["level"] = "pro"
+    choices["computer"] = "pro"
     try app.startSolo(name: name, selections: choices, save: save)
     return app
   }
