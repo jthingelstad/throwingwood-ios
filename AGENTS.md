@@ -53,7 +53,7 @@ agrees. So:
   `Tests/KubbEngineTests/Fixtures/golden/`. `check` (in CI, no checkout
   needed) verifies every file against the engine's own `engine.json`, and
   the version against the tag (v0.4.1 explicitly retains the 0.2.0
-  golden corpus, v0.5.1, v0.7.1 and v0.7.2 the 0.5.0 one; arbitrary older corpora are not accepted). Never edit the
+  golden corpus, v0.5.1 and v0.7.1 to v0.7.4 the 0.5.0 one; arbitrary older corpora are not accepted). Never edit the
   vendored files; a fix belongs
   in kubb-engine, then here by moving to its next tag. Never write in the
   kubb-engine checkout from here.
@@ -69,7 +69,8 @@ agrees. So:
   `session/api`, then makes the host's calls before any match:
   `engineVersion` (it must equal `engine.json`'s), `useTune {name =
   "pointer"}` (the iPhone dial) and `setClient {label =
-  "ios <app version>"}`.
+  "ios <app version>", location = "throwingwood.com"}` (the game file's
+  Location line, as on the web; in no snapshot, document or hash).
 - **The maths probe.** `Fixtures/math-probe.json` holds arguments where
   Apple's libm and musl's differ in the last bit, with the web's answers;
   `mathIsTheWebsMath` checks the engine gives those.

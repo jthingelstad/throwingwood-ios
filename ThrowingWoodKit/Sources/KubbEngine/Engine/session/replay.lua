@@ -252,8 +252,11 @@ end
 
 function commitDoc(r, a, snap, hash)
 	if not r.doc then return end
+	-- docSizes: the log's entry sizes kept from commit to commit, so the log budget's
+	-- measure (lobby.docSize, the same number) does not encode the whole log each action
+	r.docSizes = r.docSizes or {}
 	local doc = lobby.commitAction(r.doc, { n = r.doc.n, seq = r.i, snap = snap, hash = hash, action = a,
-		over = r.s.phase == "over" })
+		over = r.s.phase == "over" }, r.docSizes)
 	if doc then r.doc = doc else r.doc, r.docWhy = nil, "action " .. r.i .. " not committed" end
 end
 

@@ -1,6 +1,6 @@
 {
   "name": "kubb-engine",
-  "version": "0.7.2",
+  "version": "0.7.4",
   "extractedFrom": {
     "repository": "jthingelstad/playdate-kubb",
     "path": "source/core",
@@ -59,22 +59,22 @@
     "core/world.lua": "97671b8847a3462549b3326470c478a7de78b1edf6628fee361cb769daba1204",
     "room/api.lua": "00e460c6c255151c86f606892ee76a35f249370dc0080dfbeb79c548714cd9da",
     "room/js.lua": "579c2d7743603ee7c87b94db472d3b0100eab12a8fbd9957df097f441ea4e562",
-    "room/lobby.lua": "363b9e47e910f3ab91211f1c7f3273f73c367f38b84df599329abf5dbd5de84a",
+    "room/lobby.lua": "fce8e4095cd0da131aabb4cb96c4baf39607b151a13146a3143235672141d0d6",
     "room/seats.lua": "6bbc5db4cddf33f6f49f8d4887840134eb9d02d86ec2d2969203e84c140ef1bc",
     "room/sync.lua": "b7703c43982aad5abfe7275d908f1ee4d9f0b1ae2570622193b9d572c8883cb1",
-    "session/api.lua": "fce31709c3a80ba8959074cfcc7b159b6fecbacd799e7c604dd78acec148b139",
+    "session/api.lua": "f2d4e8e416c666dbe53fd29b4ec1762dd6787e54681e42ff821b5cb9aac5e80c",
     "session/check.lua": "9d1486539abbada4817fb5d83a00cb1d95250875a860ffb64ca3691171451a8b",
     "session/json.lua": "c67017eb3aa54b2ebc68000999b7a7c770dab6d7ec45d5e6f2a481bfe38e25b0",
-    "session/replay.lua": "f5eae65e22127c018c7a7afa43f5540e0bc51736d8fdc6780ed3ab06f35148d8",
-    "session/session.lua": "43bbcf86c07ba58be02577529ef380309f1f8dc57104e09dad0d11f38b6fa0b2",
+    "session/replay.lua": "f405db2e8a36616ec4321fbb855ba8b0536ed8ba7183ec90468411800b19f11e",
+    "session/session.lua": "97a89a56ff6dd2f52688fbd06654d8ddcadb280b639aade4cb310575dd10b79c",
     "session/throw.lua": "f1b48dc7bb14c7dc978d25b863fd59ba8e69c296f9d6a1abc8508923854999f3",
     "session/touch.lua": "1785c2057390574d94f42fde5945558e42ae20186a74d5bd8bc6d523231d4371",
     "session/wide.lua": "9f2087d3362b6ed4d2240365a5bd79504ae7207775529cc0d403ab201befd855",
     "tune/pointer.lua": "7b30c67adf47fb8387e5b0dd7f73af3c92c99116d05781885e7fc0157fcc9397",
     "tune/touch.lua": "b7c3f2851c4c386cc39a76d891cf273d703ac231fe51c235db5d1bc404915221",
-    "version.lua": "8be211733255d76425cbec5a5de4441b133840c14e76739560d20c2eb3ef5d03"
+    "version.lua": "81779aeb3194e98b997a45247780aca8067ddeb74324b592313710e7ceaa6e39"
   },
   "bundle": {
-    "sha256": "2bd693c9a266ce19e357f54a7d06786ad021abd58a2b5119f393000b0b0c4081"
+    "sha256": "dd52a523b1637388b3f7523c80c963a1325b59f7ed618499f5cd2f46bb4950d4"
   }
 }

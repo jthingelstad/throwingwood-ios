@@ -66,7 +66,9 @@ function session.setClient(label)
 end
 
 -- Where the game file says the match was played (its Location line). nil: core/notation's
--- own (notation.location, "Playdate"), as before 0.7.2. Not in the snapshot either.
+-- own (notation.location, "Playdate"), as before 0.7.2. Not in the snapshot either, so it
+-- never changes a hash. Every file the session writes reads it when it is written: the
+-- live sheet, the over card's file, and a replay's (a replay runs a Session too).
 session.location = nil
 
 function session.setLocation(place)
@@ -76,7 +78,7 @@ function session.setLocation(place)
 	end
 	assert(type(place) == "string" and #place >= 1 and #place <= 40 and place:match("^[%w%.%-%+ ]+$")
 		and not place:match("^ ") and not place:match(" $"),
-		"setClient: a location of 1 to 40 letters, digits, spaces, dots, hyphens or pluses, like \"Web\"")
+		"setClient: a location of 1 to 40 letters, digits, spaces, dots, hyphens or pluses, like \"throwingwood.com\"")
 	session.location = place
 	return place
 end
@@ -108,8 +110,12 @@ end
 -- ---------- words ----------
 
 -- render/hud.lua hud.short, line for line: the match's ruling (m.text) as
--- the result flag's words.
+-- the result flag's words. Two differences since 0.7.4: a resignation's words begin
+-- with the team's name ("Riverside resigned: Oak wins", core/match.resign), so its rule
+-- comes first and takes any name (one named "rescue" or "missed" would match a later
+-- rule); and a line no rule knows is cut at a word, never inside one.
 local SHORT = {
+	{ "^.+ resigned: ", "RESIGNED" },
 	{ "^king down early", "KING TOO EARLY: GAME OVER" }, { "^king down", "KING DOWN" }, { "^resigned", "RESIGNED" },
 	{ "^missed the king", "KING STANDS" }, { "^missed", "MISS" }, { "^helicopter", "HELICOPTER: DOESN'T COUNT" },
 	{ "^own%-half kubb hit", "OWN HALF HIT: PUT BACK" }, { "^own half hit", "OWN HALF HIT: KUBB OUT" },
@@ -129,7 +135,11 @@ function session.short(s)
 		for c in first:gmatch("(%d*) ?[fb]%a+ kubbs?") do n = n + (c == "" and 1 or tonumber(c)) end
 		if n > 0 then return n .. " DOWN" end
 	end
-	return first:upper():sub(1, 12)
+	-- no rule: up to 12 characters ending at a word (the first word whole when it is
+	-- longer), without a trailing colon or comma
+	local up = first:upper():gsub("^%s+", ""):gsub("%s+$", "")
+	if #up > 12 then up = up:sub(1, 13):match("^(.*%S)%s") or up:match("^%S+") end
+	return (up:gsub("[%s:,]+$", ""))
 end
 
 -- A throw's ruling for its recording (docs/SESSION.md "Rulings"): the words (m.text), the

@@ -72,13 +72,14 @@ end
 -- (tune/<name>.lua), once per Lua state, before the first new or restore; returns
 -- { tune }. setClient { label }: the client label written into game files ("web
 -- 0.4.2"; default "kubb-engine <version>") and, since 0.7.2, optionally { location }: the
--- game file's Location line ("Web"; absent: "Playdate", as before: each call sets both);
--- returns { client, location? }.
+-- game file's Location line ("throwingwood.com"; absent: "Playdate", as before: each call
+-- sets both). Returns { client, location }: since 0.7.4 `location` is always the line
+-- the files will carry, "Playdate" when none was given (before, it was left out).
 function M.engineVersion() return { version = tw.engine.version } end
 function M.useTune(a) return { tune = session.useTune(a and a.name) } end
 function M.setClient(a)
 	local out = { client = session.setClient(a and a.label) }
-	out.location = session.setLocation(a and a.location)
+	out.location = session.setLocation(a and a.location) or tw.notation.location
 	return out
 end
 

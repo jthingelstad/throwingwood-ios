@@ -20,14 +20,14 @@
 #                                    extra, the corpus recorded by this engine
 #                                    version or an earlier one (a hash-neutral
 #                                    release keeps its corpus: 0.4.1 carries
-#                                    0.2.0's, 0.7.1 and 0.7.2 0.5.0's, kubb-engine docs/VERSIONING.md).
+#                                    0.2.0's, 0.7.1 to 0.7.4 0.5.0's, kubb-engine docs/VERSIONING.md).
 #                                    Needs no kubb-engine checkout (CI runs it)
 #
 # To move to a new release: change TAG, run sync, then the tests (AGENTS.md).
 set -euo pipefail
 
 # The kubb-engine release this app runs.
-TAG=v0.7.2
+TAG=v0.7.4
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 source_dir=${KUBB_ENGINE_SOURCE:-$root/../kubb-engine}
@@ -103,9 +103,11 @@ case "${1:-}" in
       expected=$version
       [[ $version == 0.4.1 ]] && expected=0.2.0
       [[ $version == 0.5.1 ]] && expected=0.5.0
-      # 0.7.1 and 0.7.2: every reference hash matches 0.5.0's (kubb-engine docs/VERSIONING.md).
+      # 0.7.1 to 0.7.4: every reference hash matches 0.5.0's (kubb-engine docs/VERSIONING.md).
       [[ $version == 0.7.1 ]] && expected=0.5.0
       [[ $version == 0.7.2 ]] && expected=0.5.0
+      [[ $version == 0.7.3 ]] && expected=0.5.0
+      [[ $version == 0.7.4 ]] && expected=0.5.0
       [[ $corpus == "$expected" ]] || fail "golden corpus is $corpus, expected $expected; run sync"
     fi
     [[ $status == 0 ]] && echo "engine: kubb-engine $TAG, $count files match engine.json, golden corpus recorded by $corpus"

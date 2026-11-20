@@ -57,6 +57,10 @@ public final class Engine {
     "ios \(appVersion)"
   }
 
+  /// The Location line of a game file written here, as on the web (engine 0.7.2+).
+  /// It is in no snapshot, room document, recording or hash.
+  public static let location = "throwingwood.com"
+
   /// The `Engine` folder in this package's resources.
   static func bundled() throws -> URL {
     guard let dir = Bundle.module.url(forResource: "Engine", withExtension: nil) else {
@@ -117,7 +121,7 @@ public final class Engine {
   }
 
   /// The host's calls before the first `new` or `restore` (kubb-engine
-  /// docs/SESSION.md "Starting"): the version, the tune and the client label.
+  /// docs/SESSION.md "Starting"): the version, the tune, the client label and location.
   private static func start(state: OpaquePointer, appVersion: String) throws -> String {
     struct Version: Decodable { let version: String }
     func call(_ method: String, _ args: [String: String]) throws -> Data {
@@ -128,7 +132,7 @@ public final class Engine {
     }
     let version = try JSONDecoder().decode(Version.self, from: call("engineVersion", [:])).version
     _ = try call("useTune", ["name": tune])
-    _ = try call("setClient", ["label": clientLabel(appVersion: appVersion)])
+    _ = try call("setClient", ["label": clientLabel(appVersion: appVersion), "location": location])
     return version
   }
 

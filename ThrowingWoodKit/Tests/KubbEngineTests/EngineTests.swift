@@ -34,6 +34,29 @@ import Testing
     #expect(need.contains(#"Throwing Wood ios 1.2"#))
   }
 
+  /// A score sheet written here says it was played at throwingwood.com, and
+  /// the Location line changes no hash: an engine set back to the default
+  /// ("Playdate") plays the same match to the same hashes.
+  @Test func theSheetSaysThrowingwoodCom() throws {
+    struct Sheet: Decodable { let text: String }
+    let options = #"{"mode":"match","seed":42,"cpu":"both","maxTurns":2}"#
+    let app = try Engine(appVersion: testAppVersion)
+    let plain = try Engine(appVersion: testAppVersion)
+    _ = try plain.call("setClient", json: #"{"label":"ios test"}"#)
+    _ = try app.call("new", json: options)
+    _ = try plain.call("new", json: options)
+    for _ in 0..<600 {
+      _ = try app.call("frame", json: #"{"dt":0.05}"#)
+      _ = try plain.call("frame", json: #"{"dt":0.05}"#)
+      try #require(try app.hash() == plain.hash())
+    }
+    func text(_ e: Engine) throws -> String {
+      try JSONDecoder().decode(Sheet.self, from: Data(e.call("sheet").utf8)).text
+    }
+    #expect(try text(app).contains(#"[Location "throwingwood.com"]"#))
+    #expect(try text(plain).contains(#"[Location "Playdate"]"#))
+  }
+
   @Test func aMatchStartsAndHashesTheSameEveryTime() throws {
     let options = #"{"mode":"match","seed":42,"cpu":"both","maxTurns":4}"#
     let a = try Engine(appVersion: testAppVersion)
