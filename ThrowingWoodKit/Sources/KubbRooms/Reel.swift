@@ -29,6 +29,9 @@ public enum ReelAnswer: Equatable, Sendable {
     case engine
     /// Today's renders have all started.
     case busy
+    /// The room keeps another version than the request named (`v`): a newer match.
+    /// Nothing was started or counted; the answer's `v` is the version kept now.
+    case moved
     case other(String)
     init(_ code: String?) {
       switch code {
@@ -36,6 +39,7 @@ public enum ReelAnswer: Equatable, Sendable {
       case "replay": self = .replay
       case "engine": self = .engine
       case "busy": self = .busy
+      case "moved": self = .moved
       default: self = .other(code ?? "")
       }
     }
@@ -176,32 +180,39 @@ public struct ReelFiles: Equatable, Sendable {
 extension RoomsClient {
   /// This pitch's highlight reel: one `reel` request on a socket of its own, with no
   /// join and no member id, closed once answered. Asking how a reel stands is free;
-  /// the first ask of a kept replay starts it.
-  public func reel() async throws -> ReelAnswer {
+  /// the first ask of a kept replay starts it. `v`: the kept replay version the asker
+  /// means (from the `replay` fetch); the server then answers `why: "moved"` for any
+  /// other, starting nothing. Left out, the server takes whatever it keeps.
+  public func reel(v: Int? = nil) async throws -> ReelAnswer {
     let transport = newTransport()
     let id = UUID()
     reportSockets[id] = transport
     defer { reportSockets[id] = nil }
-    return try await Self.askReel(room: code, transport: transport, timing: timing)
+    return try await Self.askReel(room: code, v: v, transport: transport, timing: timing)
   }
 
   /// The same, for a pitch this device holds no client for (a winner card with only a
   /// code; a shared match against the computer later).
   public static func reel(
-    room: String, url: URL, appVersion: String, timing: Timing = Timing(),
+    room: String, v: Int? = nil, url: URL, appVersion: String, timing: Timing = Timing(),
     factory: Factory = { WebSocketTransport(request: $0) }
   ) async throws -> ReelAnswer {
     guard room.range(of: "^[2-9a-hjkmnp-z]{8,24}$", options: .regularExpression) != nil else {
       throw RoomError("bad-room")
     }
+    if let v, v < 1 { throw RoomError("bad-message") }  // the server refuses it too
     let transport = factory(socketRequest(url: url, appVersion: appVersion))
-    return try await askReel(room: room, transport: transport, timing: timing)
+    return try await askReel(room: room, v: v, transport: transport, timing: timing)
   }
 
-  static func askReel(room: String, transport: any RoomsTransport, timing: Timing) async throws
-    -> ReelAnswer
+  static func askReel(room: String, v: Int?, transport: any RoomsTransport, timing: Timing)
+    async throws -> ReelAnswer
   {
-    let message = JS.object([("t", .string("reel")), ("id", .int(1)), ("room", .string(room))])
+    // `v` is a positive integer or absent, never null
+    if let v, v < 1 { throw RoomError("bad-message") }
+    var fields: [(String, JS)] = [("t", .string("reel")), ("id", .int(1)), ("room", .string(room))]
+    if let v { fields.append(("v", .int(v))) }
+    let message = JS.object(fields)
     let reply = try await exchange(message, transport: transport, timing: timing) { reply in
       let t = reply["t"]?.string
       return (t == "reel" || t == "error") && (reply["id"]?.int == 1 || reply["id"] == nil)

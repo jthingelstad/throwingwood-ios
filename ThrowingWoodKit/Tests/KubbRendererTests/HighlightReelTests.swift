@@ -17,6 +17,8 @@ import Testing
     var answers: [Result<ReelAnswer, Error>]
     var online = true
     var asks = 0
+    /// The kept version each reel ask named (nil: left out).
+    var sentV: [Int?] = []
     var fetched: [URL] = []
     var fetchFails = false
     /// The room's kept replay at each look (the last repeats); nil: no kept check.
@@ -33,8 +35,9 @@ import Testing
   ) -> (HighlightReel, URL) {
     let cache = FileManager.default.temporaryDirectory.appending(path: "reel-tests-\(UUID())")
     let hooks = HighlightReel.Hooks(
-      ask: {
+      ask: { v in
         stub.asks += 1
+        stub.sentV.append(v)
         let next = stub.answers.count > 1 ? stub.answers.removeFirst() : stub.answers[0]
         return try next.get()
       },
@@ -280,6 +283,84 @@ import Testing
     defer { try? FileManager.default.removeItem(at: cache3) }
     reel3.show()
     try await settle(reel3) { $0 == .problem(.moved) }
+  }
+
+  @Test func everyReelAskAfterTheKeptReadNamesItsVersion() async throws {
+    // the first ask, a reopened card, and TRY AGAIN
+    let stub = Stub(
+      [
+        .success(.rendering(v: 7, tag: "r1-0.7")), .success(.notStarted),
+        .success(.rendering(v: 7, tag: "r1-0.7")),
+      ], kept: [KeptReplay(v: 7, n: 2, hash: nil)])
+    let (reel, cache) = reel(stub, every: .seconds(60), match: ReelMatch(n: 2, hash: nil))
+    defer { try? FileManager.default.removeItem(at: cache) }
+    reel.show()
+    try await settle(reel) { $0 == .making }
+    reel.hide()
+    reel.show()  // reopened mid-render: asks once
+    try await settle(reel) { $0 == .problem(.failed) }
+    reel.tryAgain()
+    try await settle(reel) { $0 == .making }
+    reel.hide()
+    #expect(stub.looks == 1)
+    #expect(stub.sentV == [7, 7, 7])
+    // each poll while it renders
+    let polls = Stub([.success(.rendering(v: 7, tag: "r1-0.7"))], kept: [KeptReplay(v: 7, n: 2, hash: nil)])
+    let (reel2, cache2) = self.reel(polls, match: ReelMatch(n: 2, hash: nil))
+    defer { try? FileManager.default.removeItem(at: cache2) }
+    reel2.show()
+    for _ in 0..<2000 where polls.asks < 3 { try await Task.sleep(for: .milliseconds(2)) }
+    reel2.hide()
+    #expect(polls.asks >= 3 && polls.sentV.allSatisfy { $0 == 7 })
+    // a code alone: the kept read's version is named all the same
+    let code = Stub([.success(.rendering(v: 9, tag: "r1-0.7"))], kept: [KeptReplay(v: 9, n: 5, hash: nil)])
+    let (reel3, cache3) = self.reel(code, every: .seconds(60))
+    defer { try? FileManager.default.removeItem(at: cache3) }
+    reel3.show()
+    try await settle(reel3) { $0 == .making }
+    reel3.hide()
+    #expect(code.sentV == [9])
+    // with no kept read there is no version, and it is left out (never null on the wire)
+    let none = Stub([.success(.rendering(v: 9, tag: "r1-0.7"))])
+    let (reel4, cache4) = self.reel(none, every: .seconds(60))
+    defer { try? FileManager.default.removeItem(at: cache4) }
+    reel4.show()
+    try await settle(reel4) { $0 == .making }
+    reel4.hide()
+    #expect(none.sentV == [nil])
+  }
+
+  @Test func aMovedAnswerSaysSoAndStopsAsking() async throws {
+    let stub = Stub([.success(.none(v: 9, why: .moved))], kept: [KeptReplay(v: 7, n: 2, hash: nil)])
+    let (reel, cache) = reel(stub, match: ReelMatch(n: 2, hash: nil))
+    defer { try? FileManager.default.removeItem(at: cache) }
+    reel.show()
+    try await settle(reel) { $0 == .problem(.moved) }
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(stub.asks == 1 && reel.phase == .problem(.moved))
+    reel.tryAgain()
+    #expect(stub.asks == 1)
+    #expect(ReelWords.problem(.moved) == ("This pitch has moved on to a newer match.", false))
+    reel.hide()
+    // with a code alone and no kept read, the server's word is enough
+    let alone = Stub([.success(.none(v: 9, why: .moved))])
+    let (reel2, cache2) = self.reel(alone)
+    defer { try? FileManager.default.removeItem(at: cache2) }
+    reel2.show()
+    try await settle(reel2) { $0 == .problem(.moved) }
+    reel2.hide()
+  }
+
+  @Test func aServerThatIgnoresTheVersionStillEndsInMoved() async throws {
+    // the deployed server predates `v`: it answers about the newer match it keeps
+    let stub = Stub([.success(.rendering(v: 9, tag: "r1-0.7"))], kept: [KeptReplay(v: 7, n: 2, hash: nil)])
+    let (reel, cache) = reel(stub, match: ReelMatch(n: 2, hash: nil))
+    defer { try? FileManager.default.removeItem(at: cache) }
+    reel.show()
+    try await settle(reel) { $0 == .problem(.moved) }
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(stub.asks == 1 && stub.sentV == [7])
+    reel.hide()
   }
 
   @Test func withOnlyACodeThereIsNothingToCompare() async throws {

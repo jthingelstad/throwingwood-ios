@@ -25,12 +25,14 @@ import Testing
     return (factory, { made })
   }
 
-  private func ask(_ reply: String, before: [String] = []) async throws -> (ReelAnswer, [MockTransport]) {
+  private func ask(_ reply: String, before: [String] = [], v: Int? = nil) async throws -> (
+    ReelAnswer, [MockTransport]
+  ) {
     let (factory, made) = asking(reply, before: before)
     var timing = RoomsClient.Timing()
     timing.answer = .seconds(600)
     let answer = try await RoomsClient.reel(
-      room: Self.room, url: URL(string: "ws://127.0.0.1:1")!, appVersion: "0.0-test",
+      room: Self.room, v: v, url: URL(string: "ws://127.0.0.1:1")!, appVersion: "0.0-test",
       timing: timing, factory: factory)
     return (answer, made())
   }
@@ -44,6 +46,27 @@ import Testing
     #expect(sent.count == 1)
     #expect(sent[0].raw.text == #"{"t":"reel","id":1,"room":"abcdefgh23"}"#)
     #expect(sockets[0].closed)
+  }
+
+  @Test func theRequestNamesTheKeptVersionOrLeavesItOut() async throws {
+    let (answer, sockets) = try await ask(
+      #"{"t":"reel","id":$ID,"room":"abcdefgh23","v":9,"reel":null,"why":"moved"}"#, v: 7)
+    #expect(answer == .none(v: 9, why: .moved))
+    #expect(sockets[0].sent.map(\.raw.text) == [#"{"t":"reel","id":1,"room":"abcdefgh23","v":7}"#])
+    // never null, never zero or less: refused here before anything is sent
+    for bad in [0, -1] {
+      var made = 0
+      do {
+        _ = try await RoomsClient.reel(
+          room: Self.room, v: bad, url: URL(string: "ws://127.0.0.1:1")!, appVersion: "0",
+          factory: { _ in
+            made += 1
+            return MockTransport()
+          })
+        Issue.record("sent v \(bad)")
+      } catch let e as RoomError { #expect(e.code == "bad-message") }
+      #expect(made == 0)
+    }
   }
 
   @Test func doneCarriesTheSitePaths() async throws {
@@ -79,6 +102,7 @@ import Testing
     ("replay", 0, .replay),
     ("engine", 3, .engine),
     ("busy", 4, .busy),
+    ("moved", 9, .moved),
     ("newer", 4, .other("newer")),
   ])
   func noReelSaysWhy(_ why: String, _ v: Int, _ expected: ReelAnswer.ReelWhy) async throws {

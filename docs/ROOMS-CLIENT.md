@@ -29,16 +29,22 @@ commit riders carry `c: ios` and `e` from that engine. The low-level `request` a
 `send` methods are available for protocol work; use the tagged methods for records.
 
 A highlight reel (the web's docs/REEL.md and docs/ROOMS.md section 12) is asked for with
-`reel()` on a client, or `RoomsClient.reel(room:url:appVersion:)` with only a pitch code:
-one `{ t: "reel", id: 1, room }` on a socket of its own, with no join and no member id,
+`reel(v:)` on a client, or `RoomsClient.reel(room:v:url:appVersion:)` with only a pitch
+code: one `{ t: "reel", id: 1, room, v }` on a socket of its own, with no join and no
+member id,
 closed once answered or at the answer deadline, as a report is sent. The answer is a
 `ReelAnswer`, a case for every state and why code: `rendering`, `done` (with `ReelFiles`,
 the tall and wide site paths), `failed` (`render`, `empty`, or `timedOut` when the server
-names no why), `none` (`unavailable`, `replay`, `engine`, `busy`), and the two error
+names no why), `none` (`unavailable`, `replay`, `engine`, `busy`, `moved`), and the two error
 codes a reel has, `too-many` (`tooMany`) and `failed` (`notStarted`: nothing was kept, so
 asking again may start it). A code newer than the build is kept as `other`. Only paths
 under `/reels/<code>/` ending `.mp4` are taken. Asking how a reel stands is free; only a
-request that starts a render counts against the connection's three.
+request that starts a render counts against the connection's three. `v` is the kept
+replay version the asker means, from `kept` below: a positive integer or left out, never
+null (a non-positive one throws `bad-message` before anything is sent). When the room
+keeps another version the server answers `none(v: <kept now>, why: .moved)`, starting
+and counting nothing; with no kept replay at all it is still `replay` with `v` 0. A
+server from before `v` ignores it, so the card also compares the answer's `v`.
 Before it asks, the reel card reads which match the room keeps with
 `RoomsClient.kept(room:url:appVersion:)`: one read-only `{ t: "replay", id: 1, room }`
 (docs/ROOMS.md section 10), which starts nothing, read as a `KeptReplay` (the kept

@@ -38,8 +38,9 @@ extension GameModel {
 
   static func reelHooks(_ code: String) -> HighlightReel.Hooks {
     HighlightReel.Hooks(
-      ask: {
-        try await RoomsClient.reel(room: code, url: RoomsConfiguration.url, appVersion: version)
+      ask: { v in
+        try await RoomsClient.reel(
+          room: code, v: v, url: RoomsConfiguration.url, appVersion: version)
       },
       kept: {
         try await RoomsClient.kept(room: code, url: RoomsConfiguration.url, appVersion: version)
@@ -277,7 +278,7 @@ struct LoopingVideo: UIViewRepresentable {
         code: code, site: URL(string: "https://throwingwood.com")!,
         cache: URL.temporaryDirectory.appending(path: "review-reels"),
         hooks: HighlightReel.Hooks(
-          ask: {
+          ask: { _ in
             asks += 1
             // the second poll is lost: No connection under the wait
             if mode == "makingoffline", asks > 1 { throw RoomError("closed") }
