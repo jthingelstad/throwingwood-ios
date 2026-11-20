@@ -53,6 +53,9 @@ public struct PitchMember: Identifiable, Equatable {
   public private(set) var members: [PitchMember] = []
   public private(set) var isHost = false
   public private(set) var canStart = false
+  /// Why the pitch cannot start, in a player's words, when the room has no engine every
+  /// player carries (`room.engineFor`); nil while it can. Shown in the lobby.
+  public private(set) var engineLine: String?
   public private(set) var isOpen = false
   public private(set) var options: [String: String] = [:]
   public private(set) var versionCard: VersionCard?
@@ -74,6 +77,8 @@ public struct PitchMember: Identifiable, Equatable {
   private var displayControl: JSONText?
   private var displayedMatch: Int?
   private(set) var displayedSeq = 0
+  /// The action number the board shows (the local cross-play probe waits on it).
+  public var displayedSeqForProbe: Int { displayedSeq }
   private var writing = false
   private var openKey: JSONText?
   private var openAt = 0
@@ -91,7 +96,8 @@ public struct PitchMember: Identifiable, Equatable {
     self.create = create
     self.appVersion = appVersion
     board = try PitchSession(appVersion: appVersion)
-    let engine = try Engine(appVersion: appVersion)
+    let engines = try EngineShelf(appVersion: appVersion)
+    let engine = engines.newest
     teamMax = try JSONNode.parse(engine.call("room.constants"))["value"]!["TEAM_MAX"]!.int!
     let clean = try JSONNode.parse(
       engine.call("room.cleanName", json: JS.object([("name", .string(name))]).ascii))
@@ -100,7 +106,7 @@ public struct PitchMember: Identifiable, Equatable {
     let room = try RoomsClient(
       url: url, room: link.code, engineVersion: engine.engineVersion,
       appVersion: appVersion, store: store, timing: timing)
-    controller = try PitchController(room: room, engine: engine)
+    controller = try PitchController(room: room, engines: engines)
     try controller.setMe(name: self.name, level: level)
     board.playerSide = { [weak controller] in controller?.playingSide }
     board.acceptsInput = false
@@ -220,7 +226,12 @@ public struct PitchMember: Identifiable, Equatable {
     if let m = doc["match"], !m.isNull, doc["started"]?.bool == true {
       stage = .match
       if controller.state == .versionMismatch {
-        try checkVersion(m["engine"]?.string, key: "match-\(m["n"]?.int ?? 0)")
+        let theirs = m["engine"]?.string
+        let identity = "match-\(m["n"]?.int ?? 0)/" + (theirs ?? "")
+        if identity != shownVersionKey {
+          shownVersionKey = identity
+          versionCard = card(theirs: Engine.majorMinor(theirs))
+        }
         // An incompatible spectator can try the same recording as the web.
         // Only the display session sees it. The controller never grants a seat.
         let newest = queue.last?.1["seq"]?.int ?? displayedSeq
@@ -266,34 +277,59 @@ public struct PitchMember: Identifiable, Equatable {
       })
     let lineup = try controller.roomCall(
       "lineup", [("doc", .raw(room.document)), ("members", room.membersJSON)])
-    canStart = isHost && !lineup.isNull
+    // Which engine the next match would run on: the host and every player (watchers
+    // do not count). A version is never shown unless it stops play.
+    let chosen = try controller.roomEngine()
+    engineLine = lineup.isNull || chosen["engine"]?.string != nil ? nil : try blocked(chosen)
+    canStart = isHost && !lineup.isNull && engineLine == nil
     if !isHost, members.contains(where: { $0.you && $0.side != nil }) {
-      try checkVersion(
-        room.members.first { $0["id"]?.string == room.host }?["me"]?["engine"]?.string,
-        key: room.host ?? "")
+      let host = try controller.carried(by: room.host)
+      try checkVersion(host, key: room.host ?? "")
     } else {
       versionCard = nil
       shownVersionKey = nil
     }
   }
-  private func checkVersion(_ theirs: String?, key: String) throws {
-    let identity = key + "/" + (theirs ?? "")
+  /// The lobby's line for a room with no engine every player carries: who to tell, and
+  /// what to do. `missing` names those without the engine most of the room shares.
+  private func blocked(_ chosen: JSONNode) throws -> String {
+    let ids = (chosen["missing"]?.items ?? []).compactMap(\.string)
+    func name(_ id: String) -> String { members.first { $0.id == id }?.name ?? "Someone" }
+    // Newer or older than this build's newest, by the newest a member carries.
+    func newer(_ id: String) throws -> Bool { card(theirs: try controller.carried(by: id).first) == .newer }
+    if ids.contains(room.you) {
+      let others = members.filter { !$0.you && ($0.side != nil || $0.host) }.map(\.id)
+      if try others.contains(where: newer) {
+        return "This pitch is on a newer version of Throwing Wood. Update the app to play, or watch."
+      }
+      let who = others.map(name)
+      let names = who.isEmpty ? "Someone" : who.joined(separator: ", ")
+      return
+        "\(names) \(who.count > 1 ? "are" : "is") on an older version of Throwing Wood. To play together, they need to update the app or reload the page."
+    }
+    let who = ids.map(name)
+    let names = who.isEmpty ? "Someone" : who.joined(separator: ", ")
+    let older = try !ids.isEmpty && !ids.contains(where: newer)
+    return
+      "\(names) \(who.count > 1 ? "are" : "is") on \(older ? "an older" : "another") version of Throwing Wood. To play together, \(older ? "they need to update the app or reload the page" : "update the app or reload the page")."
+  }
+  /// A seated player's card when the host carries no engine this build does: newer or
+  /// older by the newest each carries.
+  private func checkVersion(_ theirs: [String], key: String) throws {
+    let identity = key + "/" + theirs.joined(separator: ",")
     guard identity != shownVersionKey else { return }
     shownVersionKey = identity
-    let check = try controller.roomCall(
-      "mayPlay",
-      [
-        ("engine", .string(room.engineVersion)),
-        ("match", .object([("engine", theirs.map(JS.string) ?? .null)])),
-      ])
-    if check["ok"]?.bool == true {
-      versionCard = nil
+    if theirs.isEmpty || theirs.contains(where: controller.engines.carries) {
+      // a host naming no engine is START's to refuse (startCheck's unknown), as before
+      versionCard = theirs.isEmpty ? .older : nil
       return
     }
-    let mine = check["engine"]?.string ?? ""
-    versionCard =
-      (check["match"]?.string ?? "").compare(mine, options: .numeric) == .orderedDescending
-      ? .newer : .older
+    versionCard = card(theirs: theirs.first)
+  }
+  private func card(theirs: String?) -> VersionCard {
+    let newer = try? controller.newestCall(
+      "compareEngines", [("a", theirs.map(JS.string) ?? .null), ("b", .string(Engine.newest))])
+    return newer?.int == 1 ? .newer : .older
   }
   public func watch() {
     versionCard = nil
@@ -326,8 +362,11 @@ public struct PitchMember: Identifiable, Equatable {
       let m = try JSONNode.parse(mismatch)
       let ids = (m["differ"]?.items ?? []) + (m["unknown"]?.items ?? [])
       let who = ids.map { id in members.first { $0.id == id.string }?.name ?? "Someone" }
+      let chosen = try controller.roomEngine()
       note =
-        "\(who.joined(separator: ", ")) \(who.count > 1 ? "are" : "is") on another version of Throwing Wood: reload to play."
+        chosen["engine"]?.string == nil
+        ? try blocked(chosen)
+        : "\(who.joined(separator: ", ")) \(who.count > 1 ? "are" : "is") on another version of Throwing Wood. To play together, update the app or reload the page."
     }
     try seat()
     changed?()
@@ -386,6 +425,10 @@ public struct PitchMember: Identifiable, Equatable {
   }
   private func restore(_ m: JSONNode) throws {
     guard let snap = m["snap"]?.string else { throw RoomError("snapshot") }
+    // The board plays the match on its own engine; one this build does not carry (a
+    // spectator's try, as on the web) is shown on the newest.
+    let theirs = Engine.majorMinor(m["engine"]?.string)
+    try board.useEngine(minor: controller.engines.carries(theirs) ? theirs : nil)
     let view: ViewOutput = try board.read("restore", snap)
     board.resetPresentation()
     board.need = view.need

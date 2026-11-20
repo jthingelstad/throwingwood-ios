@@ -110,7 +110,8 @@ import KubbRooms
         case "connect":
           let url = URL(string: cmd["url"]!.string!)!
           guard url.host == "127.0.0.1", url.scheme == "ws" else { throw RoomError("local-only") }
-          let engine = try Engine(appVersion: "0.0-test")
+          let engines = try EngineShelf(appVersion: "0.0-test")
+          let engine = engines.newest
           var timing = RoomsClient.Timing()
           timing.retry = .milliseconds(10)
           timing.retryMax = .milliseconds(50)
@@ -129,7 +130,7 @@ import KubbRooms
               url: url, room: cmd["room"]!.string!, engineVersion: engine.engineVersion,
               appVersion: "0.0-test", me: [("name", .string(key)), ("level", .string("pro"))],
               store: FixedID(cmd["member"]?.string), timing: timing)
-            pitch = try PitchController(room: room, engine: engine)
+            pitch = try PitchController(room: room, engines: engines)
           }
           events[key] = []
           room.observe { event in
@@ -163,6 +164,13 @@ import KubbRooms
             ("mayAct", .bool(p.mayAct)), ("need", .raw(p.need)), ("control", .raw(p.control)),
             ("error", p.lastError.map(JS.string) ?? .null),
             ("mismatch", p.mismatch.map(JS.raw) ?? .null),
+            ("engine", .string(p.engine.engineVersion)),
+            ("carried", .array(p.engines.carried.map(JS.string))),
+            ("loaded", .array(p.engines.loaded.map(JS.string))),
+            ("announced", p.announced.map(JS.raw) ?? .null),
+            ("engineLine", screen?.engineLine.map(JS.string) ?? .null),
+            ("canStart", screen.map { .bool($0.canStart) } ?? .null),
+            ("boardEngine", screen.map { .string($0.board.engine.engineVersion) } ?? .null),
           ]
           response = .object(display + authority + checks)
         case "team":
@@ -205,6 +213,15 @@ import KubbRooms
           response = .array((events[key] ?? []).map(JS.raw))
           events[key] = []
         case "take": response = .bool(try await p!.take(cmd["action"]!.raw))
+        case "act":
+          // `action` through the screen's own release path when there is a screen
+          if let screen {
+            try screen.act(cmd["action"]!.raw)
+            try await eventually { !p!.pending && p!.sequence == screen.displayedSeqForProbe }
+            response = .bool(true)
+          } else {
+            response = .bool(try await p!.take(cmd["action"]!.raw))
+          }
         case "frame": response = try await p!.frame(cmd["input"]!.raw).map(JS.raw) ?? .null
         case "computer":
           // Plan on a throwaway native engine: only its action enters the real pitch.
@@ -228,7 +245,7 @@ import KubbRooms
               ])
             let plannerSnap = JS.object(
               snap.members.map { ($0.key, $0.key == "opts" ? cpuOpts : JS.raw($0.value.raw)) })
-            let planner = try Engine(appVersion: "0.0-test")
+            let planner = try Engine(minor: p!.engine.minor, appVersion: "0.0-test")
             _ = try planner.call("restore", json: plannerSnap.ascii)
             var planned: JSONText?
             for _ in 0..<2000 {
@@ -249,6 +266,20 @@ import KubbRooms
             ok = try await p!.take(action)
           }
           response = .object([("ok", .bool(ok)), ("action", .raw(action))])
+        case "plan":
+          // A person's throw from a snapshot as the computer would plan it, on the
+          // engine of `minor`, taken nowhere: the harness may move its stance.
+          response = .raw(try planThrow(snap: cmd["snap"]!.string!, minor: cmd["minor"]!.string!))
+        case "applyOn":
+          // `action` applied to `snap` on a fresh engine of each of `minors`: the hash after.
+          var out: [(String, JS)] = []
+          for mm in cmd["minors"]!.items.compactMap(\.string) {
+            let e = try Engine(minor: mm, appVersion: "0.0-test")
+            _ = try e.call("restore", json: cmd["snap"]!.string!)
+            _ = try e.call("apply", json: cmd["action"]!.raw.text)
+            out.append((mm, .string(try e.hash())))
+          }
+          response = .object(out)
         case "report":
           let report = try screen!.captureReport(size: CGSize(width: 390, height: 844), scale: 3)
           try await p!.room.sendPitchReport(
@@ -332,4 +363,31 @@ import KubbRooms
     for p in pitches.values { p.close() }
     for wire in wires.values { wire.close() }
   }
+}
+
+/// Plans the throw due in `snap` with a throwaway engine of `minor` that plays both sides.
+@MainActor func planThrow(snap text: String, minor: String) throws -> JSONText {
+  let snap = try JSONNode.parse(text)
+  let opts = snap["opts"]!
+  let cpuOpts = JS.object(
+    opts.members.filter { $0.key != "cpu" }.map { ($0.key, JS.raw($0.value.raw)) } + [
+      ("cpu", .array([.string("A"), .string("B")]))
+    ])
+  let plannerSnap = JS.object(
+    snap.members.map { ($0.key, $0.key == "opts" ? cpuOpts : JS.raw($0.value.raw)) })
+  let planner = try Engine(minor: minor, appVersion: "0.0-test")
+  _ = try planner.call("restore", json: plannerSnap.ascii)
+  for _ in 0..<2000 {
+    let f = try JSONNode.parse(planner.call("frame", json: #"{"dt":0.1}"#))
+    if let a = f["action"] { return a.raw }
+  }
+  throw RoomError("no-computer-action")
+}
+
+@MainActor func eventually(_ test: () -> Bool) async throws {
+  for _ in 0..<2000 {
+    if test() { return }
+    try await Task.sleep(for: .milliseconds(5))
+  }
+  throw RoomError("probe-timeout")
 }

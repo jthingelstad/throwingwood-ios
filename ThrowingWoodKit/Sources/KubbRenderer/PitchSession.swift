@@ -103,7 +103,11 @@ public typealias PracticePitch = PitchSession
 public final class PitchSession {
   let appVersion: String
   var trail = ReportTrail()
-  let engine: Engine
+  /// The engine this session runs on now: the newest, or the one a match belongs to
+  /// (`useEngine(minor:)`).
+  public private(set) var engine: Engine
+  /// One Lua state per major.minor this session has run, made the first time.
+  private var engines: [String: Engine] = [:]
   private let decoder = JSONDecoder()
   var input: any ThrowInput
   private(set) var playback: Playback?
@@ -172,6 +176,7 @@ public final class PitchSession {
     self.appVersion = appVersion
     self.input = input
     engine = try Engine(appVersion: appVersion)
+    engines[engine.minor] = engine
     options = try SoloOptions(engine: engine)
     let v = try decoder.decode(
       ViewOutput.self,
@@ -186,6 +191,26 @@ public final class PitchSession {
     dial = v.dial
     aim(v.aim, camera: v.camera)
   }
+
+  /// Run on the engine of major.minor `minor` (nil: the newest) from the next call on:
+  /// a match plays, replays and is checked only on its own engine (kubb-engine
+  /// docs/VERSIONING.md "Playing together"). Its Lua state is made the first time and
+  /// kept. The caller then restores or starts a match on it. Throws
+  /// `EngineError.notCarried` for a minor this build does not carry, changing nothing.
+  public func useEngine(minor: String?) throws {
+    let mm = minor ?? Engine.newest
+    if engine.minor == mm { return }
+    if let e = engines[mm] {
+      engine = e
+      return
+    }
+    let e = try Engine(minor: mm, appVersion: appVersion)
+    engines[mm] = e
+    engine = e
+  }
+
+  /// The major.minors this session has a Lua state for (a test sees the lazy one).
+  public var loadedEngines: [String] { Engine.carried.filter { engines[$0] != nil } }
 
   func read<T: Decodable>(_ method: String, _ args: String = "") throws -> T {
     try decoder.decode(T.self, from: Data(engine.call(method, json: args).utf8))

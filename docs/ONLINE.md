@@ -9,19 +9,42 @@ A shared link currently opens the website in a browser.
 
 The socket opens when the player starts or joins a pitch. The host initializes
 the lobby document. Presence sends the locally remembered name after room.cleanName,
-the level and room.constants.ENGINE (major.minor). The lobby shows names, sides,
+the level and the engines this build carries (`room.announce`, below). The lobby shows names, sides,
 watchers, host and connection state. A member can join either team or sit out.
 Team capacity and level and match options come from the engine. The host sets
 options, invite-only or open access, and starts. An empty side plays as the
 computer. An open pitch sends the web's counts-only listing on change and
 renews it every five minutes while the host is present.
 
-A seated guest checks the host's engine. START rechecks everyone in the lineup
-inside the document reducer. A refused start names the members who need a
-compatible version. A running match checks every member, including a watcher
-who might inherit host control. An incompatible member can dismiss the version
-card and watch a readable snapshot. Both iPhone and web require an advertised
-compatible engine to play.
+### Engines in one room
+
+A match belongs to the engine major.minor it started on, for its whole life
+(kubb-engine docs/ROOM.md "Engines in one match"). The app speaks the engine's
+contract for clients that carry several engines ("The room's engine", "Speaking
+down"), so a client that carries one (an earlier TestFlight build, a web tab)
+agrees with it unchanged:
+
+- Presence is `room.announce`: `engines`, every major.minor this build carries,
+  and the legacy `engine` written as the room's engine with the `+engines` mark
+  (`"0.8+engines"`), which an older client reads as `0.8`. The room's engine is
+  `room.engineFor` counting this member; before the room is known it is the
+  newest. It is announced again whenever the answer changes: a member joins or
+  leaves, takes or gives up a seat, or the host changes.
+- The lobby asks `engineFor` (the host and the lineup; watchers do not count)
+  and shows nothing about versions while there is an engine everyone carries.
+  When there is none it says who is on an older version (they update the app or
+  reload the page), or that the pitch is on a newer one (update this app, or
+  watch); START is disabled, and a version is never named.
+- START works the room's engine out again inside the document reducer, from the
+  document and presence of that write, not the lobby's, and refuses, writing
+  nothing, when there is none (the refusal names the players to tell). Otherwise
+  it runs on that engine's own `room.*` calls: `startCheck` and `startMatch` with
+  `room.speakAs` members, so the match is stamped `match.engine` with that engine.
+- Entering a match (a document, a rejoin, a gap) runs it on the engine of its
+  `match.engine`, checked by that engine's `mayPlay`. A match on an engine this
+  build does not carry is refused: the version card says plainly to update the
+  app (newer) or that the host is on an older version, and the member can watch.
+- A seated guest whose host carries no engine this build does sees the same card.
 
 ## One match, two clocks
 
@@ -203,13 +226,16 @@ The web's docs/REEL.md "The share card" is the contract: its words are `ShareWor
 ## What travels
 
 - Joining sends the code, the persistent random member ID, name, level and
-  engine compatibility version. Name and level edits update presence. Host and
+  the engines carried (`engine` as the room's engine with `+engines`, and
+  `engines`). Name and level edits update presence. Host and
   connection changes come from the rooms service.
 - Changed aim state goes as an ephemeral aim cast at most five times a second.
   The four shout choices are casts, limited to one per 700 ms. Up to four
   shouts stay visible for 2.6 seconds. Neither cast identifies the application.
 - A set carries the lobby or match document. The action rider carries c and e
-  for the recorder. The native values are ios and the full engine version.
+  for the recorder: c is left to the engine's default, `web`, as a browser's is,
+  so no peer or kept recording tells a phone from a browser; e is the full
+  version of the match's engine, as the web sends.
   The server records committed versions with their riders. A finished match
   sends keep with room.replayOf and the exact ending document version.
   Sending a separate game message here would double-record a shared match.
