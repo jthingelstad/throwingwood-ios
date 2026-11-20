@@ -174,6 +174,9 @@ import KubbRooms
             ("engineLine", screen?.engineLine.map(JS.string) ?? .null),
             ("canStart", screen.map { .bool($0.canStart) } ?? .null),
             ("boardEngine", screen.map { .string($0.board.engine.engineVersion) } ?? .null),
+            // the scene the screen draws: the lobby's, and the shown match's
+            ("lobbyScene", screen.map { .string($0.lobbyScene) } ?? .null),
+            ("boardScene", screen?.board.scene.look.map(JS.string) ?? .null),
           ]
           response = .object(display + authority + checks)
         case "team":

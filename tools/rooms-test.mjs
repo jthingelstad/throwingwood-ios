@@ -143,6 +143,7 @@ const room = async (code, id, engine = manifest.version) => {
   return r;
 };
 const state = (key) => rpc({ op: "state", key });
+const SceneOf = (id) => (["night", "neon"].includes(id) ? id : "day");
 const connect = (key, code, member, screen = false, create = true) =>
   rpc({
     op: "connect",
@@ -579,6 +580,54 @@ try {
   }
   note("different engine major.minor refuses START without writing a match");
 
+  // A web host's Scene reaches the native guest: in the lobby, then in the match.
+  {
+    const code = "kmnpqrstuv";
+    const sceneWeb = await room(code, "Web_Scene_Host");
+    const sEngine = await Engine.create({ sources, client: "web test" });
+    engines.push(sEngine);
+    const r = (name, args) => sEngine.call("room." + name, args).value;
+    await sceneWeb.update((d) => ({
+      ...r("setOptions", { doc: d, options: { scene: "neon" } }),
+      teams: { A: ["Web_Scene_Host"], B: [] },
+    }));
+    await connect("sceneGuest", code, "Native_Scene_Guest", true, false);
+    await until(
+      async () => (await state("sceneGuest")).lobbyScene === "neon",
+      "web scene to native lobby",
+    );
+    await sceneWeb.update((d) => r("setOptions", { doc: d, options: { scene: "night" } }));
+    await until(
+      async () => (await state("sceneGuest")).lobbyScene === "night",
+      "web scene change to native lobby",
+    );
+    const lineup = r("lineup", { doc: sceneWeb.doc, members: sceneWeb.members });
+    const setup = r("matchOptions", { doc: sceneWeb.doc, lineup, seed: 98, start: stamp });
+    assert.equal(setup.scene, "night");
+    sEngine.newMatch(setup);
+    assert.equal(sEngine.view().scene, "night");
+    await sceneWeb.update((doc) =>
+      r("startMatch", {
+        doc,
+        snap: sEngine.snapshot(),
+        hash: sEngine.hash().hash,
+        players: lineup.players,
+        cpu: lineup.cpu,
+        host: sceneWeb.you,
+        setup,
+        members: sceneWeb.members,
+      }),
+    );
+    await until(
+      async () => (await state("sceneGuest")).display === "match",
+      "web scene match in play",
+    );
+    assert.equal(SceneOf((await state("sceneGuest")).boardScene), "night");
+    await rpc({ op: "close", key: "sceneGuest" });
+    sceneWeb.close();
+    note("web host's scene reaches the native guest's lobby and match");
+  }
+
   // The real controller waits for host grace, claims and takes over the CPU.
   const handoverWeb = await room("jkmnpqrstu", "Web_Host");
   await handoverWeb.update(() => ({ teams: { A: ["Web_Host"], B: [] } }));
@@ -737,11 +786,24 @@ try {
         "lobby option to web",
       );
     }
+    // the native host's Scene reaches the web guest: the room's settings, then the match
+    const scene = ["night", "neon", null][index];
+    if (scene) {
+      await rpc({ op: "option", key, name: "scene", value: scene });
+      await until(
+        () => browser.doc.settings?.scene === scene,
+        "lobby scene to web",
+      );
+      assert.equal((await state(key)).lobbyScene, scene);
+    }
     assert.equal(
       await rpc({ op: "start", key, seed: 1001 + index, at: stamp }),
       true,
     );
     await until(() => started, "web start");
+    assert.equal(engine.view().scene ?? "day", scene ?? "day");
+    assert.equal(SceneOf((await state(key)).boardScene), scene ?? "day");
+    if (scene) note(`native host's ${scene} scene reaches the web guest's lobby and match`);
     const initial = browser.doc.match;
     const start = lua("startMatch", {
       doc: { ...browser.doc, started: false, n: 0, match: null },
