@@ -194,8 +194,8 @@ import Testing
     #expect(try app.sheet().done)
   }
 
-  /// A scene is carried, never offered or drawn (not approved to go live): a match
-  /// started in one keeps it through a restore, and the set-up has no row for it.
+  /// A scene this build does not draw is carried untouched and drawn as the day: a
+  /// match started in one keeps it through a restore. The set-up offers the three.
   @Test func aMatchsSceneIsCarriedUntouched() throws {
     let start = try Engine(appVersion: "test")
     _ = try start.call(
@@ -209,13 +209,33 @@ import Testing
     try app.restore(snapshot, save: nil)
     #expect(try app.engine.call("snapshot") == snapshot)
     #expect(try JSONNode.parse(app.engine.call("view"))["scene"]?.string == "dusk")
-    #expect(!app.options.rows.contains { $0.id == "scene" } && app.options.defaults["scene"] == nil)
+    #expect(app.scene.look == "dusk" && SceneID.shown(app.scene.look) == "day")
+    #expect(app.options.takesScene && app.options.rows.last?.id == "scene")
+    #expect(app.options.defaults["scene"] == "day")
+  }
+
+  /// A solo match's scene is the set-up's choice: in the match's options, its view and
+  /// its snapshot (so a reopened or shared match shows it too).
+  @Test func aSoloMatchKeepsItsScene() throws {
+    let app = try PitchSession(appVersion: "test")
+    var choices = app.options.defaults
+    choices["scene"] = "neon"
+    try app.startSolo(name: "You", selections: choices, save: nil)
+    #expect(app.scene.look == "neon")
+    let snapshot = try app.engine.call("snapshot")
+    #expect(snapshot.contains(#""scene":"neon""#))
+    let again = try PitchSession(appVersion: "test")
+    try again.restore(snapshot, save: nil)
+    #expect(again.scene.look == "neon")
+    choices["scene"] = "day"
+    try app.startSolo(name: "You", selections: choices, save: nil)
+    #expect(SceneID.shown(app.scene.look) == "day")
   }
 
   @Test func optionsAndLocalStart() throws {
     let app = try PitchSession(appVersion: "test")
     #expect(
-      app.options.rows.map(\.id) == ["computer", "surface", "opening", "raising", "wind", "set"])
+      app.options.rows.map(\.id) == ["computer", "surface", "opening", "raising", "wind", "set", "scene"])
     var choices = app.options.defaults
     choices["surface"] = "sand"
     try app.startSolo(name: "You", selections: choices, save: nil)

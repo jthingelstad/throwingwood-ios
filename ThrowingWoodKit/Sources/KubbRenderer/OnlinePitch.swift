@@ -58,9 +58,14 @@ public struct PitchMember: Identifiable, Equatable {
   public private(set) var engineLine: String?
   public private(set) var isOpen = false
   public private(set) var options: [String: String] = [:]
-  /// The rows the lobby offers: the room's engine's `MATCH_OPTIONS` (Computer since 0.9).
-  /// A scene is kept in the room as the host's engine left it, never offered.
+  /// The rows the lobby offers: the room's engine's `MATCH_OPTIONS` (Computer since 0.9)
+  /// and, on an engine that takes a scene, the Scene row last (the web's SCENE_ROW).
   public private(set) var optionRows: [MatchOption] = []
+  /// The scene the lobby shows: the room's `settings.scene` on an engine that takes one,
+  /// else the day. An id this build does not draw is the day, and kept in the room.
+  public var lobbyScene: String {
+    optionRows.contains { $0.id == "scene" } ? SceneID.shown(options["scene"]) : "day"
+  }
   public private(set) var versionCard: VersionCard?
   public private(set) var turnLabel = ""
   public var note = ""
@@ -278,8 +283,9 @@ public struct PitchMember: Identifiable, Equatable {
     // match would run on (PitchController.roomOptions)
     options = try controller.roomOptions(room.document)
     optionRows =
-      (try? JSONDecoder().decode(
-        [MatchOption].self, from: Data(controller.optionRows().raw.text.utf8))) ?? []
+      ((try? JSONDecoder().decode(
+        [MatchOption].self, from: Data(controller.optionRows().raw.text.utf8))) ?? []).filter { $0.id != "scene" }
+      + (controller.lobbyTakesScene() ? [SceneID.row] : [])
     let lineup = try controller.roomCall(
       "lineup", [("doc", .raw(room.document)), ("members", room.membersJSON)])
     // Which engine the next match would run on: the host and every player (watchers
