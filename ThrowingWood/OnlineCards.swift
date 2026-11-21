@@ -42,6 +42,7 @@ struct OnlineCards: View {
           model.joinInput = ""
           model.screen = .join
         }.buttonStyle(WoodButton())
+        OpenGamesSection(model: model)
       case .join:
         Text("Join a pitch").font(displayFont(42))
         TextField("Pitch link or code", text: $model.joinInput)
@@ -52,7 +53,9 @@ struct OnlineCards: View {
       case .invalidLink: connection(.notFound)
       default:
         if let online = model.online {
-          if online.stage == .lobby {
+          if online.stage == .lobby && online.observing {
+            WatchCard(model: model, online: online)
+          } else if online.stage == .lobby {
             LobbyCard(model: model, online: online)
           } else {
             connection(online.stage)
@@ -78,6 +81,16 @@ struct OnlineCards: View {
     case .replaced:
       Text("Open somewhere else").font(displayFont(38))
       Text("Your place has been opened on another connection.")
+    case .noGame:
+      // an observer's join made the room: it has left at once (the web's words, but
+      // for where the open games are listed here)
+      if let online = model.online { Text("PITCH \(online.link.code)").font(.caption.bold()).tracking(1.5) }
+      Text("No game here").font(displayFont(38))
+      Text("Nobody is playing on this pitch. Open games are listed on the Play online screen.")
+      if let online = model.online {
+        Button("JOIN THIS PITCH") { model.enter(online.link.observing(false), create: false) }
+          .buttonStyle(WoodButton(accent: true))
+      }
     case .reconnecting:
       Text("Reconnecting").font(displayFont(38))
       Text("Rejoining your place on the pitch…")
@@ -241,4 +254,98 @@ struct OnlineMenu: View {
     }.buttonStyle(WoodButton()).modifier(Plate()).padding(18)
       .frame(maxWidth: .infinity, maxHeight: .infinity).modifier(FitOrScroll())
   }
+}
+
+/// The card an observer sees between matches, in place of the lobby (the web's
+/// src/ui/watching.js, its words): who is on each team, who is watching, and the ways
+/// on. No name, no team buttons, no options, no START: it watches. WATCH THE LAST MATCH
+/// is the web's alone (the app has no replay viewer).
+struct WatchCard: View {
+  let model: GameModel, online: OnlinePitch
+  var body: some View {
+    let players = online.members.filter { $0.side != nil }
+    let host = online.members.first(where: \.host)
+    Text("PITCH \(online.link.code)").font(.caption.bold()).tracking(1.5)
+    Text("Watching").font(displayFont(38))
+    Text(
+      players.isEmpty
+        ? "Nobody has picked a side yet."
+        : host.map { "Waiting for \($0.name) to start the match." } ?? "Waiting for the host to start the match."
+    ).font(.subheadline)
+    ForEach(["A", "B"], id: \.self) { side in
+      let names = online.members.filter { $0.side == side }.map(\.name)
+      (Text("Team \(side)  ").font(.headline) + Text(names.isEmpty ? "nobody yet" : names.joined(separator: ", ")))
+    }
+    let watching = online.members.filter { $0.side == nil }
+    (Text("Watching  ").font(.headline)
+      + Text(watching.map { $0.name + ($0.you ? " (you)" : "") }.joined(separator: ", ")))
+    if !online.note.isEmpty { Text(online.note).font(.callout.bold()) }
+    Button("JOIN THIS PITCH") { model.enter(online.link.observing(false), create: false) }
+      .buttonStyle(WoodButton(accent: true))
+  }
+}
+
+/// The Open games list where the online entry is (the web's public/js/open-games.js):
+/// one look on a socket of its own every 30 s while the screen shows and the app is in
+/// front, JOIN and WATCH on each row. Never a name.
+struct OpenGamesSection: View {
+  let model: GameModel
+  @Environment(\.scenePhase) private var phase
+  @State private var games: [OpenGame] = []
+  @State private var now = 0
+  @State private var status: String? = OpenGames.looking
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Divider().padding(.vertical, 4)
+      Text(OpenGames.title).font(displayFont(28))
+      Text(OpenGames.intro).font(.subheadline)
+      if let status { Text(status).font(.subheadline.bold()) }
+      ForEach(games) { g in
+        VStack(alignment: .leading, spacing: 6) {
+          Text(OpenGames.line(g, now: now)).font(.subheadline)
+          HStack {
+            Button("JOIN") { open(g, observe: false) }.buttonStyle(WoodButton(accent: true))
+            Button("WATCH") { open(g, observe: true) }.buttonStyle(WoodButton())
+          }
+        }
+        .accessibilityElement(children: .contain)
+      }
+    }
+    .task(id: phase) {
+      guard phase == .active else { return }
+      while !Task.isCancelled {
+        await look()
+        do { try await Task.sleep(for: OpenGames.every) } catch { return }
+      }
+    }
+  }
+  private func look() async {
+    #if targetEnvironment(simulator)
+      if let fake = Self.reviewList() {
+        (now, games, status) = (fake.now, fake.games, fake.games.isEmpty ? OpenGames.empty : nil)
+        return
+      }
+    #endif
+    do {
+      let out = try await OpenGames.look(url: RoomsConfiguration.url, appVersion: GameModel.version)
+      (now, games) = (out.now, out.games)
+      status = games.isEmpty ? OpenGames.empty : nil
+    } catch {
+      games = []
+      status = OpenGames.failed
+    }
+  }
+  private func open(_ g: OpenGame, observe: Bool) {
+    guard let link = PitchLink(g.room) else { return }
+    model.join(link.observing(observe))
+  }
+  #if targetEnvironment(simulator)
+    /// The review tools' open games (OPEN_GAMES_REVIEW, JSON as the server's `list`).
+    static func reviewList() -> (now: Int, games: [OpenGame])? {
+      guard let text = ProcessInfo.processInfo.environment["OPEN_GAMES_REVIEW"],
+        let node = try? JSONNode.parse(text)
+      else { return nil }
+      return OpenGames.decode(node, fallback: 0)
+    }
+  #endif
 }

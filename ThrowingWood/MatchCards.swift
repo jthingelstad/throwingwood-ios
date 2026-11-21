@@ -203,6 +203,9 @@ struct MatchScreen: View {
         } else {
           tall(n)
         }
+        if pitch.freeOn && pitch.handoff == nil && n.winner == nil {
+          FreeViewControls(model: model, pitch: pitch, revision: revision)
+        }
         if let c = pitch.handoff {
           modal { handoff(c) }
         } else if let w = n.winner {
@@ -414,11 +417,14 @@ struct MatchScreen: View {
     }
   }
 
-  private func shoutButton(_ online: OnlinePitch) -> some View {
-    Menu("SHOUT") {
-      ForEach(OnlinePitch.words, id: \.self) { w in Button(w) { online.shout(w) } }
+  /// An observer has no SHOUT (the web's docs/OBSERVER.md): it watches.
+  @ViewBuilder private func shoutButton(_ online: OnlinePitch) -> some View {
+    if !online.observing {
+      Menu("SHOUT") {
+        ForEach(OnlinePitch.words, id: \.self) { w in Button(w) { online.shout(w) } }
+      }
+      .buttonStyle(WoodButton())
     }
-    .buttonStyle(WoodButton())
   }
 
   private func shouts(_ online: OnlinePitch) -> some View {
@@ -582,11 +588,14 @@ struct MatchScreen: View {
       if let took = c.took, let from = c.fromName {
         Text("\(from) took \(took.field) field and \(took.base) base kubbs.")
       }
-      Text(
-        c.kubbs > 0
-          ? "Throw \(c.kubbs) kubbs in, then \(c.batons) batons." : "Throw \(c.batons) batons.")
+      // a turn this device only watches: "They throw 6 batons."; with no side in the
+      // match at all, both teams by name with their base kubbs (HandoffWords)
+      Text(HandoffWords.throwLine(c, watcher: model.online != nil && !pitch.acceptsInput))
       HStack {
-        Text(c.baseText.joined(separator: "\n")).font(.caption.bold())
+        Text(
+          (pitch.watching ? HandoffWords.watcherBases(c, teams: pitch.need?.teams) : c.baseText)
+            .joined(separator: "\n")
+        ).font(.caption.bold())
         Spacer()
         Canvas { ctx, size in
           ctx.withCGContext { cg in
@@ -772,5 +781,43 @@ struct VersionFooter: View {
     }
     .font(.caption2).mutedText()
     .accessibilityElement(children: .combine)
+  }
+}
+
+/// The watcher's free camera controls (the web's watch-view.js): RESET VIEW low on the
+/// left once the view has moved, and the hint until the first move or 8 s. Nothing is
+/// stored.
+private struct FreeViewControls: View {
+  let model: GameModel, pitch: PitchSession, revision: Int
+  @Environment(\.screenGeometry) private var screen
+  @State private var hintOver = false
+  var body: some View {
+    let safe = screen.safe
+    ZStack(alignment: .bottomLeading) {
+      Color.clear
+      if !hintOver && !pitch.freeCamera.touched {
+        Text("Drag to look around. Pinch to zoom.")
+          .font(.caption.bold()).modifier(Plate(inset: 6))
+          .frame(maxWidth: .infinity)
+          .padding(.bottom, safe.bottom + 64)
+          .allowsHitTesting(false)
+          .transition(.opacity)
+      }
+      if pitch.freeCamera.moved {
+        Button("RESET VIEW") {
+          model.perform { pitch.resetView(reduced: UIAccessibility.isReduceMotionEnabled) }
+        }
+        .buttonStyle(WoodButton())
+        .accessibilityHint("Back to the view of the whole pitch")
+        .padding(.leading, safe.left + 12)
+        .padding(.bottom, safe.bottom + 12)
+      }
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+    .ignoresSafeArea()
+    .task {
+      do { try await Task.sleep(for: .seconds(FreeCam.hintTime)) } catch { return }
+      withAnimation { hintOver = true }
+    }
   }
 }

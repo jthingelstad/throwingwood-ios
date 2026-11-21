@@ -189,6 +189,8 @@ public final class FreeCamera {
   /// pt a frame px (the wide view's fit), for drags.
   public var k = 1.0
   public var moved: Bool { orbit != nil }
+  /// The view has been moved since the wide view came on: the hint has done its job.
+  public private(set) var touched = false
   public var easing: Bool { ease != nil }
   public init() {}
 
@@ -199,6 +201,7 @@ public final class FreeCamera {
     if cam == nil {
       orbit = nil
       ease = nil
+      touched = false
     } else if let o = orbit {
       orbit = FreeCam.clamped(o)
     }
@@ -213,6 +216,7 @@ public final class FreeCamera {
   private func begin() -> Orbit? {
     guard let lens else { return nil }
     ease = nil
+    touched = true
     return orbit ?? FreeCam.clamped(FreeCam.orbit(of: lens))
   }
 

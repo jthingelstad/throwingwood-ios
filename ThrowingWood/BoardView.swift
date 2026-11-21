@@ -9,6 +9,9 @@ import UIKit
   private enum Gesture { case aim, dial, body, zone, track, stance, raise, punishment }
   private var gesture: Gesture?
   private var tracking: UITouch?
+  /// Fingers on the watcher's free camera, at their last place (one turns and tilts,
+  /// two pinch, twist and slide).
+  private var freeTouches: [(touch: UITouch, at: CGPoint)] = []
   private var startPoint = CGPoint.zero, moved = false
   private var lastAimPoint = CGPoint.zero
   private var lastDialPoint: CGPoint?
@@ -110,6 +113,7 @@ import UIKit
     }
     raiseShape = nil
     tracking = nil
+    freeTouches = []
     gesture = nil
     besideRing = false
     pendingDial = nil
@@ -339,8 +343,34 @@ import UIKit
     }
   #endif
 
+  /// The watcher's wide view follows the screen: on while this board watches a match
+  /// (the engine frames the whole pitch inside the safe area), off for a player.
+  private func syncWide() {
+    guard !bounds.isEmpty else { return }
+    let was = pitch.wideOn
+    do {
+      if pitch.watching && model.screen == .match {
+        try pitch.watchWide(size: bounds.size, safe: insets)
+      } else if pitch.wideOn {
+        try pitch.endWide()
+      }
+    } catch {
+      model.error = error.localizedDescription
+    }
+    isMultipleTouchEnabled = pitch.freeOn
+    if !pitch.freeOn { freeTouches = [] }
+    if was != pitch.wideOn { DispatchQueue.main.async { [weak self] in self?.model.refresh() } }
+  }
+
+  /// The free camera takes the pitch's touches: watching in the wide view, nothing
+  /// over the pitch (the hand-off or winner card).
+  private var freeWanted: Bool {
+    pitch.freeOn && model.screen == .match && pitch.handoff == nil && pitch.need?.winner == nil
+  }
+
   override func draw(_ rect: CGRect) {
     guard let ctx = UIGraphicsGetCurrentContext() else { return }
+    syncWide()
     #if targetEnvironment(simulator)
       let start = CACurrentMediaTime()
       defer { if reviewMode == "timing" { timing.draw(start) } }
@@ -352,7 +382,7 @@ import UIKit
     let reduced = UIAccessibility.isReduceMotionEnabled
     pitch.useLook(look, reduced: reduced)
     PitchRenderer.draw(
-      in: ctx, size: bounds.size, camera: pitch.camera,
+      in: ctx, size: bounds.size, camera: backdrop ? pitch.camera : pitch.shownCamera,
       scene: backdrop ? pitch.scene.scenery : pitch.scene, look: look,
       effects: backdrop ? nil : pitch.effects, time: pitch.lookTime, reduced: reduced)
     #if targetEnvironment(simulator)
@@ -396,7 +426,7 @@ import UIKit
     #endif
     let hud = PracticeHUD(context: ctx, size: bounds.size)
     if model.screen == .match, pitch.handoff == nil {
-      if pitch.need?.kind == "throw" {
+      if pitch.need?.kind == "throw", !pitch.wideOn {
         if WideLayout.isWide(bounds.size) {
           // on its side: beside the plan block at the far edge, toward the middle
           // (the web's wide minimap, layout.js planAt)
@@ -420,11 +450,11 @@ import UIKit
       }
     }
     for burst in pitch.bursts {
-      if let point = burst.point(size: bounds.size, camera: pitch.camera) {
+      if let point = burst.point(size: bounds.size, camera: pitch.shownCamera) {
         hud.burst(burst, at: point)
       }
     }
-    if model.screen == .practice || model.screen == .match, !pitch.playing,
+    if model.screen == .practice || model.screen == .match, !pitch.playing, !pitch.wideOn,
       pitch.handoff == nil, pitch.need == nil || pitch.need?.kind == "throw"
     {
       let hint = model.screen == .practice
@@ -501,6 +531,10 @@ import UIKit
   }
 
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+    if freeWanted {
+      for t in touches where freeTouches.count < 2 { freeTouches.append((t, t.location(in: self))) }
+      return
+    }
     guard pitch.acceptsInput, !pitch.playing, tracking == nil, let t = touches.first else { return }
     let p = t.location(in: self)
     startPoint = p
@@ -559,11 +593,36 @@ import UIKit
     }
     tracking = t
   }
+  /// The fingers on the free camera moved: one turns round the pitch and raises or
+  /// lowers the eye; two pinch closer or farther, twist to turn, and slide the ground.
+  private func moveFree(_ touches: Set<UITouch>) {
+    guard freeWanted else {
+      freeTouches = []
+      return
+    }
+    for i in freeTouches.indices where touches.contains(freeTouches[i].touch) {
+      let from = freeTouches[i].at, to = freeTouches[i].touch.location(in: self)
+      if freeTouches.count == 1 {
+        pitch.moveFree { $0.oneFinger(dx: Double(to.x - from.x), dy: Double(to.y - from.y)) }
+      } else {
+        let other = freeTouches[1 - i].at
+        pitch.moveFree { $0.twoFingers(from: from, to: to, other: other) }
+      }
+      freeTouches[i].at = to
+    }
+    model.refresh()
+    setNeedsDisplay()
+  }
+
   private func sampleDial(_ p: CGPoint) {
     lastDialPoint = p
     pitch.sample(meter.unit(p, grab: meterGrab))
   }
   override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+    if !freeTouches.isEmpty {
+      moveFree(touches)
+      return
+    }
     guard pitch.acceptsInput else {
       cancel()
       return
@@ -604,6 +663,10 @@ import UIKit
     }
   }
   override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+    if !freeTouches.isEmpty {
+      freeTouches.removeAll { touches.contains($0.touch) }
+      return
+    }
     guard pitch.acceptsInput else {
       cancel()
       return
@@ -657,6 +720,10 @@ import UIKit
     besideRing = false
   }
   override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+    if !freeTouches.isEmpty {
+      freeTouches.removeAll { touches.contains($0.touch) }
+      return
+    }
     let body = gesture == .body
     if tracking != nil { stepNudge() }
     cancel()

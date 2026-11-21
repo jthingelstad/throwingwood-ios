@@ -290,6 +290,7 @@ public final class PitchSession {
     wideBox = box
     freeCamera.setLens(out.camera)
     scene.wide = true
+    revision += 1
     try reread()
     return true
   }
@@ -300,6 +301,7 @@ public final class PitchSession {
     guard wideBox != nil || scene.wide else { return }
     wideBox = nil
     scene.wide = false
+    revision += 1
     _ = try engine.call("setWide", json: "{}")
     try reread()
   }
