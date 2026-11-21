@@ -796,14 +796,28 @@ try {
       );
       assert.equal((await state(key)).lobbyScene, scene);
     }
+    // The third pitch sets no scene: it opens with the one its host last chose (the
+    // host's kept options, docs/ONLINE.md), which is the second pitch's.
+    const shown = scene ?? "neon";
+    if (!scene) {
+      await until(
+        () => browser.doc.settings?.scene === shown,
+        "host's kept scene opens the next pitch",
+      );
+      assert.equal((await state(key)).lobbyScene, shown);
+    }
     assert.equal(
       await rpc({ op: "start", key, seed: 1001 + index, at: stamp }),
       true,
     );
     await until(() => started, "web start");
-    assert.equal(engine.view().scene ?? "day", scene ?? "day");
-    assert.equal(SceneOf((await state(key)).boardScene), scene ?? "day");
-    if (scene) note(`native host's ${scene} scene reaches the web guest's lobby and match`);
+    assert.equal(engine.view().scene ?? "day", shown);
+    assert.equal(SceneOf((await state(key)).boardScene), shown);
+    note(
+      scene
+        ? `native host's ${scene} scene reaches the web guest's lobby and match`
+        : `native host's kept ${shown} scene opens its next pitch and match`,
+    );
     const initial = browser.doc.match;
     const start = lua("startMatch", {
       doc: { ...browser.doc, started: false, n: 0, match: null },
@@ -1015,17 +1029,28 @@ try {
       assert.equal(native.adoptions, 0);
       assert.equal(corrections, 0);
     }
-    await until(
-      async () => Boolean(await server.store.getReplay(code)),
-      "keep replay",
-    );
-    const kept = JSON.parse((await server.store.getReplay(code)).data);
-    assert.equal(kept.log.length, actions);
-    assert.equal(kept.hash, engine.hash().hash);
-    engine.call("replayLoad", kept);
-    for (let i = 0; i < actions; i++)
-      assert.equal(engine.call("replayStep").replay.differs, false);
-    assert.equal(engine.hash().hash, kept.hash);
+    // A match too long for its log (the engine's LOG_BUDGET, about 600 actions) drops
+    // the log and has no replay: nothing is kept, and that is the rule, not a failure.
+    const over = browser.doc.match;
+    const whole = Array.isArray(over.log) && over.log.length === over.seq;
+    assert.equal(lua("replayOf", { match: over }) !== null, whole);
+    if (whole) {
+      await until(
+        async () => Boolean(await server.store.getReplay(code)),
+        "keep replay",
+      );
+      const kept = JSON.parse((await server.store.getReplay(code)).data);
+      assert.equal(kept.log.length, actions);
+      assert.equal(kept.hash, engine.hash().hash);
+      engine.call("replayLoad", kept);
+      for (let i = 0; i < actions; i++)
+        assert.equal(engine.call("replayStep").replay.differs, false);
+      assert.equal(engine.hash().hash, kept.hash);
+    } else {
+      await new Promise((r) => setTimeout(r, 500));
+      assert.equal(Boolean(await server.store.getReplay(code)), false);
+      assert.equal((await state(key)).finishedWithReplay ?? false, false);
+    }
     const native = await state(key);
     assert.equal(native.applied, webCommits);
     assert.equal(webApplied, nativeCommits);
@@ -1046,8 +1071,8 @@ try {
       hashAgreement: actions,
       corrections: 0,
       adoptions: 0,
-      replayKept: true,
-      replayVerified: actions,
+      replayKept: whole,
+      replayVerified: whole ? actions : 0,
       finish: engine.need().how,
     };
     assert.ok(inboundAim);
