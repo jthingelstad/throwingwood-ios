@@ -435,6 +435,9 @@ public struct PitchMember: Identifiable, Equatable {
   @discardableResult public func start(seed: Int, at: JSONText) async throws -> Bool {
     note = ""
     let started = try await controller.start(seed: seed, at: at)
+    // the host's START is answered `ok`, not `start`: its document event came before the
+    // controller held the match, so the pitch is taken up here
+    if started, !ended { try refreshPitch() }
     if !started, let mismatch = controller.mismatch {
       let m = try JSONNode.parse(mismatch)
       let ids = (m["differ"]?.items ?? []) + (m["unknown"]?.items ?? [])
@@ -661,7 +664,9 @@ public struct PitchMember: Identifiable, Equatable {
   /// Someone else's aim as it stood `AimBuffer.delay` ms ago on the pitch's clock,
   /// moved smoothly between their casts. Only while this board waits on their throw.
   private func showRemoteAim(now: Int) throws -> Bool {
-    guard stage == .match, !board.acceptsInput, !board.playing, queue.isEmpty,
+    // a throw held for its aim (`AimBuffer.holdFor`) lets the swing play out first
+    let waiting = queue.first.map { $0.2 > now } ?? true
+    guard stage == .match, !board.acceptsInput, !board.playing, waiting,
       let aim = aims.sample(now: now), aim != shownAim,
       let output: AimOutput = try? board.read("showAim", aim.text)
     else { return false }
