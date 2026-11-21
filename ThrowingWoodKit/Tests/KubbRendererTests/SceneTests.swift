@@ -267,19 +267,47 @@ struct SceneSkinTests {
   }
 }
 
-/// The host's last lobby scene, kept for the next pitch they host (the web's
-/// `pitchOptions.scene`): only a Scene row value goes on a new pitch.
-@Suite @MainActor struct HostSceneTests {
+/// The host's last lobby options, kept for the next pitch they host (the web's
+/// `pitchOptions`): every option they pick, a scene only when it is a Scene row value,
+/// and the scene kept before 0.5 (`pitch.hostScene`) carried over.
+@Suite @MainActor struct HostOptionsTests {
+  private func fresh() throws -> (UserDefaults, String) {
+    let name = "host-options-\(UUID().uuidString)"
+    return (try #require(UserDefaults(suiteName: name)), name)
+  }
+
   @Test func onlyARowSceneIsKeptForTheNextPitch() throws {
-    let name = "host-scene-\(UUID().uuidString)"
-    let defaults = try #require(UserDefaults(suiteName: name))
+    let (defaults, name) = try fresh()
     defer { defaults.removePersistentDomain(forName: name) }
-    #expect(OnlinePitch.keptScene(defaults) == nil)
+    #expect(OnlinePitch.keptOptions(defaults).isEmpty)
     for v in ["day", "night", "neon"] {
-      defaults.set(v, forKey: OnlinePitch.hostSceneKey)
-      #expect(OnlinePitch.keptScene(defaults) == v)
+      OnlinePitch.keep("scene", v, in: defaults)
+      #expect(OnlinePitch.keptOptions(defaults) == ["scene": v])
     }
-    defaults.set("aurora", forKey: OnlinePitch.hostSceneKey)
-    #expect(OnlinePitch.keptScene(defaults) == nil)
+    OnlinePitch.keep("scene", "aurora", in: defaults)
+    #expect(OnlinePitch.keptOptions(defaults).isEmpty)
+  }
+
+  @Test func everyPickIsKeptTogether() throws {
+    let (defaults, name) = try fresh()
+    defer { defaults.removePersistentDomain(forName: name) }
+    OnlinePitch.keep("wind", "strong", in: defaults)
+    OnlinePitch.keep("computer", "pro", in: defaults)
+    OnlinePitch.keep("wind", "light", in: defaults)
+    OnlinePitch.keep("scene", "night", in: defaults)
+    #expect(
+      OnlinePitch.keptOptions(defaults) == ["wind": "light", "computer": "pro", "scene": "night"])
+  }
+
+  /// A player who picked a scene as a host on 0.4 keeps it, and the old key goes once
+  /// the new one is written.
+  @Test func theOlderSceneIsCarriedOver() throws {
+    let (defaults, name) = try fresh()
+    defer { defaults.removePersistentDomain(forName: name) }
+    defaults.set("neon", forKey: OnlinePitch.hostSceneKey)
+    #expect(OnlinePitch.keptOptions(defaults) == ["scene": "neon"])
+    OnlinePitch.keep("opening", "six", in: defaults)
+    #expect(OnlinePitch.keptOptions(defaults) == ["scene": "neon", "opening": "six"])
+    #expect(defaults.string(forKey: OnlinePitch.hostSceneKey) == nil)
   }
 }

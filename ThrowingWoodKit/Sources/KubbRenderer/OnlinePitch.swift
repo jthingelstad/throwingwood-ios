@@ -96,15 +96,35 @@ public struct PitchMember: Identifiable, Equatable {
   public var room: RoomsClient { controller.room }
   private let defaults: UserDefaults
 
-  /// The scene this device last picked as a host (the web's `pitchOptions.scene`).
+  /// The lobby options this device last picked as a host, for the next pitch it hosts
+  /// (the web's `pitchOptions`): `[key: value]`, each set as it is picked.
+  static let hostOptionsKey = "pitch.hostOptions"
+  /// Before 0.5 only the scene was kept, here (read once into `hostOptionsKey`).
   static let hostSceneKey = "pitch.hostScene"
-  /// The kept host scene when it is one of the Scene row's (an old or unknown value
-  /// is not put on a new pitch), else nil.
-  static func keptScene(_ defaults: UserDefaults) -> String? {
-    guard let v = defaults.string(forKey: hostSceneKey),
-      SceneID.row.choices.contains(where: { $0.first == v })
-    else { return nil }
-    return v
+  /// The kept host options. A kept scene is put on a new pitch only when it is one of
+  /// the Scene row's (an old or unknown value is dropped); the controller then drops
+  /// whatever the new pitch's engine does not take (`PitchController.takenOptions`).
+  static func keptOptions(_ defaults: UserDefaults) -> [String: String] {
+    var kept = storedOptions(defaults)
+    if let scene = kept["scene"], !SceneID.row.choices.contains(where: { $0.first == scene }) {
+      kept["scene"] = nil
+    }
+    return kept
+  }
+  /// What is stored, the older lone scene read in when nothing newer is.
+  private static func storedOptions(_ defaults: UserDefaults) -> [String: String] {
+    if let all = defaults.dictionary(forKey: hostOptionsKey) {
+      return all.compactMapValues { $0 as? String }
+    }
+    if let scene = defaults.string(forKey: hostSceneKey) { return ["scene": scene] }
+    return [:]
+  }
+  /// One option the host picked, kept with the rest (and the older key dropped).
+  static func keep(_ key: String, _ value: String, in defaults: UserDefaults) {
+    var all = storedOptions(defaults)
+    all[key] = value
+    defaults.set(all, forKey: hostOptionsKey)
+    defaults.removeObject(forKey: hostSceneKey)
   }
 
   public init(
@@ -193,7 +213,7 @@ public struct PitchMember: Identifiable, Equatable {
           Task { [weak self] in
             guard let self else { return }
             do {
-              try await controller.prepareLobby(scene: Self.keptScene(defaults))
+              try await controller.prepareLobby(options: Self.keptOptions(defaults))
             } catch { if !ended && !suspended { note = "Could not prepare the lobby." } }
           }
         }
@@ -371,8 +391,8 @@ public struct PitchMember: Identifiable, Equatable {
   }
   public func team(_ side: String?) async throws { try await controller.joinTeam(side) }
   public func option(_ key: String, _ value: String) async throws {
-    // the host's scene is kept for the next pitch they host, as the web keeps it
-    if key == "scene", isHost { defaults.set(value, forKey: Self.hostSceneKey) }
+    // the host's options are kept for the next pitch they host, as the web keeps them
+    if isHost { Self.keep(key, value, in: defaults) }
     _ = try await controller.reduce(
       "setOptions", fields: [("options", .object([(key, .string(value))]))])
   }
