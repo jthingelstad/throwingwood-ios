@@ -1,6 +1,6 @@
 import AVFoundation
 import KubbRenderer
-import KubbRooms
+import KubbPitch
 import Network
 import SwiftUI
 
@@ -8,12 +8,18 @@ import SwiftUI
 /// says so. Watched from launch, so the first press already knows.
 @MainActor final class NetworkPath {
   static let shared = NetworkPath()
+  static let online = Notification.Name("ThrowingWood.networkOnline")
   private(set) var reachable = true
   private let monitor = NWPathMonitor()
   private init() {
     monitor.pathUpdateHandler = { path in
       let ok = path.status == .satisfied
-      Task { @MainActor in NetworkPath.shared.reachable = ok }
+      Task { @MainActor in
+        let was = NetworkPath.shared.reachable
+        NetworkPath.shared.reachable = ok
+        // back online: a pitch waiting out its reconnect backoff tries at once
+        if ok && !was { NotificationCenter.default.post(name: NetworkPath.online, object: nil) }
+      }
     }
     monitor.start(queue: DispatchQueue(label: "network-path"))
   }
@@ -36,7 +42,7 @@ extension GameModel {
     guard reel?.code != code || reel?.match != match else { return }
     reel?.hide()
     reel = HighlightReel(
-      code: code, site: RoomsConfiguration.site,
+      code: code, site: PitchConfiguration.site,
       cache: URL.cachesDirectory.appending(path: "reels"), hooks: reelHooksFor(code),
       match: match, linked: linked)
   }
@@ -55,11 +61,10 @@ extension GameModel {
   static func reelHooks(_ code: String) -> HighlightReel.Hooks {
     HighlightReel.Hooks(
       ask: { v in
-        try await RoomsClient.reel(
-          room: code, v: v, url: RoomsConfiguration.url, appVersion: version)
+        try await PitchConfiguration.client.reel(pitch: code, v: v)
       },
       kept: {
-        try await RoomsClient.kept(room: code, url: RoomsConfiguration.url, appVersion: version)
+        try await PitchConfiguration.client.replay(pitch: code)
       },
       fetch: { from, to in
         let (file, response) = try await URLSession.shared.download(from: from)
@@ -279,7 +284,7 @@ struct LoopingVideo: UIViewRepresentable {
     func beginReelReview(_ mode: String) {
       let code = "mapkubb2"
       let files = ReelFiles(
-        tall: "/reels/\(code)/1-r1-0.7/tall.mp4", wide: "/reels/\(code)/1-r1-0.7/wide.mp4", room: code)!
+        tall: "/reels/\(code)/1-r1-0.7/tall.mp4", wide: "/reels/\(code)/1-r1-0.7/wide.mp4", pitch: code)!
       let answer: ReelAnswer =
         switch mode {
         case "done": .done(v: 1, tag: "r1-0.7", files: files)
@@ -301,7 +306,7 @@ struct LoopingVideo: UIViewRepresentable {
           ask: { _ in
             asks += 1
             // the second poll is lost: No connection under the wait
-            if mode == "makingoffline", asks > 1 { throw RoomError("closed") }
+            if mode == "makingoffline", asks > 1 { throw PitchError("closed") }
             return answer
           },
           // the room keeps the match the card is for (match 2), or a rematch (3)

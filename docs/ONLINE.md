@@ -35,8 +35,9 @@ into it), and a new pitch this member hosts opens with them
 (`takenOptions`): a `MATCH_OPTIONS` key with one of its values (Computer from 0.9) and a
 Scene row value where the engine takes a scene. Who can join is not kept, as on the
 web. A pitch someone else hosts, or one that already has a document, is never touched.
-An open pitch sends the web's counts-only listing on change and
-renews it every five minutes while the host is present.
+An open pitch's host sends `open {seats, state}` when either changes, and a new host
+sends it afresh (`open: null` when the pitch is invite only); the pitch server lists it
+on `GET /open` while the host is there.
 
 ### Engines in one room
 
@@ -79,14 +80,23 @@ the dial or computer while the room grants that seat control. A player can
 choose a legal end for a raise or place a punishment kubb using the same board
 controls as solo, including AUTO ALL and the device's Raising setting (in the
 online menu too); automatic raising acts only while this seat holds control. The host runs the computer. Spectators see the thrower's
-camera. A WATCH handoff closes after 2.5 seconds, or on the next action.
+camera. Someone else's turn shows its hand-off as a banner over the top
+(`HandoffBanner`, `MatchCards.watchBanner`, 2.5 seconds) instead of the modal card, so
+the thrower's live dial is seen under it; the thrower's own card stays modal.
 
-The dial releases an engine action. The room controller applies it, then sends
-the tagged rider with the committed snapshot and hash. A remote action is
-verified in the controller and queued for presentation. The board applies it,
-checks the hash, and plays its recording using showAt. A gap or disagreement
-restores the room snapshot. After a win the host can put everyone back in
+The dial releases an engine action. The controller applies it and sends it at once as
+an `act` (`id`, `n`, `seq`, `a`, `h`, `snap`, `over` on the last, `c: "ios"`), never
+waiting for the last one's `ok` (docs/ROOMS-CLIENT.md). A remote action is verified in
+the controller and queued for presentation. A peer's throw waits for its aim to play
+out first (`AimBuffer.holdFor`: at most 250 ms, none when the last aim is more than
+1.5 s older than the throw), so a watcher sees the swing let go and then the throw.
+The board applies it, checks the hash, and plays its recording using showAt. A gap or
+disagreement restores the head snapshot. After a win the host can put everyone back in
 the lobby with the same teams.
+
+The pace between actions is one tune, `Pacing` (KubbRenderer), the web's
+src/game/pacing.js: 0.8 s rest after a throw, 0.7 s per automatic raise. Every screen
+and every client waits the same, so a watcher keeps up with the thrower.
 
 ## The highlight reel
 
@@ -99,16 +109,15 @@ match has a code; solo has no button yet. The web's docs/REEL.md "The iPhone" is
 the contract, and the card's words (`ReelWords`) are the web's, word for word.
 The card's title is "Highlight reel" in every state.
 
-- First the card checks that the room still keeps this match, with the
-  read-only `replay` fetch (docs/ROOMS-CLIENT.md), which starts nothing: the
+- First the card checks that the pitch still keeps this match, with the API's
+  read-only `GET replay?pitch=` (docs/ROOMS-CLIENT.md), which starts nothing: the
   same `n`, and the same hash when both have one. A just-ended match's keep may
   still be on its way, so it looks 4 times, 2.5 seconds apart, before it says
   "This match has no replay, so it cannot have a reel." When the room keeps a
   newer match (a rematch since), it says "This pitch has moved on to a newer
   match." Opened with a code alone there is nothing to compare, and any kept
   replay is taken.
-- Then it asks the rooms server with a `reel` request on a short-lived socket of
-  its own. Every `reel` request (the first, each poll, a reopened card, TRY
+- Then it asks the API with `POST reel {pitch, v}`. Every `reel` request (the first, each poll, a reopened card, TRY
   AGAIN) carries the pitch code and `v`, the kept version the check found, so
   the server never starts a render of another match: when the room keeps a
   different version it answers `why: "moved"`, starts nothing and counts
@@ -189,7 +198,7 @@ The winner card with the button is the online `winner` review mode
 ## Sharing a match against the computer
 
 The web's docs/REEL.md "The share card" is the contract: its words are `ShareWords`
-(`KubbRooms/Share.swift`), and `ShareTests` checks each one against the web's own
+(`KubbPitch/Share.swift`), and `ShareTests` checks each one against the web's own
 `SHARE_WORDS` in `Fixtures/share-vectors.json` (made by `node tools/share-vectors.mjs
 --web <web checkout>`, which only reads that checkout).
 
@@ -206,9 +215,8 @@ The web's docs/REEL.md "The share card" is the contract: its words are `ShareWor
   trimmed before it goes, as on the web. SHARE is faded while the name will not do.
   NOT NOW closes the card and sends nothing.
 - **The message** (`ShareMessage.make`, section 13 of the web's docs/ROOMS.md): one
-  `{t: "share", id: 1, g: {client, engine, start, log, end}}` on a socket of its own
-  (`RoomsClient.share`), in 30000-byte parts when long, closed once answered, with a
-  45 s wait for the answer. `start` and `log` come from the engine's `renameStart`
+  `g: {client, engine, start, log, end}` sent to the API as `POST share {g}`
+  (`PitchAPI.share`), with a 45 s wait for the answer. `start` and `log` come from the engine's `renameStart`
   with the name typed, as on the web; `engine` is the version the match was played on,
   and a match from another major.minor than the running engine is refused here as
   `engine`. `client` is `"ios"`, which the server checks and drops: it is never kept,
@@ -231,48 +239,48 @@ The web's docs/REEL.md "The share card" is the contract: its words are `ShareWor
   then opens the reel card directly. If the share card was closed while checking, the
   reel is not asked until the card is opened again (nothing is sent off screen), where
   the web starts it at once.
-- **A sealed pitch.** A pitch code that is a shared match answers the join `sealed`
-  (`OnlinePitch.Stage.sealed`). The app reads its kept replay (`RoomsClient.kept`) and
+- **A sealed pitch.** A pitch code that is a shared match has nobody on it; a join
+  that finds no pitch asks the API's `replay`, whose `sealed` says it is one
+  (`OnlinePitch.Stage.sealed`). The app reads that kept replay and
   restores its last snapshot on a board of its own: the winner card, with SCORE SHEET,
   MAKE A HIGHLIGHT REEL for that code and HOME, and no REMATCH. No replay player.
   While it loads the card says "Joining the pitch…"; if it cannot be read, the web's
   words: "Could not show the match" and TRY AGAIN.
-- **Verification.** `ShareTests` and `SoloShareTests` in the Kit; `node
-  tools/rooms-test.mjs --web <web checkout>` sends the iPhone's message for the
-  vector match to the web's rooms server with the web's own share check (on
-  127.0.0.1, with a stand-in reel renderer that writes nothing) and checks the code,
-  the same code again, the server's `engine` and `does-not-replay`, a sealed join and
-  the reel request. Review pictures: `python3 tools/share-snapshots.py <simulator-app>`
-  (`--landscape left`, `--ipad`, `--sim-prefix`), into `build/share-shots/`, with no
-  network (SHARE_REVIEW stand-ins) and only invented names.
+- **Verification.** `ShareTests` and `SoloShareTests` in the Kit, and `ReelTests`
+  for the API's answers against an injected fetch. The old cross-play script against the
+  rooms server (`tools/rooms-test.mjs`) went with it; a share has not been sent to the
+  pitch server's API stand-in from the app yet.
 
 ## What travels
 
-- Joining sends the code, the persistent random member ID, name, level and
-  the engines carried (`engine` as the room's engine with `+engines`, and
-  `engines`). Name edits and a change of the level in Settings update presence (the same `setMe`; in a match it also applies to the player's next throw). Host and
-  connection changes come from the rooms service.
-- Changed aim state goes as an ephemeral aim cast at most five times a second.
-  The four shout choices are casts, limited to one per 700 ms. Up to four
-  shouts stay visible for 2.6 seconds. Neither cast identifies the application.
-- A set carries the lobby or match document. The action rider carries c and e
-  for the recorder: c is left to the engine's default, `web`, as a browser's is,
-  so no peer or kept recording tells a phone from a browser; e is the full
-  version of the match's engine, as the web sends.
-  The server records committed versions with their riders. A finished match
-  sends keep with room.replayOf and the exact ending document version.
-  Sending a separate game message here would double-record a shared match.
-  The server reserves game for one-client solo and watch records.
+- Joining (`/ws?pitch=<code>`, no Origin) sends the persistent random member ID, the
+  role, name, level and the engines carried (`engine` as the room's engine with
+  `+engines`, and `engines`), and on a rejoin the document version and the `n` and `seq`
+  of the last action held (own actions in flight not counted). Name and level changes
+  in Settings go as `me` (in a match the level applies to the player's next throw).
+  Members, host and connection changes come from the pitch server, which picks the host.
+- Aim goes as a cast `{t: "aim", s, k, c}` (`k` counts this device's samples, `c` its
+  clock) at most 15 a second and only when it changed; the aim just before a release
+  goes with `all: true`, which the pitch never thins. The four shouts are casts too,
+  one per 700 ms, and spend an aim slot. Up to four shouts stay visible for 2.6
+  seconds. Neither cast identifies the application.
+- Lobby writes are compare-and-set `set {base, doc}`; START is one `start {base, doc,
+  n, h, snap, meta}`, the document getting only the match header `{n, players, cpu,
+  host, engine}` and `meta` being `{v: 1, setup, engine, version, players, cpu}`.
+- Each action is one `act` with `c: "ios"`. The pitch server keeps the match from
+  `start`, the acts and `over`; nothing else is sent to record a shared match (no
+  `keep`, no `game` message for it).
 - SEND FEEDBACK freezes the displayed action trail when the card opens. A throw
   report (`kind: "throw"`) sends the two answers; Something else
-  (`kind: "feedback"`) sends one trimmed text of up to 2000 characters. Both include pitch code and document position, viewport, build,
-  need, level, last action and throw result, pieces, options and replay snapshots.
-  Member IDs are pseudonymised in the captured state, including snapshot strings.
-  Answers are limited to 1,000 Unicode scalars each. History, pieces and the
-  after snapshot are dropped in that order to fit 64 KiB. The report uses a
-  short-lived unjoined socket, waits for reported, and closes. It carries the
-  same client and engine tags as a game record. The review modes `report` and
-  `feedback` show the card in each kind.
+  (`kind: "feedback"`) sends one trimmed text of up to 2000 characters. Both include
+  the pitch code (`pitch`), the document version and the match's head as the client
+  holds it (`match: {n, seq}`), viewport, build, need, level, last action and throw
+  result, pieces, options and replay snapshots. Member IDs are pseudonymised in the
+  captured state, including snapshot strings. Answers are limited to 1,000 Unicode
+  scalars each. History, pieces and the after snapshot are dropped in that order to
+  fit 64 KiB. It goes to the API as `POST report {r}` with the same client and engine
+  tags as a game record. The review modes `report` and `feedback` show the card in
+  each kind.
 
 ## Observers and open games
 
@@ -281,18 +289,15 @@ The web's docs/OBSERVER.md, its numbers and words. `?observe=1` on a `/p/` link
 no seat (`PitchController(observing:)`). It never acts and never writes the
 document: `prepareLobby` never runs, `reduce`, `start`, `take`, `frame`, `commit`,
 `castAim` and `shout` refuse, its control has no sides and `mayAct` is false. It
-never claims host. First in line for host with another member connected, it steps
-back: `RoomsClient.rejoin` sends `leave`, closes after 600 ms and opens again after
-900 ms with the same member id, last in line. `StepBack` paces it: at once, then 20 s
-doubling to 5 minutes, from the first again when a host is connected or a member it
-has never seen connects. Nothing new goes on the wire.
+never hosts: the pitch server never hands the host to an observer (PROTOCOL.md
+section 3), so there is nothing to step back from.
 
 An observer joins with a member id of its own, never the player's
 (`ObserverMemberIDStore`, kept for the app's run, as the web keeps `observerId()` for
 the tab; `MemberIDStore.joining(observing:)` picks it). The room gives a join with a
 known id that member's place, so a host who left its pitch and tapped WATCH on it
 would otherwise come back as a host that never acts, and the pitch would stall
-(the web's review finding, 2026-11-20). Stepping back keeps the observer's id.
+(the web's review finding, 2026-11-20).
 
 - **In a match** the board watches (`PitchSession.watching`) in the wide view and
   the free camera (docs/RENDER.md "The watcher's wide view"). No SHOUT. The hand-off
@@ -306,8 +311,7 @@ would otherwise come back as a host that never acts, and the pitch would stall
   shows No game here (`Stage.noGame`) with JOIN THIS PITCH and HOME. The words point
   to the Play online screen, where the app lists open games, not the web's page.
 - **Open games** (`OpenGames`, `OpenGamesSection`): under START A PITCH and JOIN A
-  PITCH, the server's read-only `list` on a socket of its own (`{t:"list",id:1}`, no
-  member, 10 s deadline), each row "3 of 12 on the pitch · in play · made 4 min ago"
+  PITCH, the pitch server's `GET /open` (`PitchAPI.openGames`, 10 s deadline), each row "3 of 12 on the pitch · in play · made 4 min ago"
   with JOIN and WATCH. A look every 30 s while the screen shows and the app is in
   front; codes outside the server's pattern are left out. Never a name.
 
@@ -318,22 +322,34 @@ after a move, Night, the card, No game here and the list.
 
 ## Leaving and reconnecting
 
-A dropped socket retries with the same device member ID. Background closes the
-socket, retaining the pitch in memory. Foreground rejoins, restores the server
-snapshot and recalculates control. Home leaves the room. The earliest connected
-successor claims a disconnected host after the server's 15-second grace (the
-web and iPhone wait 16 seconds). A permanent leave permits an immediate claim.
-Connecting, reconnecting, unreachable, replaced, full and missing pitches all
-offer Home. A well-formed unused code creates an empty room on the server's
-join. A joiner finding itself the first host there shows Pitch not found.
-The protocol has no separate existence lookup.
+A dropped socket retries with the same device member ID: the first time at a random
+wait under 300 ms, then 1 s doubling to 10 s, each a quarter either way at random (the
+web's numbers). The device coming online or the app becoming active retries at once
+(or sends a `ping` on an open socket). The literal `ping` goes after 20 s with nothing
+heard, and no answer in 10 s means a dead socket. A lobby write or START unanswered in
+10 s reconnects to find out. The rejoin resumes by sequence (the missed actions, or the
+whole match from its head when too far behind) and actions still on their way go again
+with the same ids, answered once. Background closes the socket, keeping the pitch in
+memory; foreground rejoins. Home leaves the pitch. The pitch server hands the host on
+by itself when the host leaves or is away; nobody claims it. Still not connected after
+8 s, the screen says it cannot reach the server and the client keeps trying; a drop
+after joining stays RECONNECTING. `replaced`, and a join refused as full, no-pitch,
+bad-member, bad-role, already-joined or bad-message, end the client for good. Every
+such state offers Home.
 
 ## Scope and verification
 
-A simulator build constructs its socket URL from 127.0.0.1 and a numeric port.
-The device endpoint lives in RoomsConfiguration. Local tests import rooms-dev
-as a library with in-memory storage. The review harness seats invented players
-through the web Room client and loads its engine from the existing checkout.
+The addresses live in `PitchConfiguration`, one value each: the pitch server
+(`wss://throwingwood-pitches.throwingwood.workers.dev`), the API
+(`https://throwingwood.com/api/`) and the site. A Debug build takes
+`PITCH_SERVER_URL`, `PITCH_API_URL` and `REELS_URL` from the environment, and a
+simulator build defaults to 127.0.0.1 (the pitch server's `wrangler dev` on 8797, the
+API stand-in on 8798). The Kit's tests run against `FakePitch`, an in-process pitch
+server written from PROTOCOL.md, and `LocalPitchServerTests` plays a short match over
+real sockets against the pitch server's own `wrangler dev` on 127.0.0.1 when
+`PITCH_LOCAL_URL` names it. The review harness (`tools/online-snapshots.py`)
+still seats its invented players through the web's old Room client and has not been
+moved to the pitch server yet.
 Review images and baselines are in docs/review/online. Run the online snapshot
 script with the simulator app path and --web pointing at the web checkout.
 The two phone sizes use the same scenarios and the existing tile comparator.
@@ -348,10 +364,7 @@ for both.
 With --scene night or neon (capture only) the host picks the scene in the lobby
 before the picture, named `<phone>-<scene>[-landscape]-<mode>.png`, e.g.
 [the night lobby](review/online/iphone-16e-night-host.png) and
-[neon](review/online/iphone-17-pro-max-neon-host.png). `node tools/rooms-test.mjs`
-checks that a scene crosses both ways on the local rooms server: the native host's
-night and neon reach the web guest's `settings.scene` and its match view, and a web
-host's neon and then night reach the native guest's lobby and match.
+[neon](review/online/iphone-17-pro-max-neon-host.png).
 With --ipad the same scenarios run on the iPad mini and the iPad Pro 13-inch
 (`ipad-mini-<mode>.png`, `ipad-pro-13-<mode>.png`, and `-landscape-` turned left):
 the same screens on a bigger screen (docs/RENDER.md "An iPad"), the cards at the

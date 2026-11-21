@@ -6,7 +6,7 @@
 //
 // Swift's JSONEncoder does neither (it writes UTF-8, escapes "/", orders keys its own
 // way and formats numbers its own way), so this is written out here, and checked against
-// the web's own functions by the vectors in Tests/KubbRoomsTests/Fixtures/vectors.json.
+// the web's own functions by the vectors in Tests/KubbPitchTests/Fixtures/vectors.json.
 
 /// Text that is one JSON value, kept exactly as it came: what the engine wrote, or what
 /// the room sent. Passed through, never decoded and encoded again, so a snapshot's

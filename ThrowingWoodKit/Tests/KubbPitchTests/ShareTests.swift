@@ -2,7 +2,7 @@ import Foundation
 import KubbEngine
 import Testing
 
-@testable import KubbRooms
+@testable import KubbPitch
 
 /// Sharing a match against the computer (the web's docs/ROOMS.md section 13 and
 /// docs/REEL.md "The share card"), against vectors the web's own code made
@@ -228,62 +228,40 @@ let carriesVectors = Engine.carried.contains(shareVectorMinor())
 
   @Test func theAnswerIsReadAsTheWebReadsIt() throws {
     #expect(
-      try ShareReply.read(JSONNode.parse(#"{"t":"shared","id":1,"code":"abcdefgh23","v":1}"#))
+      ShareReply.read(try JSONNode.parse(#"{"code":"abcdefgh23","v":1}"#))
         == ShareReply(code: "abcdefgh23", v: 1, why: nil))
     #expect(
-      try ShareReply.read(JSONNode.parse(#"{"t":"shared","id":1,"code":null,"v":0,"why":"busy"}"#))
+      ShareReply.read(try JSONNode.parse(#"{"code":null,"v":0,"why":"busy"}"#))
         == ShareReply(code: nil, v: 0, why: "busy"))
-    do {
-      _ = try ShareReply.read(JSONNode.parse(#"{"t":"error","re":"share","code":"too-many"}"#))
-      Issue.record("no throw")
-    } catch let e as RoomError { #expect(e.code == "too-many") }
-    #expect(RoomsClient.shareErrorCode(RoomError("failed")) == "failed")
-    #expect(RoomsClient.shareErrorCode(CancellationError()) == "closed")
+    #expect(PitchAPI.errorCode(PitchError("failed")) == "failed")
+    #expect(PitchAPI.errorCode(CancellationError()) == "closed")
   }
 
-  @Test(.enabled(if: carriesVectors)) func oneMessageOnASocketOfItsOwnAndTheSocketCloses() async throws {
-    var made: [MockTransport] = []
-    let factory: RoomsClient.Factory = { _ in
-      let t = MockTransport()
-      made.append(t)
-      t.onSend = { m in
-        guard m["t"]?.string == "share" else { return }
-        t.push(#"{"t":"shared","id":1,"code":"abcdefgh23","v":1}"#)
-      }
-      return t
-    }
+  /// One `POST share { g }`: the message's `g` byte for byte, waiting the share's time.
+  @Test(.enabled(if: carriesVectors)) func oneCallWithTheMessagesMatch() async throws {
+    let fake = FakeAPI(#"{"code":"abcdefgh23","v":1}"#)
     let engine = try vectorEngine()
     guard case .message(let text, _) = try ShareMessage.make(engine: engine, source: source(), name: "Lakeside")
     else {
       Issue.record("refused")
       return
     }
-    var timing = RoomsClient.Timing()
-    timing.answer = .seconds(600)
-    let reply = try await RoomsClient.share(
-      text, url: URL(string: "ws://127.0.0.1:1")!, appVersion: "0.0-test", timing: timing, factory: factory)
+    let reply = try await fake.api.share(text)
     #expect(reply == ShareReply(code: "abcdefgh23", v: 1, why: nil))
-    #expect(made.count == 1)
-    #expect(made[0].sent.count == 1)
-    #expect(made[0].sent[0].raw.text == text.text)
-    // a message past one frame goes in parts
-    #expect(made[0].frames.count > 1)
-    #expect(made[0].closed)
+    #expect(fake.requests.count == 1)
+    let request = fake.requests[0]
+    #expect(request.httpMethod == "POST" && request.url?.absoluteString == "http://127.0.0.1:8798/api/share")
+    #expect(request.timeoutInterval == Double(ShareLimits.wait.components.seconds))
+    let g = try JSONNode.parse(text)["g"]!
+    #expect(try fake.sent().raw.text == "{\"g\":" + g.raw.text + "}")
   }
 
-  @Test func anErrorForTheShareIsThrownWithItsCode() async throws {
-    let factory: RoomsClient.Factory = { _ in
-      let t = MockTransport()
-      t.onSend = { _ in t.push(#"{"t":"error","id":1,"re":"share","code":"failed","message":"x"}"#) }
-      return t
-    }
-    var timing = RoomsClient.Timing()
-    timing.answer = .seconds(600)
+  @Test func aRefusalForTheShareIsThrownWithItsCode() async throws {
+    let fake = FakeAPI(#"{"error":"failed","message":"x"}"#, status: 500)
     do {
-      _ = try await RoomsClient.share(
-        JSONText(#"{"t":"share","id":1,"g":{}}"#), url: URL(string: "ws://127.0.0.1:1")!,
-        appVersion: "0", timing: timing, factory: factory)
+      _ = try await fake.api.share(JSONText(#"{"t":"share","id":1,"g":{}}"#))
       Issue.record("no throw")
-    } catch { #expect(RoomsClient.shareErrorCode(error) == "failed") }
+    } catch { #expect(PitchAPI.errorCode(error) == "failed") }
+    await #expect(throws: PitchError("bad-message")) { _ = try await fake.api.share(JSONText(#"{"t":"share"}"#)) }
   }
 }

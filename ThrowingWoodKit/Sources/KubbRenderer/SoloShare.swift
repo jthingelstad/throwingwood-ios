@@ -1,9 +1,9 @@
 import Foundation
-import KubbRooms
+import KubbPitch
 
 // Sharing a finished match against the computer from its winner card (the web's
 // docs/REEL.md "Sharing a match against the computer", src/ui/share.js; the wire, words
-// and reducer are KubbRooms' Share.swift). The match is the one kept on disk
+// and reducer are KubbPitch' Share.swift). The match is the one kept on disk
 // (SoloTrail.swift), and only when it is the match on the screen.
 
 extension FinishedSoloMatch {
@@ -146,7 +146,7 @@ extension PitchSession {
     Task { [weak self, hooks] in
       let event: ShareState.Event
       do { event = .answer(try await hooks.send(message)) } catch {
-        event = .error(RoomsClient.shareErrorCode(error))
+        event = .error(PitchAPI.errorCode(error))
       }
       self?.answered(event)
     }
