@@ -292,9 +292,31 @@ option on engine 0.9 (kubb-engine docs/SESSION.md `newMatch`), kept per game in
 
 ## Scenes
 
-A match's scene (`scene`, since engine 0.9) is carried untouched and every scene is
-drawn as the day. No picker and no word about scenes anywhere: not approved to go
-live.
+A scene is a look only (Jamie, 2026-11-20: "dark mode for the game"): the world,
+the controls' skin and the throw's effects. It never changes play, the engine, a
+throw or a hash. Day is today's look and the default; Night is a real pitch at night
+under a full moon (lit pieces, stardust behind a thrown piece); Neon is our own black
+world on a grid of light (pieces edged in light, a ribbon and sparks; no film names).
+The web (0.7.0) is the reference: keep its numbers and colours (`SceneRenderer.swift`,
+`SceneEffects.swift`, `SceneSkin.swift`). Scene and Surface stay two settings.
+
+- **The Scene row** (Day, Night, Neon, `SceneID.row`) is offered only where the
+  match's engine takes a scene (0.9 on, `scene` in its OPTION_DEFAULTS): last in the
+  solo options (kept as `solo.option.scene`), in the lobby for the host (the room's
+  `settings.scene`, as the web writes it), and in the practice menu (kept as
+  `pitch.practiceScene`; a change starts a new practice in it, as on the web). A 0.8
+  or 0.7 match has no row and draws the day. Never a Scene row in the match menu.
+- **An unknown id** draws as the day and is carried untouched (`SceneID.shown`).
+- **Everything that shows a match follows its scene** (`GameModel.shownScene`):
+  play, watching, a reopened match, the replay and the winner card. Home, the
+  online entry and Settings from home are the day.
+- **The skin.** Every control takes the scene's colours from `SceneSkin` through
+  `SkinStore`; each pair of words and ground is 7:1 or better (`SceneSkinTests`).
+  The day is the app's own colours, unchanged; never move the day's pictures.
+- **Reduce Motion** calms the effects: no trail or ribbon, fewer and shorter puffs,
+  no hit flash.
+- Review pictures take `--scene night|neon` on the solo and online tools
+  (`<phone>-<scene>-<shot>.png`). docs/RENDER.md "Scenes".
 
 ## Sound and haptics
 

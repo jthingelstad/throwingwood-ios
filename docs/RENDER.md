@@ -45,6 +45,30 @@ Jamie: "Please take a moment to consider if now would be an okay time for us to 
 
 `WideLayoutTests` check both review iPads full screen, upright and on their side, both meters and both sides, and sweep window sizes (480 to 1400 pt wide and 380 to 1040 high, three sets of insets) for frames inside the safe area, nothing overlapping and the linear meter's room; `StillBarTests` and `ControlsTests` hold the bar and the raise touch on the iPads.
 
+## Scenes
+
+A scene (`PitchScene.look`: day, night, neon) changes only the picture and the controls' colours. The day's path in `PitchRenderer` is untouched: its five snapshots do not move. `SceneRenderer.swift` draws the night and the neon in the order of the web's `drawWorld` (sky, ground, lines, pieces, effects) with the web's numbers and colours, and `SceneID.shown` turns any id it does not know into the day.
+
+- **Night**: a sky graded from 0x02040b to 0x16264a, a milky band, 5,200 steady and twinkling stars, a full moon with its halo, a moonlit clearing on the pitch in seven tones, the lines' glow and pieces lit from the moon with a glow round each. A throw leaves stardust behind the thrown piece (`SceneEffects`, the web's Stage.fx).
+- **Neon**: black, a grid of light on the ground, a horizon band, pieces edged in light with coloured bands, a ribbon behind the thrown piece and sparks on a hit.
+- **The skin**: `SceneSkin` holds the web's NIGHT.skin and NEON.skin for the plates, cards, sliders, STAND, both meters, the bursts and the HUD's plaques; the app reads it through `SkinStore`. `SceneSkinTests` checks every pair of words and ground at 7:1 or better. The day keeps the app's colours (its muted words stay the system's `.secondary`, and its red warn chip is as it was).
+- **Reduce Motion**: no stardust trail and no ribbon, fewer and shorter puffs, no hit flash.
+- **Glows** are the web's glow.js: one round sprite per colour, drawn once and stamped (`Glow.swift`). The geometry, colours and effect counts follow the web's code; the stars' exact pixels and the antialiasing are Core Graphics' own.
+
+**Making it fast enough.** Core Graphics on iOS rasterizes on the CPU, after `draw(_:)` returns (`CABackingStoreUpdate` on the main thread), so the app's FrameTiming "update+draw" does not include it; the display callback's spacing does. Two things were slow and are now not: CG shades a linear gradient pixel by pixel, so the night sky and the neon's horizon band are filled as runs of whole device rows of one 8-bit colour (`rowGradient`); and thousands of tiny antialiased squares, so the steady stars are whole device pixels of about their own area, filled without antialiasing in one call. The picture is the same to the eye.
+
+`PITCH_SCENE_TIMING=1 swift test -c release -Xswiftc -enable-testing --package-path ThrowingWoodKit --filter sceneDrawTiming` draws a practice throw at 3× (1170 × 2532) in each scene and prints the draw's p50, p95 and max. On the Mac (2026-11-20, ms, a busy machine):
+
+| Scene | Before | After |
+| --- | ---: | ---: |
+| Day | 2.9 / 4.0 / 7 | 2.9 / 4.4 / 5.8 |
+| Night | 38 / 48 / 52 | 16.5 / 25 / 39 |
+| Neon | 13.2 / 25 / 30 | 11 / 20 / 24 |
+
+On the iPhone 17 simulator (iOS 26.2, Debug, about 60 Hz, `PITCH_REVIEW=timing`) a throw had 154 display callbacks 16.67 ms apart at the median in the day, 128 to 141 at 17.2 to 17.8 ms in the night (p95 23 to 33; 79 to 85 at 29 to 33 ms before), and 143 to 145 at 16.67 ms in the neon (p95 about 32). What the night still spends is its look: the milky band's 28 big glows (about 4.5 ms, up to 9 looking up), the moon's halo (1 to 4), the clearing's seven tones (about 5) and the lines' glow (about 2.7). Each could be thinned (fewer or smaller glows, a smaller halo, fewer tones, a lower-resolution sky); none has been. A physical phone's numbers are still to measure.
+
+The review tools take `--scene night` or `neon` (solo: `REVIEW_SCENE` picks the options' Scene; online: the host picks it in the lobby) and name the pictures `<phone>-<scene>[-landscape]-<shot>.png`, e.g. [night, aim](review/iphone-16e-night-aim.png), [night on its side](review/iphone-17-pro-max-night-landscape-flight.png), [neon, the winner](review/iphone-17-pro-max-neon-winner.png), [neon on an iPad](review/ipad-pro-13-neon-landscape-aim.png), [the night lobby as host](review/online/iphone-16e-night-host.png) and [the options' Scene row](review/iphone-16e-options.png).
+
 ## Review pictures
 
 Each image is a real iOS 26.2 simulator capture of the app with a synthetic match. The five original 640 × 384 landscape renderer PNGs remain byte-identical. The portrait suite covers the HUD and cards on both screen sizes, and the landscape suite the same on each phone on its side.
