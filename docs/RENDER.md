@@ -69,6 +69,28 @@ On the iPhone 17 simulator (iOS 26.2, Debug, about 60 Hz, `PITCH_REVIEW=timing`)
 
 The review tools take `--scene night` or `neon` (solo: `REVIEW_SCENE` picks the options' Scene; online: the host picks it in the lobby) and name the pictures `<phone>-<scene>[-landscape]-<shot>.png`, e.g. [night, aim](review/iphone-16e-night-aim.png), [night on its side](review/iphone-17-pro-max-night-landscape-flight.png), [neon, the winner](review/iphone-17-pro-max-neon-winner.png), [neon on an iPad](review/ipad-pro-13-neon-landscape-aim.png), [the night lobby as host](review/online/iphone-16e-night-host.png) and [the options' Scene row](review/iphone-16e-options.png).
 
+## The watcher's wide view
+
+A board that watches a match (`PitchSession.watching`: an observer, or a member with
+no side) asks the engine for its wide view, `setWide {box}`, in the box the web's
+layout.js wideBox gives (`WatchView.box`: the 400 x 240 frame fitted whole, less the
+HUD's top, 132 pt upright or 70 on its side, and a 16 pt margin, inside the safe
+area), and draws everything in the world frame through the plain letterbox
+(`PitchProjection(letterbox:)`). Where the smallest base kubb would be under 2 pt
+(`observeMinPx`) it keeps the thrower's view. No minimap and no meter in it. Players
+keep the thrower's view; a raise or punishment scene keeps its own close look.
+
+The free camera (`FreeCamera.swift`, the web's freecam.js) starts at the engine's
+wide camera, untouched, and orbits a point on the pitch: yaw, pitch 4 to 86 degrees,
+2.5 to 24 m out, the eye at least 0.35 m up, the point within x -4..4 and y -2.5..10.5.
+The lens (f, cx, cy) never changes. `FreeCam.lookAt` is core/camera.lua's lookAt,
+the same arithmetic (`FreeCameraTests` pins it against the engine's Lua bit for bit).
+One finger turns (0.006 rad a point) and raises or lowers (0.004); two fingers
+pinch, twist and slide the ground. RESET VIEW, low on the left once the view has
+moved, eases back over 0.45 s (at once with Reduce Motion). "Drag to look around.
+Pinch to zoom." shows until the first move or 8 s. Nothing is stored. Scenes draw
+through it.
+
 ## Review pictures
 
 Each image is a real iOS 26.2 simulator capture of the app with a synthetic match. The five original 640 × 384 landscape renderer PNGs remain byte-identical. The portrait suite covers the HUD and cards on both screen sizes, and the landscape suite the same on each phone on its side.
