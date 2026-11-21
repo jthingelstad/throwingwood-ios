@@ -93,13 +93,21 @@ struct ViewOutput: Decodable {
 }
 private struct Shown: Decodable {
   let camera: Camera, speed: Double, done: Bool, dial: DialState
+  /// The pieces at that moment, un-turned into the world frame while the wide view is on.
+  let items: [Piece]?
+}
+/// The engine's `setWide` answer: the wide camera and its smallest base kubb (frame px).
+struct WideOutput: Decodable {
+  let camera: Camera, kind: String, farPx: Double
 }
 
 public struct HitBurst {
   public let kind: String, age: Double
   let anchor: V3, focusX: Double?
+  /// Drawn in the watcher's wide view (the letterbox fit).
+  var wide = false
   public func point(size: CGSize, camera: Camera) -> CGPoint? {
-    PitchProjection(size: size, camera: camera, focusX: focusX ?? 200).project(anchor)
+    PitchProjection(size: size, camera: camera, focusX: focusX ?? 200, letterbox: wide).project(anchor)
   }
 }
 
@@ -188,6 +196,39 @@ public final class PitchSession {
   public private(set) var windText: String?, advantageText: String?, slow = false
   var levelOverride: String?
   public var playing: Bool { playback != nil }
+  /// The watcher's free camera (FreeCamera.swift), its lens the wide camera while the
+  /// wide view is on.
+  public let freeCamera = FreeCamera()
+  /// The `setWide` box this session's engine has (nil: the wide view is off), re-sent
+  /// to another engine's Lua state when the match moves to it.
+  private var wideBox: String?
+  /// The watcher's wide view is on (`watchWide`).
+  public var wideOn: Bool { scene.wide }
+  /// The free camera takes the pitch: the wide view, and not a raise or punishment
+  /// scene (those keep their own close look, as the thrower's view does).
+  public var freeOn: Bool { scene.wide && scene.stillZoom == nil && freeCamera.lens != nil }
+  /// The camera the pitch is drawn through: the free camera's in the wide view.
+  public var shownCamera: Camera { freeOn ? freeCamera.camera(camera) : camera }
+  /// This board shows a match it has no side in (OnlinePitch sets it): it watches, in
+  /// the watcher's wide view where the screen allows (`watchWide`).
+  public var watching = false
+
+  /// A move of the free camera from the app's gestures. The screen's RESET VIEW
+  /// follows `freeCamera.moved` through `revision`.
+  public func moveFree(_ body: (FreeCamera) -> Void) {
+    guard freeOn else { return }
+    let was = freeCamera.moved
+    body(freeCamera)
+    if was != freeCamera.moved { revision += 1 }
+  }
+
+  /// RESET VIEW: back to the wide view's own camera, eased over 0.45 s or at once with
+  /// Reduce Motion.
+  public func resetView(reduced: Bool) {
+    guard freeCamera.moved else { return }
+    freeCamera.reset(reduced: reduced)
+    revision += 1
+  }
 
   public init(appVersion: String, input: any ThrowInput = PointerDial()) throws {
     self.appVersion = appVersion
@@ -218,6 +259,7 @@ public final class PitchSession {
   public func useEngine(minor: String?) throws {
     let mm = minor ?? Engine.newest
     if engine.minor == mm { return }
+    defer { try? carryWide() }
     if let e = engines[mm] {
       engine = e
       return
@@ -225,6 +267,54 @@ public final class PitchSession {
     let e = try Engine(minor: mm, appVersion: appVersion)
     engines[mm] = e
     engine = e
+  }
+
+  /// The watcher's wide view on a screen of `size` (WatchView): the engine frames the
+  /// whole pitch in the box and gives everything in the world frame. True when it is
+  /// on; off (false) when the smallest base kubb would be under 2 pt. The view is read
+  /// again at once unless a throw is playing (its next moment brings the camera).
+  @discardableResult public func watchWide(size: CGSize, safe: ScreenInsets) throws -> Bool {
+    guard size.width > 0, size.height > 0 else { return false }
+    let b = WatchView.box(size: size, safe: safe)
+    let box = JS.object([
+      ("box", .object([("left", .number(b.left)), ("top", .number(b.top)), ("right", .number(b.right)), ("bottom", .number(b.bottom))]))
+    ]).ascii
+    let k = WatchView.scale(size)
+    freeCamera.k = k
+    if box == wideBox, scene.wide { return true }
+    let out: WideOutput = try read("setWide", box)
+    guard out.farPx * k >= WatchView.observeMinPx else {
+      try endWide()
+      return false
+    }
+    wideBox = box
+    freeCamera.setLens(out.camera)
+    scene.wide = true
+    try reread()
+    return true
+  }
+
+  /// The wide view off: the thrower's view again, the free camera let go.
+  public func endWide() throws {
+    freeCamera.setLens(nil)
+    guard wideBox != nil || scene.wide else { return }
+    wideBox = nil
+    scene.wide = false
+    _ = try engine.call("setWide", json: "{}")
+    try reread()
+  }
+
+  /// The current engine's Lua state has the wide view this session shows (after
+  /// `useEngine` moved it to another).
+  func carryWide() throws {
+    guard let box = wideBox else { return }
+    let out: WideOutput = try read("setWide", box)
+    freeCamera.setLens(out.camera)
+  }
+
+  private func reread() throws {
+    guard playback == nil, need != nil else { return }
+    try adopt(read("view"))
   }
 
   /// The major.minors this session has a Lua state for (a test sees the lazy one).
@@ -258,9 +348,19 @@ public final class PitchSession {
     }
     scene.thrower = a.thrower
     scene.arc = a.arc?.map(\.vector)
+    if scene.wide {
+      // the wide view draws no aim: the marker, the arc and the thrower's spot are the
+      // thrower's (the web's wide view leaves them out)
+      scene.marker = nil
+      scene.arc = nil
+      scene.thrower = nil
+      scene.focusX = nil
+    }
   }
   func adopt(_ v: ViewOutput) throws {
+    let wide = scene.wide
     scene = PitchScene(surface: v.surface, set: v.set, items: v.items, look: v.scene)
+    scene.wide = wide
     dial = v.dial
     aim(v.aim, camera: v.camera)
     if need != nil {
@@ -359,6 +459,12 @@ public final class PitchSession {
   @discardableResult public func tick(_ delta: Double) throws -> Bool {
     let dt = min(max(delta, 0.00001), 0.05)
     lookTime += dt
+    var eased = false
+    if freeCamera.easing {
+      let was = freeCamera.moved
+      eased = freeCamera.tick(dt)
+      if was != freeCamera.moved { revision += 1 }
+    }
     if playback != nil {
       try play(dt)
       return true
@@ -367,7 +473,7 @@ public final class PitchSession {
     let settling = effects?.active == true
     if settling { effects?.tick(dt) }
     let changed = try tickAim(dt)
-    return changed || settling
+    return changed || settling || eased
   }
 
   private func tickAim(_ dt: Double) throws -> Bool {
@@ -469,7 +575,9 @@ public final class PitchSession {
     if !p.finished {
       let t = min(p.nextTime, p.recording.duration)
       let shown: Shown = try read("showAt", #"{"t":\#(t)}"#)
-      scene.items = p.pieces(at: t)
+      // the wide view's pieces come un-turned from the engine; the recording's own are
+      // in the thrower's frame
+      scene.items = scene.wide ? (shown.items ?? p.pieces(at: t)) : p.pieces(at: t)
       effects?.observe(scene.items, t)
       slow = shown.speed < 0.99
       camera = shown.camera
@@ -498,7 +606,7 @@ public final class PitchSession {
       let b = p.recording.timeline.bursts[i]
       let age = p.realTime - start
       guard age < (b.kind == "double" ? 0.7 : 0.6) else { return nil }
-      return HitBurst(kind: b.kind, age: age, anchor: b.anchor.vector, focusX: scene.focusX)
+      return HitBurst(kind: b.kind, age: age, anchor: b.anchor.vector, focusX: scene.focusX, wide: scene.wide)
     }
     p.realTime += dt
     if p.rest >= 0.8 && bursts.isEmpty {

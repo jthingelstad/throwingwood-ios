@@ -66,6 +66,8 @@ public struct MatchNeed: Decodable {
     public struct Taken: Decodable { public let base, field: Int }
     public let toName: String, turn, kubbs, batons: Int, baseText: [String]
     public let fromName: String?, took: Taken?
+    /// The sides the card goes to and from, and the base kubbs standing: { from's, to's }.
+    public let to, from: String?, base: [Int]?
   }
   public struct Card: Decodable { public let handoff: Handoff? }
   public struct Winner: Decodable {

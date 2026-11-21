@@ -5,7 +5,16 @@ import Observation
 
 public struct PitchLink: Equatable, Sendable {
   public let code: String
+  /// `?observe=1`: watch the pitch as an observer, with no seat (the web's
+  /// docs/OBSERVER.md). The pitch's own link (`url`) never carries it.
+  public var observe = false
   public var url: URL { URL(string: "https://throwingwood.com/p/" + code)! }
+  /// The same pitch, joined (`observe` false) or watched as an observer.
+  public func observing(_ on: Bool) -> Self {
+    var link = self
+    link.observe = on
+    return link
+  }
   public init?(_ input: String) {
     let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
     var code = text
@@ -17,6 +26,7 @@ public struct PitchLink: Equatable, Sendable {
       let path = url.path.split(separator: "/")
       guard path.count == 2, path[0] == "p" else { return nil }
       code = String(path[1])
+      observe = url.queryItems?.contains { $0.name == "observe" && $0.value == "1" } == true
     }
     code = code.lowercased()
     guard (8...24).contains(code.utf8.count),
@@ -39,6 +49,9 @@ public struct PitchMember: Identifiable, Equatable {
 @Observable @MainActor public final class OnlinePitch {
   public enum Stage: Equatable {
     case connecting, lobby, match, reconnecting, notFound, full, unreachable, replaced
+    /// An observer's join made the room (nobody was on the pitch): "No game here", and
+    /// it has left at once, so the room keeps no member.
+    case noGame
     /// The join was refused `sealed`: a shared match against the computer, watched and
     /// never joined (the web's docs/ROOMS.md 13.5). The app shows it from its replay.
     case sealed
@@ -94,6 +107,9 @@ public struct PitchMember: Identifiable, Equatable {
   public private(set) var displayCorrections = 0
   public var displayedHash: String { (try? board.engine.hash()) ?? "" }
   public var room: RoomsClient { controller.room }
+  /// An observer (`link.observe`): a member with no seat that never acts, never writes
+  /// the document and never claims host (PitchController.observing).
+  public var observing: Bool { controller.observing }
   private let defaults: UserDefaults
 
   /// The lobby options this device last picked as a host, for the next pitch it hosts
@@ -147,7 +163,7 @@ public struct PitchMember: Identifiable, Equatable {
     let room = try RoomsClient(
       url: url, room: link.code, engineVersion: engine.engineVersion,
       appVersion: appVersion, store: store, timing: timing)
-    controller = try PitchController(room: room, engines: engines)
+    controller = try PitchController(room: room, engines: engines, observing: link.observe)
     try controller.setMe(name: self.name, level: level)
     board.playerSide = { [weak controller] in controller?.playingSide }
     board.acceptsInput = false
@@ -205,6 +221,11 @@ public struct PitchMember: Identifiable, Equatable {
         }
       case .state:
         if room.version == 0 && room.isHost && room.document == .null {
+          if observing {
+            noGame()
+            changed?()
+            return
+          }
           if !create || !firstJoin {
             finish(.notFound)
             changed?()
@@ -322,7 +343,7 @@ public struct PitchMember: Identifiable, Equatable {
     // do not count). A version is never shown unless it stops play.
     let chosen = try controller.roomEngine()
     engineLine = lineup.isNull || chosen["engine"]?.string != nil ? nil : try blocked(chosen)
-    canStart = isHost && !lineup.isNull && engineLine == nil
+    canStart = isHost && !observing && !lineup.isNull && engineLine == nil
     if !isHost, members.contains(where: { $0.you && $0.side != nil }) {
       let host = try controller.carried(by: room.host)
       try checkVersion(host, key: room.host ?? "")
@@ -425,7 +446,7 @@ public struct PitchMember: Identifiable, Equatable {
       if stage == .match, board.canAim, !writing {
         try controller.castAim(JSONText(board.engine.call("aimState")), now: now)
       }
-      if room.isHost, isOpen || openKey != nil {
+      if room.isHost, !observing, isOpen || openKey != nil {
         let info = try controller.roomCall(
           "openListing",
           [
@@ -447,6 +468,7 @@ public struct PitchMember: Identifiable, Equatable {
     } catch { fail(error) }
   }
   public func shout(_ word: String) {
+    guard !observing else { return }
     if controller.shout(word) { showShout(word, from: room.you) }
   }
   private func showShout(_ word: String, from: String?) {
@@ -506,6 +528,8 @@ public struct PitchMember: Identifiable, Equatable {
       displayControl = control
     }
     board.runsComputer = caughtUp && (try? JSONNode.parse(control)["cpu"]?.bool) == true
+    // with no side in the match this board watches (the watcher's view and free camera)
+    board.watching = stage == .match && (observing || controller.playingSide == nil)
     if current { turnLabel = controller.actorDescription }
     if board.acceptsInput && !wasActing && board.need?.cpu == false { try board.useLevel(level) }
   }
@@ -596,6 +620,20 @@ public struct PitchMember: Identifiable, Equatable {
     board.acceptsInput = false
     board.runsComputer = false
     controller.close()
+  }
+  /// An observer at a pitch nobody is on: "No game here", and it leaves at once.
+  private func noGame() {
+    ended = true
+    timeout?.cancel()
+    stage = .noGame
+    board.acceptsInput = false
+    board.runsComputer = false
+    board.watching = false
+    let controller = controller
+    Task {
+      await controller.room.leave()
+      controller.close()
+    }
   }
   private func fail(_ error: Error) {
     note = String(describing: error)

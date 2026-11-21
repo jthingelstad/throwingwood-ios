@@ -11,6 +11,8 @@ public enum Surface: String, Codable, CaseIterable, Sendable {
 
 public struct Camera: Decodable, Sendable {
   let px, py, pz, fx, fy, fz, rx, ry, rz, ux, uy, uz, f, cx, cy: Double
+  /// The point looked at (core/camera's lookAt keeps it; the free camera turns about it).
+  var lx, ly, lz: Double?
   var eye: V3 { V3(px, py, pz) }
   var forward: V3 { V3(fx, fy, fz) }
   var right: V3 { V3(rx, ry, rz) }
@@ -53,7 +55,16 @@ public struct PitchScene: Decodable, Sendable {
   /// The match's scene (the engine view's `scene`, since 0.9), carried as given:
   /// nil or an id this build does not draw is the day (SceneID.shown).
   public internal(set) var look: String? = nil
+  /// The watcher's wide view (WatchView): the 400 x 240 frame fitted whole, upright too.
+  /// Not for a raise or punishment scene, which keeps its own close look. Never in the
+  /// engine's view (optional, so a decoded scene leaves it off).
+  var wideView: Bool? = nil
+  var wide: Bool {
+    get { wideView == true }
+    set { wideView = newValue ? true : nil }
+  }
   func projection(_ size: CGSize, _ camera: Camera) -> PitchProjection {
+    if wide && stillZoom == nil { return PitchProjection(size: size, camera: camera, letterbox: true) }
     var lift = 0.0
     if let low = stillLowest, let floor = stillFloor {
       lift = WideLayout.stillLift(size: size, lowest: low, pad: stillPad ?? 0, floor: floor)
@@ -75,11 +86,12 @@ public struct PitchProjection {
 
   /// `lift`: pt a wide screen's frame moves up, the same scale (WideLayout.stillLift).
   public init(
-    size: CGSize, camera: Camera, focusX: Double = 200, stillZoom: Double? = nil, lift: Double = 0
+    size: CGSize, camera: Camera, focusX: Double = 200, stillZoom: Double? = nil, lift: Double = 0,
+    letterbox: Bool = false
   ) {
     c = camera
     self.size = size
-    if size.height > size.width * 1.05, size.width > 0 {
+    if !letterbox, size.height > size.width * 1.05, size.width > 0 {
       k = size.width / 400 * (stillZoom ?? 1.3)
       if stillZoom != nil {
         origin = V2(size.width / 2 - 200 * k, size.height * 0.42 - 120 * k)
