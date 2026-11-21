@@ -317,6 +317,11 @@ import Observation
       screen = .invalidLink
       return
     }
+    join(link)
+  }
+  /// A pitch by its link: the one open already if it is the same (watching or
+  /// playing alike), else a new join. `link.observe` joins as an observer.
+  func join(_ link: PitchLink) {
     if let online, online.link == link {
       switch online.stage {
       case .connecting, .reconnecting, .lobby, .match:
