@@ -29,8 +29,9 @@ def sim(*args, **kwargs):
     return subprocess.run(["xcrun", "simctl", *args], check=True, **kwargs)
 
 
-def filename(phone, mode, landscape=None):
-    return NAMES.get(phone, phone.lower().replace(" ", "-")) + ("-landscape" if landscape else "") + "-" + mode + ".png"
+def filename(phone, mode, landscape=None, scene=None):
+    return (NAMES.get(phone, phone.lower().replace(" ", "-")) + (f"-{scene}" if scene else "")
+            + ("-landscape" if landscape else "") + "-" + mode + ".png")
 
 
 def capture(phone, args):
@@ -49,8 +50,10 @@ def capture(phone, args):
         if is_ipad(phone):
             turn_device(udid, args.landscape)  # an iPad turns as a device, not from the app
         for mode in args.modes:
-            file = args.out / filename(phone, mode, args.landscape)
+            file = args.out / filename(phone, mode, args.landscape, args.scene)
             env = dict(os.environ)
+            if args.scene:
+                env["SIMCTL_CHILD_REVIEW_SCENE"] = args.scene
             if args.landscape:
                 env["SIMCTL_CHILD_REVIEW_ORIENTATION"] = args.landscape
             subprocess.run(
@@ -76,7 +79,11 @@ if __name__ == "__main__":
     parser.add_argument("--phones", nargs="+", default=PHONES, choices=PHONES + IPADS)
     parser.add_argument("--ipad", action="store_true", help="the two review iPads, not the phones")
     parser.add_argument("--landscape", choices=["left", "right"])
+    parser.add_argument("--scene", choices=["night", "neon"],
+                        help="host: the host picks this Scene in the lobby (implies --capture-only)")
     args = parser.parse_args()
+    if args.scene:
+        args.capture_only = True
     if args.ipad:
         args.phones = IPADS
     args.out.mkdir(parents=True, exist_ok=True)

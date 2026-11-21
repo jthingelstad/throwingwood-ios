@@ -55,6 +55,16 @@
         while !ready || !ReviewOrientation.windowSettled {
           do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
         }
+        // the host's Scene picked in the lobby (the review tools' --scene)
+        if mode == "host", let look = ProcessInfo.processInfo.environment["REVIEW_SCENE"],
+          let online = model.online
+        {
+          try? await online.option("scene", look)
+          while online.lobbyScene != look {
+            do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
+          }
+          try? await Task.sleep(for: .milliseconds(300))
+        }
         if mode == "menu" { model.screen = .menu }
         if mode == "report" || mode == "feedback", let online = model.online {
           model.perform {
