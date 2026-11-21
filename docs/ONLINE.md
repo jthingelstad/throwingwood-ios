@@ -21,8 +21,14 @@ kubb-engine docs/ROOM.md difference 9), or `lobbyOf`'s `options` on an older eng
 which has no such call. So on 0.9 the host sets Computer (the computer's level,
 Beginner, Club or Pro) for the match; once a tester on 0.8 takes a seat, the row goes,
 since a 0.8 match would not take it, and a 0.8 client's own writes keep the host's
-setting. A scene a host set elsewhere stays in `settings` untouched; it is never
-offered and every scene is drawn as the day (not approved to go live). An open pitch sends the web's counts-only listing on change and
+setting. Scene (Day, Night, Neon, `SceneID.row`, last) is the host's too, written to
+the document's `settings.scene` through the same `option` call the web makes; every
+seat sees the lobby and the match in it, and the match's start carries it. It is
+offered only while the next match's engine takes a scene, like Computer: on 0.8 or
+0.7 the row goes and the match is drawn as the day, and a scene a client set stays in
+`settings` untouched. An id this build does not draw is the day. The web keeps a
+host's last lobby scene for their next pitch; this app starts each pitch on the day.
+An open pitch sends the web's counts-only listing on change and
 renews it every five minutes while the host is present.
 
 ### Engines in one room
@@ -290,6 +296,13 @@ The plan block at the far edge and the raise and punishment bar are the solo
 screen's own views, shown online only to the player who acts; the online review
 scenarios watch, so their pictures show neither, and the solo pictures stand
 for both.
+With --scene night or neon (capture only) the host picks the scene in the lobby
+before the picture, named `<phone>-<scene>[-landscape]-<mode>.png`, e.g.
+[the night lobby](review/online/iphone-16e-night-host.png) and
+[neon](review/online/iphone-17-pro-max-neon-host.png). `node tools/rooms-test.mjs`
+checks that a scene crosses both ways on the local rooms server: the native host's
+night and neon reach the web guest's `settings.scene` and its match view, and a web
+host's neon and then night reach the native guest's lobby and match.
 With --ipad the same scenarios run on the iPad mini and the iPad Pro 13-inch
 (`ipad-mini-<mode>.png`, `ipad-pro-13-<mode>.png`, and `-landscape-` turned left):
 the same screens on a bigger screen (docs/RENDER.md "An iPad"), the cards at the
