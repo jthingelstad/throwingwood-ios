@@ -486,6 +486,42 @@ import Foundation
   @discardableResult public func keep(_ replay: JSONText, version: Int) -> Bool {
     send("keep", fields: [("v", .int(version)), ("replay", .raw(replay))])
   }
+  /// Leave and join again with the same member id, last in line (the web's
+  /// `Room.rejoin`): `leave` on this socket, the socket closed after `settle`, a new one
+  /// opened after `again`. Shown as reconnecting meanwhile. False when not joined.
+  @discardableResult public func rejoin(
+    settle: Duration = .milliseconds(600), again: Duration = .milliseconds(900)
+  ) -> Bool {
+    guard joined, !stopped else { return false }
+    enqueue(.object([("t", .string("leave"))]))
+    let gen = generation
+    joined = false
+    pinger?.cancel()
+    pongTimer?.cancel()
+    for id in Array(sets.keys) {
+      sets[id]?.lost = true
+      sets[id]?.timer.cancel()
+    }
+    for id in Array(asks.keys) { finishAsk(id, .failure(RoomError("uncertain"))) }
+    setStatus(.reconnecting)
+    retry?.cancel()
+    retry = Task { [weak self] in
+      do { try await Task.sleep(for: settle) } catch { return }
+      guard let self, !self.stopped, self.generation == gen else { return }
+      await self.sendTail?.value
+      guard !self.stopped, self.generation == gen else { return }
+      self.generation += 1
+      self.reader?.cancel()
+      self.joinTimer?.cancel()
+      self.socket?.close()
+      self.socket = nil
+      self.parts.reset()
+      do { try await Task.sleep(for: again) } catch { return }
+      self.open()
+    }
+    return true
+  }
+
   public func leave() async {
     _ = send("leave")
     await sendTail?.value
