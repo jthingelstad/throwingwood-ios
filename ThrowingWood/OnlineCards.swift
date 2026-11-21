@@ -76,7 +76,7 @@ struct OnlineCards: View {
       Text("Check the link or code and try again.")
     case .full:
       Text("This pitch is full").font(displayFont(38))
-      Text("Sixteen people are connected. Try again when someone leaves.")
+      Text("This pitch has as many people on it as it takes, every one of them connected. Try again when someone leaves.")
     case .unreachable:
       Text("Cannot reach the server").font(displayFont(38))
       Text("Check your connection. The pitch will rejoin when it can.")
@@ -84,7 +84,7 @@ struct OnlineCards: View {
       Text("Open somewhere else").font(displayFont(38))
       Text("Your place has been opened on another connection.")
     case .noGame:
-      // an observer's join made the room: it has left at once (the web's words, but
+      // an observer's join made the pitch: it has left at once (the web's words, but
       // for where the open games are listed here)
       if let online = model.online { Text("PITCH \(online.link.code)").font(.caption.bold()).tracking(1.5) }
       Text("No game here").font(displayFont(38))
@@ -116,7 +116,7 @@ struct LobbyCard: View {
         copied = true
       }
     }.buttonStyle(WoodButton())
-    // the name and level are the device's (Settings): the room hears a change at once
+    // the name and level are the device's (Settings): the pitch hears a change at once
     LevelLine(model: model)
     ForEach(["A", "B"], id: \.self) { side in
       let players = online.members.filter { $0.side == side }

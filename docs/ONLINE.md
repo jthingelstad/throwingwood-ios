@@ -347,11 +347,13 @@ simulator build defaults to 127.0.0.1 (the pitch server's `wrangler dev` on 8797
 API stand-in on 8798). The Kit's tests run against `FakePitch`, an in-process pitch
 server written from PROTOCOL.md, and `LocalPitchServerTests` plays a short match over
 real sockets against the pitch server's own `wrangler dev` on 127.0.0.1 when
-`PITCH_LOCAL_URL` names it. The review harness (`tools/online-snapshots.py`)
-still seats its invented players through the web's old Room client and has not been
-moved to the pitch server yet.
-Review images and baselines are in docs/review/online. Run the online snapshot
-script with the simulator app path and --web pointing at the web checkout.
+`PITCH_LOCAL_URL` names it. The review harness that made the pictures below
+(`tools/online-snapshots.py` and `online-review.mjs`) seated its invented players
+through the web's old Room client and its local rooms server, and was removed with
+them on 2026-11-21. A harness on the pitch server's `wrangler dev` is open; the app's
+simulator checkpoints (`ONLINE_REVIEW`, `OnlineReview.swift`) stay for it, and the
+modes below are its scenarios.
+Review images and baselines are in docs/review/online.
 The two phone sizes use the same scenarios and the existing tile comparator.
 With --landscape left or right the same scenarios run on a phone on its side,
 named `<phone>-landscape-<mode>.png` (the 16e turned right, the Pro Max left).

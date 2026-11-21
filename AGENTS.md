@@ -261,9 +261,11 @@ Read [docs/ONLINE.md](docs/ONLINE.md) for the screen, recording and lifecycle co
 OnlinePitch connects the authoritative controller to a separately paced PitchSession;
 someone else's turn shows its hand-off as a banner over the live dial, never the modal
 card. Keep admission and seat decisions in room.*. Keep all simulator, script and review
-sockets on 127.0.0.1. Run `python3 tools/online-snapshots.py <simulator-app> --web <web
-checkout>` on both review phones (it still seats its players through the web's old rooms
-client: moving it to the pitch server is open). Only invented names belong in these pictures.
+sockets on 127.0.0.1. The online review pictures (docs/review/online, docs/review/observer)
+are the last ones the old rooms harness made; it went with the rooms server on 2026-11-21,
+and a harness that seats its players on the pitch server's `wrangler dev` is open (the
+app's simulator checkpoints, `OnlineReview.swift`, stay for it). Only invented names
+belong in these pictures.
 The highlight reel card (`ReelCard.swift`, `HighlightReel`, the API's `replay` and
 `reel`) takes a pitch code, and the match when it has one, and keeps the web's
 docs/REEL.md words; its pictures come from
@@ -301,9 +303,9 @@ host watching its own pitch would stall it. Every watcher
 gets the engine's wide view and the free camera (`FreeCamera.swift`), whose
 camera must stay core/camera.lua's lookAt (`FreeCameraTests`); players keep the
 thrower's view. The app has no replay viewer, so no WATCH THE LAST MATCH.
-Pictures: `python3 tools/online-snapshots.py <simulator-app> --web <web checkout>
---modes observe observemoved watchcard noGame opengames`, upright, `--landscape`,
-`--ipad` and `--scene night`. docs/ONLINE.md "Observers and open games",
+Pictures: docs/review/observer (modes observe, observemoved, watchcard, noGame,
+opengames), from the old rooms harness until a pitch server one is made (above).
+docs/ONLINE.md "Observers and open games",
 docs/RENDER.md "The watcher's wide view".
 
 ## Your level
