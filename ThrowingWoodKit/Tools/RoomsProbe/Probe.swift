@@ -19,6 +19,10 @@ import KubbRooms
     var events: [String: [JSONText]] = [:]
     var wires: [String: WebSocketTransport] = [:]
     var wireParts: [String: Frames.Reassembler] = [:]
+    // a host's kept scene lives only as long as this probe: no run opens in the last one's
+    let defaultsName = "rooms-probe-\(UUID().uuidString)"
+    let probeDefaults = UserDefaults(suiteName: defaultsName)!
+    defer { probeDefaults.removePersistentDomain(forName: defaultsName) }
     // FileHandle's async bytes keep the main actor free for socket callbacks.
     for try await line in FileHandle.standardInput.bytes.lines {
       var response: JS
@@ -124,7 +128,7 @@ import KubbRooms
             let screen = try OnlinePitch(
               url: url, link: PitchLink(cmd["room"]!.string!)!, create: cmd["create"]?.bool ?? true,
               name: key, level: "pro", appVersion: "0.0-test",
-              store: FixedID(cmd["member"]?.string), timing: timing)
+              store: FixedID(cmd["member"]?.string), timing: timing, defaults: probeDefaults)
             screens[key] = screen
             pitch = screen.controller
             room = screen.room

@@ -137,6 +137,23 @@ import KubbEngine
     (try? Self.roomCall(lobbyEngine(), "constants", [])["OPTION_DEFAULTS"]?["scene"]) != nil
   }
 
+  /// A new pitch this member hosts (version 0, no document yet): its lobby, and in it
+  /// the scene the host last picked in a lobby (the web's `pitchOptions.scene`, set on a
+  /// new pitch in its pitch.js `onReady`) where the lobby's engine takes a scene. Never a
+  /// pitch someone else hosts or one that already has a document. False when it was not
+  /// this member's to make.
+  @discardableResult public func prepareLobby(scene: String?) async throws -> Bool {
+    try await room.update { [self] doc in
+      guard doc == .null, room.isHost else { return nil }
+      let lobby = try roomCall("lobbyOf", [("doc", .raw(doc))])
+      guard let scene, lobbyTakesScene() else { return lobby.raw }
+      let set = try Self.roomCall(
+        lobbyEngine(), "setOptions",
+        [("doc", .raw(lobby.raw)), ("options", .object([("scene", .string(scene))]))])
+      return set.isNull ? lobby.raw : set.raw
+    } != nil
+  }
+
   /// The room's engine (`room.engineFor`): the newest major.minor the host and every
   /// player carry, `{ engine | null, missing, unknown }`. With `counting` this member
   /// is counted too, carrying what this build carries.

@@ -266,3 +266,20 @@ struct SceneSkinTests {
     #expect(abs(SkinPaint.contrast(SceneSkin.neon.ink, SceneSkin.neon.paper) - 18.42) < 0.05)
   }
 }
+
+/// The host's last lobby scene, kept for the next pitch they host (the web's
+/// `pitchOptions.scene`): only a Scene row value goes on a new pitch.
+@Suite @MainActor struct HostSceneTests {
+  @Test func onlyARowSceneIsKeptForTheNextPitch() throws {
+    let name = "host-scene-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: name))
+    defer { defaults.removePersistentDomain(forName: name) }
+    #expect(OnlinePitch.keptScene(defaults) == nil)
+    for v in ["day", "night", "neon"] {
+      defaults.set(v, forKey: OnlinePitch.hostSceneKey)
+      #expect(OnlinePitch.keptScene(defaults) == v)
+    }
+    defaults.set("aurora", forKey: OnlinePitch.hostSceneKey)
+    #expect(OnlinePitch.keptScene(defaults) == nil)
+  }
+}

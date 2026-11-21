@@ -94,13 +94,26 @@ public struct PitchMember: Identifiable, Equatable {
   public private(set) var displayCorrections = 0
   public var displayedHash: String { (try? board.engine.hash()) ?? "" }
   public var room: RoomsClient { controller.room }
+  private let defaults: UserDefaults
+
+  /// The scene this device last picked as a host (the web's `pitchOptions.scene`).
+  static let hostSceneKey = "pitch.hostScene"
+  /// The kept host scene when it is one of the Scene row's (an old or unknown value
+  /// is not put on a new pitch), else nil.
+  static func keptScene(_ defaults: UserDefaults) -> String? {
+    guard let v = defaults.string(forKey: hostSceneKey),
+      SceneID.row.choices.contains(where: { $0.first == v })
+    else { return nil }
+    return v
+  }
 
   public init(
     url: URL, link: PitchLink, create: Bool, name: String, level: String,
     appVersion: String, store: any MemberIDStore = DeviceMemberIDStore(),
-    timing: RoomsClient.Timing = .init()
+    timing: RoomsClient.Timing = .init(), defaults: UserDefaults = .standard
   ) throws {
     self.link = link
+    self.defaults = defaults
     self.create = create
     self.appVersion = appVersion
     board = try PitchSession(appVersion: appVersion)
@@ -180,10 +193,7 @@ public struct PitchMember: Identifiable, Equatable {
           Task { [weak self] in
             guard let self else { return }
             do {
-              _ = try await room.update { [self] doc in
-                guard doc == .null, room.isHost else { return nil }
-                return try controller.roomCall("lobbyOf", [("doc", .raw(doc))]).raw
-              }
+              try await controller.prepareLobby(scene: Self.keptScene(defaults))
             } catch { if !ended && !suspended { note = "Could not prepare the lobby." } }
           }
         }
@@ -361,6 +371,8 @@ public struct PitchMember: Identifiable, Equatable {
   }
   public func team(_ side: String?) async throws { try await controller.joinTeam(side) }
   public func option(_ key: String, _ value: String) async throws {
+    // the host's scene is kept for the next pitch they host, as the web keeps it
+    if key == "scene", isHost { defaults.set(value, forKey: Self.hostSceneKey) }
     _ = try await controller.reduce(
       "setOptions", fields: [("options", .object([(key, .string(value))]))])
   }
