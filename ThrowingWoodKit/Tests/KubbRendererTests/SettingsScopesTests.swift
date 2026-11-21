@@ -35,9 +35,21 @@ import Testing
     let d = defaults(["solo.name": "Ada"])
     #expect(PlayerName.load(d) == "Ada")
     #expect(d.string(forKey: PlayerName.key) == "Ada")
-    #expect(d.string(forKey: "solo.name") == "Ada")  // left as it was
+    #expect(d.string(forKey: "solo.name") == nil)  // read once, then gone
     #expect(PlayerName.load(defaults(["solo.name": "You"])) == "")
     #expect(PlayerName.load(defaults([PlayerName.key: "", "solo.name": "Ada"])) == "Ada")
+  }
+
+  /// A name cleared in Settings stays cleared: the solo set-up's old name does not
+  /// come back at the next launch.
+  @Test func aClearedNameStaysCleared() {
+    let d = defaults(["solo.name": "Ada"])
+    #expect(PlayerName.load(d) == "Ada")
+    PlayerName.store("", in: d)
+    #expect(PlayerName.load(d) == "")
+    let never = defaults(["solo.name": "Ada"])
+    PlayerName.store("", in: never)  // cleared before it was ever read
+    #expect(PlayerName.load(never) == "")
   }
 
   @Test func aStoredNameWins() {
