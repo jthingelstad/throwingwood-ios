@@ -19,6 +19,8 @@ MODES = (
     "entry share join host guest flight shout handoff winner menu report feedback newer older "
     "connecting reconnecting notFound full unreachable replaced"
 ).split()
+# an observer and the open games list (pictures in docs/review/observer, by --modes)
+OBSERVER = "observe observemoved watchcard noGame opengames".split()
 PHONES = ["iPhone 16e", "iPhone 17 Pro Max"]
 # a small and a large iPad, the same game on a bigger screen
 IPADS = ["iPad mini (A17 Pro)", "iPad Pro 13-inch (M5)"]
@@ -75,12 +77,13 @@ if __name__ == "__main__":
     parser.add_argument("--web", type=Path, default=ROOT.parent / "kubb.thingelstad.xyz")
     parser.add_argument("--out", type=Path, default=ROOT / "build/online-snapshots")
     parser.add_argument("--capture-only", action="store_true")
-    parser.add_argument("--modes", nargs="+", default=MODES, choices=MODES)
+    parser.add_argument("--modes", nargs="+", default=MODES, choices=MODES + OBSERVER)
     parser.add_argument("--phones", nargs="+", default=PHONES, choices=PHONES + IPADS)
     parser.add_argument("--ipad", action="store_true", help="the two review iPads, not the phones")
     parser.add_argument("--landscape", choices=["left", "right"])
     parser.add_argument("--scene", choices=["night", "neon"],
-                        help="host: the host picks this Scene in the lobby (implies --capture-only)")
+                        help="host: the host picks this Scene in the lobby; observe: the match's"
+                        " Scene (implies --capture-only)")
     args = parser.parse_args()
     if args.scene:
         args.capture_only = True
@@ -92,7 +95,8 @@ if __name__ == "__main__":
     if not args.capture_only:
         names = [filename(phone, mode, args.landscape) for phone in args.phones for mode in args.modes]
         subprocess.run(
-            ["swift", str(ROOT / "tools/check-snapshots.swift"), str(ROOT / "docs/review/online"),
+            ["swift", str(ROOT / "tools/check-snapshots.swift"),
+             str(ROOT / ("docs/review/observer" if set(args.modes) <= set(OBSERVER) else "docs/review/online")),
              str(args.out), *names],
             check=True,
         )

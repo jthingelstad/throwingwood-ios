@@ -43,6 +43,10 @@
       case "shout": return p?.shouts.isEmpty == false && p?.board.handoff == nil
       case "winner": return p?.board.need?.kind == "over"
       case "menu", "report", "feedback": return p?.stage == .match
+      case "observe", "observemoved":
+        return p?.stage == .match && p?.board.wideOn == true && p?.board.handoff == nil && !model.playing
+      case "watchcard": return p?.stage == .lobby && p?.observing == true && (p?.members.count ?? 0) >= 3
+      case "opengames": return model.screen == .onlineEntry
       default: return p.map { String(describing: $0.stage) == mode } == true
       }
     }
@@ -66,6 +70,17 @@
           try? await Task.sleep(for: .milliseconds(300))
         }
         if mode == "menu" { model.screen = .menu }
+        if mode == "observemoved", let board = model.online?.board {
+          // a watcher who turned round to the side, lower and closer: RESET VIEW shows
+          model.perform {
+            board.moveFree {
+              $0.turnBy(1.1, -0.35)
+              $0.zoomBy(0.55)
+            }
+          }
+        }
+        // the open games list's first look over loopback
+        if mode == "opengames" { try? await Task.sleep(for: .seconds(2)) }
         if mode == "report" || mode == "feedback", let online = model.online {
           model.perform {
             model.report = try online.captureReport(size: .zero, scale: 3)

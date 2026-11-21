@@ -14,7 +14,7 @@ extension GameModel {
   #if targetEnvironment(simulator)
     func beginReview(_ mode: String) {
       switch mode {
-      case "entry": screen = .onlineEntry
+      case "entry", "opengames": screen = .onlineEntry
       case "join": screen = .join
       default:
         let env = ProcessInfo.processInfo.environment
@@ -23,7 +23,9 @@ extension GameModel {
           return
         }
         name = "Birch"
-        enter(link, create: mode == "host" || mode == "share")
+        // an observer: watching a match, between matches, or on an empty pitch
+        let observe = ["observe", "observemoved", "watchcard", "noGame"].contains(mode)
+        enter(link.observing(observe), create: mode == "host" || mode == "share")
       }
     }
   #endif
@@ -309,6 +311,7 @@ struct OpenGamesSection: View {
           }
         }
         .accessibilityElement(children: .contain)
+        .padding(.bottom, 8)
       }
     }
     .task(id: phase) {
@@ -320,12 +323,6 @@ struct OpenGamesSection: View {
     }
   }
   private func look() async {
-    #if targetEnvironment(simulator)
-      if let fake = Self.reviewList() {
-        (now, games, status) = (fake.now, fake.games, fake.games.isEmpty ? OpenGames.empty : nil)
-        return
-      }
-    #endif
     do {
       let out = try await OpenGames.look(url: RoomsConfiguration.url, appVersion: GameModel.version)
       (now, games) = (out.now, out.games)
@@ -339,13 +336,4 @@ struct OpenGamesSection: View {
     guard let link = PitchLink(g.room) else { return }
     model.join(link.observing(observe))
   }
-  #if targetEnvironment(simulator)
-    /// The review tools' open games (OPEN_GAMES_REVIEW, JSON as the server's `list`).
-    static func reviewList() -> (now: Int, games: [OpenGame])? {
-      guard let text = ProcessInfo.processInfo.environment["OPEN_GAMES_REVIEW"],
-        let node = try? JSONNode.parse(text)
-      else { return nil }
-      return OpenGames.decode(node, fallback: 0)
-    }
-  #endif
 }
