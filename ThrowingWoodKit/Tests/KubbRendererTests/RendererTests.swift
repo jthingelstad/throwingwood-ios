@@ -3,7 +3,7 @@ import CryptoKit
 import Foundation
 import ImageIO
 import KubbEngine
-import KubbRooms
+import KubbPitch
 import Testing
 import simd
 
@@ -184,7 +184,7 @@ struct RendererTests {
     #expect(report["mode"]?.string == "practice")
     #expect(report["practice"]?["ops"]?.items.compactMap { $0["type"]?.string } == ["surface", "throw"])
     #expect(Set(report["selectedPieces"]?.items.compactMap { $0["id"]?.string } ?? []) == [id, "king"])
-    #expect(report["room"] == nil)
+    #expect(report["pitch"] == nil && report["room"] == nil)
     #expect(report["kind"]?.string == "throw")
     #expect(capture.hasLastThrow)
     // Anything else: one trimmed text, the same game, never a throw's answers or pieces.
@@ -197,7 +197,7 @@ struct RendererTests {
     #expect(feedback["client"]?.string == "ios")
     #expect(feedback["lastThrow"]?["action"] != nil)
     #expect(try JSONNode.parse(capture.feedback("Hi"))["text"]?.string == "Hi")
-    #expect(throws: RoomError.self) { try capture.feedback(" \n ") }
+    #expect(throws: PitchError.self) { try capture.feedback(" \n ") }
   }
 
   @Test func reviewFlightShadow() throws {

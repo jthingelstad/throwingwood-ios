@@ -1,6 +1,6 @@
 import Foundation
 import KubbEngine
-import KubbRooms
+import KubbPitch
 import Observation
 
 public struct PitchLink: Equatable, Sendable {
@@ -49,10 +49,10 @@ public struct PitchMember: Identifiable, Equatable {
 @Observable @MainActor public final class OnlinePitch {
   public enum Stage: Equatable {
     case connecting, lobby, match, reconnecting, notFound, full, unreachable, replaced
-    /// An observer's join made the room (nobody was on the pitch): "No game here", and
-    /// it has left at once, so the room keeps no member.
+    /// An observer at a pitch nobody has used: the pitch refuses it `no-pitch` and keeps
+    /// nothing. "No game here".
     case noGame
-    /// The join was refused `sealed`: a shared match against the computer, watched and
+    /// A shared match against the computer (the API's replay says `sealed`): watched and
     /// never joined (the web's docs/ROOMS.md 13.5). The app shows it from its replay.
     case sealed
   }
@@ -81,6 +81,10 @@ public struct PitchMember: Identifiable, Equatable {
   }
   public private(set) var versionCard: VersionCard?
   public private(set) var turnLabel = ""
+  /// Someone else's turn starting, while this device watches: the handoff card's words
+  /// as a banner for `HandoffBanner.seconds`, so the remote dial shows under it instead
+  /// of behind a card. The thrower's own card stays the modal THROW card.
+  public private(set) var watchHandoff: HandoffBanner?
   public var note = ""
   public private(set) var shouts: [String] = []
   public private(set) var name: String
@@ -94,7 +98,10 @@ public struct PitchMember: Identifiable, Equatable {
   private var timeout: Task<Void, Never>?
   private var shownVersionKey: String?
   private var shoutTimes: [Int] = []
-  private var queue: [(JSONText, JSONNode)] = []
+  /// Actions to show, each with when it may play (this device's ms): a peer's throw waits
+  /// for its aim to play out first (`AimBuffer.holdFor`).
+  private var queue: [(JSONText, JSONNode, Int)] = []
+  private var holding: Task<Void, Never>?
   private var displayControl: JSONText?
   private var displayedMatch: Int?
   private(set) var displayedSeq = 0
@@ -103,12 +110,17 @@ public struct PitchMember: Identifiable, Equatable {
   private var writing = false
   private var openKey: JSONText?
   private var openAt = 0
+  /// Someone else's aim, played behind the pitch's clock (`AimBuffer`).
+  private var aims = AimBuffer()
+  private var shownAim: JSONText?
   public private(set) var shownAims = 0
   public private(set) var displayCorrections = 0
   public var displayedHash: String { (try? board.engine.hash()) ?? "" }
-  public var room: RoomsClient { controller.room }
+  public var pitch: PitchClient { controller.pitch }
+  /// The API, for the sealed check of a pitch with nobody on it; nil skips it.
+  private let api: PitchAPI?
   /// An observer (`link.observe`): a member with no seat that never acts, never writes
-  /// the document and never claims host (PitchController.observing).
+  /// the document and is never host (PitchController.observing).
   public var observing: Bool { controller.observing }
   private let defaults: UserDefaults
 
@@ -147,9 +159,11 @@ public struct PitchMember: Identifiable, Equatable {
     url: URL, link: PitchLink, create: Bool, name: String, level: String,
     appVersion: String, store: any MemberIDStore = DeviceMemberIDStore(),
     observerStore: any MemberIDStore = ObserverMemberIDStore.shared,
-    timing: RoomsClient.Timing = .init(), defaults: UserDefaults = .standard
+    timing: PitchClient.Timing = .init(), defaults: UserDefaults = .standard,
+    api: PitchAPI? = nil
   ) throws {
     self.link = link
+    self.api = api
     self.defaults = defaults
     self.create = create
     self.appVersion = appVersion
@@ -161,13 +175,13 @@ public struct PitchMember: Identifiable, Equatable {
       engine.call("room.cleanName", json: JS.object([("name", .string(name))]).ascii))
     self.name = clean["value"]?.string ?? ""
     self.level = level
-    let room = try RoomsClient(
-      url: url, room: link.code, engineVersion: engine.engineVersion,
-      appVersion: appVersion,
-      // a watcher joins with an id of its own, never the player's: a known id is given
-      // that member's place, and a host watching its own pitch would stall it
-      store: store.joining(observing: link.observe, observer: observerStore), timing: timing)
-    controller = try PitchController(room: room, engines: engines, observing: link.observe)
+    let client = try PitchClient(
+      url: url, pitch: link.code, appVersion: appVersion,
+      // a watcher joins with an id of its own, never the player's: a member's role is
+      // fixed while it is on the pitch
+      store: store.joining(observing: link.observe, observer: observerStore),
+      observing: link.observe, create: create, timing: timing)
+    controller = try PitchController(pitch: client, engines: engines)
     try controller.setMe(name: self.name, level: level)
     board.playerSide = { [weak controller] in controller?.playingSide }
     board.acceptsInput = false
@@ -187,13 +201,14 @@ public struct PitchMember: Identifiable, Equatable {
     guard !ended else { return }
     suspended = true
     timeout?.cancel()
-    room.close()
+    pitch.close()
     board.acceptsInput = false
     board.runsComputer = false
   }
   public func close() {
     ended = true
     timeout?.cancel()
+    holding?.cancel()
     changed = nil
     controller.close()
     board.onlineAction = nil
@@ -201,10 +216,14 @@ public struct PitchMember: Identifiable, Equatable {
   public func leave() async {
     ended = true
     timeout?.cancel()
-    await room.leave()
+    await pitch.leave()
     close()
   }
-  private func receive(_ event: RoomsClient.Event) {
+  /// How long the screen says CONNECTING, never connected yet, before it says the pitch
+  /// cannot be reached (the web's stuckMs). The client keeps trying either way, and the
+  /// pitch comes back when it answers; a drop after joining stays RECONNECTING.
+  public static let reconnectingFor: Duration = .seconds(8)  // the web's pitch.js stuckMs
+  private func receive(_ event: PitchClient.Event) {
     guard !suspended, !ended else { return }
     do {
       switch event {
@@ -215,23 +234,26 @@ public struct PitchMember: Identifiable, Equatable {
         case .open: return
         case .replaced: finish(.replaced)
         case .closed: stage = .unreachable
-        case .connecting, .reconnecting:
-          stage = status == .connecting ? .connecting : .reconnecting
+        case .reconnecting: stage = .reconnecting
+        case .connecting:
+          stage = .connecting
+          // never connected yet: after a while say so (the client keeps trying)
           timeout = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(8)) } catch { return }
+            do { try await Task.sleep(for: Self.reconnectingFor) } catch { return }
             self?.stage = .unreachable
             self?.changed?()
           }
         }
       case .state:
-        if room.version == 0 && room.isHost && room.document == .null {
+        aims.reset()
+        if pitch.version == 0 && pitch.isHost && pitch.document == .null {
           if observing {
             noGame()
             changed?()
             return
           }
           if !create || !firstJoin {
-            finish(.notFound)
+            gone()
             changed?()
             return
           }
@@ -243,36 +265,37 @@ public struct PitchMember: Identifiable, Equatable {
           }
         }
         firstJoin = false
-        try refreshRoom()
-      case .document(_, _, let rider, _):
-        if room.status == .open { try refreshRoom(rider: rider) }
+        try refreshPitch()
+      case .document:
+        if pitch.status == .open { try refreshPitch() }
       case .members, .host:
-        if room.status == .open { try refreshRoom() }
+        if pitch.status == .open { try refreshPitch() }
       case .left: return
       case .message(let m):
-        if m["t"]?.string == "error", m["re"]?.string == "join" {
+        switch m["t"]?.string {
+        case "error" where m["re"]?.string == "join":
           switch m["code"]?.string {
           case "full": finish(.full)
-          case "sealed": finish(.sealed)
-          case "bad-room": finish(.notFound)
-          case "busy": return
-          default: stage = .unreachable
+          case "no-pitch":
+            if observing { noGame() } else { gone() }
+          case "bad-member", "bad-role", "already-joined": finish(.notFound)
+          case "bad-message": stage = .unreachable
+          default: break  // refused for now: the client tries again
           }
-        } else if m["t"]?.string == "cast", let d = m["d"] {
+        case "cast":
+          guard let d = m["d"] else { return }
           if d["t"]?.string == "shout", let w = d["w"]?.string, Self.words.contains(w) {
-            showShout(w, from: m["from"]?.string)
-          } else if d["t"]?.string == "aim", stage == .match, !board.acceptsInput,
-            !board.playing, queue.isEmpty, let aim = d["s"],
-            let output: AimOutput = try? board.read("showAim", aim.raw.text)
-          {
-            board.aim(output.aim, camera: output.camera)
-            if let dial = output.dial { board.dial = dial }
-            shownAims += 1
+            showShout(w, from: m["m"]?.string)
+          } else if d["t"]?.string == "aim", let aim = d["s"], let ts = m["ts"]?.int {
+            aims.add(aim, from: m["m"]?.string, ts: ts, k: d["k"]?.int, now: Self.now())
+            return
           } else {
             return
           }
-        } else {
-          return
+        case "start", "act", "ok", "refused":
+          // the controller has taken it in (and presented what changed)
+          if stage == .match || controller.match != nil { try refreshPitch() }
+        default: return
         }
       }
       try seat()
@@ -280,77 +303,62 @@ public struct PitchMember: Identifiable, Equatable {
     } catch { fail(error) }
   }
 
-  private func refreshRoom(rider: JSONText? = nil) throws {
-    let hostChanged = isHost != room.isHost
-    isHost = room.isHost
+  private func refreshPitch() throws {
+    let hostChanged = isHost != pitch.isHost
+    isHost = pitch.isHost
     if hostChanged { openKey = nil }
-    let doc = try JSONNode.parse(room.document)
+    let doc = try JSONNode.parse(pitch.document)
     isOpen = doc["open"]?.bool == true
-    if let m = doc["match"], !m.isNull, doc["started"]?.bool == true {
+    if let m = controller.match, doc["started"]?.bool == true {
       stage = .match
       if controller.state == .versionMismatch {
+        // An incompatible spectator tries the match on the newest engine, as the web
+        // does: the controller presents it to the board, and never grants a seat.
         let theirs = m["engine"]?.string
         let identity = "match-\(m["n"]?.int ?? 0)/" + (theirs ?? "")
         if identity != shownVersionKey {
           shownVersionKey = identity
           versionCard = card(theirs: Engine.majorMinor(theirs))
         }
-        // An incompatible spectator can try the same recording as the web.
-        // Only the display session sees it. The controller never grants a seat.
-        let newest = queue.last?.1["seq"]?.int ?? displayedSeq
-        if displayedMatch != m["n"]?.int || newest != m["seq"]?.int {
-          let local = JS.object([("n", displayedMatch.map(JS.int) ?? .null), ("seq", .int(newest))])
-          let d = try controller.roomCall(
-            "decide",
-            [
-              ("local", local), ("doc", .raw(room.document)),
-              ("with", rider.map(JS.raw) ?? .null),
-            ])
-          if d["kind"]?.string == "apply", let action = d["action"] {
-            try present(.apply(action: action.raw, match: m))
-          } else {
-            try restore(m)
-          }
-        }
       }
-      if controller.state == .failed { throw RoomError("session") }
+      if controller.state == .failed { throw PitchError("session") }
       return
     }
     stage = .lobby
     queue.removeAll()
     displayedMatch = nil
-    let l = try controller.roomCall("lobbyOf", [("doc", .raw(room.document))])
+    let l = try controller.roomCall("lobbyOf", [("doc", .raw(pitch.document))])
     let teams = l["teams"]
     let a = Set(teams?["A"]?.items.compactMap(\.string) ?? [])
     let b = Set(teams?["B"]?.items.compactMap(\.string) ?? [])
-    members = try room.members.compactMap { m in
+    members = try pitch.members.compactMap { m in
       guard let id = m["id"]?.string else { return nil }
       let n =
         try controller.roomCall("cleanName", [("name", .raw(m["me"]?["name"]?.raw ?? .null))])
         .string ?? ""
       return PitchMember(
         id: id, name: n.isEmpty ? "Someone" : n,
-        connected: m["connected"]?.bool == true, host: room.host == id, you: id == room.you,
+        connected: m["connected"]?.bool == true, host: pitch.host == id, you: id == pitch.you,
         side: a.contains(id) ? "A" : b.contains(id) ? "B" : nil)
     }
     isOpen = l["open"]?.bool == true
     // every option, the engine's own (computer, scene) too, on the engine the next
     // match would run on (PitchController.roomOptions)
-    options = try controller.roomOptions(room.document)
+    options = try controller.roomOptions(pitch.document)
     optionRows =
       ((try? JSONDecoder().decode(
         [MatchOption].self, from: Data(controller.optionRows().raw.text.utf8))) ?? []).filter { $0.id != "scene" }
       + (controller.lobbyTakesScene() ? [SceneID.row] : [])
     let lineup = try controller.roomCall(
-      "lineup", [("doc", .raw(room.document)), ("members", room.membersJSON)])
+      "lineup", [("doc", .raw(pitch.document)), ("members", pitch.membersJSON)])
     // Which engine the next match would run on: the host and every player (watchers
     // do not count). A version is never shown unless it stops play.
     let chosen = try controller.roomEngine()
     engineLine = lineup.isNull || chosen["engine"]?.string != nil ? nil : try blocked(chosen)
     canStart = isHost && !observing && !lineup.isNull && engineLine == nil
     if !isHost, members.contains(where: { $0.you && $0.side != nil }) {
-      let host = try controller.carried(by: room.host)
-      try checkVersion(host, key: room.host ?? "")
+      let host = try controller.carried(by: pitch.host)
+      try checkVersion(host, key: pitch.host ?? "")
     } else {
       versionCard = nil
       shownVersionKey = nil
@@ -363,7 +371,7 @@ public struct PitchMember: Identifiable, Equatable {
     func name(_ id: String) -> String { members.first { $0.id == id }?.name ?? "Someone" }
     // Newer or older than this build's newest, by the newest a member carries.
     func newer(_ id: String) throws -> Bool { card(theirs: try controller.carried(by: id).first) == .newer }
-    if ids.contains(room.you) {
+    if ids.contains(pitch.you) {
       let others = members.filter { !$0.you && ($0.side != nil || $0.host) }.map(\.id)
       if try others.contains(where: newer) {
         return "This pitch is on a newer version of Throwing Wood. Update the app to play, or watch."
@@ -405,11 +413,11 @@ public struct PitchMember: Identifiable, Equatable {
   public func profile(name: String, level: String) throws {
     let clean = try controller.roomCall("cleanName", [("name", .string(name))]).string ?? ""
     if clean != self.name {
-      room.setMe([("name", .string(clean))])
+      pitch.setMe([("name", .string(clean))])
       self.name = clean
     }
     if level != self.level {
-      room.setMe([("level", .string(level))])
+      pitch.setMe([("level", .string(level))])
       self.level = level
       if board.acceptsInput && board.need?.cpu == false { try board.useLevel(level) }
     }
@@ -445,26 +453,33 @@ public struct PitchMember: Identifiable, Equatable {
     guard let n = controller.matchNumber else { return }
     _ = try await controller.reduce("backToLobby", fields: [("n", .int(n))])
   }
+  static func now() -> Int { Int(Date().timeIntervalSince1970 * 1000) }
   private func clock(_ now: Int) {
     do {
-      if stage == .match, board.canAim, !writing {
-        try controller.castAim(JSONText(board.engine.call("aimState")), now: now)
-      }
-      if room.isHost, !observing, isOpen || openKey != nil {
-        let info = try controller.roomCall(
+      if pitch.isHost, !observing, isOpen || openKey != nil {
+        let listing = try controller.roomCall(
           "openListing",
           [
-            ("doc", .raw(room.document)), ("members", room.membersJSON),
+            ("doc", .raw(pitch.document)), ("members", pitch.membersJSON),
             ("over", .bool(board.need?.kind == "over" && stage == .match)),
           ]
-        ).raw
+        )
+        // the pitch counts players and watchers itself: only seats and state go
+        let info =
+          listing.isNull
+          ? JSONText.null
+          : JS.object([
+            ("seats", .raw(listing["seats"]?.raw ?? JSONText("12"))),
+            ("state", .raw(listing["state"]?.raw ?? JSONText(#""waiting""#))),
+          ]).json
         if info != openKey || now - openAt >= 300_000 {
-          if room.send("open", fields: [("open", .raw(info))]) {
+          if pitch.list(info) {
             openKey = info == .null ? nil : info
             openAt = now
           }
         }
       }
+      if let banner = watchHandoff, now >= banner.until { watchHandoff = nil }
       while let first = shoutTimes.first, now - first >= 2600 {
         shoutTimes.removeFirst()
         shouts.removeFirst()
@@ -473,10 +488,10 @@ public struct PitchMember: Identifiable, Equatable {
   }
   public func shout(_ word: String) {
     guard !observing else { return }
-    if controller.shout(word) { showShout(word, from: room.you) }
+    if controller.shout(word) { showShout(word, from: pitch.you) }
   }
   private func showShout(_ word: String, from: String?) {
-    let who = room.members.first { $0["id"]?.string == from }?["me"]?["name"]?.string ?? ""
+    let who = pitch.members.first { $0["id"]?.string == from }?["me"]?["name"]?.string ?? ""
     shouts.append((who.isEmpty ? "Someone" : who) + "  " + word)
     shoutTimes.append(Int(Date().timeIntervalSince1970 * 1000))
     if shouts.count > 4 {
@@ -489,12 +504,15 @@ public struct PitchMember: Identifiable, Equatable {
     switch event {
     case .restore(let m): try restore(m)
     case .apply(let action, let m):
-      queue.append((action, m))
+      let now = Self.now()
+      let isThrow = (try? JSONNode.parse(action))?["type"]?.string == "throw"
+      let hold = isThrow ? aims.holdFor(ts: controller.remoteTs, now: now) : 0
+      queue.append((action, m, now + hold))
       try drain()
     }
   }
   private func restore(_ m: JSONNode) throws {
-    guard let snap = m["snap"]?.string else { throw RoomError("snapshot") }
+    guard let snap = m["snap"]?.string else { throw PitchError("snapshot") }
     // The board plays the match on its own engine; one this build does not carry (a
     // spectator's try, as on the web) is shown on the newest.
     let theirs = Engine.majorMinor(m["engine"]?.string)
@@ -511,9 +529,9 @@ public struct PitchMember: Identifiable, Equatable {
   }
   private func seat() throws {
     let current =
-      stage == .match && controller.state == .match && room.status == .open && !suspended && !ended
+      stage == .match && controller.state == .match && pitch.status == .open && !suspended && !ended
     let caughtUp =
-      current && !writing && queue.isEmpty && !controller.pending
+      current && !writing && queue.isEmpty && !controller.starting
       && displayedSeq == controller.sequence
     let wasActing = board.acceptsInput
     board.acceptsInput = caughtUp && controller.mayAct
@@ -536,10 +554,29 @@ public struct PitchMember: Identifiable, Equatable {
     board.watching = stage == .match && (observing || controller.playingSide == nil)
     if current { turnLabel = controller.actorDescription }
     if board.acceptsInput && !wasActing && board.need?.cpu == false { try board.useLevel(level) }
+    // Someone else's turn: its card becomes a banner, so the dial shows under it.
+    if caughtUp, !controller.mayAct, !board.acceptsInput, let c = board.handoff {
+      watchHandoff = HandoffBanner(handoff: c, until: Self.now() + HandoffBanner.ms)
+      board.dismissHandoff()
+    }
   }
   private func drain() throws {
-    while !board.playing, !queue.isEmpty {
-      let (action, m) = queue.removeFirst()
+    while !board.playing, let first = queue.first {
+      let wait = first.2 - Self.now()
+      if wait > 0 {
+        if holding == nil {
+          holding = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(wait)) } catch { return }
+            guard let self, !self.ended else { return }
+            self.holding = nil
+            do { try self.drain() } catch { self.fail(error) }
+            do { try self.seat() } catch {}
+            self.changed?()
+          }
+        }
+        return
+      }
+      let (action, m, _) = queue.removeFirst()
       if (try? applyOnBoard(action)) == nil || displayedHash != m["hash"]?.string {
         displayCorrections += 1
         if let latest = controller.match { try restore(latest) } else { try restore(m) }
@@ -552,7 +589,7 @@ public struct PitchMember: Identifiable, Equatable {
   private func applyOnBoard(_ action: JSONText) throws {
     struct Applied: Decodable { let ok: Bool, recording: Recording? }
     let out: Applied = try board.read("apply", action.text)
-    guard out.ok else { throw RoomError("refused") }
+    guard out.ok else { throw PitchError("refused") }
     board.dismissHandoff()
     if let recording = out.recording {
       try board.beginPlayback(recording)
@@ -565,14 +602,14 @@ public struct PitchMember: Identifiable, Equatable {
   }
   /// Scripted seats use the same release/placement submission as a gesture.
   public func act(_ action: JSONText) throws {
-    guard board.acceptsInput, !board.playing else { throw RoomError("not-acting") }
+    guard board.acceptsInput, !board.playing else { throw PitchError("not-acting") }
     try applyOnBoard(action)
     try submit(action)
   }
   private func submit(_ action: JSONText) throws {
     let cpu = board.need?.cpu == true && board.runsComputer
     guard board.acceptsInput || cpu, !writing, let n = displayedMatch else {
-      throw RoomError("not-acting")
+      throw PitchError("not-acting")
     }
     writing = true
     track(action)
@@ -613,7 +650,26 @@ public struct PitchMember: Identifiable, Equatable {
       try drain()
       try seat()
     }
-    return drew
+    let now = Self.now()
+    if stage == .match, board.canAim, !writing {
+      // this member's aim, at most 15 a second while it changes
+      try controller.castAim(JSONText(board.engine.call("aimState")), now: now)
+    }
+    return try showRemoteAim(now: now) || drew
+  }
+
+  /// Someone else's aim as it stood `AimBuffer.delay` ms ago on the pitch's clock,
+  /// moved smoothly between their casts. Only while this board waits on their throw.
+  private func showRemoteAim(now: Int) throws -> Bool {
+    guard stage == .match, !board.acceptsInput, !board.playing, queue.isEmpty,
+      let aim = aims.sample(now: now), aim != shownAim,
+      let output: AimOutput = try? board.read("showAim", aim.text)
+    else { return false }
+    shownAim = aim
+    board.aim(output.aim, camera: output.camera)
+    if let dial = output.dial { board.dial = dial }
+    shownAims += 1
+    return true
   }
   // A terminal join or replacement must survive a background/foreground cycle.
   // Only a fresh entry from Home can make another attempt with this identity.
@@ -625,7 +681,8 @@ public struct PitchMember: Identifiable, Equatable {
     board.runsComputer = false
     controller.close()
   }
-  /// An observer at a pitch nobody is on: "No game here", and it leaves at once.
+  /// An observer at a pitch nobody has used: "No game here" (the pitch refused it
+  /// `no-pitch` and kept nothing).
   private func noGame() {
     ended = true
     timeout?.cancel()
@@ -633,10 +690,27 @@ public struct PitchMember: Identifiable, Equatable {
     board.acceptsInput = false
     board.runsComputer = false
     board.watching = false
+    controller.close()
+  }
+  /// A link to a pitch with nobody on it that this device did not make: off it at once
+  /// (`leave`, so it keeps no member), then the API's replay says whether it is a
+  /// shared match against the computer (sealed, shown from its replay) or not there.
+  private func gone() {
+    ended = true
+    timeout?.cancel()
+    stage = .connecting
+    board.acceptsInput = false
+    board.runsComputer = false
     let controller = controller
-    Task {
-      await controller.room.leave()
+    let api = api
+    let code = link.code
+    Task { [weak self] in
+      if controller.pitch.isJoined { await controller.pitch.leave() }
       controller.close()
+      let sealed = (try? await api?.replay(pitch: code))??.sealed == true
+      guard let self else { return }
+      self.stage = sealed ? .sealed : .notFound
+      self.changed?()
     }
   }
   private func fail(_ error: Error) {
@@ -646,4 +720,12 @@ public struct PitchMember: Identifiable, Equatable {
     board.runsComputer = false
     changed?()
   }
+}
+
+/// Someone else's turn starting, as a banner over the pitch while this device watches
+/// (`OnlinePitch.watchHandoff`): the handoff card's words, gone after `ms`.
+public struct HandoffBanner {
+  public static let ms = 2500
+  public let handoff: MatchNeed.Handoff
+  public let until: Int
 }

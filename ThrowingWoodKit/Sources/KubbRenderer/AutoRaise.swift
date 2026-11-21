@@ -10,7 +10,7 @@ import Foundation
 /// is kept on the device: a match that should always raise itself is the match's
 /// own Raising option. Each kubb is shown lying `gap` seconds before it stands.
 public struct AutoRaise: Sendable {
-  public static let gap = 0.7
+  public static let gap = Pacing.autoRaiseWait
   /// For the rest of this match.
   public internal(set) var game = false
   /// For the rest of this turn's kubbs (AUTO ALL).

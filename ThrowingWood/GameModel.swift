@@ -273,9 +273,9 @@ import Observation
   func enter(_ link: PitchLink, create: Bool) {
     perform {
       let pitch = try OnlinePitch(
-        url: RoomsConfiguration.url, link: link, create: create,
+        url: PitchConfiguration.server, link: link, create: create,
         name: name,
-        level: throwLevel, appVersion: Self.version)
+        level: throwLevel, appVersion: Self.version, api: PitchConfiguration.client)
       if online != nil { leaveOnline() }
       sealed = nil
       feedback.silence()

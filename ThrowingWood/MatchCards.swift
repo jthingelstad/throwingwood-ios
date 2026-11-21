@@ -210,6 +210,8 @@ struct MatchScreen: View {
           modal { handoff(c) }
         } else if let w = n.winner {
           modal { winner(n, w) }
+        } else if let banner = model.online?.watchHandoff {
+          watchBanner(banner.handoff)
         }
       }
     }
@@ -614,6 +616,27 @@ struct MatchScreen: View {
         do { try await Task.sleep(for: .milliseconds(2500)) } catch { return }
         if !pitch.acceptsInput { model.perform { pitch.dismissHandoff() } }
       }
+  }
+
+  /// Someone else's turn, while this device watches (`OnlinePitch.watchHandoff`): the
+  /// handoff card's words as a banner under the rail for 2.5 s, so their dial shows
+  /// beneath it. Touches go through to the pitch.
+  private func watchBanner(_ c: MatchNeed.Handoff) -> some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text("TURN \(c.turn)").font(.caption.bold()).tracking(1.5)
+      Text(c.toName).font(displayFont(30))
+      if let took = c.took, let from = c.fromName {
+        Text("\(from) took \(took.field) field and \(took.base) base kubbs.").font(.subheadline)
+      }
+      Text(HandoffWords.throwLine(c, watcher: true)).font(.subheadline)
+    }
+    .frame(maxWidth: 330, alignment: .leading)
+    .modifier(Plate(inset: 12))
+    .padding(.top, screen.wide ? 64 : 78)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    .allowsHitTesting(false)
+    .transition(.opacity)
+    .accessibilityElement(children: .combine)
   }
 
   private func winner(_ n: MatchNeed, _ w: MatchNeed.Winner) -> some View {

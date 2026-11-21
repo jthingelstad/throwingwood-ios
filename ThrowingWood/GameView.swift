@@ -132,8 +132,12 @@ struct GameView: View {
       }
       if phase == .active {
         model.online?.connect()
+        model.online?.pitch.retryNow()  // the web's visibilitychange: retry or ping at once
         if model.screen == .reel { model.reel?.show() }  // asks once and goes on
       }
+    }
+    .onReceive(NotificationCenter.default.publisher(for: NetworkPath.online).receive(on: RunLoop.main)) { _ in
+      model.online?.pitch.retryNow()
     }
     .onReceive(NotificationCenter.default.publisher(for: .AVAudioEngineConfigurationChange).receive(on: RunLoop.main)) { _ in
       model.feedback.prepare()

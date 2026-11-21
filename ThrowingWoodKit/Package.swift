@@ -18,8 +18,7 @@ let package = Package(
   products: [
     .library(name: "KubbEngine", targets: ["KubbEngine"]),
     .library(name: "KubbRenderer", targets: ["KubbRenderer"]),
-    .library(name: "KubbRooms", targets: ["KubbRooms"]),
-    .executable(name: "RoomsProbe", targets: ["RoomsProbe"]),
+    .library(name: "KubbPitch", targets: ["KubbPitch"]),
   ],
   targets: [
     // musl 1.2.5's portable C maths (src/math, not the arch assembly), only
@@ -58,12 +57,11 @@ let package = Package(
     // The game engine: a kubb-engine release (Engine/, vendored byte for
     // byte by scripts/vendor-engine.sh) behind kubbCall.
     .target(name: "KubbEngine", dependencies: ["CLua"], resources: [.copy("Engine"), .copy("Engines")]),
-    .target(name: "KubbRenderer", dependencies: ["KubbEngine", "KubbRooms"], resources: [.copy("Sounds")]),
+    .target(name: "KubbRenderer", dependencies: ["KubbEngine", "KubbPitch"], resources: [.copy("Sounds")]),
     .testTarget(name: "KubbRendererTests", dependencies: ["KubbRenderer"], resources: [.copy("Fixtures")]),
-    .target(name: "KubbRooms", dependencies: ["KubbEngine"]),
-    .executableTarget(name: "RoomsProbe", dependencies: ["KubbRooms", "KubbRenderer"], path: "Tools/RoomsProbe"),
+    .target(name: "KubbPitch", dependencies: ["KubbEngine"]),
     .testTarget(
-      name: "KubbRoomsTests", dependencies: ["KubbRooms"], resources: [.copy("Fixtures")]),
+      name: "KubbPitchTests", dependencies: ["KubbPitch"], resources: [.copy("Fixtures")]),
     // kubb-engine's golden matches, played here and compared hash by hash
     // with its corpus from the reference platform (Fixtures/golden/).
     .testTarget(

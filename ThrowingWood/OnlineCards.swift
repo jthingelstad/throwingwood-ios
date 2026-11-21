@@ -1,5 +1,5 @@
 import KubbRenderer
-import KubbRooms
+import KubbPitch
 import SwiftUI
 
 extension GameModel {
@@ -288,7 +288,7 @@ struct WatchCard: View {
 }
 
 /// The Open games list where the online entry is (the web's public/js/open-games.js):
-/// one look on a socket of its own every 30 s while the screen shows and the app is in
+/// one look at the pitch server's `/open` every 30 s while the screen shows and the app is in
 /// front, JOIN and WATCH on each row. Never a name.
 struct OpenGamesSection: View {
   let model: GameModel
@@ -324,7 +324,7 @@ struct OpenGamesSection: View {
   }
   private func look() async {
     do {
-      let out = try await OpenGames.look(url: RoomsConfiguration.url, appVersion: GameModel.version)
+      let out = try await PitchAPI.openGames(server: PitchConfiguration.server, appVersion: GameModel.version)
       (now, games) = (out.now, out.games)
       status = games.isEmpty ? OpenGames.empty : nil
     } catch {
@@ -333,7 +333,7 @@ struct OpenGamesSection: View {
     }
   }
   private func open(_ g: OpenGame, observe: Bool) {
-    guard let link = PitchLink(g.room) else { return }
+    guard let link = PitchLink(g.pitch) else { return }
     model.join(link.observing(observe))
   }
 }

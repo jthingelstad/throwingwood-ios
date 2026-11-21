@@ -1,21 +1,27 @@
 import Foundation
 
 /// One socket, confined with its client to the main actor. Tests supply a transport
-/// factory; production uses Foundation only. Each send is one text message/frame.
-@MainActor public protocol RoomsTransport: AnyObject {
+/// factory; production uses Foundation only. Each send is one text frame: the pitch
+/// protocol has no splitting into parts (backend/pitch-server/PROTOCOL.md section 1).
+@MainActor public protocol PitchTransport: AnyObject {
   func send(_ text: String) async throws
   func receive() async throws -> String
   func close()
 }
 
-@MainActor public final class WebSocketTransport: RoomsTransport {
+@MainActor public final class WebSocketTransport: PitchTransport {
+  /// Bytes a frame may have here: twice the pitch's 128 KB limit.
+  public static let maximumMessageSize = 256 * 1024
   private let session: URLSession
   private let socket: URLSessionWebSocketTask
 
   public init(request: URLRequest) {
     session = URLSession(configuration: .ephemeral)
     socket = session.webSocketTask(with: request)
-    socket.maximumMessageSize = 32 * 1024
+    // The pitch takes a message of up to 128 KB, and a join with the whole state (the
+    // lobby, the match's start info and its head snapshot) can be most of that. Room to
+    // spare: a frame the pitch sent is never one this side cannot read.
+    socket.maximumMessageSize = Self.maximumMessageSize
     socket.resume()
   }
 
@@ -23,8 +29,8 @@ import Foundation
   public func receive() async throws -> String {
     switch try await socket.receive() {
     case .string(let text): return text
-    case .data: throw RoomError("bad-message", "Rooms use text frames.")
-    @unknown default: throw RoomError("bad-message", "Unknown frame.")
+    case .data: throw PitchError("bad-message", "The pitch uses text frames.")
+    @unknown default: throw PitchError("bad-message", "Unknown frame.")
     }
   }
   public func close() {
@@ -46,9 +52,9 @@ import Foundation
 }
 
 /// A watcher's own member id, kept for the app's run (the web's `observerId()`, kept for
-/// the tab). The room gives a join with a known id that member's place, so a host who
-/// watched their own pitch under the player's id would come back as a host that never
-/// acts, and the pitch would stall. Stepping back keeps this id across the rejoin.
+/// the tab). The pitch gives a join with a known id that member's place (and a member's
+/// role is fixed while it is on the pitch), so an observer must never join under the
+/// player's id (PROTOCOL.md section 3).
 @MainActor public final class ObserverMemberIDStore: MemberIDStore {
   public static let shared = ObserverMemberIDStore()
   private var id: String?
@@ -78,7 +84,7 @@ extension MemberIDStore {
   }
 }
 
-public struct RoomError: Error, Sendable, Equatable, CustomStringConvertible {
+public struct PitchError: Error, Sendable, Equatable, CustomStringConvertible {
   public let code: String
   public let message: String
   public let re: String?

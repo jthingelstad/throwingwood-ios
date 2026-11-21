@@ -215,7 +215,7 @@ public enum ShareMessage {
       ("log", .array(source.actions.map { JS.object([("a", .raw($0))]) })),
     ])
     let out = try JSONNode.parse(engine.call("renameStart", json: args.ascii))
-    guard let start = out["start"]?.string else { throw RoomError("bad-rename") }
+    guard let start = out["start"]?.string else { throw PitchError("bad-rename") }
     let log = out["log"]?.kind == .array ? out["log"]!.items : []
     let throwCount = log.filter { $0["a"]?["type"]?.string == "throw" }.count
     let g = JS.object([
@@ -260,46 +260,12 @@ public struct ShareReply: Equatable, Sendable {
     self.why = why
   }
 
-  /// One reply on the wire: `{ t: "shared", id, code, v, why? }`. Throws the error's code
-  /// for an `error` (13.3).
-  public static func read(_ reply: JSONNode) throws -> ShareReply {
-    if reply["t"]?.string == "error" {
-      throw RoomError(reply["code"]?.string ?? "bad-message", reply["message"]?.string ?? "", re: "share")
-    }
-    guard reply["t"]?.string == "shared" else { throw RoomError("unexpected-reply") }
+  /// One answer from `POST share`: `{ code, v, why? }` (a refusal is thrown by the
+  /// call, its `error` the code the card's reducer takes).
+  public static func read(_ reply: JSONNode) -> ShareReply {
     let code = reply["code"]?.string
     return ShareReply(
       code: code?.isEmpty == false ? code : nil, v: reply["v"]?.int, why: reply["why"]?.string)
-  }
-}
-
-extension RoomsClient {
-  /// One `share` message on a socket of its own, with no join and no member id, in parts
-  /// when long (section 2.1), closed once answered. Waits 45 s for the answer: the server
-  /// plays the match first. A share is idempotent on the server (the same start and log
-  /// are answered the same code, free), so sending it again after a lost answer gives
-  /// one link.
-  public static func share(
-    _ message: JSONText, url: URL, appVersion: String, timing: Timing? = nil,
-    factory: Factory = { WebSocketTransport(request: $0) }
-  ) async throws -> ShareReply {
-    var wait = timing ?? Timing()
-    if timing == nil { wait.answer = ShareLimits.wait }
-    let transport = factory(socketRequest(url: url, appVersion: appVersion))
-    let reply = try await exchange(.raw(message), transport: transport, timing: wait) { reply in
-      let t = reply["t"]?.string
-      let re = reply["re"]?.string
-      return (t == "shared" || (t == "error" && (re == nil || re == "share")))
-        && (reply["id"]?.int == 1 || reply["id"] == nil)
-    }
-    return try ShareReply.read(reply)
-  }
-
-  /// A thrown error as the share card's reducer takes it: the server's error code, or
-  /// `closed` for a socket that closed or never opened, or ran out of time.
-  public static func shareErrorCode(_ error: Error) -> String {
-    if let room = error as? RoomError { return room.code }
-    return "closed"
   }
 }
 

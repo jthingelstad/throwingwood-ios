@@ -30,7 +30,7 @@ and the practice surface menu. Both start on. [Sound and haptics](docs/FEEL.md).
   check every hash against the engine's own corpus.
 - `KubbRenderer` draws the pitch with Core Graphics and plays the engine’s recordings.
   [Renderer contract, frame timings and review pictures](docs/RENDER.md).
-- `KubbRooms` in that package is the Foundation WebSocket client and native
+- `KubbPitch` in that package is the Foundation WebSocket client and native
   pitch controller. Its contract and local cross-play checks are in
   [docs/ROOMS-CLIENT.md](docs/ROOMS-CLIENT.md).
 - `ThrowingWood/` is the SwiftUI app (iOS 26, iPhone and iPad).

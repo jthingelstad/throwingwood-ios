@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 import KubbEngine
-import KubbRooms
+import KubbPitch
 
 extension PitchSession {
   /// A new practice pitch on `surface`, in `scene` (the practice menu's Scene, a

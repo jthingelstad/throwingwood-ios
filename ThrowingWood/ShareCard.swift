@@ -1,5 +1,5 @@
 import KubbRenderer
-import KubbRooms
+import KubbPitch
 import SwiftUI
 
 // MAKE A HIGHLIGHT REEL on the winner card of a match against the computer (the web's
@@ -37,12 +37,12 @@ extension GameModel {
     let share = SoloShare(
       key: found.key, name: found.name,
       make: { [weak pitch] name in
-        guard let pitch else { throw RoomError("closed") }
+        guard let pitch else { throw PitchError("closed") }
         return try pitch.shareMessage(found.source, name: name)
       },
       hooks: SoloShare.Hooks(
         send: { message in
-          try await RoomsClient.share(message, url: RoomsConfiguration.url, appVersion: Self.version)
+          try await PitchConfiguration.client.share(message)
         },
         reachable: { NetworkPath.shared.reachable }))
     share.onShared = { [weak self, weak share] code in
@@ -93,7 +93,7 @@ extension GameModel {
     reelHooksOverride?(code) ?? Self.reelHooks(code)
   }
 
-  /// A pitch whose join was refused `sealed`: leave it and show its kept match.
+  /// A sealed pitch (the API's replay says so): leave it and show its kept match.
   func openSealed(_ link: PitchLink) {
     leaveOnline()
     let pitch = SealedPitch(code: link.code)
@@ -102,15 +102,14 @@ extension GameModel {
     loadSealed(pitch)
   }
 
-  /// Reads the room's kept replay (the read-only `replay` fetch) and puts its last
+  /// Reads the pitch's kept replay (the API's `replay`, which starts nothing) and puts its last
   /// snapshot on a session of its own: the winner card shows the result.
   func loadSealed(_ pitch: SealedPitch) {
     pitch.phase = .loading
     screen = .sealed
     let code = pitch.code
     Task { [weak self] in
-      let kept = try? await RoomsClient.kept(
-        room: code, url: RoomsConfiguration.url, appVersion: Self.version)
+      let kept = try? await PitchConfiguration.client.replay(pitch: code)
       guard let self, self.sealed === pitch else { return }
       self.showSealed(pitch, kept: kept ?? nil)
     }
@@ -118,11 +117,11 @@ extension GameModel {
 
   func showSealed(_ pitch: SealedPitch, kept: KeptReplay?) {
     do {
-      guard let kept, let snap = kept.snap else { throw RoomError("no-replay") }
+      guard let kept, let snap = kept.snap else { throw PitchError("no-replay") }
       let board = try PitchSession(appVersion: Self.version)
       try board.restore(snap, save: nil, engine: kept.engine)  // on the match's own engine
       board.dismissHandoff()
-      guard board.need?.kind == "over" else { throw RoomError("not-over") }
+      guard board.need?.kind == "over" else { throw PitchError("not-over") }
       pitch.board = board
       pitch.match = kept.n.map { ReelMatch(n: $0, hash: kept.hash) }
       pitch.phase = .shown
@@ -279,8 +278,8 @@ struct SealedCard: View {
           send: { _ in
             switch mode {
             case "checking": try await Task.sleep(for: .seconds(3600))
-            case "toomany": throw RoomError("too-many")
-            case "failed", "notthistime": throw RoomError("failed")
+            case "toomany": throw PitchError("too-many")
+            case "failed", "notthistime": throw PitchError("failed")
             default: break
             }
             return answers[mode] ?? ShareReply(code: nil, v: 0, why: "unavailable")

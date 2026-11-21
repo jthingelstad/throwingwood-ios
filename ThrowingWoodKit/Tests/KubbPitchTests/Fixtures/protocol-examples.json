@@ -1,0 +1,29 @@
+{
+  "source": "The web's backend/pitch-server/PROTOCOL.md (sections 5 and 6): its client examples as written, and pitch frames with exactly the fields its table lists. Synthetic names only.",
+  "client": {
+    "join": { "t": "join", "member": "<id>", "role": "player", "me": { "name": "Anna" }, "v": 3, "n": 2, "seq": 41, "create": true },
+    "me": { "t": "me", "me": { "level": "club" } },
+    "set": { "t": "set", "id": "w7", "base": 3, "doc": { "teams": {}, "options": {} } },
+    "start": { "t": "start", "id": "go", "base": 4, "doc": { "started": true }, "n": 3, "h": "<hash at the start>", "snap": "<the engine's first snapshot>", "meta": { "engine": "0.9.0", "setup": {}, "players": {}, "cpu": null } },
+    "act": { "t": "act", "id": "<unique>", "n": 3, "seq": 42, "a": {}, "h": "<hash after>", "snap": "<snapshot after>", "over": true, "c": "web" },
+    "cast": { "t": "cast", "d": { "t": "aim", "s": {} }, "all": true },
+    "open": { "t": "open", "open": { "seats": 12, "state": "waiting" } },
+    "resync": { "t": "resync" },
+    "leave": { "t": "leave" }
+  },
+  "server": [
+    { "t": "joined", "pitch": "abcdefghjk", "you": "Member_A1", "role": "player", "host": "Member_A1", "s": 10, "ts": 1000, "members": [{ "id": "Member_A1", "role": "player", "connected": true, "joined": 1, "since": 1, "me": { "name": "Anna" } }], "limits": { "docBytes": 65536, "resumeMax": 64 }, "v": 3, "by": "Member_A1", "doc": { "teams": {} }, "match": { "n": 2, "seq": 41, "h": "aa", "over": false, "full": false, "acts": [] } },
+    { "t": "member", "member": { "id": "Member_B1", "role": "player", "connected": true, "joined": 2, "since": 2, "me": { "name": "Bo" } }, "host": "Member_A1", "s": 11, "ts": 1001 },
+    { "t": "doc", "v": 4, "by": "Member_B1", "doc": { "teams": { "B": ["Member_B1"] } }, "s": 12, "ts": 1002 },
+    { "t": "start", "m": "Member_A1", "v": 5, "by": "Member_A1", "doc": { "started": true }, "n": 3, "h": "h0", "snap": "{}", "meta": { "v": 1 }, "s": 13, "ts": 1003 },
+    { "t": "act", "m": "Member_B1", "s": 14, "ts": 1004, "id": "b-1", "n": 3, "seq": 1, "a": {}, "h": "h1" },
+    { "t": "cast", "m": "Member_B1", "s": 14, "ts": 1005, "d": { "t": "aim", "s": {} } },
+    { "t": "ok", "re": "act", "id": "a-2", "n": 3, "seq": 2, "s": 15, "ts": 1006 },
+    { "t": "ok", "re": "act", "id": "a-2", "n": 3, "seq": 2, "s": 15, "ts": 1006, "dup": true },
+    { "t": "refused", "id": "a-3", "n": 3, "seq": 9, "why": "seq", "head": { "n": 3, "seq": 2, "h": "h2", "over": false } },
+    { "t": "host", "host": "Member_B1", "s": 16, "ts": 1007 },
+    { "t": "left", "id": "Member_B1", "host": "Member_A1", "s": 17, "ts": 1008 },
+    { "t": "pong", "ts": 1009 },
+    { "t": "error", "code": "rate", "message": "Too many casts. Slow down.", "re": "cast" }
+  ]
+}

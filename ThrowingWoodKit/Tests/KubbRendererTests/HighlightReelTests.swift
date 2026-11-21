@@ -1,5 +1,5 @@
 import Foundation
-import KubbRooms
+import KubbPitch
 import Testing
 
 @testable import KubbRenderer
@@ -10,7 +10,7 @@ import Testing
   static let code = "abcdefgh23"
   static let files = ReelFiles(
     tall: "/reels/abcdefgh23/4-r1-0.7/tall.mp4", wide: "/reels/abcdefgh23/4-r1-0.7/wide.mp4",
-    room: code)!
+    pitch: code)!
 
   /// A stand-in server: each ask takes the next answer (the last repeats).
   final class Stub {
@@ -153,14 +153,14 @@ import Testing
   }
 
   @Test func anUnreachableServerIsNoConnectionAndAMissedPollIsAskedAgain() async throws {
-    let stub = Stub([.failure(RoomError("closed"))])
+    let stub = Stub([.failure(PitchError("closed"))])
     let (reel, cache) = reel(stub)
     defer { try? FileManager.default.removeItem(at: cache) }
     reel.show()
     try await settle(reel) { $0 == .problem(.offline) }
     // while it renders, one lost answer is not the end
     stub.answers = [
-      .success(.rendering(v: 4, tag: "r1-0.7")), .failure(RoomError("closed")),
+      .success(.rendering(v: 4, tag: "r1-0.7")), .failure(PitchError("closed")),
       .success(.done(v: 4, tag: "r1-0.7", files: Self.files)),
     ]
     reel.tryAgain()

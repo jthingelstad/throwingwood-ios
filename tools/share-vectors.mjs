@@ -8,7 +8,7 @@
 //
 //   node tools/share-vectors.mjs [--web ../kubb.thingelstad.xyz]
 //
-// writes ThrowingWoodKit/Tests/KubbRoomsTests/Fixtures/share-vectors.json. Deterministic:
+// writes ThrowingWoodKit/Tests/KubbPitchTests/Fixtures/share-vectors.json. Deterministic:
 // the match is seeded and the web's engine plays it the same way every time. Only
 // invented names ("Riverside", the web's fixture team, and the names below).
 import { writeFileSync } from "node:fs";
@@ -129,7 +129,7 @@ const out = {
   walks,
   asciiCheck: asciiJson({ t: "share", id: 1, g: messages[1].g }).length,
 };
-const file = join(root, "ThrowingWoodKit/Tests/KubbRoomsTests/Fixtures/share-vectors.json");
+const file = join(root, "ThrowingWoodKit/Tests/KubbPitchTests/Fixtures/share-vectors.json");
 writeFileSync(file, JSON.stringify(out, null, 1) + "\n");
 console.log(
   `share vectors: ${trail.actions.length} actions, ${played.end.throws} throws, ` +

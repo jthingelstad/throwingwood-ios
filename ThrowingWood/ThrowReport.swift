@@ -1,5 +1,5 @@
 import KubbRenderer
-import KubbRooms
+import KubbPitch
 import SwiftUI
 
 extension EnvironmentValues {
@@ -120,15 +120,11 @@ struct ReportCard: View {
           kind == .throw
           ? try report.message(happened: happened, should: should, selected: selected)
           : try report.feedback(text)
-        if let online = model.online {
-          try await online.room.sendPitchReport(message)
-        } else {
-          try await RoomsClient.sendReport(
-            message, url: RoomsConfiguration.url, appVersion: GameModel.version)
-        }
+        // the same call online or not: no member id goes with a report
+        try await PitchConfiguration.client.report(message)
         sent = true
       } catch {
-        let why = (error as? RoomError).flatMap { Self.failures[$0.code] } ?? "Try again in a moment."
+        let why = (error as? PitchError).flatMap { Self.failures[$0.code] } ?? "Try again in a moment."
         status = "\(kind == .throw ? "The report" : "Your feedback") was not sent. \(why)"
       }
     }

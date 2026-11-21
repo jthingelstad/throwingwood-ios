@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 
-@testable import KubbRooms
+@testable import KubbPitch
 
 struct VectorTests {
   let vectors: JSONNode
@@ -67,24 +67,6 @@ struct VectorTests {
     #expect(JS.raw(node.raw).ascii == raw)
     for text in ["[", "{", "01", "[1,]", "{\"a\":}", "1e", "-", "true false", "\"\\uXXYY\""] {
       #expect(throws: JSONParseError.self) { try JSONNode.parse(text) }
-    }
-  }
-  @Test func framesAndJoin() throws {
-    for v in vectors["frames"]!.items {
-      let frames = Frames.split(
-        v["text"]!.string!, frame: v["frame"]!.int!, id: v["id"]?.string ?? "x")
-      #expect(frames == v["frames"]!.items.map { $0.string! })
-      #expect(frames.allSatisfy { $0.utf8.count <= v["frame"]!.int! })
-    }
-    var reader = Frames.Reassembler()
-    for v in vectors["join"]!.items {
-      let messages = v["frames"]!.items.compactMap { reader.accept($0.string!) }.compactMap {
-        try? JSONNode.parse($0)
-      }
-      let expected = v["messages"]!.items.map { try! JSONNode.parse($0.string!) }
-      #expect(
-        messages.map { ASCIIJSON.asciify($0.raw.text) }
-          == expected.map { ASCIIJSON.asciify($0.raw.text) }, "\(v["name"]!.string!)")
     }
   }
 }
