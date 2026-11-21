@@ -283,7 +283,9 @@ and position your view wherever you want to be."). The web (docs/OBSERVER.md) is
 reference: keep its numbers, words and rules. An observer (`?observe=1`, WATCH in
 the Open games list) is a member with no seat that never acts, never writes the
 document, never claims host and steps back when first in line (`StepBack`,
-`RoomsClient.rejoin`, the same member id). Nothing new on the wire. Every watcher
+`RoomsClient.rejoin`, the same member id). It joins with a member id of its own,
+never the player's (`ObserverMemberIDStore`), or a host watching its own pitch
+would stall it. Nothing new on the wire. Every watcher
 gets the engine's wide view and the free camera (`FreeCamera.swift`), whose
 camera must stay core/camera.lua's lookAt (`FreeCameraTests`); players keep the
 thrower's view. The app has no replay viewer, so no WATCH THE LAST MATCH.

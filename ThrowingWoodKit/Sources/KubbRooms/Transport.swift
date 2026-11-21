@@ -45,6 +45,39 @@ import Foundation
   public func save(_ id: String) { defaults.set(id, forKey: "kubb.member") }
 }
 
+/// A watcher's own member id, kept for the app's run (the web's `observerId()`, kept for
+/// the tab). The room gives a join with a known id that member's place, so a host who
+/// watched their own pitch under the player's id would come back as a host that never
+/// acts, and the pitch would stall. Stepping back keeps this id across the rejoin.
+@MainActor public final class ObserverMemberIDStore: MemberIDStore {
+  public static let shared = ObserverMemberIDStore()
+  private var id: String?
+  public init() {}
+  public func load() -> String? { id }
+  public func save(_ id: String) { self.id = id }
+}
+
+/// The ids a pitch joins with: the player's own, or the watcher's when observing. The
+/// watcher's is never the player's.
+@MainActor public struct WatcherIDStore: MemberIDStore {
+  let observer: any MemberIDStore
+  let player: any MemberIDStore
+  public func load() -> String? {
+    guard let id = observer.load(), id != player.load() else { return nil }
+    return id
+  }
+  public func save(_ id: String) { observer.save(id) }
+}
+
+extension MemberIDStore {
+  /// The store a pitch joins with: this one to play, the watcher's own to observe.
+  public func joining(observing: Bool, observer: any MemberIDStore = ObserverMemberIDStore.shared)
+    -> any MemberIDStore
+  {
+    observing ? WatcherIDStore(observer: observer, player: self) : self
+  }
+}
+
 public struct RoomError: Error, Sendable, Equatable, CustomStringConvertible {
   public let code: String
   public let message: String

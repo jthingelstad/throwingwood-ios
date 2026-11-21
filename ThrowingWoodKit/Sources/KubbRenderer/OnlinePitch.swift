@@ -146,6 +146,7 @@ public struct PitchMember: Identifiable, Equatable {
   public init(
     url: URL, link: PitchLink, create: Bool, name: String, level: String,
     appVersion: String, store: any MemberIDStore = DeviceMemberIDStore(),
+    observerStore: any MemberIDStore = ObserverMemberIDStore.shared,
     timing: RoomsClient.Timing = .init(), defaults: UserDefaults = .standard
   ) throws {
     self.link = link
@@ -162,7 +163,10 @@ public struct PitchMember: Identifiable, Equatable {
     self.level = level
     let room = try RoomsClient(
       url: url, room: link.code, engineVersion: engine.engineVersion,
-      appVersion: appVersion, store: store, timing: timing)
+      appVersion: appVersion,
+      // a watcher joins with an id of its own, never the player's: a known id is given
+      // that member's place, and a host watching its own pitch would stall it
+      store: store.joining(observing: link.observe, observer: observerStore), timing: timing)
     controller = try PitchController(room: room, engines: engines, observing: link.observe)
     try controller.setMe(name: self.name, level: level)
     board.playerSide = { [weak controller] in controller?.playingSide }
