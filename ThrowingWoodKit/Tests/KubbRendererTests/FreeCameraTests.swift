@@ -80,6 +80,18 @@ import Testing
     #expect(!pitch.wideOn)
   }
 
+  /// A first look that does not fit leaves the engine in the thrower's view, not in a
+  /// wide view this session never showed.
+  @Test func aWideViewThatDoesNotFitLeavesTheEngineInTheThrowersView() throws {
+    let pitch = try PitchSession(appVersion: "test")
+    let before: ViewOutput = try pitch.read("view")
+    #expect(try pitch.watchWide(size: CGSize(width: 40, height: 60), safe: ScreenInsets()) == false)
+    #expect(!pitch.wideOn && !pitch.freeOn)
+    let after: ViewOutput = try pitch.read("view")
+    #expect(close(after.camera, before.camera, 0))
+    #expect(close(pitch.camera, before.camera, 0))
+  }
+
   @Test func theBoxIsTheWebsWideBox() {
     // upright: the HUD's top is 132 pt; on its side, 70
     let up = WatchView.box(size: Self.phone, safe: Self.phoneSafe)
