@@ -287,6 +287,13 @@ back: `RoomsClient.rejoin` sends `leave`, closes after 600 ms and opens again af
 doubling to 5 minutes, from the first again when a host is connected or a member it
 has never seen connects. Nothing new goes on the wire.
 
+An observer joins with a member id of its own, never the player's
+(`ObserverMemberIDStore`, kept for the app's run, as the web keeps `observerId()` for
+the tab; `MemberIDStore.joining(observing:)` picks it). The room gives a join with a
+known id that member's place, so a host who left its pitch and tapped WATCH on it
+would otherwise come back as a host that never acts, and the pitch would stall
+(the web's review finding, 2026-11-20). Stepping back keeps the observer's id.
+
 - **In a match** the board watches (`PitchSession.watching`) in the wide view and
   the free camera (docs/RENDER.md "The watcher's wide view"). No SHOUT. The hand-off
   card names both teams with their base kubbs (`HandoffWords`, "NORTH BASE 5") and

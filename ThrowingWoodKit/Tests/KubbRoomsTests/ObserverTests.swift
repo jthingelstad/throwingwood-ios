@@ -210,6 +210,50 @@ import Testing
     room.close()
     #expect(room.rejoin() == false)
   }
+
+  /// The web's review finding: a watcher joins with an id of its own, never the
+  /// player's. The room gives a join with a known id that member's place, so a host who
+  /// watched its own pitch under the player's id came back as a host that never acts.
+  @Test func aWatcherJoinsWithAnIdOfItsOwnAndNeverTakesTheHostsPlace() async throws {
+    let player = MemoryID("Host_0001")  // this device hosts the pitch
+    let watcher = MemoryID(nil)
+    let store = player.joining(observing: true, observer: watcher)
+    #expect(player.joining(observing: false, observer: watcher).load() == "Host_0001")
+    // the room: a known id gets its own place back, the host's among them
+    var transports: [MockTransport] = []
+    let engine = try Engine(appVersion: "0.0-test")
+    let room = try makeClient(
+      { _ in
+        let t = MockTransport()
+        transports.append(t)
+        t.onSend = { m in
+          guard m["t"]?.string == "join", let id = m["member"]?.string else { return }
+          var members = [#"{"id":"Host_0001","connected":\#(id == "Host_0001"),"joined":0,"me":{"name":"Host"}}"#]
+          if id != "Host_0001" { members.append(#"{"id":"\#(id)","connected":true,"joined":1,"me":{"name":"Watcher"}}"#) }
+          t.push(
+            #"{"t":"joined","room":"abcdefghjk","host":"Host_0001","rev":1,"members":[\#(members.joined(separator: ","))],"v":0,"doc":null,"by":"Host_0001","limits":{"frame":30000}}"#
+          )
+        }
+        return t
+      }, store: store, engineVersion: engine.engineVersion)
+    defer { room.close() }
+    let p = try PitchController(room: room, engine: engine, observing: true)
+    room.connect()
+    try await room.ready()
+    #expect(room.you != "Host_0001")
+    #expect(watcher.id == room.you)  // kept for the app's run, in the watcher's own store
+    #expect(player.id == "Host_0001")  // the player's id is untouched
+    #expect(transports[0].sent.first?["member"]?.string == room.you)
+    #expect(!room.isHost && !p.mayAct)
+    // stepping back keeps the watcher's id
+    #expect(room.rejoin(settle: .milliseconds(5), again: .milliseconds(5)))
+    try await eventually { transports.count == 2 && room.status == .open }
+    #expect(transports[1].sent.first?["member"]?.string == room.you)
+    #expect(!room.isHost)
+    // a watcher's id that somehow matched the player's is never used
+    #expect(MemoryID("Host_0001").joining(observing: true, observer: MemoryID("Host_0001")).load() == nil)
+    #expect(ObserverMemberIDStore().load() == nil)
+  }
 }
 
 /// The Open games list (the web's public/js/open-games.js): its decode, words and look.

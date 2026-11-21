@@ -58,7 +58,7 @@ import Testing
   throw RoomError("test-timeout")
 }
 @MainActor func makeClient(
-  _ factory: @escaping RoomsClient.Factory, store: MemoryID = MemoryID(),
+  _ factory: @escaping RoomsClient.Factory, store: any MemberIDStore = MemoryID(),
   timing: RoomsClient.Timing? = nil, engineVersion: String = "0.4.0"
 ) throws -> RoomsClient {
   var fast = RoomsClient.Timing()
