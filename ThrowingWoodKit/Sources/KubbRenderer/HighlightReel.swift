@@ -1,5 +1,5 @@
 import Foundation
-import KubbRooms
+import KubbPitch
 
 /// A finished pitch's highlight reel on this device (the web's docs/REEL.md "The
 /// iPhone"): it checks the room still keeps this match, asks the rooms server, asks
@@ -267,7 +267,7 @@ import KubbRooms
   /// A request that went wrong before the reel was rendering: no connection, or an
   /// answer this build cannot read (a throttle), which TRY AGAIN may ask about once.
   private func failed(_ error: Error) {
-    if let room = error as? RoomError, room.code != "closed" {
+    if let room = error as? PitchError, room.code != "closed" {
       phase = .problem(retried ? .notThisTime : .failed)
     } else {
       phase = .problem(.offline)

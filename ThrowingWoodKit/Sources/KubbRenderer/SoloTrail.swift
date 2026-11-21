@@ -1,5 +1,5 @@
 import Foundation
-import KubbRooms
+import KubbPitch
 
 // The solo match's replay trail on disk (docs/MATCH.md "The replay trail"): the match's
 // first snapshot and every committed action since, so a match against the computer can

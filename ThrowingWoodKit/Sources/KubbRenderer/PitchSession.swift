@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 import KubbEngine
-import KubbRooms
+import KubbPitch
 
 public struct DialState: Decodable, Equatable, Sendable {
   public let phase: String
@@ -619,7 +619,7 @@ public final class PitchSession {
       return HitBurst(kind: b.kind, age: age, anchor: b.anchor.vector, focusX: scene.focusX, wide: scene.wide)
     }
     p.realTime += dt
-    if p.rest >= 0.8 && bursts.isEmpty {
+    if p.rest >= Pacing.restAfterThrow && bursts.isEmpty {
       playback = nil
       try adopt(read("view"))
     } else {

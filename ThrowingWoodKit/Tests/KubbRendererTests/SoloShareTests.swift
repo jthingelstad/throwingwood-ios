@@ -1,6 +1,6 @@
 import Foundation
 import KubbEngine
-import KubbRooms
+import KubbPitch
 import Testing
 
 @testable import KubbRenderer
@@ -175,7 +175,7 @@ import Testing
     }
     #expect(wire.sent.isEmpty && share.sent == 0 && wire.made.count == 1)
     wire.online = true
-    wire.replies = [.failure(RoomError("closed"))]
+    wire.replies = [.failure(PitchError("closed"))]
     share.send()
     try await settled(share)
     #expect(share.view.text == ShareWords.offline && share.view.retry)
@@ -183,7 +183,7 @@ import Testing
 
   @Test func aFailedShareIsTriedOnceMoreWithTheSameMessage() async throws {
     let wire = Wire()
-    wire.replies = [.failure(RoomError("failed")), .failure(RoomError("failed"))]
+    wire.replies = [.failure(PitchError("failed")), .failure(PitchError("failed"))]
     let share = card(wire)
     share.send()
     try await settled(share)

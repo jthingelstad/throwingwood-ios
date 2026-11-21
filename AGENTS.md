@@ -239,40 +239,52 @@ turns as a device through `tools/review_turn.py` (a UI-test bundle in
 resized may stop turning until it is shut down; the tool says so. Review the
 iPads upright and on their side as well as the phones. docs/RENDER.md "An iPad".
 
-## Rooms and the online screen
+## The pitch and the online screen
 
-`KubbRooms` is the main-actor room client and headless pitch controller; its contract
-is `docs/ROOMS-CLIENT.md`. Lobby, seat and sync rules are exclusively the engine's
-`room.*` API. Keep engine JSON as raw text. Use the tagged record/report helpers.
-Close the controller/client when its owner ends.
+`KubbPitch` is the main-actor pitch server client (`PitchClient`), the HTTPS API
+client (`PitchAPI`) and the headless pitch controller (`PitchController`); its contract
+is `docs/ROOMS-CLIENT.md`. The references are the web repository's
+`backend/pitch-server/PROTOCOL.md` and `API.md`, and its docs/MULTIPLAYER.md section
+"What the iPhone app mirrors": keep those the same as the web (the message flow, the
+start `meta` and document header, the reconnect timings, the aim rules, the pace). New
+code says "pitch"; the engine's `room.*` calls keep their name. Lobby, seat and sync
+rules are exclusively the engine's `room.*` API. Keep engine JSON as raw text. Use the
+tagged record/report helpers. Close the controller/client when its owner ends.
+
+The addresses are `PitchConfiguration`, one value each (pitch server, API, site), with a
+Debug override (`PITCH_SERVER_URL`, `PITCH_API_URL`, `REELS_URL`) and 127.0.0.1 on the
+simulator. Never point tests at production: no connection to throwingwood.com's `/ws`
+or the live API from a test or a review tool. The pace between actions is `Pacing`
+(KubbRenderer), the web's src/game/pacing.js; change it in one place, on both.
 
 Read [docs/ONLINE.md](docs/ONLINE.md) for the screen, recording and lifecycle contract.
-OnlinePitch connects the authoritative controller to a separately paced PitchSession.
-Keep admission and seat decisions in room.*. Keep all simulator, script and review
-sockets on 127.0.0.1. Use the numeric ROOMS_DEV_PORT for simulator review.
-Run `python3 tools/online-snapshots.py <simulator-app> --web <web checkout>`
-on both review phones. Only invented names belong in these pictures.
-The highlight reel card (`ReelCard.swift`, `HighlightReel`, the `replay` check and
-the `reel` request) takes a pitch code, and the match when it has one, and keeps the
-web's docs/REEL.md words; its pictures come from
+OnlinePitch connects the authoritative controller to a separately paced PitchSession;
+someone else's turn shows its hand-off as a banner over the live dial, never the modal
+card. Keep admission and seat decisions in room.*. Keep all simulator, script and review
+sockets on 127.0.0.1. Run `python3 tools/online-snapshots.py <simulator-app> --web <web
+checkout>` on both review phones (it still seats its players through the web's old rooms
+client: moving it to the pitch server is open). Only invented names belong in these pictures.
+The highlight reel card (`ReelCard.swift`, `HighlightReel`, the API's `replay` and
+`reel`) takes a pitch code, and the match when it has one, and keeps the web's
+docs/REEL.md words; its pictures come from
 `python3 tools/reel-snapshots.py <simulator-app> --videos <dir>` (docs/ONLINE.md
 "The highlight reel"). Never point it at production while testing.
 Sharing a finished match against the computer (`ShareCard.swift`, `SoloShare`,
-`KubbRooms/Share.swift`) keeps the web's docs/REEL.md "The share card" words and
-reducer, and the web's `share` message byte for byte but for `client: "ios"`
-(`Fixtures/share-vectors.json`, from `node tools/share-vectors.mjs --web <web checkout>`).
-Nothing is sent before SHARE AND MAKE THE REEL, and nothing about the device beyond
-`client`. A sealed pitch shows its winner card from its kept replay. Pictures:
-`python3 tools/share-snapshots.py <simulator-app>`, upright, `--landscape left` and
-`--ipad` (docs/ONLINE.md "Sharing a match against the computer"). Never send a real share.
+`KubbPitch/Share.swift`) keeps the web's docs/REEL.md "The share card" words and
+reducer, and the web's share `g` byte for byte but for `client: "ios"`
+(`Fixtures/share-vectors.json`, from `node tools/share-vectors.mjs --web <web checkout>`),
+sent as the API's `POST share`. Nothing is sent before SHARE AND MAKE THE REEL, and
+nothing about the device beyond `client`. A sealed pitch shows its winner card from its
+kept replay. Pictures: `python3 tools/share-snapshots.py <simulator-app>`, upright,
+`--landscape left` and `--ipad` (docs/ONLINE.md "Sharing a match against the computer").
+Never send a real share.
 
-Local wire conformance and three complete cross-play matches run with
-`swift build --package-path ThrowingWoodKit --product RoomsProbe` then
-`node tools/rooms-test.mjs` (or `--web <web checkout>`). The script imports the web's
-client and rooms-dev read-only, binds an ephemeral 127.0.0.1 port and writes only
-`build/rooms-results.json` here. Never point tests at production. Regenerate wire
-vectors with `node tools/room-vectors.mjs`; committed vectors and injected Swift tests
-run in the existing macOS CI job, without an additional cross-repository checkout.
+The Kit's tests run the real client and controller against `FakePitch`, an in-process
+pitch server written from PROTOCOL.md, in the existing macOS CI job. A run against the
+pitch server's own `wrangler dev` stays local and on 127.0.0.1: start it from the web
+repository's backend/pitch-server (`npm run dev`, port 8797), then
+`PITCH_LOCAL_URL=ws://127.0.0.1:8797 swift test --package-path ThrowingWoodKit --filter
+LocalPitchServerTests` (off without the variable, and it refuses any other host).
 
 
 ## Observers and the free camera
@@ -281,11 +293,11 @@ Anyone may watch an open game (Jamie: "I want to allow an observer to view open
 games that people are playing... In observer mode you should be able to fly around
 and position your view wherever you want to be."). The web (docs/OBSERVER.md) is the
 reference: keep its numbers, words and rules. An observer (`?observe=1`, WATCH in
-the Open games list) is a member with no seat that never acts, never writes the
-document, never claims host and steps back when first in line (`StepBack`,
-`RoomsClient.rejoin`, the same member id). It joins with a member id of its own,
-never the player's (`ObserverMemberIDStore`), or a host watching its own pitch
-would stall it. Nothing new on the wire. Every watcher
+the Open games list, the pitch server's `GET /open`) joins with the `observer` role:
+a member with no seat that never acts, never writes the document and never casts. The
+pitch server never makes it host, so there is nothing to claim or step back from. It
+joins with a member id of its own, never the player's (`ObserverMemberIDStore`), or a
+host watching its own pitch would stall it. Every watcher
 gets the engine's wide view and the free camera (`FreeCamera.swift`), whose
 camera must stay core/camera.lua's lookAt (`FreeCameraTests`); players keep the
 thrower's view. The app has no replay viewer, so no WATCH THE LAST MATCH.

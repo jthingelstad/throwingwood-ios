@@ -1,5 +1,5 @@
 import Foundation
-import KubbRooms
+import KubbPitch
 
 struct ReportTrail {
   var start: String?
@@ -66,7 +66,7 @@ public struct PitchReport {
   {
     guard
       ![happened, should].allSatisfy({ $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
-    else { throw RoomError("empty-report") }
+    else { throw PitchError("empty-report") }
     let clip = { (s: String) in String(s.unicodeScalars.prefix(Self.answerChars)) }
     return try message(
       typed: [
@@ -79,7 +79,7 @@ public struct PitchReport {
   /// never a throw's answers or marked pieces.
   public func feedback(_ text: String) throws -> JSONText {
     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !trimmed.isEmpty else { throw RoomError("empty-report") }
+    guard !trimmed.isEmpty else { throw PitchError("empty-report") }
     return try message(
       typed: [
         ("kind", .string("feedback")),
@@ -131,7 +131,7 @@ public struct PitchReport {
       }
       if pass < 3 { dropped.append(["history", "pieces", "after"][pass]) }
     }
-    throw RoomError("too-big")
+    throw PitchError("too-big")
   }
 }
 
@@ -208,18 +208,15 @@ extension PitchSession {
     ]
     var ids = Set<String>()
     if let online {
-      let room = online.room
-      fields += [
-        ("room", .string(room.code)), ("v", .int(room.version)),
-        (
-          "match",
-          .object([
-            ("n", .int(online.controller.matchNumber ?? 0)), ("seq", .int(online.displayedSeq)),
-          ])
-        ),
-      ]
-      ids = Set(room.members.compactMap { $0["id"]?.string })
-      ids.insert(room.you)
+      let pitch = online.pitch
+      // the pitch's code, its document's version, and the match's head as the client
+      // holds it (the web's report.js): what joins the report to the recorded game
+      fields += [("pitch", .string(pitch.code)), ("v", .int(pitch.version))]
+      if let head = online.controller.head {
+        fields.append(("match", .object([("n", .int(head.n)), ("seq", .int(head.seq))])))
+      }
+      ids = Set(pitch.members.compactMap { $0["id"]?.string })
+      ids.insert(pitch.you)
     }
     if let snapshot = trail.now {
       fields.append(("options", .raw(try JSONNode.parse(snapshot)["opts"]?.raw ?? .null)))

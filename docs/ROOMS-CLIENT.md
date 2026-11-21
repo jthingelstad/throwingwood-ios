@@ -1,211 +1,200 @@
-# The iPhone rooms client
+# The iPhone pitch client
 
-`KubbRooms` is a headless Swift 6 library. No screens, accounts, analytics, third-party
-Swift packages or task groups. The local practice screen runs its own engine session.
+`KubbPitch` is a headless Swift 6 library: the pitch server client, the API client and
+the headless pitch controller. No screens, accounts, analytics, third-party Swift
+packages or task groups. The local practice screen runs its own engine session.
+
+The references, read-only, are the web repository's `backend/pitch-server/PROTOCOL.md`
+(the wire), `backend/pitch-server/API.md` (the HTTPS API) and `docs/MULTIPLAYER.md`,
+whose section "What the iPhone app mirrors" lists what the two clients must keep the
+same. The web's own client is `src/net/pitch-client.js`, `src/net/aim.js` and
+`src/net/pitch.js`; where this doc gives a number, it is theirs. New code says "pitch";
+the engine's `room.*` calls keep their name.
 
 ## Ownership and lifetime
 
-- `RoomsClient` owns one socket, member identity, presence and document versions. Its
-  Foundation adapter is `URLSessionWebSocketTask`; tests inject `RoomsTransport` and
-  `MemberIDStore`. The device stores `kubb.member` in UserDefaults, and reconnects with
-  that same ID and the last document version. Call `close()` when its owner ends;
-  `leave()` sends leave before closing and forgets the member on the server.
-- `PitchController` owns the engine effects, the optimistic match sequence, cached
-  control/seat, and a 200 ms host/presence clock. Its state is lobby, match,
-  versionMismatch, failed or closed; a mismatch includes the engine's check result.
+- `PitchClient` owns one socket, the member identity, presence, the document and its
+  version, the frame stamp `s` and the outbox of actions not yet answered. Its
+  Foundation adapter is `URLSessionWebSocketTask`; tests inject `PitchTransport` and
+  `MemberIDStore`. The device keeps its member id in UserDefaults (an observer's its own
+  for the app's run, `ObserverMemberIDStore`). Call `close()` when its owner ends;
+  `leave()` sends `leave` and closes once it has gone.
+- `PitchController` owns the engine effects, the match head and the actions this member
+  has made that the pitch has not stored yet (`outstanding`), cached control and seat,
+  and a 200 ms clock. Its state is lobby, match, versionMismatch, failed or closed.
   Call its `close()` to cancel the clock, remove its observer and close the client.
-- Both are main-actor isolated. An engine stays on that actor; it is never marked
-  Sendable or passed to a background task. Socket receives, ordered frame sends,
-  retries, ping and answer deadlines have individually owned cancellable tasks.
+- `PitchAPI` is the HTTPS API (`report`, `game`, `replay`, `reel`, `share`) and the
+  pitch server's `GET /open`. Every request is one call with a deadline and is never
+  retried by the client.
+- All are main-actor isolated. An engine stays on that actor; it is never marked
+  Sendable or passed to a background task.
 
-## The wire
+## Addresses
 
-The reference is the web's `src/net/room.js` and `backend/rooms/core.mjs`, with
-`docs/ROOMS.md` as the guide. The client sends Origin `https://app.throwingwood.com` and
-User-Agent `ThrowingWood/<app version> (ios)`. Each join announces the engines carried
-(`room.announce`: `me.engines`, and `me.engine` as the room's engine marked `+engines`;
-docs/ONLINE.md "Engines in one room"). `recordGame` and `report` add `client: ios` and the
-engine version (the record's own when it names one, else the newest; the server's client
-tag allows no space, so the app version travels in the report's `build.version`). These
-two are private operator records, never shown to a player. Commit riders carry no
-`client` (the engine's default, `web`) and `e`, the match engine's full version. The low-level `request` and
-`send` methods are available for protocol work; use the tagged methods for records.
+`PitchConfiguration` (the app) holds one value each:
 
-A highlight reel (the web's docs/REEL.md and docs/ROOMS.md section 12) is asked for with
-`reel(v:)` on a client, or `RoomsClient.reel(room:v:url:appVersion:)` with only a pitch
-code: one `{ t: "reel", id: 1, room, v }` on a socket of its own, with no join and no
-member id,
-closed once answered or at the answer deadline, as a report is sent. The answer is a
-`ReelAnswer`, a case for every state and why code: `rendering`, `done` (with `ReelFiles`,
-the tall and wide site paths), `failed` (`render`, `empty`, or `timedOut` when the server
-names no why), `none` (`unavailable`, `replay`, `engine`, `busy`, `moved`), and the two error
-codes a reel has, `too-many` (`tooMany`) and `failed` (`notStarted`: nothing was kept, so
-asking again may start it). A code newer than the build is kept as `other`. Only paths
-under `/reels/<code>/` ending `.mp4` are taken. Asking how a reel stands is free; only a
-request that starts a render counts against the connection's three. `v` is the kept
-replay version the asker means, from `kept` below: a positive integer or left out, never
-null (a non-positive one throws `bad-message` before anything is sent). When the room
-keeps another version the server answers `none(v: <kept now>, why: .moved)`, starting
-and counting nothing; with no kept replay at all it is still `replay` with `v` 0. A
-server from before `v` ignores it, so the card also compares the answer's `v`.
-Before it asks, the reel card reads which match the room keeps with
-`RoomsClient.kept(room:url:appVersion:)`: one read-only `{ t: "replay", id: 1, room }`
-(docs/ROOMS.md section 10), which starts nothing, read as a `KeptReplay` (the kept
-version, and the replay's `n` and hash) or nil when the room keeps none.
-`PitchController.finishedReplay` is the match on the pitch as a `ReelMatch` (its `n` and
-hash from `replayOf`) once it is over and carries its replay, as the web's winner card
-decides WATCH REPLAY; `finishedWithReplay` says whether there is one.
+| What | Production | Debug override | Simulator default |
+| --- | --- | --- | --- |
+| Pitch server | `wss://throwingwood-pitches.throwingwood.workers.dev` | `PITCH_SERVER_URL` | `ws://127.0.0.1:8797` |
+| API | `https://throwingwood.com/api/` | `PITCH_API_URL` | `http://127.0.0.1:8798/api/` |
+| Site (links, reels) | `https://throwingwood.com` | `REELS_URL` | `http://127.0.0.1:4322` |
+
+The socket is `<pitch server>/ws?pitch=<code>` with no Origin header and User-Agent
+`ThrowingWood/<app version> (ios)`; the open games list is `GET <pitch server>/open`
+over HTTPS (HTTP for a `ws:` server). A code outside the server's pattern is refused
+before any socket.
+
+## The wire (PROTOCOL.md)
+
+Client messages, in these key orders (`ProtocolTests` checks them against the
+protocol's examples):
+
+- `join {member, role, me, v?, n?, seq?, create?}`: `role` is `player` or `observer`;
+  `v` the document version held (the pitch leaves the document out when it is the
+  same); `n` and `seq` the match and last action held, own actions in flight not
+  counted. `me` is the presence: name, level and `room.announce`'s engines
+  (docs/ONLINE.md "Engines in one room").
+- `me {me}`; `set {id, base, doc}`, compare-and-set on `base`; `start {id, base, doc,
+  n, h, snap, meta}`; `act {id, n, seq, a, h, snap, over?, c: "ios"}`; `cast {d, all?}`;
+  `open {open}`; `resync`; `leave`; and the literal text `ping`, answered `pong`.
+
+Server frames that move `s` on by one (`member`, `left`, `host`, `doc`, `start`, `act`)
+are taken only in order: one past a gap sends `resync` and nothing past the gap counts
+until the `state` comes. A frame before `joined` is ignored.
+
+**Lobby writes.** Updates from one client are serialized. Each reducer sees the current
+raw document; a nil result writes nothing. `no` adopts the winner and runs the reducer
+again (20 tries). A write unanswered in 10 s reconnects; the next `joined` says whether
+it landed (`v` and `by`), and an unchanged version means it did not and it runs again.
+
+**START** is one `start`: the document after it keeps only the match header `{n,
+players, cpu, host, engine}` (players as `{A: [{id, name}], B: [...]}`, engine as
+major.minor) with `started: true` and the next `n`; `meta` is `{v: 1, setup, engine,
+version, players, cpu}`, `engine` the major.minor and `version` the full engine version,
+the computer's level inside `setup`. No host in `meta`. A `no` builds it again on the
+newer lobby: the first try and at most three more, as the web's pitch.js. A START whose
+answer was lost is settled by the next join's match.
+
+**Actions** are never waited for: the next goes at once, before the last one's `ok`.
+Each stays in the outbox until its `ok`, and after a reconnect every one goes again
+unchanged (same `id`); the pitch answers one it already has with `ok {dup: true}` and the
+original `s`. In a resume, a stored act carrying one of this member's pending ids counts
+as its `ok`. `refused` drops that act and every later pending one (each follows it), and
+the controller goes back to the head and asks for the pitch (`resync`). A peer's act at
+the next `seq` is applied and its hash checked; a gap in `seq` or a hash that differs
+sends `resync`. The action that ends a match carries `over`; there is no `keep`.
+
+**Host.** The pitch server picks the host and hands it on (PROTOCOL.md section 4);
+there is no claim. The host sends `open {seats, state}` whenever either changes, and
+afresh when it becomes host (`open: null` for invite only). An observer never hosts.
+
+**Joins and resumes.** `joined` carries the members, the host, `s`, the document (unless
+the join's `v` was current) and the match: null; or the actions after the join's `seq`
+(up to `resumeMax`), applied and checked here; or, further behind, the whole match from
+its head snapshot with its `meta`, adopted.
+
+**Reconnecting** (the web's pitch-client.js tune, `PitchClient.Timing`): the first retry
+at a random wait under 300 ms, then 1 s doubling to 10 s, each a quarter either way at
+random. `retryNow()` (the device came online, the app became active) skips the wait, or
+sends a `ping` on an open socket. `ping` after 20 s with nothing heard, 10 s to answer.
+For good, with no more tries: `replaced`, and a join refused as `full`, `no-pitch`,
+`bad-member`, `bad-role`, `already-joined` or `bad-message` (`PitchClient.final`). Any
+other join error (busy, rate) tries again after the backoff.
+
+## Aim
+
+Sending (`PitchController.castAim`, the web's AimSender): at most 15 a second, only when
+the aim changed, as `{t: "aim", s, k, c}`, `k` counting this member's samples and `c` its
+clock in ms. The aim just before a release goes at once with `all: true`, which the pitch
+never thins. A shout spends a slot, so the two stay under the cast limit.
+
+Drawing (`AimBuffer`, the web's AimBuffer): the clock offset is the smallest
+`arrival − ts` over the last 40 casts; the render time is `now − offset − 100 ms`. Between
+the two casts around it `x, y, tx, ty, release, tilt, spin, back, mix` go in a straight
+line and `arm` (degrees) the short way round, not at all when the two are half a turn or
+more apart; the other fields are the earlier cast's. Never across two throws (`seq`) or
+two senders; past the newest it holds the newest; a sender's late cast (`k` not newer) is
+dropped. A peer's throw waits `min(250, ts + offset + 100 − now)` ms, or none when the
+last aim is more than 1.5 s older than the throw (`holdFor`).
+
+## The API (API.md)
+
+- `report(r)`: `POST report {r}`, the report tagged `client: "ios"` and its engine.
+  The report names the pitch as `pitch` and takes `match {n, seq}` from the client's
+  match head.
+- `recordGame(g)`: `POST game {g}`, a one-device solo or watch record (never a shared
+  match: the pitch server keeps those).
+- `replay(pitch:)`: `GET replay?pitch=`, read as a `KeptReplay` (the kept version, the
+  replay's `n` and hash, `sealed`) or nil when none is kept. It starts nothing.
+- `reel(pitch:v:)`: `POST reel {pitch, v?}`, read as a `ReelAnswer`: `rendering`,
+  `done` (with `ReelFiles`, only paths under `/reels/<code>/` ending `.mp4`), `failed`
+  (`render`, `empty`, or `timedOut`), `none` (`unavailable`, `replay`, `engine`, `busy`,
+  `moved`) and the errors `too-many` and `failed` (nothing kept, so asking again may start
+  it). `v` is a positive integer or left out, never null.
+- `share(g)`: `POST share {g}`, read as a `ShareReply` (a code, or why not).
+- Refusals are `{error, message}` with a status and are thrown as that `error` code; a
+  call that could not be made throws `timeout` or `closed`.
+
+## JSON
 
 `JS` and `ASCIIJSON` write JSON explicitly: UTF-16 units above U+007E become lowercase
-backslash-u escapes, emoji become surrogate pairs, lone surrogates are representable,
-controls use JSON.stringify's escapes, finite doubles use its notation thresholds and
-non-finite doubles are null. Sizes are counted on that ASCII text. Engine-produced
-JSON goes in as `JSONText`/`JS.raw`, never through JSONEncoder or JSONSerialization.
-`JSONNode` looks into values while preserving their exact source spans. A snapshot is
-an opaque string: even integral floats and exponent spelling inside it are untouched.
-
-Messages over 30,000 characters split into `~id.i.n~` parts with 29,960-character
-slices. The receiver accepts reordered/interleaved/duplicate parts, clears them at
-socket changes, bounds assemblies to 16 parts/300 KiB and 32 unfinished messages, and
-ignores malformed frames. These bounds intentionally harden the web client's unbounded
-part reader. The transport caps incoming WebSocket messages at 32 KiB; each application
-part is a distinct WebSocket message, not a WebSocket continuation frame.
-
-Document versions increase for doc/ok/no; member revisions are per ID (left keeps its
-tombstone) and the host has its own revision. A joined state resets presence revisions
-and is authoritative for the document, including a room that expired and restarted at
-version zero. An older ok still settles its caller without replacing a newer document.
-All wire messages, including casts, pong, recorded, reported and errors, are observable
-as raw messages; document/state/member/host/status events also have dedicated cases.
-
-Updates from one client are serialized. Each reducer sees the current raw document;
-a null reducer result writes nothing. A `no` adopts the winner and runs the reducer
-again (20 retries by default). A dropped or unanswered set reconnects. Joined's sid/by
-proves it landed, an unchanged base proves it did not (safe to retry), and any other
-version is uncertain. An uncertain action is never automatically sent again. Requests
-for game/report/list/replay have correlated IDs and a deadline; they are not retried.
-A busy join reconnects; full/bad joins close, and replaced is terminal. Pings every
-four minutes require a pong within 15 seconds. Close settles all pending continuations.
+backslash-u escapes, emoji become surrogate pairs, controls use JSON.stringify's escapes,
+finite doubles use its notation thresholds and non-finite doubles are null. Sizes are
+counted on that ASCII text. Engine-produced JSON goes in as `JSONText`/`JS.raw`, never
+through JSONEncoder or JSONSerialization. `JSONNode` looks into values while keeping
+their exact source spans. A snapshot is an opaque string.
 
 ## Pitch effects
 
 All lobby reducers, version checks, seat ownership, control and sync decisions use the
-vendored engine's `room.*` calls and read `.value`. Swift contains no second version of
-lobby/seats/sync rules. `reduce` exposes joinTeam, setOptions, setAccess, pruneTeams and
-backToLobby; host reducers check host ownership again inside the CAS reducer.
+vendored engine's `room.*` calls. Swift holds no second copy of those rules. `reduce`
+exposes joinTeam, setOptions, setAccess, pruneTeams and backToLobby; host reducers check
+host ownership again inside the compare-and-set reducer.
 
 `PitchController` takes an `EngineShelf`: the engines this build carries, one Lua state
 per major.minor, the newest made at once and any other the first time a match needs it.
 `engine` is the one the pitch runs on now (the match's own, else the newest), and room
-calls go to it; `engineFor`, `carried`, `announce`, `speakAs` and `compareEngines`
-(engine 0.8.1) go to the newest (`newestCall`). `announce()` runs after every presence,
-host and document event and sends `me` only when the answer changes.
+calls go to it; `engineFor`, `carried`, `announce`, `speakAs` and `compareEngines` go to
+the newest. `announce()` runs after every presence, host and document event and sends
+`me` only when the answer changes. START runs lineup, engineFor, speakAs, startCheck,
+matchOptions, new and startMatch on the room's engine; with none it refuses, writing
+nothing (`mismatch` names the players). A match on an engine this build lacks is watched,
+never played.
 
-START uses lineup, engineFor, speakAs, startCheck, matchOptions, new and startMatch inside
-the reducer, so a CAS retry uses the current lineup, presence and options. With no room's
-engine it refuses without writing (`mismatch` names the players as `differ`/`unknown`);
-otherwise `startCheck`, `new` and `startMatch` run on that engine. Engine checks are
-strict: mayPlay, on the match's own engine, gates running matches. No lenient transition
-is enabled in the native client.
-
-`take` requires the engine's mayAct result for the current need. `frame` can release
-this member's dial throw or a host-owned computer throw. Seat/control are cached between
-presence ticks and committed actions; no room bridge runs per frame. The caller supplies
-frame input; a frame-generated action is already applied and is committed once. The
-library does not autonomously fast-forward a CPU match or render playback.
-
-Each commit writes the engine's snapshot/hash and action through commitAction, with a
-rider from room.rider. A peer document goes through room.decide: apply the next action,
-compare the hash, restore if refused/different; adopt gaps/missing riders, restore a new
-match, and ignore old versions. There is no playback queue because actions finish
-synchronously and this layer has no renderer. Future screens must queue their recording
-animations separately. A losing optimistic action or uncertain write discards local
-sequence first, then recovers the authoritative document. Replay, correction and gap
-adoption counts are exposed for tests.
-
-Lua nextHost picks the claimant; the client waits 16 seconds after observing host loss
-(the server's minimum is 15 seconds), retries at most every five seconds, and claims
-immediately if the host left for good. New host control restarts a held CPU from its
-snapshot. Each participant who observes the end asks keep with replayOf and the exact
-ending document version, once per match; a late arrival at an already-ended match does
-not keep it again. Aim and shout helpers pace casts; a caller supplies aim ticks.
-
-## Verification
-
-- `swift test --package-path ThrowingWoodKit` and the optimized command in AGENTS.md
-  run codec vectors, injected transport/controller tests and every golden action (505 on engine 0.8).
-- `tools/room-vectors.mjs` imports the real web client read-only. Its committed fixtures
-  include provenance and expected ASCII encoding, numbers, sizes, raw-text handling,
-  UTF-16 decoding, frame boundaries and reassembly.
-- `swift build --package-path ThrowingWoodKit --product RoomsProbe`, then
-  `node tools/rooms-test.mjs --web <web checkout>` runs real Foundation sockets against
-  imported rooms-dev on an ephemeral 127.0.0.1 port. Its in-memory callbacks write
-  nothing into the web checkout, and finally closes all sockets/processes/server.
-  The web checkout needs its existing `ws` and wasmoon 1.16.0 dependencies.
-- Conformance covers ordinary messages, multi-frame documents, every documented server
-  error code, all 16 seats, replacement, reconnect, CAS no, strict mismatched START,
-  and controller host handover/CPU takeover. Busy/store failures and time passage are
-  injected into the same local server, not production. Injected transports cover
-  out-of-order revisions and all unanswered-set outcomes deterministically.
-- Cross-play uses the web's actual Engine wrapper, wasmoon 1.16.0 and Room client,
-  alongside RoomsClient/PitchController/native Lua/musl in a Swift process. Both seats
-  use computer-planned actions: throwaway engines plan human seats without changing the
-  playing engines' CPU options. Each seat commits its own side; every committed action
-  is applied by the other platform and checked. Three matches end naturally without a
-  maxTurns cap, on grass/sand/snow, with off/light/strong wind. Every hash must agree,
-  no correction or gap adoption is allowed, and each kept replay must replay every
-  action with no difference. The report is `build/rooms-results.json` (ignored).
-
-Cross-play is a local acceptance check, not an additional billed CI job: the CI token
-cannot read the separate private web repository. CI runs the committed vectors and
-Swift tests in its existing single macOS job. No live room, device install or TestFlight
-upload is part of this work.
-
-## Gaps in the web documentation (at the referenced code)
-
-- ROOMS.md documents `keep(replay)`, but room.js requires `keep(replay, v)`; omitting v
-  is bad-message. Keep does not infer the version or acknowledge success on the wire.
-- The web part reader only checks the header regex; unlike the server, it does not
-  enforce 2..16 parts, index bounds, size or expiry. Its regex even accepts 0/1 for n.
-- Joined's public limits omit parts, messageBytes, reportBytes, gameBytes and replayBytes.
-  The native receiver uses the fixed protocol caps rather than expecting those fields.
-- The document “never goes back” rule has an incarnation boundary: the web forces joined's
-  document even after an expired room restarts at v0. Ordinary doc/ok/no remain monotonic.
-- MULTIPLAYER.md still describes JavaScript lobby/seats/sync, `me` without engine,
-  match without engine, and says rider e is not sent; room.js sends an explicit v with
-  keep and pitch.js already passes engine to rider. Engine 0.3's room calls supersede
-  those logic descriptions; the native controller uses them directly.
-- “Non-ASCII counts 6 bytes each” means UTF-16 code units: an emoji counts twelve escaped
-  bytes, a lone surrogate six. Report answer length separately uses Unicode code points.
-
-No UI, universal links, background lifecycle integration, open-game publication,
-record/report collection policy, replay controls or physical network conditions are
-covered here. The wire carries open/list/replay and tagged game/report messages, but
-these product surfaces belong to the next phase. AWS origin filtering, stage throttles,
-TTL scheduling and real two-hour socket expiry are not exercised by rooms-dev.
+`take` requires the engine's mayAct for the current need. `frame` can release this
+member's dial throw or a host-owned computer throw. Seat and control are cached between
+presence ticks and committed actions; no room bridge runs per frame.
 
 ## Driving the pitch screen
 
-The optional presentation callbacks on PitchController run on the main actor.
-After the controller verifies a peer action, it passes the action and its
-committed match to the presentation. A gap, correction, new match or rejoin
-supplies an authoritative snapshot. Presence and document notifications reach
-the screen after the controller processes them. The 200 ms clock also drives
-changed aim casts, listing renewal and shout expiry.
+The presentation callback runs on the main actor. After the controller verifies a peer
+action it passes the action and the match to the screen (`remoteTs` carries the pitch's
+`ts` for the aim hold); a gap, correction, new match or rejoin passes a snapshot to
+restore. `OnlinePitch` (KubbRenderer) owns the controller and a second Lua session for
+the board, so the pitch can take several actions while the board is still playing the
+first one's recording; the board checks each action's hash and drains its queue in order.
 
-OnlinePitch in KubbRenderer owns the controller and a second Lua session
-for the board. The room can receive and verify several actions while the
-board is still playing the first recording through showAt. The board checks
-each action's hash and drains the queue in order. Its own release or placement
-goes through the same seat check and CAS commit as a scripted action.
-The screen announces through the controller (`room.announce`). Its board session
-switches to the match's engine (`PitchSession.useEngine(minor:)`) before it restores a
-match. Record and report tags use the full engine version.
+## Verification
 
-The local rooms test drives OnlinePitch with the web Room and wasm engine.
-It compares each displayed hash, the controller hash, and a replay of the
-server's kept log. It also checks peer-visible message shapes, round-trip
-aim and shouts, a real dial release after host succession, connection loss,
-background return, both directions of a version mismatch and a captured
-report on an unjoined socket. For a faster local run, build RoomsProbe with
-`-c release` and pass `--release` to the Node script.
+- `swift test --package-path ThrowingWoodKit` and the optimized run in AGENTS.md.
+  `FakePitch` (Tests/KubbPitchTests) is an in-process pitch server written from
+  PROTOCOL.md: members, host succession, `replaced`, compare-and-set, `start`, acts with
+  `dup` and refusals, resumes within `resumeMax` or the whole match, casts, `open`,
+  `resync` and dropped or deaf sockets. `PitchClientTests`, `PitchTests`, `EnginesTests`
+  and `ObserverTests` run real controllers against it: two players in step, actions in
+  flight through every socket dropping (each stored once), resume and full adoption,
+  a peer first, refusals, hash mismatches, the host handed on, observers.
+  `ProtocolTests` checks our messages and the server frames against PROTOCOL.md's
+  examples (`Fixtures/protocol-examples.json`); `AimBufferTests` holds the web's aim
+  cases; `ReelTests` and `ShareTests` the API answers.
+- `LocalPitchServerTests` runs the real `WebSocketTransport`, client and controllers
+  against the pitch server's own `wrangler dev` (`npm run dev` in the web repository's
+  backend/pitch-server) when `PITCH_LOCAL_URL=ws://127.0.0.1:8797` is set; it refuses
+  any host but 127.0.0.1. Two players start a match, the guest drops for two actions and
+  resumes by sequence, a watcher joins at the fifth action, and a resign ends it with
+  `over`: every hash the same, nothing corrected or adopted, the same finished replay.
+  Passed 2026-11-21 against the web's pitch-client branch. The HTTPS API has no local
+  stand-in run from Swift yet.
+- The old cross-play script (`tools/rooms-test.mjs`) and its probe went with the rooms
+  server; `tools/room-vectors.mjs` still writes the JSON codec vectors from the web's
+  old client and must be pointed at a checkout that has it.

@@ -7,7 +7,7 @@
 //
 //   node tools/room-vectors.mjs [--web ../kubb.thingelstad.xyz]
 //
-// writes ThrowingWoodKit/Tests/KubbRoomsTests/Fixtures/vectors.json. Deterministic: the
+// writes ThrowingWoodKit/Tests/KubbPitchTests/Fixtures/vectors.json. Deterministic: the
 // same web code gives the same file (the part ids come from a seeded generator put in
 // place of crypto.getRandomValues while toFrames runs).
 import { writeFileSync } from "node:fs";
@@ -359,7 +359,7 @@ const out = {
 };
 const file = join(
   root,
-  "ThrowingWoodKit/Tests/KubbRoomsTests/Fixtures/vectors.json",
+  "ThrowingWoodKit/Tests/KubbPitchTests/Fixtures/vectors.json",
 );
 writeFileSync(file, JSON.stringify(out, null, 1) + "\n");
 console.log(
