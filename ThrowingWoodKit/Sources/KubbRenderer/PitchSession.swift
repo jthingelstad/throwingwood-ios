@@ -284,7 +284,10 @@ public final class PitchSession {
     if box == wideBox, scene.wide { return true }
     let out: WideOutput = try read("setWide", box)
     guard out.farPx * k >= WatchView.observeMinPx else {
-      try endWide()
+      // the engine took the box to answer: put its thrower's view back, whatever this
+      // session was showing (a first look that does not fit has no wide view to end)
+      freeCamera.setLens(nil)
+      try clearWide()
       return false
     }
     wideBox = box
@@ -299,6 +302,11 @@ public final class PitchSession {
   public func endWide() throws {
     freeCamera.setLens(nil)
     guard wideBox != nil || scene.wide else { return }
+    try clearWide()
+  }
+
+  /// The engine's wide view off and this session's with it.
+  private func clearWide() throws {
     wideBox = nil
     scene.wide = false
     revision += 1
