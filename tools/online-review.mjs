@@ -34,12 +34,12 @@ const [major, minor] = manifest.version.split(".").map(Number);
 const compatible = `${major}.${minor}`;
 const peers = [];
 let timer;
-async function peer(id = "Review_Maple", version = compatible) {
+async function peer(id = "Review_Maple", version = compatible, name = "Maple", pitch = code) {
   const room = new Room({
     url: server.url,
-    room: code,
+    room: pitch,
     member: id,
-    me: { name: "Maple", level: "club", engine: version },
+    me: { name, level: "club", engine: version },
   });
   peers.push(room);
   await room.ready;
@@ -55,7 +55,59 @@ async function until(check) {
 function stallJoins() {
   server.store.getRoom = () => new Promise(() => {});
 }
+// An observer (docs/ONLINE.md "Observers"): a pitch of two invented players the app
+// watches, in a match (observe, observemoved) or between matches (watchcard), with the
+// scene the review asks for; noGame is an empty pitch; opengames lists two open pitches.
+async function observed() {
+  const host = await peer();
+  const other = await peer("Review_Rowan", compatible, "Rowan");
+  await host.update((d) => lua("lobbyOf", { doc: d }));
+  await host.update((doc) => {
+    let d = lua("joinTeam", { doc, id: host.you, side: "A" });
+    d = lua("joinTeam", { doc: d, id: other.you, side: "B" });
+    const look = process.env.SIMCTL_CHILD_REVIEW_SCENE;
+    return look ? lua("setOptions", { doc: d, options: { scene: look } }) : d;
+  });
+  await until(() => other.doc && host.members.length === 2);
+  if (mode === "watchcard") return;
+  const members = lua("speakAs", { members: host.members, engine: manifest.version });
+  const lineup = lua("lineup", { doc: host.doc, members });
+  const setup = lua("matchOptions", {
+    doc: host.doc,
+    lineup,
+    seed: 1001,
+    start: { year: 2026, month: 11, day: 17, hour: 12, min: 0 },
+  });
+  engine.newMatch(setup);
+  await host.update((doc) =>
+    lua("startMatch", {
+      doc,
+      snap: engine.snapshot(),
+      hash: engine.hash().hash,
+      players: lineup.players,
+      cpu: lineup.cpu,
+      host: host.host,
+      setup,
+      members,
+    }),
+  );
+}
+async function openGames() {
+  const made = [
+    ["mapkubb3", "Review_Alder", "Alder", { players: 3, seats: 12, state: "playing" }],
+    ["mapkubb4", "Review_Hazel", "Hazel", { players: 1, seats: 12, state: "waiting" }],
+  ];
+  for (const [pitch, id, name, open] of made) {
+    const room = await peer(id, compatible, name, pitch);
+    await room.update((d) => lua("lobbyOf", { doc: d }));
+    room.setOpen(open);
+  }
+  await until(async () => (await server.store.listOpen({ since: 0, limit: 10, now: Math.floor(Date.now() / 1000) })).length === 2);
+}
 try {
+  const observes = ["observe", "observemoved", "watchcard"].includes(mode);
+  if (observes) await observed();
+  if (mode === "opengames") await openGames();
   const needsPeer = [
     "guest",
     "newer",
