@@ -45,18 +45,27 @@ import KubbEngine
   private var lastAim: JSONText?
   private var lastAimAt = 0
   private var lastShoutAt: Int?
+  /// An observer (`/p/<code>?observe=1`, the web's docs/OBSERVER.md): a member with no
+  /// seat that never acts, never writes the document and never claims host. First in
+  /// line for host with someone else connected, it steps back (`stepping`).
+  public let observing: Bool
+  public private(set) var stepping = StepBack()
+  /// Step backs taken (leave, then join again), for tests and the probe.
+  public private(set) var stepBacks = 0
+  static let noSeat = JSONText(#"{"sides":[],"cpu":false}"#)
 
-  public init(room: RoomsClient, engines: EngineShelf) throws {
+  public init(room: RoomsClient, engines: EngineShelf, observing: Bool = false) throws {
     self.room = room
     self.engines = engines
+    self.observing = observing
     engine = engines.newest
     observation = room.observe { [weak self] in self?.receive($0) }
     try announce()
   }
 
   /// A pitch on one engine only.
-  public convenience init(room: RoomsClient, engine: Engine) throws {
-    try self.init(room: room, engines: EngineShelf(engine: engine))
+  public convenience init(room: RoomsClient, engine: Engine, observing: Bool = false) throws {
+    try self.init(room: room, engines: EngineShelf(engine: engine), observing: observing)
   }
 
   /// Starts the wire and a 200 ms presence/host clock. Call close when the owner ends.
@@ -144,7 +153,8 @@ import KubbEngine
   /// where it takes a scene. Never a pitch someone else hosts or one that already has a
   /// document. False when it was not this member's to make.
   @discardableResult public func prepareLobby(options kept: [String: String]) async throws -> Bool {
-    try await room.update { [self] doc in
+    guard !observing else { return false }
+    return try await room.update { [self] doc in
       guard doc == .null, room.isHost else { return nil }
       let lobby = try roomCall("lobbyOf", [("doc", .raw(doc))])
       let taken = try takenOptions(kept)
@@ -216,6 +226,8 @@ import KubbEngine
   @discardableResult public func reduce(_ name: String, fields: [(String, JS)] = []) async throws
     -> Bool
   {
+    // An observer writes nothing to the document.
+    if observing { throw RoomError("observer") }
     // Only these host reducers are exposed; seat and sync decisions remain in Lua.
     let hostOnly = ["setOptions", "setAccess", "pruneTeams", "backToLobby"]
     if hostOnly.contains(name), !room.isHost { throw RoomError("not-host") }
@@ -239,7 +251,8 @@ import KubbEngine
   /// A fresh match is built inside the CAS reducer so a retry uses the current lineup
   /// and options. Strict version checks: no unknown or different player engine starts.
   @discardableResult public func start(seed: Int, at: JSONText) async throws -> Bool {
-    guard room.isHost, state == .lobby || (state == .versionMismatch && match == nil), !pending
+    guard !observing, room.isHost, state == .lobby || (state == .versionMismatch && match == nil),
+      !pending
     else { return false }
     pending = true
     defer { pending = false }
@@ -370,7 +383,11 @@ import KubbEngine
       return
     }
     let ctx = context()
-    let next = try roomCall("controlFor", [("ctx", ctx), ("me", .string(room.you))])
+    // an observer's seat has no side and no computer, whatever the room says
+    let next =
+      observing
+      ? try JSONNode.parse(Self.noSeat)
+      : try roomCall("controlFor", [("ctx", ctx), ("me", .string(room.you))])
     let same = try roomCall("sameControl", [("a", .raw(control)), ("b", .raw(next.raw))])
     if same.bool != true {
       let gainedCPU =
@@ -383,8 +400,9 @@ import KubbEngine
     }
     need = try engine.call("need").asJSON
     mayAct =
-      try roomCall("mayAct", [("need", .raw(need)), ("ctx", ctx), ("me", .string(room.you))]).bool
-      == true
+      try !observing
+      && roomCall("mayAct", [("need", .raw(need)), ("ctx", ctx), ("me", .string(room.you))]).bool
+        == true
   }
 
   private func receive(_ event: RoomsClient.Event) {
@@ -431,7 +449,7 @@ import KubbEngine
           }
         }
       case .left:
-        if room.isHost, state == .lobby {
+        if room.isHost, !observing, state == .lobby {
           let present = JS.array(room.members.compactMap { $0["id"]?.string }.map(JS.string))
           Task { [weak self] in
             do { _ = try await self?.reduce("pruneTeams", fields: [("present", present)]) } catch {
@@ -586,7 +604,7 @@ import KubbEngine
   @discardableResult public func take(_ action: JSONText, computer: Bool = false) async throws
     -> Bool
   {
-    guard state == .match, room.status == .open, !pending else { return false }
+    guard !observing, state == .match, room.status == .open, !pending else { return false }
     try refreshSeat()
     let cpuThrow =
       try computer && (JSONNode.parse(need))["cpu"]?.bool == true
@@ -601,7 +619,7 @@ import KubbEngine
   /// A frame can release a host-owned computer throw or this member's dial throw.
   /// No room bridge calls run per frame: `mayAct` and `control` are cached.
   public func frame(_ input: JSONText) async throws -> JSONText? {
-    guard state == .match, room.status == .open, !pending else { return nil }
+    guard !observing, state == .match, room.status == .open, !pending else { return nil }
     let n = try JSONNode.parse(need)
     let cpuControl = try JSONNode.parse(control)["cpu"]?.bool == true
     let cpu = n["cpu"]?.bool == true && cpuControl
@@ -612,7 +630,7 @@ import KubbEngine
   }
 
   private func commit(_ action: JSONText) async throws -> Bool {
-    guard let n = matchNumber else { return false }
+    guard !observing, let n = matchNumber else { return false }
     let seq = sequence + 1
     let snap = try engine.call("snapshot")
     let hash = try engine.hash()
@@ -669,9 +687,12 @@ import KubbEngine
         hostGoneAt = nil
         return
       }
+      let connected = room.members.filter { $0["connected"]?.bool == true }.compactMap { $0["id"]?.string }
+      if observing { stepping.see(connected) }
       let host = room.members.first { $0["id"]?.string == room.host }
       if host?["connected"]?.bool == true {
         hostGoneAt = nil
+        stepping.reset()
         return
       }
       if hostGoneAt == nil { hostGoneAt = now }
@@ -680,17 +701,32 @@ import KubbEngine
       }
       let next = try roomCall(
         "nextHost", [("members", room.membersJSON), ("host", room.host.map(JS.string) ?? .null)])
-      if next.string == room.you, lastClaim == nil || now - lastClaim! >= 5000 {
+      guard next.string == room.you else { return }
+      if observing {
+        stepBack(now, others: connected.contains { $0 != room.you })
+        return
+      }
+      if lastClaim == nil || now - lastClaim! >= 5000 {
         lastClaim = now
         room.claimHost()
       }
     } catch { lastError = String(describing: error) }
   }
 
+  /// An observer never hosts (the host runs the computer and keeps the open listing):
+  /// first in line, it leaves and joins again, last in line, and the next member claims
+  /// as before. Only when someone else is here to take over, and backing off while
+  /// nobody takes host. A race is harmless: the room server decides who is first.
+  private func stepBack(_ now: Int, others: Bool) {
+    guard others, stepping.due(now) else { return }
+    stepping.took(now)
+    if room.rejoin() { stepBacks += 1 }
+  }
+
   public func castAim(
     _ displayAim: JSONText? = nil, now: Int = Int(Date().timeIntervalSince1970 * 1000)
   ) throws {
-    guard state == .match, mayAct, !pending, now - lastAimAt >= 200 else { return }
+    guard !observing, state == .match, mayAct, !pending, now - lastAimAt >= 200 else { return }
     let aim = try displayAim ?? engine.call("aimState").asJSON
     if aim != lastAim, room.cast(JS.object([("t", .string("aim")), ("s", .raw(aim))]).json) {
       lastAim = aim
@@ -700,7 +736,7 @@ import KubbEngine
   @discardableResult public func shout(
     _ word: String, now: Int = Int(Date().timeIntervalSince1970 * 1000)
   ) -> Bool {
-    guard ["NICE!", "OOH!", "TOK!", "UNLUCKY"].contains(word),
+    guard !observing, ["NICE!", "OOH!", "TOK!", "UNLUCKY"].contains(word),
       lastShoutAt == nil || now - lastShoutAt! >= 700
     else { return false }
     if room.cast(JS.object([("t", .string("shout")), ("w", .string(word))]).json) {
