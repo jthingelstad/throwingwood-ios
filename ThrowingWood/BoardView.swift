@@ -369,6 +369,7 @@ import UIKit
           switch mode {
           case "home": model.screen == .home
           case "options": model.screen == .options
+          case "settings": model.screen == .settings
           case "aim", "nudge", "coach", "coachslow": model.screen == .match && pitch.canAim
           case "menu": model.screen == .menu
           case "verdict": pitch.result != nil

@@ -213,7 +213,7 @@ struct GameView: View {
             "Surface",
             selection: Binding(
               get: { model.surface },
-              set: { s in model.perform { try model.pitch?.surface(s) } })
+              set: { s in model.setPracticeSurface(s) })
           ) {
             ForEach(Surface.allCases, id: \.self) { s in Text(s.rawValue.capitalized).tag(s) }
           }
@@ -228,9 +228,8 @@ struct GameView: View {
             .pickerStyle(.menu).disabled(model.playing)
           }
           ReportButton(model: model)
-          LevelSetting(model: model, card: false).disabled(model.playing)
-          FeedbackSettings(feedback: model.feedback)
-          MeterSettings(meter: model.meter)
+          // the device's own (name, level, sound, haptics, meter) are in Settings
+          Button("Settings", systemImage: "gearshape", action: model.openSettings)
           if let label = model.pitch?.versionLabel {
             Section {
               Text("Throwing Wood \(label.text)")

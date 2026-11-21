@@ -11,7 +11,7 @@ The socket opens when the player starts or joins a pitch. The host initializes
 the lobby document. Presence sends the locally remembered name after room.cleanName,
 the level and the engines this build carries (`room.announce`, below). The lobby shows names, sides,
 watchers, host and connection state. A member can join either team or sit out.
-The player's own level is the device's (Settings, `ThrowLevel`): the lobby shows it as a line with a way to Settings and never asks. Team capacity, the levels and match options come from the engine. The host sets
+The player's name and own level are the device's (Settings, `PlayerName`, `ThrowLevel`): the lobby shows them as a line with a way to Settings and asks only for a name the device does not have yet; a change in Settings goes to the room at once (`profile`). Team capacity, the levels and match options come from the engine. The host sets
 options, invite-only or open access, and starts. An empty side plays as the
 computer. The options offered are the `MATCH_OPTIONS` of the engine the next match
 would run on (`PitchController.lobbyEngine`, the room's engine counting this member),

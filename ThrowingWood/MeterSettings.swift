@@ -26,46 +26,34 @@ import SwiftUI
   }
 }
 
-/// Meter and Side in a menu (practice) or on a card (the match menus). Side is
-/// always shown, as on the web: on a wide screen it moves the clock too.
+/// Meter and Side on the Settings card. Side is always shown, as on the web: on a
+/// wide screen it moves the clock too.
 struct MeterSettings: View {
   @Bindable var meter: MeterChoice
-  var card = false
   @Environment(\.screenGeometry) private var screen
   var body: some View {
-    if card {
-      // labelled as the menu's Raising is, the labels one width so the pickers line up
-      VStack(alignment: .leading, spacing: 6) {
-        MenuRow("Meter") {
-          Picker("Meter", selection: $meter.kind) {
-            Text("Clock").tag(MeterKind.clock)
-            Text("Linear").tag(MeterKind.linear)
-          }.pickerStyle(.segmented).accessibilityLabel("Meter")
-        }
-        if meter.kind == .linear && !shown(.linear) {
-          note("This screen is too short for the linear meter, so the clock is shown.")
-        }
-        // Jamie, 2026-11-19: "Left and right handed folks may want it on one side or the other"
-        MenuRow("Meter side") {
-          Picker("Meter side", selection: $meter.side) {
-            Text("Left").tag(MeterSide.left)
-            Text("Right").tag(MeterSide.right)
-          }.pickerStyle(.segmented).accessibilityLabel("Meter side")
-        }
-        // a tall screen's clock is in the middle: the side is the linear meter's there
-        if !screen.wide && !shown(.linear) {
-          note("On a screen held upright the clock stays in the middle; the side moves the linear meter.")
-        }
+    // labelled as the menu's Raising is, the labels one width so the pickers line up
+    VStack(alignment: .leading, spacing: 6) {
+      MenuRow("Meter") {
+        Picker("Meter", selection: $meter.kind) {
+          Text("Clock").tag(MeterKind.clock)
+          Text("Linear").tag(MeterKind.linear)
+        }.pickerStyle(.segmented).accessibilityLabel("Meter")
       }
-    } else {
-      Picker("Meter", selection: $meter.kind) {
-        Text("Clock").tag(MeterKind.clock)
-        Text("Linear").tag(MeterKind.linear)
-      }.pickerStyle(.menu)
-      Picker("Meter side", selection: $meter.side) {
-        Text("Left").tag(MeterSide.left)
-        Text("Right").tag(MeterSide.right)
-      }.pickerStyle(.menu)
+      if meter.kind == .linear && !shown(.linear) {
+        note("This screen is too short for the linear meter, so the clock is shown.")
+      }
+      // Jamie, 2026-11-19: "Left and right handed folks may want it on one side or the other"
+      MenuRow("Meter side") {
+        Picker("Meter side", selection: $meter.side) {
+          Text("Left").tag(MeterSide.left)
+          Text("Right").tag(MeterSide.right)
+        }.pickerStyle(.segmented).accessibilityLabel("Meter side")
+      }
+      // a tall screen's clock is in the middle: the side is the linear meter's there
+      if !screen.wide && !shown(.linear) {
+        note("On a screen held upright the clock stays in the middle; the side moves the linear meter.")
+      }
     }
   }
 
