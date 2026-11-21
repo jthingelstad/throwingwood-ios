@@ -30,6 +30,12 @@ struct HomeCard: View {
           Text("PRACTICE").frame(maxWidth: .infinity)
         }
         .buttonStyle(WoodButton())
+        Button {
+          model.openSettings()
+        } label: {
+          Text("SETTINGS").frame(maxWidth: .infinity)
+        }
+        .buttonStyle(WoodButton())
       }.frame(maxWidth: 280)
     }.padding(.top, 22).padding(.bottom, 44)
   }
@@ -40,13 +46,8 @@ struct MatchOptionsCard: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       Text("Play the computer").font(displayFont(37))
-      TextField("Your name", text: $model.name)
-        .textFieldStyle(.roundedBorder).accessibilityLabel("Your name")
-        .onChange(of: model.name) { _, value in
-          model.name = String(value.prefix(model.pitch?.options.nameLimit ?? value.count))
-        }
-      // the player's own level is the device's (Settings); this card's Computer
-      // level row is the match's `computer` option, chosen for each game
+      // the player's name and own level are the device's (Settings); this card's
+      // rows are the game's, its Computer level the match's `computer` option
       LevelLine(model: model)
       ForEach(model.pitch?.options.rows ?? []) { row in
         let label = row.id == "computer" ? "Computer level" : row.label
@@ -162,16 +163,15 @@ struct MatchMenu: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       Text("Match menu").font(displayFont(36))
-      LevelSetting(model: model)
       Text(
         model.meter.kind == .linear
           ? "Tap the pitch to aim, or drag anywhere to move the circle. Draw the knob back toward you, fling it up through the middle and let go on the blue."
           : "Tap the pitch to aim, or drag anywhere to move the circle. Wind back on the left of the dial, flick through six and lift on the right."
       )
       .font(.subheadline)
-      FeedbackSettings(feedback: model.feedback, card: true)
+      // this match's own (the menu's Raising); the device's are in Settings
       RaisingSetting(model: model)
-      MeterSettings(meter: model.meter, card: true)
+      SettingsButton(model: model).buttonStyle(WoodButton())
       ReportButton(model: model).buttonStyle(WoodButton())
       Button("SCORE SHEET", action: model.showSheet).buttonStyle(WoodButton())
       HStack {

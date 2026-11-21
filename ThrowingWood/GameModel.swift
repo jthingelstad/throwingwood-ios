@@ -73,16 +73,32 @@ import Observation
       UserDefaults.standard.set(practiceScene, forKey: "pitch.practiceScene")
       // the engine keeps a practice's scene from its start: a new practice in it, on the same surface
       perform {
-        try offline?.practice(scene: practiceScene, surface: surface)
+        try offline?.practice(scene: practiceScene, surface: practiceSurface)
         try offline?.useLevel(throwLevel)
       }
     }
   }
-  /// The practice behind the home card in the practice's scene, then shown.
+  /// The practice pitch's surface (its menu's Surface), kept on the device as the
+  /// web keeps `practiceSurface`. Practice only: a match's surface is its own option.
+  var practiceSurface =
+    Surface(rawValue: UserDefaults.standard.string(forKey: "pitch.practiceSurface") ?? "") ?? .grass
+  {
+    didSet { UserDefaults.standard.set(practiceSurface.rawValue, forKey: "pitch.practiceSurface") }
+  }
+  /// The practice menu's Surface: the pitch changes under the practice, and is kept.
+  func setPracticeSurface(_ s: Surface) {
+    perform {
+      try pitch?.surface(s)
+      practiceSurface = s
+    }
+  }
+  /// The practice behind the home card in the practice's scene and surface, then shown.
   func openPractice() {
     perform {
-      if let offline, SceneID.shown(offline.scene.look) != practiceScene {
-        try offline.practice(scene: practiceScene, surface: offline.scene.surface)
+      if let offline,
+        SceneID.shown(offline.scene.look) != practiceScene || offline.scene.surface != practiceSurface
+      {
+        try offline.practice(scene: practiceScene, surface: practiceSurface)
         try offline.useLevel(throwLevel)
       }
       screen = .practice
@@ -117,7 +133,15 @@ import Observation
     settingsReturn = screen
     screen = .settings
   }
-  var name = "You"
+  /// The player's name, the device's one value (PlayerName), set in Settings. A
+  /// change is kept and, on a pitch, told to the room (the level's way).
+  var name = "" {
+    didSet {
+      guard name != oldValue else { return }
+      PlayerName.store(name, in: .standard)
+      if let online { perform { try online.profile(name: name, level: throwLevel) } }
+    }
+  }
   /// The menu's Raising (Jamie, 2026-11-19): every kubb of this device's raised by the
   /// engine's choice for the rest of this match (AutoRaise). Not kept on the device.
   var raiseAutomatically: Bool {
@@ -155,7 +179,7 @@ import Observation
         selections[row.id] = saved
       }
     }
-    name = defaults.string(forKey: "solo.name") ?? "You"
+    name = PlayerName.load(defaults)
     throwLevel = ThrowLevel.load(
       defaults,
       choices: pitch.options.levels,
@@ -189,7 +213,7 @@ import Observation
           selections = pitch.options.defaults
           // the solo options' Scene row picked (the review tools' --scene)
           if let look = ProcessInfo.processInfo.environment["REVIEW_SCENE"] { selections["scene"] = look }
-          name = "You"
+          name = ""  // the solo pictures' "You"
           if mode == "home" { return }
           if mode == "options" {
             screen = .options
@@ -239,10 +263,9 @@ import Observation
   }
   func enter(_ link: PitchLink, create: Bool) {
     perform {
-      let defaults = UserDefaults.standard
       let pitch = try OnlinePitch(
         url: RoomsConfiguration.url, link: link, create: create,
-        name: defaults.string(forKey: "pitch.name") ?? "",
+        name: name,
         level: throwLevel, appVersion: Self.version)
       if online != nil { leaveOnline() }
       sealed = nil
@@ -324,7 +347,7 @@ import Observation
     }
     perform {
       if pitch?.need?.kind == "over" { try save.clear() }
-      try pitch?.practice(scene: practiceScene)
+      try pitch?.practice(scene: practiceScene, surface: practiceSurface)
       try pitch?.useLevel(throwLevel)
       screen = .home
     }
@@ -347,7 +370,6 @@ import Observation
       for (key, value) in selections {
         UserDefaults.standard.set(value, forKey: "solo.option." + key)
       }
-      UserDefaults.standard.set(name, forKey: "solo.name")
       screen = .match
     }
   }

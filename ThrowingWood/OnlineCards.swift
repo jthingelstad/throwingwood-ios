@@ -22,7 +22,7 @@ extension GameModel {
           screen = .invalidLink
           return
         }
-        UserDefaults.standard.set("Birch", forKey: "pitch.name")
+        name = "Birch"
         enter(link, create: mode == "host" || mode == "share")
       }
     }
@@ -90,9 +90,7 @@ struct OnlineCards: View {
 
 struct LobbyCard: View {
   let model: GameModel, online: OnlinePitch
-  @State private var draft = ""
   @State private var copied = false
-  @FocusState private var editing: Bool
   var body: some View {
     Text("Pitch lobby").font(displayFont(38))
     Text(online.link.url.absoluteString).font(.footnote.monospaced()).textSelection(.enabled)
@@ -103,11 +101,7 @@ struct LobbyCard: View {
         copied = true
       }
     }.buttonStyle(WoodButton())
-    HStack {
-      TextField("Your name", text: $draft).textFieldStyle(.roundedBorder).focused($editing)
-        .onAppear { draft = online.name }.onSubmit { profile() }
-        .onChange(of: editing) { _, focused in if !focused { profile() } }
-    }
+    // the name and level are the device's (Settings): the room hears a change at once
     LevelLine(model: model)
     ForEach(["A", "B"], id: \.self) { side in
       let players = online.members.filter { $0.side == side }
@@ -210,13 +204,9 @@ struct LobbyCard: View {
       if !m.connected { Text("Away").font(.caption) }
     }
   }
-  /// The name as typed, and the device's level (Settings), as the room knows them.
+  /// The device's name and level (Settings), as the room knows them.
   private func profile() {
-    model.perform {
-      try online.profile(name: draft, level: model.throwLevel)
-      draft = online.name
-      UserDefaults.standard.set(draft, forKey: "pitch.name")
-    }
+    model.perform { try online.profile(name: model.name, level: model.throwLevel) }
   }
 }
 
@@ -239,10 +229,9 @@ struct OnlineMenu: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       Text("Pitch menu").font(displayFont(36))
-      LevelSetting(model: model).frame(maxWidth: 300)
-      FeedbackSettings(feedback: model.feedback, card: true).frame(maxWidth: 300)
+      // this match's own (the menu's Raising); the device's are in Settings
       RaisingSetting(model: model).frame(maxWidth: 300)
-      MeterSettings(meter: model.meter, card: true).frame(maxWidth: 300)
+      SettingsButton(model: model)
       Button("SCORE SHEET", action: model.showSheet)
       ReportButton(model: model)
       Button("BACK TO MATCH") { model.screen = .match }

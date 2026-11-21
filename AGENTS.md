@@ -280,7 +280,7 @@ run in the existing macOS CI job, without an additional cross-repository checkou
 The player's own throw level (Beginner, Club, Pro) is one value on the device,
 never asked per game (Jamie, 2026-11-20: "Yes this is a device/user setting...
 not a per game setting."). `ThrowLevel` (KubbRenderer) stores it as
-`pitch.throwLevel`; Settings and the menus set it (`LevelSetting`), and the solo
+`pitch.throwLevel`; Settings sets it (`LevelSetting`), and the solo
 options card and the lobby show it as a line with a way to Settings
 (`LevelLine`), never a picker (`ThrowLevelTests` checks both screens). Practice,
 solo and online all throw at it. The engine reads a thrower's level for each
@@ -289,6 +289,22 @@ levels it started with. The computer's level is a separate, per-game choice: the
 options card's Computer level and the lobby's Computer, the match's `computer`
 option on engine 0.9 (kubb-engine docs/SESSION.md `newMatch`), kept per game in
 `solo.option.computer` (read from the older `solo.option.level` once).
+
+## Where a setting lives
+
+Each setting lives where the owner's scopes put it (his sheet, 2026-11-20). The
+device's (Your name, Your level, Sound, Haptics, Meter, Meter side) are together on
+one Settings card (`SettingsCard`), reached from home and from inside every match (the
+match and pitch menus' SETTINGS, the practice menu's Settings); no other screen makes
+their controls. The name is `PlayerName` (`pitch.name`, read once from the solo card's
+old `solo.name`); a set-up screen shows it in `LevelLine` and asks for it only on a
+device that has none. The game's are the match options and nowhere else: the solo
+options card, the practice menu (Surface, kept as `pitch.practiceSurface`, and
+Scene) and the lobby, whose options a host's next pitch opens with
+(`pitch.hostOptions`, docs/ONLINE.md). Raising part way stays in the match menu
+(Raising) and the raise panel (REST OF GAME). A turn's and a throw's settings are on the
+throw controls and the engine keeps them for their scope. `SettingsScopesTests`
+checks this; keep it passing when a setting is added.
 
 ## Scenes
 

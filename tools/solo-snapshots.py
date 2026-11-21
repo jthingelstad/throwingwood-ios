@@ -14,7 +14,7 @@ from review_turn import is_ipad, turn as turn_device
 
 ROOT = Path(__file__).resolve().parents[1]
 MODES = {
-    "home": None, "options": None, "menu": "aim", "verdict": "aim", "handoff": "aim", "aim": "aim", "plan": "aim",
+    "home": None, "options": None, "settings": None, "menu": "aim", "verdict": "aim", "handoff": "aim", "aim": "aim", "plan": "aim",
     "arc": "aim", "tilt": "aim", "stand": "aim", "flight": "aim", "raise": "raise", "raisemany": "raise-many",
     "raiseauto": "raise-many", "raiserest": "raise-many", "raisedrag": "raise",
     "raiserefused": "raise-refused", "punish": "punish", "computer": "computer",
@@ -47,7 +47,7 @@ METER_SHOTS = {
 # these shots are taken turned, named <phone>-landscape-<shot>.png. The linear
 # shots show the linear meter at its edge, the whole safe height.
 LANDSCAPE = [
-    "home", "options", "handoff", "aim", "plan", "arc", "tilt", "stand", "flight", "verdict",
+    "home", "options", "settings", "handoff", "aim", "plan", "arc", "tilt", "stand", "flight", "verdict",
     "raise", "raisemany", "raiseauto", "raiserest", "raisedrag", "raiserefused", "punish", "computer", "menu", "winner", "sheet",
     "linear-left-aim", "linear-right-aim", "linear-left-tilt", "clock-nudge", "linear-left-nudge",
     "coach", "coach-slow", "linear-left-coach",
