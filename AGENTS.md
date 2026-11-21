@@ -275,6 +275,23 @@ vectors with `node tools/room-vectors.mjs`; committed vectors and injected Swift
 run in the existing macOS CI job, without an additional cross-repository checkout.
 
 
+## Observers and the free camera
+
+Anyone may watch an open game (Jamie: "I want to allow an observer to view open
+games that people are playing... In observer mode you should be able to fly around
+and position your view wherever you want to be."). The web (docs/OBSERVER.md) is the
+reference: keep its numbers, words and rules. An observer (`?observe=1`, WATCH in
+the Open games list) is a member with no seat that never acts, never writes the
+document, never claims host and steps back when first in line (`StepBack`,
+`RoomsClient.rejoin`, the same member id). Nothing new on the wire. Every watcher
+gets the engine's wide view and the free camera (`FreeCamera.swift`), whose
+camera must stay core/camera.lua's lookAt (`FreeCameraTests`); players keep the
+thrower's view. The app has no replay viewer, so no WATCH THE LAST MATCH.
+Pictures: `python3 tools/online-snapshots.py <simulator-app> --web <web checkout>
+--modes observe observemoved watchcard noGame opengames`, upright, `--landscape`,
+`--ipad` and `--scene night`. docs/ONLINE.md "Observers and open games",
+docs/RENDER.md "The watcher's wide view".
+
 ## Your level
 
 The player's own throw level (Beginner, Club, Pro) is one value on the device,

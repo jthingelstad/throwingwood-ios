@@ -274,6 +274,41 @@ The web's docs/REEL.md "The share card" is the contract: its words are `ShareWor
   same client and engine tags as a game record. The review modes `report` and
   `feedback` show the card in each kind.
 
+## Observers and open games
+
+The web's docs/OBSERVER.md, its numbers and words. `?observe=1` on a `/p/` link
+(`PitchLink.observe`; `url` never carries it) joins as an observer: a member with
+no seat (`PitchController(observing:)`). It never acts and never writes the
+document: `prepareLobby` never runs, `reduce`, `start`, `take`, `frame`, `commit`,
+`castAim` and `shout` refuse, its control has no sides and `mayAct` is false. It
+never claims host. First in line for host with another member connected, it steps
+back: `RoomsClient.rejoin` sends `leave`, closes after 600 ms and opens again after
+900 ms with the same member id, last in line. `StepBack` paces it: at once, then 20 s
+doubling to 5 minutes, from the first again when a host is connected or a member it
+has never seen connects. Nothing new goes on the wire.
+
+- **In a match** the board watches (`PitchSession.watching`) in the wide view and
+  the free camera (docs/RENDER.md "The watcher's wide view"). No SHOUT. The hand-off
+  card names both teams with their base kubbs (`HandoffWords`, "NORTH BASE 5") and
+  says "They throw 6 batons."; WATCH, and it closes by itself after 2.5 s.
+- **Between matches** the observer's own card (`WatchCard`): PITCH code, Watching,
+  "Waiting for Maple to start the match." / "Nobody has picked a side yet.", each
+  team, who is watching with "(you)", JOIN THIS PITCH (the link without observe) and
+  HOME. The web's WATCH THE LAST MATCH is not here: the app has no replay viewer.
+- **An empty pitch**: the observer's join made the room, so it leaves at once and
+  shows No game here (`Stage.noGame`) with JOIN THIS PITCH and HOME. The words point
+  to the Play online screen, where the app lists open games, not the web's page.
+- **Open games** (`OpenGames`, `OpenGamesSection`): under START A PITCH and JOIN A
+  PITCH, the server's read-only `list` on a socket of its own (`{t:"list",id:1}`, no
+  member, 10 s deadline), each row "3 of 12 on the pitch · in play · made 4 min ago"
+  with JOIN and WATCH. A look every 30 s while the screen shows and the app is in
+  front; codes outside the server's pattern are left out. Never a name.
+
+Review modes: `observe`, `observemoved` (the view turned, lower and closer),
+`watchcard`, `noGame` and `opengames` (two open pitches listed by invented hosts).
+Pictures in docs/review/observer: the 16e upright and on its side, the iPad Pro 13
+after a move, Night, the card, No game here and the list.
+
 ## Leaving and reconnecting
 
 A dropped socket retries with the same device member ID. Background closes the
