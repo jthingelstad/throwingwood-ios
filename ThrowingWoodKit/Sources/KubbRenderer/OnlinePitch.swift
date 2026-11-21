@@ -102,6 +102,8 @@ public struct PitchMember: Identifiable, Equatable {
   /// for its aim to play out first (`AimBuffer.holdFor`).
   private var queue: [(JSONText, JSONNode, Int)] = []
   private var holding: Task<Void, Never>?
+  /// This member's own action was submitted during the current tick.
+  private var released = false
   private var displayControl: JSONText?
   private var displayedMatch: Int?
   private(set) var displayedSeq = 0
@@ -615,6 +617,7 @@ public struct PitchMember: Identifiable, Equatable {
       throw PitchError("not-acting")
     }
     writing = true
+    released = !cpu
     track(action)
     let base = displayedSeq
     displayedSeq += 1
@@ -648,15 +651,24 @@ public struct PitchMember: Identifiable, Equatable {
   }
   @discardableResult public func tick(_ dt: Double) throws -> Bool {
     let playing = board.playing
+    // this member's aim as it stands before the frame: a release in this frame sends it
+    let aim = stage == .match && board.canAim && !writing ? JSONText(try board.engine.call("aimState")) : nil
+    released = false
     let drew = try board.tick(dt)
     if playing && !board.playing {
       try drain()
       try seat()
     }
     let now = Self.now()
-    if stage == .match, board.canAim, !writing {
-      // this member's aim, at most 15 a second while it changes
-      try controller.castAim(JSONText(board.engine.call("aimState")), now: now)
+    if let aim {
+      if released {
+        // the release's aim goes at once and unthinned (`all`), before the act (the web's
+        // AimSender flush), so watchers see the swing finish
+        try controller.castAim(aim, final: true, now: now)
+      } else if !writing {
+        // this member's aim, at most 15 a second while it changes
+        try controller.castAim(aim, now: now)
+      }
     }
     return try showRemoteAim(now: now) || drew
   }

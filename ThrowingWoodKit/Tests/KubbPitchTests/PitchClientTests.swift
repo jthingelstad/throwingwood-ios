@@ -300,18 +300,26 @@ func fastTiming() -> PitchClient.Timing {
     let fake = FakePitch()
     var timing = fastTiming()
     timing.ping = .milliseconds(30)
-    timing.pong = .milliseconds(400)  // roomy: a busy test host must not drop a live socket
+    timing.pong = .seconds(2)  // roomy: a busy CI host must not drop a live socket
     let pitch = try makeClient(fake.factory, timing: timing)
     defer { pitch.close() }
     pitch.connect()
     try await pitch.ready()
     // answered: the socket stays
-    try await eventually { fake.links[0].sent("ping").count >= 2 }
+    try await patiently { fake.links.last!.sent("ping").count >= 2 }
     #expect(fake.links.count == 1)
     // not answered: gone, and the client joins again on a new socket
     let count = fake.links.count
     fake.links.last!.noPong = true
-    try await eventually { fake.links.count > count && pitch.status == .open }
+    try await patiently { fake.links.count > count && pitch.status == .open }
+  }
+  /// `eventually` with room for the pong wait on a slow host (up to 20 s).
+  func patiently(_ test: () -> Bool) async throws {
+    for _ in 0..<2000 {
+      if test() { return }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    throw PitchError("test-timeout")
   }
 
   @Test func theSameMemberSomewhereElseReplacesThisOne() async throws {
