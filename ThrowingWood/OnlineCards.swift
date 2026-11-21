@@ -206,6 +206,7 @@ struct LobbyCard: View {
   }
   /// The device's name and level (Settings), as the room knows them.
   private func profile() {
+    model.commitName()  // a name still in its field goes first
     model.perform { try online.profile(name: model.name, level: model.throwLevel) }
   }
 }

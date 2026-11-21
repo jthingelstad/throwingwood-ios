@@ -62,14 +62,15 @@ struct NameField: View {
       .onChange(of: draft) { _, value in
         let limit = model.offline?.options.nameLimit ?? value.count
         if value.count > limit { draft = String(value.prefix(limit)) }
+        model.nameDraft = String(value.prefix(limit))
       }
       .onSubmit(commit)
       .onChange(of: editing) { _, focused in if !focused { commit() } }
       .onDisappear(perform: commit)
   }
   private func commit() {
-    let typed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-    if typed != model.name { model.name = typed }
+    model.nameDraft = draft
+    model.commitName()
   }
 }
 

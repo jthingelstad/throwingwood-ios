@@ -14,16 +14,22 @@ public enum PlayerName {
   public static let fallback = "You"
 
   /// The stored name, moved once from the solo set-up's when there is none yet
-  /// (its "You" is the fallback, not a name, and is not moved). "" for none.
+  /// (its "You" is the fallback, not a name, and is not moved). "" for none. The
+  /// solo set-up's key is dropped as it is read, so a name cleared later stays cleared.
   public static func load(_ d: UserDefaults) -> String {
     if let v = d.string(forKey: key), !v.trimmingCharacters(in: .whitespaces).isEmpty { return v }
     let solo = d.string(forKey: soloKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    d.removeObject(forKey: soloKey)
     let v = solo == fallback ? "" : solo
     if !v.isEmpty { d.set(v, forKey: key) }
     return v
   }
 
-  public static func store(_ name: String, in d: UserDefaults) { d.set(name, forKey: key) }
+  /// The name as set (or cleared) on this device: nothing older is read after it.
+  public static func store(_ name: String, in d: UserDefaults) {
+    d.set(name, forKey: key)
+    d.removeObject(forKey: soloKey)
+  }
 
   /// What a set-up screen shows beside the level ("Ada"), or nil with no name.
   public static func shown(_ name: String) -> String? {

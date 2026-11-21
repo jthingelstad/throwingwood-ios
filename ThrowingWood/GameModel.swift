@@ -142,6 +142,15 @@ import Observation
       if let online { perform { try online.profile(name: name, level: throwLevel) } }
     }
   }
+  /// The name being typed in a `NameField`, before the field is let go. A start
+  /// takes it first (`commitName`), so a name typed and followed at once by START
+  /// or JOIN is the name the match gets.
+  @ObservationIgnored var nameDraft: String?
+  func commitName() {
+    guard let typed = nameDraft?.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
+    nameDraft = nil
+    if typed != name { name = typed }
+  }
   /// The menu's Raising (Jamie, 2026-11-19): every kubb of this device's raised by the
   /// engine's choice for the rest of this match (AutoRaise). Not kept on the device.
   var raiseAutomatically: Bool {
@@ -365,6 +374,7 @@ import Observation
   }
   func start() {
     share = nil
+    commitName()
     perform {
       try pitch?.startSolo(name: name, level: throwLevel, selections: selections, save: save)
       for (key, value) in selections {
