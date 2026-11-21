@@ -96,17 +96,17 @@ import Testing
     let (p, _) = try await setup()
     defer { p.close() }
     #expect(p.room.isHost && p.room.document == .null)
-    #expect(try await p.prepareLobby(scene: "neon"))
+    #expect(try await p.prepareLobby(options: ["scene": "neon"]))
     #expect(try JSONNode.parse(p.room.document)["settings"]?["scene"]?.string == "neon")
     #expect(try p.roomOptions(p.room.document)["scene"] == "neon")
     // the pitch has its lobby now: a second call changes nothing
-    #expect(try await p.prepareLobby(scene: "night") == false)
+    #expect(try await p.prepareLobby(options: ["scene": "night"]) == false)
     #expect(try p.roomOptions(p.room.document)["scene"] == "neon")
 
     // none kept: the day, as before
     let (q, _) = try await setup()
     defer { q.close() }
-    #expect(try await q.prepareLobby(scene: nil))
+    #expect(try await q.prepareLobby(options: [:]))
     #expect(try q.roomOptions(q.room.document)["scene"] == "day")
 
     // a pitch on 0.8 takes no scene: its lobby is made without one
@@ -122,9 +122,32 @@ import Testing
     r.connect()
     try await room.ready()
     #expect(!r.lobbyTakesScene())
-    #expect(try await r.prepareLobby(scene: "neon"))
+    #expect(try await r.prepareLobby(options: ["scene": "neon", "computer": "pro", "wind": "strong"]))
     let doc = try JSONNode.parse(room.document)
     #expect(doc.kind == .object && doc["settings"]?["scene"] == nil)
+    // 0.8 has no Computer either; the wind it takes
+    #expect(doc["settings"]?["computer"] == nil)
+    #expect(try r.roomOptions(room.document)["wind"] == "strong")
+  }
+
+  /// A new pitch the player hosts opens with every lobby option they last picked as a
+  /// host (the web's `pitchOptions`), and only the ones its engine takes, with values it
+  /// takes.
+  @Test func aNewPitchTheHostMakesOpensWithTheirLastOptions() async throws {
+    let (p, _) = try await setup()
+    defer { p.close() }
+    let kept = [
+      "surface": "snow", "opening": "six", "raising": "auto", "wind": "light", "set": "sweden",
+      "computer": "pro", "scene": "night", "first": "B", "wind2": "x",
+    ]
+    #expect(try p.takenOptions(kept).keys.sorted() == ["computer", "opening", "raising", "scene", "set", "surface", "wind"])
+    #expect(try p.takenOptions(["wind": "gale", "computer": "legend"]).isEmpty)
+    #expect(try await p.prepareLobby(options: kept))
+    let o = try p.roomOptions(p.room.document)
+    #expect(o["surface"] == "snow" && o["opening"] == "six" && o["raising"] == "auto")
+    #expect(o["wind"] == "light" && o["set"] == "sweden" && o["computer"] == "pro")
+    #expect(o["scene"] == "night")
+    #expect(o["first"] == nil)
   }
 
   @Test func aStartOnNineGivesTheComputerTheRoomsLevel() async throws {

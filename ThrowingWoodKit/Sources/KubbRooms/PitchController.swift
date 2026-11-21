@@ -138,20 +138,41 @@ import KubbEngine
   }
 
   /// A new pitch this member hosts (version 0, no document yet): its lobby, and in it
-  /// the scene the host last picked in a lobby (the web's `pitchOptions.scene`, set on a
-  /// new pitch in its pitch.js `onReady`) where the lobby's engine takes a scene. Never a
-  /// pitch someone else hosts or one that already has a document. False when it was not
-  /// this member's to make.
-  @discardableResult public func prepareLobby(scene: String?) async throws -> Bool {
+  /// the options the host last picked in a lobby (the web's `pitchOptions`, set on a new
+  /// pitch in its pitch.js `onReady`). Only what the lobby's engine takes goes in
+  /// (`takenOptions`): a key in its `MATCH_OPTIONS` with one of its values, and `scene`
+  /// where it takes a scene. Never a pitch someone else hosts or one that already has a
+  /// document. False when it was not this member's to make.
+  @discardableResult public func prepareLobby(options kept: [String: String]) async throws -> Bool {
     try await room.update { [self] doc in
       guard doc == .null, room.isHost else { return nil }
       let lobby = try roomCall("lobbyOf", [("doc", .raw(doc))])
-      guard let scene, lobbyTakesScene() else { return lobby.raw }
+      let taken = try takenOptions(kept)
+      guard !taken.isEmpty else { return lobby.raw }
       let set = try Self.roomCall(
         lobbyEngine(), "setOptions",
-        [("doc", .raw(lobby.raw)), ("options", .object([("scene", .string(scene))]))])
+        [
+          ("doc", .raw(lobby.raw)),
+          ("options", .object(taken.sorted { $0.key < $1.key }.map { ($0.key, JS.string($0.value)) })),
+        ])
       return set.isNull ? lobby.raw : set.raw
     } != nil
+  }
+
+  /// The kept options the lobby's engine takes: each `MATCH_OPTIONS` key with one of
+  /// its own values (Computer only from 0.9), and `scene` only where the engine takes
+  /// a scene (the client checks the id is one it offers). Anything else is dropped.
+  public func takenOptions(_ kept: [String: String]) throws -> [String: String] {
+    var taken = [String: String]()
+    for row in try optionRows().items {
+      let fields = row.items
+      guard fields.count >= 3, let key = fields[0].string, let v = kept[key],
+        fields[2].items.contains(where: { $0.items.first?.string == v })
+      else { continue }
+      taken[key] = v
+    }
+    if let scene = kept["scene"], lobbyTakesScene() { taken["scene"] = scene }
+    return taken
   }
 
   /// The room's engine (`room.engineFor`): the newest major.minor the host and every
