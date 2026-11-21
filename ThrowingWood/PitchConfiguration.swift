@@ -5,8 +5,8 @@ import KubbPitch
 ///
 /// - `server`: the pitch server, whose `/ws?pitch=<code>` is one pitch's socket and
 ///   whose `/open` is the open games list. Production is the pitch Worker's address,
-///   which is not final and not deployed yet (the owner's call, the web's
-///   docs/PITCH-SERVER.md); change it here when it is.
+///   live since 2026-11-21 (the web's docs/PITCH-SERVER.md); if it moves, change it
+///   here.
 /// - `api`: the HTTPS calls that are not live play (report, replay, reel, share).
 /// - `site`: where reels are served.
 ///

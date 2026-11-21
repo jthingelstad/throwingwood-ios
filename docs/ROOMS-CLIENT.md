@@ -196,5 +196,8 @@ first one's recording; the board checks each action's hash and drains its queue 
   Passed 2026-11-21 against the web's pitch-client branch. The HTTPS API has no local
   stand-in run from Swift yet.
 - The old cross-play script (`tools/rooms-test.mjs`) and its probe went with the rooms
-  server; `tools/room-vectors.mjs` still writes the JSON codec vectors from the web's
-  old client and must be pointed at a checkout that has it.
+  server, and the online review harness (`tools/online-snapshots.py`,
+  `online-review.mjs`) with it on 2026-11-21. `tools/room-vectors.mjs` stays: it made
+  the JSON codec vectors `VectorTests` still pins (the pitch client sizes a document
+  with `ASCIIJSON`), from the web's old client, `src/net/room.js`, which the web's main
+  no longer has; to remake them, point it at a web checkout from before the cutover.
