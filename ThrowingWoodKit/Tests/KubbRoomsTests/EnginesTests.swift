@@ -89,6 +89,44 @@ import Testing
     #expect(try JSONNode.parse(p.room.document)["settings"]?["computer"]?.string == "pro")
   }
 
+  /// A new pitch the player hosts opens in the scene they last picked as a host, as on
+  /// the web (pitch.js `onReady`, `pitchOptions.scene`); never a pitch with a document
+  /// already, and never on an engine that takes no scene.
+  @Test func aNewPitchTheHostMakesOpensInTheirLastScene() async throws {
+    let (p, _) = try await setup()
+    defer { p.close() }
+    #expect(p.room.isHost && p.room.document == .null)
+    #expect(try await p.prepareLobby(scene: "neon"))
+    #expect(try JSONNode.parse(p.room.document)["settings"]?["scene"]?.string == "neon")
+    #expect(try p.roomOptions(p.room.document)["scene"] == "neon")
+    // the pitch has its lobby now: a second call changes nothing
+    #expect(try await p.prepareLobby(scene: "night") == false)
+    #expect(try p.roomOptions(p.room.document)["scene"] == "neon")
+
+    // none kept: the day, as before
+    let (q, _) = try await setup()
+    defer { q.close() }
+    #expect(try await q.prepareLobby(scene: nil))
+    #expect(try q.roomOptions(q.room.document)["scene"] == "day")
+
+    // a pitch on 0.8 takes no scene: its lobby is made without one
+    let t = MockTransport()
+    let old = try Engine(minor: "0.8", appVersion: "0.0-test")
+    let room = try makeClient({ _ in t }, engineVersion: old.engineVersion)
+    let r = try PitchController(room: room, engine: old)
+    defer { r.close() }
+    t.onSend = { m in
+      if m["t"]?.string == "join" { t.joined() }
+      if m["t"]?.string == "set" { t.push("{\"t\":\"ok\",\"id\":\(m["id"]!.int!),\"v\":\(m["base"]!.int!+1)}") }
+    }
+    r.connect()
+    try await room.ready()
+    #expect(!r.lobbyTakesScene())
+    #expect(try await r.prepareLobby(scene: "neon"))
+    let doc = try JSONNode.parse(room.document)
+    #expect(doc.kind == .object && doc["settings"]?["scene"] == nil)
+  }
+
   @Test func aStartOnNineGivesTheComputerTheRoomsLevel() async throws {
     let (p, _) = try await setup()
     defer { p.close() }

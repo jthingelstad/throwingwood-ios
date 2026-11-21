@@ -84,7 +84,8 @@ try {
   execFileSync(
     "xcrun",
     // a device that has learned the throw: no coach line in these pictures
-    ["simctl", "launch", "--terminate-running-process", phone, app, "-pitch.throwsMade", "9"],
+    // a host scene kept from an earlier --scene run must not open the next pitch in it
+    ["simctl", "launch", "--terminate-running-process", phone, app, "-pitch.throwsMade", "9", "-pitch.hostScene", ""],
     {
       env: {
         ...process.env,

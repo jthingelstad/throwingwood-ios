@@ -26,8 +26,9 @@ the document's `settings.scene` through the same `option` call the web makes; ev
 seat sees the lobby and the match in it, and the match's start carries it. It is
 offered only while the next match's engine takes a scene, like Computer: on 0.8 or
 0.7 the row goes and the match is drawn as the day, and a scene a client set stays in
-`settings` untouched. An id this build does not draw is the day. The web keeps a
-host's last lobby scene for their next pitch; this app starts each pitch on the day.
+`settings` untouched. An id this build does not draw is the day. As on the web, the
+host's last lobby pick is kept (`pitch.hostScene`) and a new pitch they host opens in it
+(`PitchController.prepareLobby`), only where its engine takes a scene.
 An open pitch sends the web's counts-only listing on change and
 renews it every five minutes while the host is present.
 
