@@ -331,7 +331,7 @@ for _, t in ipairs { RULES, KEYS } do
 	end
 end
 for _, w in ipairs { "opts", "save", "game", "teams", "players", "name", "id", "A", "B", "setup", "start", "snap",
-	"log", "a", "teamNames", "match", "members", "me" } do VOCAB[w] = true end
+	"log", "a", "teamNames", "match", "members", "me", "computers" } do VOCAB[w] = true end
 
 local function lineOk(kind, v, ctx)
 	if kind == "mode" then return MODES[v] == true end
@@ -488,10 +488,7 @@ local function checkSnapshot(rep, d, from)
 	end
 	-- the mode the sheet writes: the options' own, or the engine's for who plays
 	local want = opts.mode
-	if want == nil then
-		local n = #list(opts.cpu)
-		want = (n == 2) and "Computer vs Computer" or ((n == 1) and "Vs Computer" or "Pass and Play")
-	end
+	if want == nil then want = session.modeOf(opts) end
 	if d.save.mode ~= want then mismatch(rep, prefix .. "save.mode", prefix .. "opts.mode", d.save.mode, want) end
 	return pids
 end
@@ -586,6 +583,18 @@ function nc.document(doc, members)
 		for _, s in ipairs { "A", "B" } do
 			if tn[s] ~= nil and not rawequal(tn[s], NULL) then
 				name(rep, "teamNames." .. s, tn[s], "team", #list(teams[s]) == 1)
+			end
+		end
+	end
+	-- the computer seats' names (0.17.0, pitch/lobby): player names, in team order
+	local comps = doc.computers
+	if type(comps) == "table" and not rawequal(comps, NULL) then
+		for _, s in ipairs { "A", "B" } do
+			for _, id in ipairs(list(teams[s])) do
+				local r = type(id) == "string" and comps[id] or nil
+				if type(r) == "table" and r.name ~= nil and not rawequal(r.name, NULL) then
+					name(rep, "computers." .. id .. ".name", r.name, "player", false)
+				end
 			end
 		end
 	end

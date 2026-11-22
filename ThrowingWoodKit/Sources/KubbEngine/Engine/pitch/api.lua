@@ -37,7 +37,7 @@ function R.constants()
 		SIDES = { "A", "B" }, NAME_MAX = lobby.NAME_MAX, OPTION_DEFAULTS = defaults,
 		MATCH_OPTIONS = options, LEVELS = { table.unpack(lobby.LEVELS) }, LOG_BUDGET = lobby.LOG_BUDGET,
 		REPLAY_VERSION = lobby.REPLAY_VERSION, CLIENT = sync.CLIENT, WITH_BYTES = sync.WITH_BYTES,
-		ENGINE = lobby.ENGINE,
+		ENGINE = lobby.ENGINE, SEAT_LEVELS = { table.unpack(lobby.SEAT_LEVELS) },
 	}
 end
 
@@ -55,6 +55,12 @@ function R.setAccess(a) return lobby.setAccess(a.doc, a.open) end
 function R.openListing(a) return lobby.openListing(a.doc, a.members, a.over) end
 function R.pruneTeams(a) return lobby.pruneTeams(a.doc, a.present) end
 function R.lineup(a) return lobby.lineup(a.doc, a.members) end
+-- computer seats (since 0.17)
+function R.addComputer(a) return lobby.addComputer(a.doc, a.side, a.level, a.seed, a.name) end
+function R.setComputerLevel(a) return lobby.setComputerLevel(a.doc, a.id, a.level) end
+function R.moveComputer(a) return lobby.moveComputer(a.doc, a.id, a.side, a.index) end
+function R.removeComputer(a) return lobby.removeComputer(a.doc, a.id) end
+function R.isSeat(a) return lobby.isSeat(a.id) end
 function R.matchOptions(a) return lobby.matchOptions(a.doc, a.lineup, a.seed, a.start) end
 function R.startCheck(a) return lobby.startCheck(a.players, a.members, a.host, js.truthy(a.lenient)) end
 function R.startMatch(a)

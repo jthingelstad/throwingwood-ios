@@ -4,7 +4,9 @@
 -- swinging on the dial at chosen distances, so the corpus covers a player's baton
 -- planned under flight.tune.nearM, which the computer never throws. The fourteenth and
 -- fifteenth (since 0.12.0) cover raising by side: a person raised automatically against
--- the pro computer, and the beginner computer both sides (the twelve are at club). Pure Lua: tests/golden/golden.mjs runs it under wasmoon (the reference)
+-- the pro computer, and the beginner computer both sides (the twelve are at club). The
+-- twentieth and twenty-first (since 0.17.0) have computer players in teams: a person with
+-- a computer partner, and a team of computers at mixed levels. Pure Lua: tests/golden/golden.mjs runs it under wasmoon (the reference)
 -- and tests/golden/native.lua under desktop Lua.
 --
 -- golden.matches(): the matches, seeded across surfaces, wind and the first team.
@@ -111,6 +113,34 @@ function golden.matches()
 		opts = {
 			mode = "match", cpu = "both", computer = "kid", seed = 1020, surface = "sand",
 			wind = "light", first = "B", start = START, maxTurns = 20,
+		},
+	}
+	-- Since 0.17.0, computer players in teams (docs/SESSION.md "Computer players"): a
+	-- person (throwing as m13's does) with a pro computer partner against a team of two
+	-- computers at club and beginner, the kubbs raised by hand ...
+	out[20] = {
+		name = "m20-grass-off-A-near-partner",
+		opts = {
+			mode = "match", seed = 1021, surface = "grass", wind = "off", first = "A", start = START,
+			maxTurns = 10, raising = "hand",
+			teams = {
+				A = { name = "Birch Batons", players = { { name = "Mighty Maple" }, { cpu = true, level = "pro" } } },
+				B = { players = { { cpu = true, level = "club" }, { cpu = true, level = "beginner" } } },
+			},
+		},
+		near = { 0.35, 0.75, 1.25, 1.9, 2.0 },
+	}
+	-- ... and a team of computers at mixed levels, two club and one pro, against three at
+	-- club, in light wind on sand.
+	out[21] = {
+		name = "m21-sand-light-B-mixed-levels",
+		opts = {
+			mode = "match", seed = 1022, surface = "sand", wind = "light", first = "B", start = START,
+			maxTurns = 8,
+			teams = {
+				A = { players = { { cpu = true, level = "club" }, { cpu = true, level = "club" }, { cpu = true, level = "pro" } } },
+				B = { players = { { cpu = true, level = "club" }, { cpu = true, level = "club" }, { cpu = true, level = "club" } } },
+			},
 		},
 	}
 	return out

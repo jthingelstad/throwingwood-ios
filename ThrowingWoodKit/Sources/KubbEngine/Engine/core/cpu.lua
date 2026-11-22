@@ -48,15 +48,14 @@ cpu.tune = {
 		weigh = 1,       -- 1: count the kubbs behind the front one as raise.par weighs a pair
 		                 -- (read.lineLane's w); 0: the lane's count less one
 	},
-	-- field.drive (0.16, built switched off): at a group of field kubbs close enough, the
-	-- low hard throw a person's default arc makes (plan.arcFor, the drive) instead of the
-	-- line it threw before (plan.sharedArcFor). A group: another standing field kubb within
-	-- `near` m of the front kubb, centre to centre; close enough: the front kubb within
-	-- `maxM` m of the stance. Club and pro would know it; beginner and kid do not
+	-- field.drive (built switched off in 0.16.0, on at club and pro in 0.18.0): every baton
+	-- on a person's default line (plan.arcFor: the drive close in, as before at 8 m)
+	-- instead of the line before (plan.sharedArcFor). Built first for a close group only
+	-- (another standing field kubb within 45 cm, the front one within 5 m); the line for
+	-- every baton beat that side against side, 56.0% at club and 55.0% at pro
+	-- (docs/reference/plays/field.md field.drive). Beginner and kid do not know it
 	drive = {
-		on = 0, beginner = 0, club = 1, pro = 1,
-		near = 0.45,
-		maxM = 5,
+		on = 1, beginner = 0, club = 1, pro = 1,
 	},
 	-- inkast.depth: lay the kubbs one behind another down the baton's path (core/cpu depthSpot).
 	-- Pro only: it made club stronger and moved club away from real play (longer games,
@@ -467,28 +466,20 @@ local function decideBaton(s, t, lname)
 	local dx, dy = tx - st.x, ty - st.y
 	local dist = math.sqrt(dx * dx + dy * dy)
 	local arc = plan.sharedArcFor(dist)
-	-- field.drive, at a level that knows it: the person's default line (the drive close
-	-- in) at a close group
-	local drive = nil
-	if target.role == "field" and not king and knows("drive", lname) and dist <= cpu.tune.drive.maxM then
-		local near2, n = cpu.tune.drive.near ^ 2, 0
-		for _, id in ipairs(s.targets) do
-			local g = pos[id]
-			if g and g ~= target and g.role == "field" and (g.x - target.x) ^ 2 + (g.y - target.y) ^ 2 <= near2 then
-				n = n + 1
-			end
-		end
-		if n > 0 then
-			-- (named in why.facts only: why.play and core/plays take it when it is switched on)
-			arc, drive = plan.arcFor("baton", dist), n + 1
-		end
+	-- field.drive, at a level that knows it: a person's default line. It names itself at a
+	-- field kubb when the arc is a drive (under the knee), unless field.line moved the stance
+	local drive = false
+	if knows("drive", lname) and not king then
+		arc = plan.arcFor("baton", dist)
+		drive = target.role == "field" and not king and arc < plan.tune.driveKneeDeg
+		if drive and play ~= "field.line" then play = "field.drive" end
 	end
 	local intent = { on = target.id, tx = tx, ty = ty, aimZ = aimZ, standY = py, stance = st, arc = arc }
 	local facts = { on = target.id, target = king and "king" or target.role, targets = #s.targets, lane = lane }
 	if lfacts then
 		facts.over, facts.stanceX, facts.range, facts.score = lfacts.over, lx, lfacts.range, lscore
 	end
-	if drive then facts.group, facts.drive = drive, true end
+	if drive then facts.drive = true end
 	return { kind = "baton", intent = intent, why = { play = play, facts = facts } }
 end
 

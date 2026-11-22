@@ -95,6 +95,14 @@ world.tune = {
 	                       -- ball on concrete is 0.60 (The Physics Factbook, 2005) and a block gives
 	                       -- up more. 0.2 from 2026-11-15 to 2026-11-16, to hide a bounce solved
 	                       -- without the kubb's footing (docs/notes/physics.md, "The pair bounce with its footing")
+	pairRoll = 0.002,      -- m: rolling resistance lever for a baton resting on another piece (wood
+	                       -- on wood; guess, a fifth of short grass's surf.roll). Without it a
+	                       -- baton lying in the groove of two lying batons rolled there with
+	                       -- nothing to stop it, rocked at the sleep threshold and held the
+	                       -- throw open to maxTime (the Gym gate's unsettled throw, 2026-11-22;
+	                       -- docs/notes/physics.md, "A baton rocking in a groove")
+	pairRollAfter = 4,     -- s: ... from this long after the throw only, so that every throw that
+	                       -- settles sooner keeps its hashes; the whole term waits for a minor
 	warm = 0.9,            -- fraction of last step's ground impulses applied up front
 	gyro = true,           -- gyroscopic term (torque-free precession; implicit, stable)
 	flightTurns = 4,       -- a drilled kubb's turn in flight (the air's turn, the gyroscopic term
@@ -1859,7 +1867,7 @@ function world.step(w)
 			a.gStamp[k], a.gN[k], a.gT1[k], a.gT2[k] = stamp, ln, l1, l2
 			a.groundImpulse = a.groundImpulse + ln
 			if w.onContact and a == proj and r[K_LNMAX] > 0 then
-				w.onContact(w.time, a, nil, r[K_LNMAX])
+				w.onContact(w.time, a, nil, r[K_LNMAX], ln)
 			end
 			-- any piece striking the ground (faster than restitutionSpeed): a
 			-- renderer's impacts (session/throw); nil costs one test
@@ -1891,8 +1899,21 @@ function world.step(w)
 			local a = r[K_A]
 			if kind == 3 then
 				a.restStep = stamp
+				if a.shape == 2 then
+					-- (the push of the pieces it rests on: pairRoll, below)
+					if a.rrStamp ~= stamp then a.rrStamp, a.rrImp = stamp, 0 end
+					a.rrImp = a.rrImp + r[K_LN]
+				end
 			else
 				local b = r[K_B]
+				if a.shape == 2 then
+					if a.rrStamp ~= stamp then a.rrStamp, a.rrImp = stamp, 0 end
+					a.rrImp = a.rrImp + r[K_LN]
+				end
+				if b.shape == 2 then
+					if b.rrStamp ~= stamp then b.rrStamp, b.rrImp = stamp, 0 end
+					b.rrImp = b.rrImp + r[K_LN]
+				end
 				a.propStep, a.propBy = stamp, b
 				b.propStep, b.propBy = stamp, a
 				local ta, tb = a.sleepTime, b.sleepTime
@@ -1903,7 +1924,9 @@ function world.step(w)
 			end
 			local other = cB[idx]
 			local first = cA[idx]
-			if w.onContact then w.onContact(w.time, first, other, r[K_LNMAX]) end
+			-- (the listener gets the largest accumulated normal impulse of the step's passes
+			-- and the net one the step left, which is what passed: Codex on #49)
+			if w.onContact then w.onContact(w.time, first, other, r[K_LNMAX], r[K_LN]) end
 			first.touched, other.touched = true, true
 			-- the first moment each body is struck (render/burst: the burst and
 			-- knock come at the impact); one test a contact, no arithmetic
@@ -2083,6 +2106,9 @@ function world.step(w)
 					end
 				end
 			end
+			-- a baton resting on other pieces: their rolling resistance (pairRoll),
+			-- late in a throw only (pairRollAfter)
+			if b.rrStamp == stamp and w.time > t.pairRollAfter then rollResist(b, t.pairRoll, b.rrImp) end
 			if b.dig > 0 then
 				b.dig = b.dig * exp(-dt / surf.digTime)
 				if b.dig < 1e-5 then b.dig = 0 end

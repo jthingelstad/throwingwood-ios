@@ -585,6 +585,8 @@ local ROUND = collide.tune
 -- a stretch's end this close to the closest point (as a share of the
 -- segment) adds no contact of its own
 local CLIP_GAP <const> = 0.04
+-- the closest point is kept between both ends only when this much deeper than either (m)
+local CLIP_TOL_IN <const> = 0.0002
 
 -- Sphere (center c, radius r) belonging to capsule A against box B
 -- (pointBox written out), B's edges rounded by ROUND.batonRound (not for a
@@ -716,6 +718,7 @@ function collide.capsuleBox(A, B, margin)
 	if not sphereBox(A, B, x1 + 2 * ax * t, y1 + 2 * ay * t, z1 + 2 * az * t, r, margin) then
 		return false
 	end
+	local mid = C.n
 	-- the stretch [lo, hi] of the segment within the feature's extent
 	local lo, hi = 0, 1
 	if SNX == 0 then
@@ -746,11 +749,33 @@ function collide.capsuleBox(A, B, margin)
 		end
 	end
 	-- each end of the stretch that is not the closest point already
-	if lo < t - CLIP_GAP then
-		sphereBox(A, B, x1 + 2 * ax * lo, y1 + 2 * ay * lo, z1 + 2 * az * lo, r, margin)
+	local ends = 0
+	if lo < t - CLIP_GAP and sphereBox(A, B, x1 + 2 * ax * lo, y1 + 2 * ay * lo, z1 + 2 * az * lo, r, margin) then
+		ends = ends + 1
 	end
-	if hi > t + CLIP_GAP then
-		sphereBox(A, B, x1 + 2 * ax * hi, y1 + 2 * ay * hi, z1 + 2 * az * hi, r, margin)
+	if hi > t + CLIP_GAP and sphereBox(A, B, x1 + 2 * ax * hi, y1 + 2 * ay * hi, z1 + 2 * az * hi, r, margin) then
+		ends = ends + 1
+	end
+	-- (0.18) both ends met: the stretch is a line contact, and its two ends carry it.
+	-- The closest point between them adds nothing a rigid line contact needs (it is
+	-- a mix of the two ends) but the sequential solver met it first and held the blow
+	-- there: a baton upright against a kubb's back face pushed it at 7.5 cm up
+	-- (the closest point to the box's centre) and 14, its blow 10.9 cm up the face
+	-- where the line from 4.5 to 14 cm puts it at 11.7 as MuJoCo does, and the kubb
+	-- left with a tenth less speed and turn (docs/notes/physics.md "The baton's blow").
+	-- Kept when it is deeper than both ends by more than CLIP_TOL_IN (a stretch over a
+	-- rounded edge, not flat), so nothing sinks where the ends stand clear.
+	if ends == 2 then
+		local j = C.n
+		local s1, s2, sm = cSep[j - 1], cSep[j], cSep[mid]
+		if s2 < s1 then s1 = s2 end
+		if sm >= s1 - CLIP_TOL_IN then
+			cA[mid], cB[mid], cSlot[mid] = cA[j], cB[j], cSlot[j]
+			cPx[mid], cPy[mid], cPz[mid] = cPx[j], cPy[j], cPz[j]
+			cNx[mid], cNy[mid], cNz[mid] = cNx[j], cNy[j], cNz[j]
+			cSep[mid] = cSep[j]
+			C.n = j - 1
+		end
 	end
 	return true
 end

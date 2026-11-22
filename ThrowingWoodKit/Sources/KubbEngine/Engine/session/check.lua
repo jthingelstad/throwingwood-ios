@@ -534,7 +534,7 @@ function check.throw(s, a)
 	if type(a) ~= "table" or a.type ~= "throw" then return fail("not a throw") end
 	if s.kind ~= "match" or s.phase ~= "throw" or not s.setup then return fail("no throw set up") end
 	if a.seq == nil or math.tointeger(a.seq) ~= s.throws then return fail("throw out of step") end
-	if session.isCpu(s, s.setup.side) then
+	if session.cpuThrow(s, s.setup) then
 		local want = check.cpuAction(s)
 		if check.same(a, want) then return { ok = true, computer = true } end
 		return { ok = false, computer = true, why = "not the computer's throw: " .. tostring(firstDiff(a, want)) }

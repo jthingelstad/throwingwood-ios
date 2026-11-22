@@ -42,6 +42,13 @@ autothrow.tune = {
 	                         -- 0.10: beginner 0, club 1, pro 2). One tap is the least that holds
 	                         -- the nose to the touch; the levels differ by their swings' mistakes
 	swingScale = { kid = 1.5, beginner = 2.2, club = 1.3, pro = 1 },
+	-- the king shot (0.18.0): one throw from the baseline that ends the game, or loses it
+	-- when it fells a kubb with it (II.B), under the most pressure of any. Its swing's
+	-- mistakes and its nerves are the level's times kingScale, set in the Gym so each
+	-- level's king shots sit in its row (docs/reference/play-levels.json g.kingHit;
+	-- docs/notes/gym.md "The king shot"). The computer throws it on the line before
+	-- (plan.sharedArcFor), whatever field.drive says
+	kingScale = { kid = 1, beginner = 1.4, club = 1.6, pro = 1.3 },
 	batonShort = 0,          -- m the baton's target is short of the kubb's center: none, the
 	                         -- center, where a player's target snaps (measured 2026-11-15 with
 	                         -- the plan's arcs: a clean baton landing up to 0.2 m past the
@@ -222,6 +229,21 @@ for name, lv in pairs(plan.levels) do
 		nervesLen = lv.nervesLen, tumbleTurns = lv.tumbleTurns, tumbleSd = lv.tumbleSd,
 		drillScatter = lv.drillScatter }
 end
+-- A level table with its nerves times k (the king shot). One table per level and k is
+-- reused, and filled from the level on every call: the Gym serves each team's own nerves
+-- through the same level table (tools/gym/versus.lua), so a copy made once would keep
+-- whichever team threw at the king first.
+local kingLevels = {}
+local function kingLevel(lv, k)
+	local byK = kingLevels[lv]
+	if not byK then byK = {}; kingLevels[lv] = byK end
+	local o = byK[k]
+	if not o then o = {}; byK[k] = o end
+	for key, v in pairs(lv) do o[key] = v end
+	o.nervesDeg, o.nervesLen = lv.nervesDeg * k, lv.nervesLen * k
+	return o
+end
+
 -- The computer's level table for a level name (tune.level when unknown).
 function autothrow.cpuLevel(name)
 	return cpuLevels[name] or cpuLevels[autothrow.tune.level] or cpuLevels.club
@@ -261,10 +283,17 @@ function autothrow.choose(s, r, scale, level)
 		local ik = t.inkast[lname]
 		if ik then scale = scale0 * ik.hand else scale = scale * t.drillScale end
 	end
+	-- the king shot: the level's mistakes and nerves times kingScale
+	local launchLevel = nil
+	local ks = (q.projectile == "baton" and it.on == "king") and (t.kingScale[lname] or 1) or 1
+	if ks ~= 1 then
+		scale = scale * ks
+		launchLevel = kingLevel(sol.level, ks)
+	end
 	local sw = autothrow.swing(sol, r, scale, {})
 	-- the nerves are the player's (tw.plan.launch), drawn from this stream;
 	-- scale 0 is the clean throw, no nerves either
-	local L = plan.launch(sol, sw, { projectile = q.projectile, tilt = 0, spin = q.spin,
+	local L = plan.launch(sol, sw, { projectile = q.projectile, tilt = 0, spin = q.spin, level = launchLevel,
 		nerves = scale > 0 and r or nil }, {})
 	local a = { x = st.x, y = st.y, swivel = L.swivel, loftDeg = L.loft, speed = L.speed,
 		tumbleRate = L.tumble, tilt = L.tilt, legal = L.legal, plan = sol, swing = sw, launch = L, on = it.on }

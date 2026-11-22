@@ -248,8 +248,13 @@ local function settled(setup)
 	for i, e in ipairs(setup.settled.list) do
 		local n = {}
 		for k, v in pairs(e) do n[k] = v end
-		for _, f in ipairs { "lying", "standing", "pose" } do
+		for _, f in ipairs { "lying", "standing", "pose", "king" } do
 			if e[f] then n[f] = frame.pose(e.side, e[f]) end
+		end
+		-- (0.17.0) the surroundings too
+		if e.others then
+			n.others = {}
+			for j, x in ipairs(e.others) do n.others[j] = { id = x.id, pose = frame.pose(e.side, x.pose) } end
 		end
 		n.frame = "world"
 		st.list[i] = n

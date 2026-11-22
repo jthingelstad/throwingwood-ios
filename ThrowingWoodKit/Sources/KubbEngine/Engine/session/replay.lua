@@ -124,7 +124,7 @@ end
 function Replay:checkAction(a, at)
 	local s = self.s
 	if a.type ~= "throw" or s.kind ~= "match" or s.phase ~= "throw" or not s.setup then return end
-	if session.isCpu(s, s.setup.side) then
+	if session.cpuThrow(s, s.setup) then
 		if not self.checkCpu then return end
 		self.cpuChecked = self.cpuChecked + 1
 		local ok, want = pcall(check.cpuAction, s)
@@ -240,19 +240,44 @@ function startDoc(r, o)
 	for _, side in ipairs { "A", "B" } do
 		if side ~= cpu then
 			for i, p in ipairs(opts.teams[side].players) do
-				local id = (ids[side] and ids[side][i]) or p.key or (side .. i)
-				if type(id) ~= "string" then return nil, "a member id is a string" end
-				members[#members + 1] = { id = id, me = { name = p.name, level = p.level, engine = tw.engine.version } }
-				players[side][i] = { id = id, name = p.name }
-				doc = lobby.joinTeam(doc, id, side)
-				if not doc then return nil, "member " .. id .. " cannot join side " .. side end
+				if p.cpu then
+					-- a computer player in a team (0.17.0): a computer seat, by the host's
+					-- addComputer. The seat keeps the level the host gave it (the setup's entry),
+					-- the level it throws at is the match's: in a Kid match every computer is the
+					-- Kid computer (opts says "kid"), never a seat's level. A setup that no
+					-- longer has it (a start's own options, already the Kid level) sits at club
+					local given = type(setup.teams) == "table" and type(setup.teams[side]) == "table"
+						and type(setup.teams[side].players) == "table" and setup.teams[side].players[i] or nil
+					local level = "club"
+					for _, lv in ipairs(lobby.SEAT_LEVELS) do
+						if lv == p.level or (type(given) == "table" and lv == given.level) then level = lv end
+					end
+					local d2 = lobby.addComputer(doc, side, level, i, p.name)
+					if not d2 then return nil, "a computer player cannot sit on side " .. side end
+					doc = d2
+					local seat = doc.teams[side][#doc.teams[side]]
+					players[side][i] = { id = seat, name = p.name, cpu = true, level = level }
+				else
+					local id = (ids[side] and ids[side][i]) or p.key or (side .. i)
+					if type(id) ~= "string" then return nil, "a member id is a string" end
+					members[#members + 1] = { id = id, me = { name = p.name, level = p.level, engine = tw.engine.version } }
+					players[side][i] = { id = id, name = p.name }
+					doc = lobby.joinTeam(doc, id, side)
+					if not doc then return nil, "member " .. id .. " cannot join side " .. side end
+				end
 			end
 		end
 	end
 	local options = {}
 	for k in pairs(lobby.OPTION_DEFAULTS) do options[k] = opts[k] end
 	doc = lobby.setOptions(doc, options) or doc
-	local host = o.host or (players.A[1] or players.B[1]).id
+	local host = o.host
+	if not host then
+		for _, side in ipairs { "A", "B" } do
+			for _, p in ipairs(players[side]) do if not host and not p.cpu then host = p.id end end
+		end
+	end
+	if not host then return nil, "a match with no person has no room" end
 	doc = lobby.startMatch(doc, { snap = r.firstSnap, hash = r.firstHash, players = players, cpu = cpu or NULL,
 		host = host, setup = setup, members = members })
 	if not doc then return nil, "START refused" end

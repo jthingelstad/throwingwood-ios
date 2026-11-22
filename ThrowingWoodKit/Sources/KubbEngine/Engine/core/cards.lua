@@ -91,6 +91,11 @@ end
 --                     passed to them)
 --   order             this turn's batons by player: { { name, n }, ... }
 --   inkaster          the name of the player who throws the kubbs in
+-- and for a computer player in a team (0.17.0, core/match isSeat), the words a
+-- client needs to say so ("Bold Birch · computer · Pro"):
+--   throwerCpu, throwerLevel   the first thrower is a computer, at that level
+--   order[i].cpu, .level       that player is a computer, at that level
+--   inkasterCpu                the kubbs are a computer's
 function cards.handoff(m, setup)
 	local g = m.game
 	local to = setup.side
@@ -130,10 +135,12 @@ function cards.handoff(m, setup)
 	c.pieces = pieces
 	if #g.teams[to].players > 1 and setup.thrower then
 		c.thrower = setup.thrower.name
+		if setup.thrower.cpu then c.throwerCpu, c.throwerLevel = true, setup.thrower.level end
 		local list, ink = cmatch.turnOrder(m)
 		c.order = {}
-		for i, e in ipairs(list) do c.order[i] = { name = e.name, n = e.n } end
+		for i, e in ipairs(list) do c.order[i] = { name = e.name, n = e.n, cpu = e.cpu, level = e.level } end
 		c.inkaster = ink and ink.name
+		if ink and cmatch.isSeat(m, to, ink.id) then c.inkasterCpu = true end
 	end
 	return c
 end

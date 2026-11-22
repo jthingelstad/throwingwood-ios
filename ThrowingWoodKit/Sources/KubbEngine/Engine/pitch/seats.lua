@@ -2,8 +2,9 @@
 -- Lua. Pure.
 --
 -- ctx = {
---   players:   { A: [{ id, name }], B: [...] }   the match's players (doc.match.players)
---   cpu:       "A" | "B" | null                  the computer's side
+--   players:   { A: [{ id, name, cpu? }], B: [...] }   the match's players (doc.match.players);
+--                                                cpu: true for a computer player (0.17)
+--   cpu:       "A" | "B" | null                  the side the computer plays whole
 --   host:      memberId                          the pitch's host now
 --   connected: [memberId, ...]                   the members connected now (a Set in JS)
 -- }
@@ -13,7 +14,10 @@
 --   takes it (it is still that player's throw on the sheet); failing that, the host.
 -- - A raise or a punishment kubb is for any connected member of the defending team
 --   (need.side), else the host. The pitch's compare-and-set settles two at once.
--- - The computer's throws are the host's client's (cpu: true), and only its.
+-- - The computer's throws are the host's client's (cpu: true), and only its: a side the
+--   computer plays whole, and since 0.17 a computer player in a team (need.cpu). A team's
+--   computer players are not members: never a throw's stand-in, never a raise's actor, so
+--   a person never acts for a computer partner, nor the computer for a person.
 import "core/tw"
 import "session/json"
 import "pitch/js"
@@ -28,11 +32,18 @@ local function isConnected(ctx, id)
 	return truthy(id) and includes(get(ctx, "connected"), id)
 end
 
+-- The side's members in throwing order: its people (a computer player, 0.17, is not a
+-- member).
 function seats.teamIds(ctx, side)
 	local list = get(get(ctx, "players"), side)
 	if not truthy(list) then list = {} end
-	local out = {}
-	for i, p in ipairs(list) do out[i] = get(p, "id") end
+	local out, k = {}, 0
+	for _, p in ipairs(list) do
+		if get(p, "cpu") ~= true then
+			k = k + 1
+			out[k] = get(p, "id")
+		end
+	end
 	return out
 end
 
