@@ -39,6 +39,15 @@ struct SliderPlate<Body: View>: View {
     .background(
       RoundedRectangle(cornerRadius: TW.controlRadius).fill(Color.woodDrop)
         .offset(x: TW.controlShadow, y: TW.controlShadow))
+    // The band alone is 25 pt tall, and under it is the slider. The close target reaches
+    // up over the plate's top to 44 pt, away from the slider, wherever the plate sits.
+    .overlay(alignment: .top) {
+      if let close {
+        let extra = max(0, Tray.closeTarget - (Tray.band + TW.line))
+        Color.clear.frame(height: extra).contentShape(Rectangle()).onTapGesture(perform: close)
+          .offset(y: -extra).accessibilityHidden(true)
+      }
+    }
   }
   @ViewBuilder private var band: some View {
     let words = Text(title).font(displayFont(17, relativeTo: .headline)).lineLimit(1).minimumScaleFactor(0.4)
@@ -56,6 +65,8 @@ struct SliderPlate<Body: View>: View {
 extension Tray {
   /// The wood band's height under the plate's top line.
   static let band: CGFloat = 22
+  /// The least height of an open plate's close target: its band and the strip over it.
+  static let closeTarget: CGFloat = 44
   /// The body's height under the band in a plate `height` tall.
   static func body(_ height: CGFloat) -> CGFloat { max(0, height - band - 2 * TW.line) }
 }

@@ -151,7 +151,8 @@ public enum VerdictWords {
     }
   }
   /// What VoiceOver says, once, the web's verdictSpeech: each off word a sentence,
-  /// then the flag, then the on-target words ("Short. Miss. Arc on, steady, straight.").
+  /// then the flag, then the on-target words ("Short. Miss. Arc on, steady, straight."),
+  /// then where it came to rest when the engine says ("50 cm away.").
   public static func spoken(flag: String?, words: [ThrowResult.Verdict], rest: String? = nil) -> String {
     func sentence(_ s: String) -> String {
       var l = s.lowercased()
@@ -162,6 +163,8 @@ public enum VerdictWords {
     if let flag, !flag.isEmpty { parts.append(sentence(flag) + ".") }
     let on = words.filter { !$0.offTarget }.map { $0.text.lowercased() }
     if !on.isEmpty { parts.append(sentence(on.joined(separator: ", ")) + ".") }
+    // where it came to rest ("50 CM AWAY"): shown under the verdict, so spoken too
+    if let rest, !rest.isEmpty { parts.append(sentence(rest) + ".") }
     return parts.joined(separator: " ")
   }
 }
