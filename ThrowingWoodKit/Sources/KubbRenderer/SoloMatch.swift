@@ -64,11 +64,34 @@ public struct SoloOptions {
     Self.cardOrder.compactMap { id in rows.first { $0.id == id } }
   }
   /// The selections a solo match starts with from the card: the set is the scene's
-  /// (no row picks it), whatever was kept for it before.
+  /// (no row picks it), whatever was kept for it before. `PitchSession.startSolo`
+  /// applies it, and `keep` writes it.
   public func starting(_ selections: [String: String]) -> [String: String] {
     var s = selections
     if rows.contains(where: { $0.id == "set" }) { s["set"] = SceneID.kubbs(of: s["scene"]) }
     return s
+  }
+
+  /// The card's selections kept on the device (`solo.option.<id>`): the defaults, then
+  /// each kept value this engine still offers (the computer's level was kept as
+  /// `solo.option.level` before it was the engine's `computer` option, 0.9).
+  public func load(_ defaults: UserDefaults) -> [String: String] {
+    var selections = self.defaults
+    for row in rows {
+      let keys = row.id == "computer" ? ["solo.option.computer", "solo.option.level"] : ["solo.option." + row.id]
+      if let saved = keys.lazy.compactMap({ defaults.string(forKey: $0) }).first,
+        row.choices.contains(where: { $0.first == saved })
+      {
+        selections[row.id] = saved
+      }
+    }
+    return selections
+  }
+
+  /// A started match's selections kept for the next card, as it started (the scene's
+  /// set, so an older kept set does not linger unseen).
+  public func keep(_ selections: [String: String], in defaults: UserDefaults) {
+    for (key, value) in starting(selections) { defaults.set(value, forKey: "solo.option." + key) }
   }
 }
 

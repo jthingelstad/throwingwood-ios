@@ -28,7 +28,9 @@ extension PitchSession {
   /// match's `computer` option (on an engine before 0.9 it would go on the computer's
   /// player entry). The person's entry names no level: from engine 0.13 every person
   /// throws on one meter (kubb-engine docs/notes/throw.md "The person's meter").
-  public func startSolo(name: String, selections: [String: String], save: MatchSave?) throws {
+  public func startSolo(name: String, selections chosen: [String: String], save: MatchSave?) throws {
+    // the set is the scene's (the card has no Kubbs row): never one kept from before
+    let selections = options.starting(chosen)
     // the device's name, a generated one (PlayerName); anything else is never a name
     let player = names.valid(.player, name).ok ? name : ((try? names.roll(.player))?.text ?? Names.playerDefault(1))
     let computer = selections["computer"] ?? options.defaults["computer"]!

@@ -91,6 +91,30 @@ import Testing
     #expect(snapshot["opts"]?["set"]?.string == "classic")
   }
 
+  /// An installation that kept a non-Classic set before the Kubbs row went (Codex on
+  /// PR #41): the start path (the kept selections loaded, the match started, the
+  /// selections kept, as GameModel does) plays the scene's Classic set and keeps it,
+  /// so the old set never lingers unseen.
+  @Test func aKeptSetFromBeforeIsNotPlayed() throws {
+    let name = "solo-set-\(UUID().uuidString)"
+    let d = try #require(UserDefaults(suiteName: name))
+    defer { d.removePersistentDomain(forName: name) }
+    d.set("wisconsin", forKey: "solo.option.set")
+    d.set("night", forKey: "solo.option.scene")
+    let app = try PitchSession(appVersion: "test")
+    let loaded = app.options.load(d)
+    #expect(loaded["set"] == "wisconsin" && loaded["scene"] == "night")
+    try app.startSolo(name: "Mighty Maple", selections: loaded, save: nil)
+    let snapshot = try JSONNode.parse(app.engine.call("snapshot"))
+    #expect(snapshot["opts"]?["set"]?.string == "classic" && snapshot["opts"]?["scene"]?.string == "night")
+    app.options.keep(loaded, in: d)
+    #expect(d.string(forKey: "solo.option.set") == "classic")
+    #expect(app.options.load(d)["set"] == "classic")
+    // the app's start path is these calls
+    let model = try String(contentsOf: Self.app.appending(path: "GameModel.swift"), encoding: .utf8)
+    #expect(model.contains("pitch.options.load(defaults)") && model.contains("pitch.options.keep(selections"))
+  }
+
   /// The card in the app draws its rows in that order and its buttons as the design
   /// does: HOME quiet at the left, START go at the right.
   @Test func theAppsCardFollowsTheOrder() throws {

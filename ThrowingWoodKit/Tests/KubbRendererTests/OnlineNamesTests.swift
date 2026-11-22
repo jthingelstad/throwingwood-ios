@@ -91,3 +91,26 @@ private func quick() -> PitchClient.Timing {
     try await soon { online.stage == .lobby }
   }
 }
+
+/// The lobby has no Kubbs row (the 1.0 design: the scene decides the set; the web's
+/// HIDDEN_ROWS), and the room's stored set is left as it is, as on the web.
+@Suite @MainActor struct LobbyRowsTests {
+  @Test func theLobbyHasNoKubbsRowAndLeavesTheSetAlone() async throws {
+    let fake = FakePitch()
+    let online = try OnlinePitch(
+      url: URL(string: "ws://127.0.0.1:1")!, link: try #require(PitchLink(fake.code)), create: true,
+      name: "Brave Birch", appVersion: "0.0-test", store: TestID("Host_Member"), timing: quick(),
+      defaults: UserDefaults(suiteName: "lobby-\(UUID().uuidString)")!, factory: fake.factory)
+    defer { online.close() }
+    online.connect()
+    try await soon { online.stage == .lobby && online.isHost && !online.optionRows.isEmpty }
+    let ids = online.optionRows.map(\.id)
+    #expect(!ids.contains("set") && ids.contains("surface") && ids.last == "scene")
+    #expect(OnlinePitch.hiddenRows == ["set"])
+    #expect(online.options["set"] == "classic")
+    // a set an older client chose stays in the room, unseen and untouched
+    try await online.option("set", "usa")
+    try await soon { online.options["set"] == "usa" }
+    #expect(!online.optionRows.map(\.id).contains("set"))
+  }
+}

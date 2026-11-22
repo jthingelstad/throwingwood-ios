@@ -456,7 +456,10 @@ the colours and nothing else (`SceneSkinTests` 7:1; the day 4.5:1, `DesignTests`
   plate, upright and on its side (`HeaderWords`).
 - **Play the computer**: the name row, Scene as three picture tiles from the app's own
   renderer, Computer, Opening, Raising, Wind and Surface (`SoloOptions.cardRows`); no
-  Kubbs row, the scene decides the set (`SceneID.kubbs`). The names a player sees for
+  Kubbs row, the scene decides the set (`SceneID.kubbs`): `startSolo` plays it and
+  `SoloOptions.keep` keeps it, whatever set was kept before. The lobby has no Kubbs row
+  either (`OnlinePitch.hiddenRows`, the web's HIDDEN_ROWS); the room's stored set is
+  left as it is and a match started there plays it, as on the web. The names a player sees for
   the scenes are one table, `SceneID.shownNames`.
 
 ## Sound and haptics
