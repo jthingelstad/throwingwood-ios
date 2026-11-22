@@ -514,6 +514,10 @@ import UIKit
     // the screen's scene (GameModel.shownScene): its look, and its effects for
     // the throws it shows, calmed by Reduce Motion
     let look = model.shownScene
+    // Black & White is one bit: the backing (at most 2x) is scaled up to a 3x screen
+    // pixel for pixel, never blended into greys
+    let filter: CALayerContentsFilter = SceneID.shown(look) == "bw" ? .nearest : .linear
+    if layer.magnificationFilter != filter { layer.magnificationFilter = filter }
     let reduced = UIAccessibility.isReduceMotionEnabled
     pitch.useLook(look, reduced: reduced)
     PitchRenderer.draw(
