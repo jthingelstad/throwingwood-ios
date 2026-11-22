@@ -116,6 +116,8 @@ public struct PitchMember: Identifiable, Equatable {
   /// for its aim to play out first (`AimBuffer.holdFor`).
   private var queue: [(JSONText, JSONNode, Int)] = []
   private var holding: Task<Void, Never>?
+  /// The board was busy (playing or watching a raise) at the end of the last frame.
+  private var wasBusy = false
   /// This member's own action was submitted during the current tick.
   private var released = false
   private var displayControl: JSONText?
@@ -546,7 +548,8 @@ public struct PitchMember: Identifiable, Equatable {
     }
   }
 
-  private func present(_ event: PitchController.Presentation) throws {
+  /// (internal for the tests, which hand it actions as the controller would)
+  func present(_ event: PitchController.Presentation) throws {
     switch event {
     case .restore(let m): try restore(m)
     case .apply(let action, let m):
@@ -705,16 +708,32 @@ public struct PitchMember: Identifiable, Equatable {
     try seat()
     changed?()
   }
+  /// A tap during a watched raise (another member's, or this device's automatic one): the
+  /// rest of it at once, then the actions waiting behind it are drawn and the seat
+  /// updated, as SKIP does for a throw's playback (Codex on PR #46).
+  public func skipRaise() throws {
+    try board.skipRaise()
+    try drain()
+    try seat()
+    changed?()
+  }
+  /// The board is drawing something the queue waits behind: a throw's playback or a
+  /// watched raise.
+  private var boardBusy: Bool { board.playing || board.raiseShowing }
   @discardableResult public func tick(_ dt: Double) throws -> Bool {
-    let playing = board.playing || board.raiseShowing
     // this member's aim as it stands before the frame: a release in this frame sends it
     let aim = stage == .match && board.canAim && !writing ? JSONText(try board.engine.call("aimState")) : nil
     released = false
     let drew = try board.tick(dt)
-    if playing && !board.playing && !board.raiseShowing {
+    // the queue drains whenever the board is free and the last frame left it busy or
+    // actions wait: from the state, not from catching the moment it ended in this
+    // frame, so a playback or a watched raise ended anywhere else (a tap's skip, a resync
+    // adopting a snapshot) still lets the waiting actions through on the next frame
+    if !boardBusy && (wasBusy || !queue.isEmpty) {
       try drain()
       try seat()
     }
+    wasBusy = boardBusy
     let now = Self.now()
     if let aim {
       if released {

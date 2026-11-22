@@ -686,7 +686,8 @@ import UIKit
     }
     if pitch.raiseShowing {
       // a tap during a watched raise: the rest of it at once (AutoRaise.swift)
-      run { try pitch.skipRaise() }
+      // online, through the pitch: the actions waiting behind it go on at once
+      run { if let online = model.online { try online.skipRaise() } else { try pitch.skipRaise() } }
       wake()
       return
     }
