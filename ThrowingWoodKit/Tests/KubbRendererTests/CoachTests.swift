@@ -46,10 +46,10 @@ struct CoachTests {
     func at(_ phase: String, _ back: Double? = nil) -> String? {
       Coach.line(thrown: 0, slow: false, stage: stage(phase, back))?.line
     }
-    #expect(at("idle") == "PULL BACK TO THE ORANGE MARK")
+    #expect(at("idle") == "PULL BACK TO THE STRIPES")
     #expect(at("winding", 60) == "NO RUSH GOING BACK")
-    #expect(at("winding", 120) == "NOW FLICK FAST AND STOP ON THE BLUE MARK")
-    #expect(at("swinging", 120) == "NOW FLICK FAST AND STOP ON THE BLUE MARK")
+    #expect(at("winding", 120) == "NOW FLICK FAST AND STOP ON THE SOLID MARK")
+    #expect(at("swinging", 120) == "NOW FLICK FAST AND STOP ON THE SOLID MARK")
   }
 
   @Test func afterASlowVerdictTheNextThrowIsCoachedLedByTheVerdict() {

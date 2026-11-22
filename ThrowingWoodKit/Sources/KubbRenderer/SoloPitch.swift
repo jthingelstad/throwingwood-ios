@@ -174,11 +174,31 @@ extension PitchSession {
     guard canAim else { return }
     try cancelInput()
     plan.toggle()
+    openPlate = plan ? .arc : nil
+    revision += 1
+  }
+
+  /// A tap on a tray plate (TrayLayout.swift): opens it, closing any other (one at a
+  /// time), or closes it if it is the one open. ARC open shows the side view until it
+  /// closes; TILT and STAND open show their controls large. `nil` closes whatever is
+  /// open (a tap outside it).
+  public func tapPlate(_ p: TrayPlate?) throws {
+    let next = p == openPlate ? nil : p
+    if next != nil && !canAim { return }
+    if next == openPlate { return }
+    if plan != (next == .arc) {
+      try cancelInput()
+      plan = next == .arc
+    }
+    if openPlate == .tilt || openPlate == .arc { cancelSlide() }
+    if openPlate == .stand { stand(fx: 0, fy: 0, phase: .cancel) }
+    openPlate = next
     revision += 1
   }
 
   public func beginDial() {
     plan = false
+    openPlate = nil
     revision += 1
   }
 

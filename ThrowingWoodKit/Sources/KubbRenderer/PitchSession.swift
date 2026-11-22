@@ -70,7 +70,10 @@ public struct PointerDial: ThrowInput {
 
 struct Aim: Decodable {
   // tilt and spin are any value on 0.9 (whole steps before it)
-  struct Plan: Decodable { let loft, release, tilt, spin: Double? }
+  struct Plan: Decodable { let loft, release, tilt, spin, dist: Double? }
+  /// The engine's rail (session.lua aimView): r1 "FIELD 2", "BASE 5", "KING" or a
+  /// drilled kubb's "2.3 M".
+  struct Rail: Decodable { let r1, r2: String? }
   /// The sliders' numbers (since 0.9; absent on an older engine).
   struct Controls: Decodable { let arc, tilt, spin: PlanControl? }
   struct Wind: Decodable { let text: String }
@@ -80,6 +83,7 @@ struct Aim: Decodable {
   let marker, thrower: GroundMark?
   let arc: [WorldPoint]?, advY: Double?
   let lineY, forwardY, halfWidth, backMax: Double?
+  let rail: Rail?
 }
 struct AimOutput: Decodable {
   let aim: Aim, camera: Camera
@@ -196,6 +200,14 @@ public final class PitchSession {
       && (need == nil || (need?.kind == "throw" && need?.cpu == false))
   }
   public private(set) var windText: String?, advantageText: String?, slow = false
+  /// What the thrower aims at, the engine's rail (`rail.r1`: "FIELD 2", "BASE 5", "KING").
+  public private(set) var railAt: String?
+  /// The throw's distance in m, stance to target (the engine's plan `dist`), for the
+  /// meter's distance tab.
+  public private(set) var distance: Double?
+  /// The set-up tray's open plate (TrayLayout.swift), one at a time; nil: all closed.
+  /// ARC open shows the side view (`plan`).
+  public internal(set) var openPlate: TrayPlate?
   public var playing: Bool { playback != nil }
   /// The watcher's free camera (FreeCamera.swift), its lens the wide camera while the
   /// wide view is on.
@@ -337,6 +349,8 @@ public final class PitchSession {
   func aim(_ a: Aim, camera c: Camera) {
     windText = a.wind?.text
     advantageText = a.advText
+    railAt = a.rail?.r1
+    distance = a.plan?.dist
     camera = c
     mix = a.mix ?? 0
     arcDegrees = a.plan?.loft.map { Int($0.rounded()) }
@@ -405,6 +419,7 @@ public final class PitchSession {
     result = nil
     bursts = []
     plan = false
+    openPlate = nil
     endSlide()
     endStand()
     mix = 0
@@ -539,6 +554,7 @@ public final class PitchSession {
   func beginPlayback(_ recording: Recording, local: Bool = false) throws {
     playbackLocal = local
     plan = false
+    openPlate = nil
     endSlide()
     endStand()
     input.reset()

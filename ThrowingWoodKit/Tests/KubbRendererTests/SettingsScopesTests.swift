@@ -80,7 +80,20 @@ import Testing
     #expect(try body("MatchCards.swift", "MenuGrid").contains("SettingsButton(model: model)"))
     #expect(try body("MatchCards.swift", "MatchMenu").contains("MenuGrid(model: model)"))
     #expect(try body("OnlineCards.swift", "OnlineMenu").contains("MenuGrid(model: model)"))
-    #expect(try file("GameView.swift").contains("action: model.openSettings"))
+    // the practice menu is a card of its own (stage 3: its pop-ups became segmented bars)
+    #expect(try body("MatchCards.swift", "PracticeMenu").contains("SettingsButton(model: model)"))
+    #expect(try file("GameView.swift").contains("model.screen = .practiceMenu"))
+  }
+
+  /// The practice menu's own options, Surface and Scene, are the game's: segmented bars
+  /// on its card, never a native pop-up (the 1.0 system's one control for two to four).
+  @Test func thePracticeMenusRowsAreSegmentedBars() throws {
+    let menu = try body("MatchCards.swift", "PracticeMenu")
+    let view = try file("GameView.swift")
+    #expect(menu.contains(#"label: "Surface""#))
+    #expect(menu.contains("label: SceneID.row.label"))
+    #expect(!menu.contains("Picker("))
+    #expect(!view.contains("Picker("))
   }
 
   /// No game setting hides in Settings: the options rows, the scene, the surface and

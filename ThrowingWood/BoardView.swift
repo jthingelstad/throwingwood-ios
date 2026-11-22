@@ -285,6 +285,32 @@ import UIKit
     if nudgeShow.show || was.show { setNeedsDisplay() }
   }
 
+  /// The minimap's frame (the 1.0 design, "Minimap: one home"): under the header's
+  /// right end in every layout. Upright, under the header as measured; on its side,
+  /// WideLayout.plan's (nil where a narrow window has no room for it).
+  static func minimapFrame(model: GameModel, size: CGSize, safe: ScreenInsets) -> CGRect? {
+    if WideLayout.isWide(size) {
+      let meter = model.meter.layout(
+        bounds: CGRect(origin: .zero, size: size),
+        safe: UIEdgeInsets(top: safe.top, left: safe.left, bottom: safe.bottom, right: safe.right))
+      let map = WideLayout.plan(
+        meter: meter, size: size, safe: safe, side: model.meter.side,
+        trayWidth: model.online == nil ? 0 : WideLayout.trayWidth
+      ).minimap
+      return map.isNull ? nil : map
+    }
+    return WideLayout.uprightMinimap(size: size, safe: safe, headerBottom: model.headerBottom)
+  }
+
+  /// The tray's plates on the screen (TrayView's frames): the coach line keeps out of
+  /// any level with it.
+  private var trayFrames: [CGRect] {
+    let f = TrayView.frames(
+      size: bounds.size, safe: insets, meter: meter, side: model.meter.side, open: pitch.openPlate,
+      online: model.online != nil)
+    return Array(f.slots.values) + (f.open.map { [$0] } ?? [])
+  }
+
   /// The meter on the screen: the player's choice where it has its room.
   var meter: MeterLayout { model.meter.layout(bounds: bounds, safe: safeAreaInsets) }
   var insets: ScreenInsets {
@@ -327,7 +353,7 @@ import UIKit
         "size": [Double(bounds.width), Double(bounds.height)],
         "safe": ["top": Double(s.top), "left": Double(s.left), "bottom": Double(s.bottom), "right": Double(s.right)],
         "side": model.meter.side.rawValue, "meter": r(WideLayout.meterBox(meter, size: bounds.size, safe: s, side: model.meter.side)),
-        "block": r(plan.block), "edge": plan.edge?.rawValue ?? "beside", "minimap": r(plan.minimap),
+        "block": r(plan.block), "edge": plan.edge.rawValue, "open": r(plan.open), "minimap": r(plan.minimap),
       ]
       if let c = meter.clock { json["clock"] = [Double(c.center.x), Double(c.center.y), Double(c.radius)] }
       if let floor = pitch.stillFloor {
@@ -424,25 +450,15 @@ import UIKit
         }
       }
     #endif
+    // in a match the drawn controls are read through MatchScreen's readers, in order
+    isAccessibilityElement = model.screen != .match
     let hud = PracticeHUD(context: ctx, size: bounds.size)
     if model.screen == .match, pitch.handoff == nil {
-      if pitch.need?.kind == "throw", !pitch.wideOn {
-        if WideLayout.isWide(bounds.size) {
-          // on its side: beside the plan block at the far edge, toward the middle
-          // (the web's wide minimap, layout.js planAt)
-          // (over the block in a narrow window beside the linear meter, or not at all)
-          let map = WideLayout.plan(
-            meter: meter, size: bounds.size, safe: insets, side: model.meter.side,
-            trayWidth: model.online == nil ? 0 : WideLayout.trayWidth).minimap
-          if !map.isNull { pitch.scene.drawMap(in: ctx, rect: map, look: look) }
-        } else {
-          let width = min(74, bounds.width * 0.18)
-          let left = (pitch.marker(in: bounds.size)?.x ?? 0) > bounds.midX
-          let x = left ? 14 : bounds.width - width - 14
-          pitch.scene.drawMap(
-            in: ctx,
-            rect: CGRect(x: x, y: safeAreaInsets.top + 75, width: width, height: width * 1.65), look: look)
-        }
+      if pitch.need?.kind == "throw", !pitch.wideOn,
+        let map = Self.minimapFrame(model: model, size: bounds.size, safe: insets)
+      {
+        // under the header's right end in every layout, still while a control is held
+        pitch.scene.drawMap(in: ctx, rect: map, look: look)
       }
       for e in pitch.raiseEnds(in: bounds.size) { hud.endLabel(e) }
       if pitch.held == .side, !pitch.throwsKubb, let circle = pitch.marker(in: bounds.size) {
@@ -474,17 +490,39 @@ import UIKit
       }
       // the ghost's words on the plate while the engine still says WIND BACK
       let caption = pitch.dial.prompt == "WIND BACK" ? ghost?.caption : nil
+      // the computer's or another player's throw: the meter faded, a WATCH tab on the
+      // thrower's team colour where the prompt goes, no distance (the 1.0 design)
+      let watching = model.screen == .match && pitch.need?.kind == "throw" && !pitch.canAim
+      let distance = watching ? nil : MeterWords.distance(pitch.distance)
+      let team = pitch.need?.side == "B"
+      let watch = (fill: UIColor(team ? skin.teamB : skin.teamA), type: UIColor(team ? skin.onTeamB : skin.onTeamA))
+      if watching {
+        ctx.saveGState()
+        ctx.setAlpha(0.5)
+        ctx.beginTransparencyLayer(auxiliaryInfo: nil)
+      }
       switch meter {
       case .clock(let c):
         let finger = gesture == .dial && besideRing ? lastDialPoint : nil
         hud.dial(
           pitch.dial, at: c.center, radius: c.radius, showHint: hint, finger: finger,
-          prompt: caption.map { Optional($0) },
-          hintBeside: WideLayout.isWide(bounds.size) ? model.meter.side : nil)
+          prompt: watching ? .some(nil) : caption.map { Optional($0) },
+          hintBeside: WideLayout.isWide(bounds.size) ? model.meter.side : nil, distance: distance)
       case .linear(let m):
         hud.linear(
-          pitch.dial, m, held: gesture == .dial, prompt: linearWords(caption ?? pitch.dial.prompt))
+          pitch.dial, m, held: gesture == .dial, prompt: watching ? nil : linearWords(caption ?? pitch.dial.prompt),
+          distance: distance)
         if hint { hud.linearHint(m, safeBottom: safeAreaInsets.bottom) }
+      }
+      if watching {
+        ctx.endTransparencyLayer()
+        ctx.restoreGState()
+        switch meter {
+        case .clock(let c):
+          hud.watchTab(at: CGPoint(x: c.center.x, y: c.center.y - c.radius - 20), size: 20, fill: watch.fill, type: watch.type)
+        case .linear(let m):
+          hud.linear(pitch.dial, m, held: false, prompt: nil, watch: watch, tabOnly: true)
+        }
       }
       // the coach line: words for the thrower, never while watching, over the
       // nudge's ghost (which shows the same stroke) or with a slider's caption
@@ -496,7 +534,7 @@ import UIKit
         let line = Coach.line(thrown: nudge.thrown, slow: slow, stage: Coach.stage(pitch.dial))
       {
         let place = PracticeHUD.coachPlace(meter, wide: WideLayout.isWide(bounds.size))
-        var plans = model.planFrames.values.map { convert($0, from: nil) }
+        var plans = model.screen == .match ? trayFrames : []
         if WideLayout.isWide(bounds.size), meter.linear != nil {
           // on its side the tab is level with the far baseline: the line keeps to
           // the meter's half, `planClear` short of the throwing line and its target
@@ -536,6 +574,11 @@ import UIKit
       return
     }
     guard pitch.acceptsInput, !pitch.playing, tracking == nil, let t = touches.first else { return }
+    if pitch.openPlate != nil {
+      // a tap outside the open plate closes it, and does nothing else
+      run { try pitch.tapPlate(nil) }
+      return
+    }
     let p = t.location(in: self)
     startPoint = p
     moved = false

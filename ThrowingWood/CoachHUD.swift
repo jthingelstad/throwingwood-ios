@@ -25,7 +25,8 @@ extension PracticeHUD {
   static func coachPlace(_ meter: MeterLayout, wide: Bool = false) -> CoachPlace {
     switch meter {
     case .clock(let c):
-      // the prompt plate (dial(...): centred r + 20 over the hub, Londrina 20)
+      // the prompt plate (dial(...): centred r + 20 over the hub, Londrina 20); the
+      // chip stands 8 pt over it
       let font = UIFont(name: "LondrinaSolid-Black", size: 20) ?? .boldSystemFont(ofSize: 20)
       let half = ("W" as NSString).size(withAttributes: [.font: font]).height / 2 + 3
       return CoachPlace(bottom: c.center.y - c.radius - 20 - half - 8, anchor: c.center.x, align: .center)
@@ -68,64 +69,51 @@ extension PracticeHUD {
     }
   }
 
-  /// `beside`: on a phone on its side the stack would rise into MENU, so the
-  /// lead goes level with the line, on that side of it (.left or .right). A
-  /// hanging line has no such limit: the lead goes over it, both under the tab.
+  /// The coach's one style (the 1.0 design): an inverted ink chip, paper capitals in
+  /// Inter bold 15, standing on `bottom` (or hanging from it); the slow lead and the
+  /// line in the same chip, the lead on its own first line, so there are never three
+  /// pills at once. `beside` is no longer used: one chip has no lead beside it.
   func coach(_ c: Coach.Line, _ p: CoachPlace, left: CGFloat, width: CGFloat, beside: CoachAlign? = nil) {
     guard width > 40 else { return }
-    let font = UIFont.systemFont(ofSize: 13, weight: .heavy)
-    let lineHeight: CGFloat = 13 * 1.25
+    let size: CGFloat = 15
+    let font = Self.inter(size, .bold)
+    let lineHeight: CGFloat = size * 1.25
     let style = NSMutableParagraphStyle()
     style.minimumLineHeight = lineHeight
     style.maximumLineHeight = lineHeight
     style.alignment = p.align == .center ? .center : (p.align == .right ? .right : .left)
-    var y = p.bottom
-    var lineBox = CGRect.null
-    // drawn from the foot up: the line, then the lead over it (or beside it);
-    // hanging, from the top down: the lead, then the line under it
-    let beside = p.hangs ? nil : beside
-    var last = CGRect.null
-    let order = p.hangs ? [(c.lead, true), (c.line, false)] : [(c.line, false), (c.lead, true)]
-    for (text, inverted) in order {
-      guard let text else { continue }
-      let leadBeside = inverted && beside != nil && !lineBox.isNull
-      let attributes: [NSAttributedString.Key: Any] = [
-        .font: font, .kern: 13 * 0.04, .paragraphStyle: style,
-        .foregroundColor: inverted ? paper : ink,
-      ]
-      let inner = (leadBeside ? Self.coachMax / 2 : width) - 20  // 8 padding and 2 border each side
-      let s = Self.balanced(text.uppercased() as NSString, attributes, inner, lineHeight)
-      let w = s.width + 20
-      let h = s.height + 3 + 4 + 4
-      let x =
-        if leadBeside {
-          beside == .right ? lineBox.maxX + 1 + 6 : lineBox.minX - 1 - 6 - w
-        } else {
-          switch p.align {
-          case .center: left + (width - w) / 2
-          case .right: left + width - w
-          case .left: left
-          }
-        }
-      if leadBeside { y = p.bottom }
-      // hanging: the first box's top is at `bottom`, the next 4 pt under it
-      if p.hangs { y = (last.isNull ? p.bottom : last.maxY + 1 + 4) + h }
-      let box = CGRect(x: x, y: y - h, width: w, height: h).insetBy(dx: 1, dy: 1)
-      last = box
-      if !inverted { lineBox = box }
-      let path = UIBezierPath(roundedRect: box, cornerRadius: 4)
-      ink.setFill()
-      UIBezierPath(roundedRect: box.offsetBy(dx: 2, dy: 2), cornerRadius: 4).fill()
-      (inverted ? ink : paper).setFill()
-      path.fill()
-      ink.setStroke()
-      path.lineWidth = 2
-      path.stroke()
-      (text.uppercased() as NSString).draw(
-        with: CGRect(x: x + 10, y: y - h + 5, width: s.width, height: s.height),
-        options: [.usesLineFragmentOrigin], attributes: attributes, context: nil)
-      y -= h + 4
-    }
+    let attributes: [NSAttributedString.Key: Any] = [
+      .font: font, .kern: size * 0.04, .paragraphStyle: style, .foregroundColor: paper,
+    ]
+    let text = ([c.lead, c.line].compactMap { $0 }.joined(separator: "\n")).uppercased() as NSString
+    let inner = width - 24  // 10 padding and 2 border each side
+    let s = Self.balanced(text, attributes, inner, lineHeight)
+    let w = s.width + 24
+    let h = s.height + 12
+    let x: CGFloat =
+      switch p.align {
+      case .center: left + (width - w) / 2
+      case .right: left + width - w
+      case .left: left
+      }
+    let top = p.hangs ? p.bottom : p.bottom - h
+    let box = CGRect(x: x, y: top, width: w, height: h).insetBy(dx: 1, dy: 1)
+    let path = UIBezierPath(roundedRect: box, cornerRadius: 6)
+    ink.setFill()
+    path.fill()
+    ink.setStroke()
+    path.lineWidth = 2
+    path.stroke()
+    text.draw(
+      with: CGRect(x: x + 12, y: top + 6, width: s.width, height: s.height),
+      options: [.usesLineFragmentOrigin], attributes: attributes, context: nil)
+  }
+
+  /// Inter (bundled, a variable font) at a weight.
+  static func inter(_ size: CGFloat, _ weight: UIFont.Weight) -> UIFont {
+    let d = UIFontDescriptor(fontAttributes: [.family: "Inter", .traits: [UIFontDescriptor.TraitKey.weight: weight]])
+    let f = UIFont(descriptor: d, size: size)
+    return f.familyName == "Inter" ? f : .systemFont(ofSize: size, weight: weight)
   }
 
   /// The text's size wrapped in `width`, as narrow as it can be on as many
