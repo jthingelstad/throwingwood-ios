@@ -183,7 +183,8 @@ too (it stands over the far baseline's outer kubb): a tap on it aims, a drag
 strokes, and only the knob's channel grabs at once. The nudge ("Have the UI show it not a separate
 how to page.") draws on the meter itself and is never fed to the engine, and so
 does the coach line (`Coach.swift`, the web's coach.js: a few words over the
-prompt for a device under 3 throws, or after a SLOW flick). Keep the linear
+prompt for a device under 3 throws, or after a SLOW flick, naming the marks by shape:
+"the stripes", "the solid mark"). Keep the linear
 meter (390 to 450 pt tall), the touch rules, the nudge's numbers and the coach's
 lines and placement the same as the web's. Review tools launch with
 `-pitch.throwsMade 9` so the coach stays out of other pictures.
@@ -207,16 +208,14 @@ the 375 pt phones, 331.3 on the 17 Pro Max), and the header (meter at the left) 
 SHOUT (at the right) moves in beside it, 10 pt off its body. The coach line hangs under its tab there. Two hands (Jamie, 2026-11-19: "in landscape the
 tilt, arc, stand controls should be pushed to the left hand side of the screen
 so the user can control those with the left hand and the throw with the right
-hand"): the plan block sits at the edge away from the meter, 8 pt inside the
-safe area with TILT and STAND at the screen's edge, its foot 10 pt above the
-meter box's, the minimap 12 pt on its inner side, and back beside the clock
-only if the minimap would come within 24 pt of the centre (`WideLayout.plan`,
-the web's planAt). Beside the linear meter the block never goes back over the
-prompt tab: it stays at the far edge and the minimap goes over it, or is not
-drawn where there is no room (a narrow, short iPad window). The caption strip
+hand"): the set-up tray sits at the edge away from the meter, 12 pt inside the
+safe area, its foot 10 pt above the meter box's foot, and the minimap under the
+header's right end (`WideLayout.plan`, the web's trayAt; the 1.0 tray, "The 1.0 design"
+below). The header takes the web's width there (0.4 W, at least min(300, 0.4 W), at
+most 400, short of the throwing line where it can), so the minimap stays off it. The caption strip
 never goes under 112 pt (`WideLayout.captionMin`): where the strip beside SHOUT
 cannot give that, the captions take a line of their own under the header row,
-clear of the meter, plan block, tab and coach line, never the clock instead. The raise and punishment panel is a bar along the bottom
+clear of the meter, the tray (and all an open plate may take), tab and coach line, never the clock instead. The raise and punishment panel is a bar along the bottom
 (`WideLayout.bar`, the web's game.css panel): it must never cover the kubb
 being raised, its numbers, a press or drag on it, or the ground a punishment
 kubb may go on, so the app reports the bar's measured height
@@ -454,6 +453,24 @@ the colours and nothing else (`SceneSkinTests` 7:1; the day 4.5:1, `DesignTests`
 - **The header**: "Turn 4 · baton 2 of 6" over the thrower's name in sentence case, the
   base kubbs standing as two numbers on the team colours, MENU as a word inside the
   plate, upright and on its side (`HeaderWords`).
+- **The aim (stage 3)**: ARC, TILT (SPIN) and STAND are the set-up tray, three plates
+  of one size (86 x 60 upright, 104 x 70 on its side) in a column 8 pt apart
+  (`TrayLayout.swift`, `TrayView`). Upright it is 10 pt in at the left edge beside the
+  clock, mirrored when the meter is at the left, its foot 8 pt over the safe bottom, so
+  the throwing thumb's side stays empty; on its side at the edge away from the meter. A
+  tap opens one plate (`PitchSession.tapPlate`, one at a time): it grows up from its
+  place, ARC into its slider with the side view (SIDE VIEW is no longer a button), TILT
+  and STAND also in toward the middle, as the web's trayAt sizes them; a tap outside or
+  on its band closes it. The minimap is a plate under the header's right end in every
+  layout, never moving while a control is held, Team A circles and Team B squares. The
+  meters' power band is striped and the release band solid, both with ink end-marks,
+  and the throw's distance (the engine's plan `dist`, `MeterWords`) sits on an inverted
+  tab beside WIND BACK and DRAW BACK. The verdict leads with each off word inverted
+  with its arrow (`VerdictWords`); the hand-off is a short card at the foot with one
+  line (`HandoffWords.line`, from the engine's rail); the computer's turn has no card,
+  only the WATCH tab on its team's colour over the faded meter. The coach is one
+  inverted chip naming the marks by shape. VoiceOver reads the header, the prompt and
+  distance, the meter, the tray, then the minimap (`MatchReaders.swift`). `TrayTests`.
 - **Play the computer**: the name row, Scene as three picture tiles from the app's own
   renderer, Computer, Opening, Raising, Wind and Surface (`SoloOptions.cardRows`); no
   Kubbs row, the scene decides the set (`SceneID.kubbs`): `startSolo` plays it and

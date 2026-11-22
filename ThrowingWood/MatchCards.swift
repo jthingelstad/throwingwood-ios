@@ -394,7 +394,9 @@ struct MatchScreen: View {
   private func tall(_ n: MatchNeed) -> some View {
     VStack(spacing: 8) {
       header(n, nameSize: 24)
-        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { model.headerBottom = $0 }
+        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: {
+          if model.headerBottom != $0 { model.headerBottom = $0 }
+        }
       // the minimap hangs under the header's right end: the captions keep left of it
       captions(n)
         .frame(maxWidth: .infinity)
@@ -506,7 +508,9 @@ struct MatchScreen: View {
             turn: n.turn ?? 1, n: n.setup?.n, of: n.setup?.of, projectile: n.setup?.projectile, watching: watching,
             at: n.kind == "throw" ? pitch.railAt : nil)
         )
-        .labelStyle().foregroundStyle(Color.woodMuted).lineLimit(1).minimumScaleFactor(0.7)
+        // upright the line may take two lines at the largest text sizes; on its side
+        // the header's plate has a fixed height
+        .labelStyle().foregroundStyle(Color.woodMuted).lineLimit(fills ? 1 : 3).minimumScaleFactor(0.7)
         Text(
           (online && !playing && model.online?.turnLabel.isEmpty == false)
             ? model.online!.turnLabel : (n.setup?.thrower?.name ?? n.team ?? "Match")

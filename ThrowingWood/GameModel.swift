@@ -36,8 +36,8 @@ import Observation
   /// Review pictures stand in for the reel's server (simulator only).
   @ObservationIgnored var reelHooksOverride: ((String) -> HighlightReel.Hooks)?
   /// The header's foot on an upright screen (window points; MatchScreen measures it, a
-  /// larger text size grows it): the minimap hangs under its right end. Drawing only.
-  @ObservationIgnored var headerBottom: CGFloat?
+  /// larger text size grows it): the minimap hangs under its right end.
+  var headerBottom: CGFloat?
   var joinInput = ""
   static let version =
     Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
@@ -208,6 +208,12 @@ import Observation
           }
           if mode == "settings" {
             screen = .settings
+            return
+          }
+          if mode == "practicemenu" {
+            // the practice pitch's menu card (stage 3: its rows segmented bars)
+            openPractice()
+            screen = .practiceMenu
             return
           }
           let snapshot = try String(

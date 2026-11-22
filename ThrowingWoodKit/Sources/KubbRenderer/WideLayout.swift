@@ -93,11 +93,13 @@ public enum WideLayout {
   /// The header's width on a wide screen (the web's headerBox): 0.4 of the screen,
   /// kept between `railMinWidth` and `railMaxWidth` and, where it can, `planClear`
   /// short of the throwing line, so the minimap under its right end stays off it. A
-  /// fixed width for the layout: the minimap never moves.
-  public static let railMinWidth: CGFloat = 260
+  /// fixed width for the layout: the minimap never moves. The app's floor is its old
+  /// width, min(300, 0.4 W), not the web's 260: its header holds the line beside the
+  /// numbers and MENU, not across the top, and 260 cut "Turn 1 · baton 1 of 2" short.
+  public static let railMinWidth: CGFloat = 300
   public static let railMaxWidth: CGFloat = 400
   static func railWidth(size: CGSize, x: CGFloat) -> CGFloat {
-    max(railMinWidth, min(railMaxWidth, size.width * 0.4, size.width / 2 - planClear - x))
+    max(min(railMinWidth, size.width * 0.4), min(railMaxWidth, size.width * 0.4, size.width / 2 - planClear - x))
   }
 
   /// MENU, inside the header's plate at its right end, wherever the header is.

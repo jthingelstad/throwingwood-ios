@@ -40,6 +40,9 @@ import UIKit
     private var timing = FrameTiming()
   #endif
 
+  static let practiceWords =
+    "Practice pitch. Tap to aim, or drag anywhere to move the circle. Wind the dial back, flick forward and lift to throw."
+
   init(pitch: PitchSession, model: GameModel) {
     self.pitch = pitch
     self.model = model
@@ -47,8 +50,7 @@ import UIKit
     isOpaque = true
     backgroundColor = .systemBackground
     contentMode = .redraw
-    accessibilityLabel =
-      "Practice pitch. Tap to aim, or drag anywhere to move the circle. Wind the dial back, flick forward and lift to throw."
+    accessibilityLabel = Self.practiceWords
     isAccessibilityElement = true
   }
   required init?(coder: NSCoder) { nil }
@@ -429,6 +431,7 @@ import UIKit
           case "home": model.screen == .home
           case "options": model.screen == .options
           case "settings": model.screen == .settings
+          case "practicemenu": model.screen == .practiceMenu
           case "aim", "nudge", "coach", "coachslow": model.screen == .match && pitch.canAim
           case "menu": model.screen == .menu
           case "verdict": pitch.result != nil
@@ -453,8 +456,6 @@ import UIKit
         }
       }
     #endif
-    // in a match the drawn controls are read through MatchScreen's readers, in order
-    isAccessibilityElement = model.screen != .match
     let hud = PracticeHUD(context: ctx, size: bounds.size)
     if model.screen == .match, pitch.handoff == nil {
       if pitch.need?.kind == "throw", !pitch.wideOn,
