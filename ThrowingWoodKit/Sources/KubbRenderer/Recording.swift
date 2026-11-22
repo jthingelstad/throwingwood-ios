@@ -99,6 +99,8 @@ struct Playback {
   var nextCue = 0
   var finished = false
   var starts: [Double?]
+  /// The pieces as the frame before showed them (Spin.swift).
+  var lastShown: [String: Piece] = [:]
   /// `rings`: the scene rings at each ground impact, and taps with it (PitchFeedback).
   init(_ r: Recording, rings: Bool = false) {
     recording = r

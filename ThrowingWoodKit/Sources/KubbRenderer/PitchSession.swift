@@ -614,6 +614,10 @@ public final class PitchSession {
       // the wide view's pieces come un-turned from the engine; the recording's own are
       // in the thrower's frame
       scene.items = scene.wide ? (shown.items ?? p.pieces(at: t)) : p.pieces(at: t)
+      // a piece turning faster than the frames can show is drawn as a spin (Spin.swift),
+      // from its pose the frame before
+      scene.spins = SpinTune.spins(from: p.lastShown, to: scene.items)
+      p.lastShown = Dictionary(scene.items.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
       effects?.observe(scene.items, t)
       slow = shown.speed < 0.99
       camera = shown.camera
@@ -636,6 +640,8 @@ public final class PitchSession {
     } else {
       p.rest += dt
       effects?.tick(dt)
+      // between throws nothing spins
+      if scene.spins != nil { scene.spins = nil }
     }
     bursts = p.starts.enumerated().compactMap { i, start in
       guard let start else { return nil }
