@@ -429,7 +429,7 @@ black world on a grid of light, no film names), Minnesota, Tournament and Black 
   Neighbours.swift): a second engine of their own (`Engine.neighbours()`: its own Lua
   state, the host's clock `__kubbClock` as a C function of the Swift target, no `useTune`)
   on a queue of its own, never the player's engine's and never waited on by the main
-  thread. Open (`neighbours.open`, the match's seed, `layout: "row"` on a wide board) only
+  thread. Open (`neighbours.open`, the match's seed, the grid in every layout) only
   for a match, practice or watched match in the Tournament scene, closed on leaving it or
   in the background, never under Reduce Motion (the four fixed pitches then, and no second
   engine). `advance` once a frame on the match clock with `budgetMs: 2`; a failure leaves
