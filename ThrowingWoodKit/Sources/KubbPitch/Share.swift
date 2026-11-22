@@ -185,9 +185,18 @@ public enum ShareMessage {
       ("names", .object([("A", .string(name))])),
       ("log", .array(source.actions.map { JS.object([("a", .raw($0))]) })),
     ])
-    let out = try JSONNode.parse(engine.call("renameStart", json: args.ascii))
+    // the engine renames only a start its own options make (a forged one is refused here)
+    guard let renamed = try? engine.call("renameStart", json: args.ascii) else { return .refused(.doesNotReplay) }
+    let out = try JSONNode.parse(renamed)
     guard let start = out["start"]?.string else { throw PitchError("bad-rename") }
     let log = out["log"]?.kind == .array ? out["log"]!.items : []
+    // The match as it would go, judged whole by the engine (`names.check({ replay })`):
+    // a start holding a name or a line the game did not make anywhere (a typed name from
+    // before generated names that the rename did not reach, or a forged file) is never
+    // sent: "This match did not pass the check, so it cannot be shared."
+    let replay = JS.object([("start", .string(start)), ("log", .array(log.map(js)))])
+    let checked = try JSONNode.parse(engine.call("names.check", json: JS.object([("replay", replay)]).ascii))
+    guard checked["allowed"]?.bool == true else { return .refused(.doesNotReplay) }
     let throwCount = log.filter { $0["a"]?["type"]?.string == "throw" }.count
     let g = JS.object([
       ("client", .string("ios")),
@@ -214,7 +223,7 @@ public enum ShareMessage {
           ])
         }
       ).ascii.utf8.count + JS.string(source.now ?? "").ascii.utf8.count
-    // a margin for the name's length in the last snapshot, which is the typed one
+    // a margin for the name's length in the last snapshot, which is the one picked
     if let budget, kept - 4096 > budget { return .refused(.tooLong) }
     return .message(JSONText(text), bytes: bytes)
   }

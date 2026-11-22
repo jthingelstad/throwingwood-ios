@@ -85,34 +85,50 @@ again.
 ### Names
 
 Every name on a pitch is a generated one (AGENTS.md "Names are generated"; the web's
-docs/MULTIPLAYER.md "Names", PROTOCOL.md section 6a). The app offers only generated
-names, but a client is not proof, so every name it shows is checked (`Names.passes`:
-`names.valid`'s `ok` or `default`), in `PitchController`:
+docs/MULTIPLAYER.md "Names", PROTOCOL.md section 6a). A client is not proof, and a
+check that reads only some of a snapshot's fields can always be got round (a forged
+start can keep generated names in `opts.teams` and put typed text in `save.game.teams`,
+which `restore` builds the match from), so the engine judges whatever arrives whole
+(engine 0.13.4, `names.check` and `restore`'s strict door; kubb-engine docs/SESSION.md
+"A match from outside"). `names.valid` stays the check for a single name (the name row,
+the share card's name). Nothing shows a refusal's `from` or `text` (a forged path can
+carry submitted text).
 
-- **A member's name** (`shownNames`, `nameOf`): its presence name when it passes, else
-  "Player n", n its place on its side (as the engine's lineup numbers a player with no
-  name; a watcher, its place on the pitch); a player of the match who has left, the
-  match's own name for them, checked. The lobby, the turn line ("Player 2 throws"), the
-  shouts and the version lines use it. In the lobby two members with one name are told
-  apart, by the pitch's order: "Mighty Maple", "Mighty Maple II", "III" (`Names.apart`);
-  the name itself is never changed.
+- **A member's and a team's name** (`PitchController.shownNames`, `nameOf`,
+  `teamNameOf`): `names.check({ document, members })` of the lobby, kept while the
+  document and members are the same. A member's name it refuses (or none) is "Player n",
+  n its place on its side (as the engine's lineup numbers a player with no name; a
+  watcher, its place on the pitch); a team's is "Team A" / "Team B"; a player of the
+  match who has left is the match's own name for them, checked. The lobby, the turn line
+  ("Player 2 throws"), the shouts and the version lines use it. In the lobby two members
+  with one name are told apart, by the pitch's order: "Mighty Maple", "Mighty Maple II",
+  "III" (`Names.apart`); the name itself is never changed.
 - **A side of several** plays under a team name the host rolls when the side first has
   two players (`rollTeamNames`) and may change in its name row ("Team A's name"),
   written to the document's own top-level `teamNames` (`{"A": "Birch Batons"}`, the
   web's `setTeamName`; the engine's reducers keep a key they do not know). The lobby
-  shows it under the side as PLAYS AS: the host's name row, everyone else the name
-  (`OnlinePitch.teamNames`, "Team A" / "Team B" when it fails). A side of one plays
-  under its player's name (the engine's matchOptions).
+  shows it under the side as PLAYS AS: the host's name row, everyone else the name. A
+  side of one plays under its player's name (the engine's matchOptions).
 - **START** checks every name first (`checkedLineup`: a player's name that fails is
   "Player n"; `teamNamed`: a side of several takes the lobby's team name, or one rolled
   then), so an honest host never starts a match the pitch server would refuse.
 - **This member** sends only a generated name (`setMe`, `profile`); the pitch server
   drops any other. A write it refuses `bad-name` reads as any refused write: "The pitch
   did not take that. Try again." (the web's words).
-- **A match whose snapshot names a name that fails** (a forged start) is not shown or
-  played (`State.namesRefused`, `Stage.namesRefused`): "Cannot show this match" and
-  "This match has a name the game did not make, so it cannot be shown.", with HOME. A
-  shared match opened by its code is checked the same way (`PitchSession.checkNames`).
+- **A match's snapshot**, wherever it is adopted (`PitchController.begin`: a `start`,
+  entering, a rejoin, joining part way, every resync): `names.check({ snap })`, then
+  `restore` with `{ snap, names: "check" }`, which refuses it before anything changes. A
+  refusal is `State.namesRefused` and `Stage.namesRefused`: "Cannot show this match" and
+  "This match has a name the game did not make, so it cannot be shown.", with HOME; the
+  match is never shown or played. The board adopts a snapshot through the strict door too
+  (`OnlinePitch.restore`).
+- **A shared match opened by its code** (a sealed pitch): its kept replay whole,
+  `names.check({ replay })`, and its last snapshot through the strict door
+  (`PitchSession.restoreFromOutside`), the same card on refusal. The app has no replay
+  viewer, so it never calls `replayLoad` itself.
+- **A share** (`ShareMessage.make`): the engine renames only a start its own options make
+  (`renameStart`), and judges the renamed start and log (`names.check({ replay })`); a
+  refusal is "This match did not pass the check, so it cannot be shared."
 
 ## One match, two clocks
 

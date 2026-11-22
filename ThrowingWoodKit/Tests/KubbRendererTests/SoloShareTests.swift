@@ -111,6 +111,92 @@ import Testing
     #expect(board.shareableMatch(save: save) == nil)
   }
 
+  /// The forgery the engine's `names.check` closes (an honest start with only
+  /// `save.game.teams.A.name` typed) in a share's start: never sent.
+  static func forged(_ snap: String) throws -> String {
+    var d = try JSONSerialization.jsonObject(with: Data(snap.utf8)) as! [String: Any]
+    var save = d["save"] as! [String: Any], game = save["game"] as! [String: Any]
+    var teams = game["teams"] as! [String: Any], a = teams["A"] as! [String: Any]
+    a["name"] = "Typed Team"
+    teams["A"] = a
+    game["teams"] = teams
+    save["game"] = game
+    d["save"] = save
+    return String(decoding: try JSONSerialization.data(withJSONObject: d), as: UTF8.self)
+  }
+
+  @Test func aForgedStartIsNeverShared() throws {
+    let dir = folder()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let save = MatchSave(file: dir.appending(path: "solo-match.json"))
+    let app = try finished(save, name: "Brave Birch")
+    let m = try #require(app.shareableMatch(save: save))
+    guard case .message = try app.shareMessage(m.source, name: "Brave Birch") else {
+      Issue.record("the honest match was refused")
+      return
+    }
+    let forged = ShareSource(
+      engine: m.source.engine, start: try Self.forged(m.source.start), actions: m.source.actions,
+      winner: m.source.winner)
+    guard case .refused(let why) = try app.shareMessage(forged, name: "Brave Birch") else {
+      Issue.record("a forged start was made into a share")
+      return
+    }
+    #expect(why == .doesNotReplay)
+  }
+
+  /// A shared replay (a sealed pitch's kept replay) that is the forgery: refused before
+  /// anything is shown, the board unchanged; the honest one is shown.
+  @Test func aForgedSharedReplayIsNotShown() throws {
+    let dir = folder()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let app = try finished(MatchSave(file: dir.appending(path: "solo-match.json")), name: "Brave Birch")
+    let snap = try app.engine.call("snapshot")
+    let forged = try Self.forged(snap)
+    let board = try PitchSession(appVersion: "test")
+    let before = try board.engine.call("view")
+    #expect(throws: BadNamesMatch()) {
+      try board.restoreFromOutside(forged, replay: nil, engine: app.engine.engineVersion)
+    }
+    let replay = JS.object([("start", .string(forged)), ("snap", .string(snap)), ("log", .array([]))]).json
+    #expect(throws: BadNamesMatch()) {
+      try board.restoreFromOutside(snap, replay: replay, engine: app.engine.engineVersion)
+    }
+    let after = try board.engine.call("view")
+    #expect(board.need == nil && after == before)
+    try board.restoreFromOutside(snap, replay: nil, engine: app.engine.engineVersion)
+    #expect(board.need?.kind == "over")
+  }
+
+  /// A kept match from before generated names (a typed "Ada", seen only by this device's
+  /// player) still resumes with the plain restore, and is never shared with its typed
+  /// name: the share renames side A, and the engine judges the whole start.
+  @Test func aTypedKeptMatchResumesButItsTypedNameIsNeverShared() throws {
+    let dir = folder()
+    defer { try? FileManager.default.removeItem(at: dir) }
+    let save = MatchSave(file: dir.appending(path: "solo-match.json"))
+    let app = try PitchSession(appVersion: "test")
+    try app.openMatch(
+      "new",
+      json:
+        #"{"mode":"match","seed":1001,"first":"A","cpu":"B","teams":{"A":{"name":"Ada","players":[{"name":"Ada"}]},"B":{"name":"Computer","players":[{"name":"Computer"}]}},"start":{"year":2026,"month":11,"day":17,"hour":12,"min":0}}"#,
+      save: save)
+    try app.checkpoint()
+    let again = try PitchSession(appVersion: "test")
+    try again.restore(#require(try save.read()), save: save)  // the device's own: plain
+    #expect(again.need != nil)
+    again.dismissHandoff()
+    try again.resign()
+    let m = try #require(again.shareableMatch(save: save, deviceName: "Brave Birch"))
+    #expect(m.name == "Brave Birch")
+    switch try again.shareMessage(m.source, name: "Brave Birch") {
+    case .message(let text, _):
+      print("typed kept match: shared under the picked name")
+      #expect(!text.text.contains("Ada") && !text.text.contains("ada"))
+    case .refused(let why): #expect(why == .doesNotReplay)
+    }
+  }
+
   // ---------- the card ----------
 
   final class Wire {

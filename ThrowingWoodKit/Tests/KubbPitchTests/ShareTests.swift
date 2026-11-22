@@ -172,13 +172,13 @@ let carriesVectors = Engine.carried.contains(shareVectorMinor())
   @Test(.enabled(if: carriesVectors)) func theRenamedMatchReplaysToItsEndWithTheChecks() throws {
     let engine = try vectorEngine()
     guard case .message(let text, _) = try ShareMessage.make(
-      engine: engine, source: source(), name: "Lakeside")
+      engine: engine, source: source(), name: "Lucky Larch")
     else {
       Issue.record("refused")
       return
     }
     let g = try JSONNode.parse(text.text)["g"]!
-    #expect(try JSONNode.parse(g["start"]!.string!)["opts"]?["teams"]?["A"]?["name"]?.string == "Lakeside")
+    #expect(try JSONNode.parse(g["start"]!.string!)["opts"]?["teams"]?["A"]?["name"]?.string == "Lucky Larch")
     let load = JS.object([
       ("start", .raw(g["start"]!.raw)), ("log", .raw(g["log"]!.raw)),
       ("checkCpu", .bool(true)), ("checkThrows", .bool(true)),
@@ -194,8 +194,8 @@ let carriesVectors = Engine.carried.contains(shareVectorMinor())
 
   @Test func anotherVersionsMatchIsRefusedHere() throws {
     let engine = try Engine(appVersion: "0.0-test")
-    #expect(try ShareMessage.make(engine: engine, source: source(engine: "0.6.0"), name: "Ann") == .refused(.engine))
-    #expect(try ShareMessage.make(engine: engine, source: source(engine: "1.7.2"), name: "Ann") == .refused(.engine))
+    #expect(try ShareMessage.make(engine: engine, source: source(engine: "0.6.0"), name: "Brave Birch") == .refused(.engine))
+    #expect(try ShareMessage.make(engine: engine, source: source(engine: "1.7.2"), name: "Brave Birch") == .refused(.engine))
   }
 
   @Test(.enabled(if: carriesVectors)) func aMatchPastTheLimitsIsTooLongBeforeAnythingIsSent() throws {
@@ -203,10 +203,10 @@ let carriesVectors = Engine.carried.contains(shareVectorMinor())
     let one = try source().actions[0]
     // more actions than the server takes
     let many = Array(repeating: one, count: ShareLimits.actions + 1)
-    #expect(try ShareMessage.make(engine: engine, source: source(actions: many), name: "Ann") == .refused(.tooLong))
+    #expect(try ShareMessage.make(engine: engine, source: source(actions: many), name: "Brave Birch") == .refused(.tooLong))
     // fewer, but past what a kept document holds
     let big = Array(repeating: one, count: 700)
-    #expect(try ShareMessage.make(engine: engine, source: source(actions: big), name: "Ann") == .refused(.tooLong))
+    #expect(try ShareMessage.make(engine: engine, source: source(actions: big), name: "Brave Birch") == .refused(.tooLong))
   }
 
   @Test func onlyAMatchAgainstTheComputerMayBeShared() throws {
@@ -240,7 +240,7 @@ let carriesVectors = Engine.carried.contains(shareVectorMinor())
   @Test(.enabled(if: carriesVectors)) func oneCallWithTheMessagesMatch() async throws {
     let fake = FakeAPI(#"{"code":"abcdefgh23","v":1}"#)
     let engine = try vectorEngine()
-    guard case .message(let text, _) = try ShareMessage.make(engine: engine, source: source(), name: "Lakeside")
+    guard case .message(let text, _) = try ShareMessage.make(engine: engine, source: source(), name: "Lucky Larch")
     else {
       Issue.record("refused")
       return

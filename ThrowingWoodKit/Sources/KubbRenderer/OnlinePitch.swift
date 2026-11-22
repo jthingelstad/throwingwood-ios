@@ -541,7 +541,13 @@ public struct PitchMember: Identifiable, Equatable {
     // spectator's try, as on the web) is shown on the newest.
     let theirs = Engine.majorMinor(m["engine"]?.string)
     try board.useEngine(minor: controller.engines.carries(theirs) ? theirs : nil)
-    let view: ViewOutput = try board.read("restore", snap)
+    // a snapshot someone else sent: through restore's strict door, refused before the
+    // board changes when its names are not all the game's (a spectator's try of a match
+    // on an engine this build lacks comes here unchecked by the controller)
+    guard let view: ViewOutput = try? board.read("restore", Names.checkedRestore(snap)) else {
+      stage = .namesRefused
+      return
+    }
     board.resetPresentation()
     board.need = view.need
     try board.adopt(view)

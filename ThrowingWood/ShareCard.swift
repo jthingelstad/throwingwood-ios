@@ -123,8 +123,8 @@ extension GameModel {
     do {
       guard let kept, let snap = kept.snap else { throw PitchError("no-replay") }
       let board = try PitchSession(appVersion: Self.version)
-      try board.restore(snap, save: nil, engine: kept.engine)  // on the match's own engine
-      try board.checkNames(snap)
+      // someone else's match: on its own engine, through the engine's names check
+      try board.restoreFromOutside(snap, replay: kept.raw, engine: kept.engine)
       board.dismissHandoff()
       guard board.need?.kind == "over" else { throw PitchError("not-over") }
       pitch.board = board

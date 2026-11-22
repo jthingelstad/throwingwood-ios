@@ -28,7 +28,7 @@ the version as `<app version> (<engine version>)`, `0.2 (0.8.1)` for the first b
 engine 0.8, `0.3 (0.9.0)` for the first on engine 0.9, `0.4 (0.9.0)` for the first
 with scenes, `0.7 (0.13.1)` for the first on engine 0.13, `0.8 (0.13.3)` for the first
 that carries the newest engine alone (docs/ENGINES.md: it plays no match with a build
-before 0.7 or a web tab on 0.9), `0.9 (0.13.3)` for the first with generated names and no
+before 0.7 or a web tab on 0.9), `0.9 (0.13.4)` for the first with generated names and no
 typed name anywhere (AGENTS.md "The version a player sees").
 `scripts/asc.swift` calls the App Store Connect API for the rest (groups,
 What to Test, review submissions).

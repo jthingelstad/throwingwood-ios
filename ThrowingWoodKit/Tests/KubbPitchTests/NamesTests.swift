@@ -53,20 +53,25 @@ import Testing
     #expect(n.teamPasses("Birch Batons", players: 3))
   }
 
-  /// A match whose names do not all pass is named by badNames.
-  @Test func badNamesOfAMatch() throws {
-    let n = try names()
-    func setup(_ a: String, _ ap: [String], _ b: String, _ bp: [String]) throws -> JSONNode {
-      func side(_ t: String, _ ps: [String]) -> JS {
-        .object([("name", .string(t)), ("players", .array(ps.map { .object([("name", .string($0))]) }))])
-      }
-      return try JSONNode.parse(JS.object([("teams", .object([("A", side(a, ap)), ("B", side(b, bp))]))]).ascii)
-    }
-    #expect(n.badNames(setup: try setup("Mighty Maple", ["Mighty Maple"], "Computer", ["Computer"])).isEmpty)
-    #expect(n.badNames(setup: try setup("Birch Batons", ["Mighty Maple", "Player 2"], "Team B", ["Lucky Larch", "Brave Birch"])).isEmpty)
-    #expect(n.badNames(setup: try setup("Ada", ["Ada"], "Computer", ["Computer"])) == ["Ada", "Ada"])
-    #expect(n.badNames(setup: try setup("Mighty Maple", ["Mighty Maple", "Lucky Larch"], "Team B", ["Lucky Larch"])) == ["Mighty Maple"])
-    #expect(n.badNames(snapshot: "not json").isEmpty)
+  /// The engine judges a whole snapshot: an honest one is allowed, and one with a typed
+  /// name in `save.game.teams` (its options untouched) is refused, with safe places.
+  @Test func theEngineJudgesAWholeSnapshot() throws {
+    let engine = try Engine(appVersion: "0.0-test")
+    let n = Names(engine: engine)
+    _ = try engine.call(
+      "new",
+      json:
+        #"{"mode":"match","seed":3,"first":"A","cpu":"B","teams":{"A":{"name":"Mighty Maple","players":[{"name":"Mighty Maple"}]},"B":{"name":"Computer","players":[{"name":"Computer"}]}}}"#)
+    let honest = try engine.call("snapshot")
+    #expect(n.check(snap: honest).allowed)
+    let forged = try PitchNamesTests.forged(honest)
+    let c = n.check(snap: forged)
+    #expect(!c.allowed && c.refusedFrom.contains("save.game.teams.A.name"))
+    #expect(!c.places.isEmpty && !c.places.contains { $0.contains("Typed") })
+    #expect(!n.check(snap: "not json").allowed)
+    // a replay: its start
+    #expect(n.check(replay: JS.object([("start", .string(honest)), ("log", .array([]))]).json).allowed)
+    #expect(!n.check(replay: JS.object([("start", .string(forged)), ("log", .array([]))]).json).allowed)
   }
 
   /// Two members with one name are told apart in a lobby, never by changing it.
