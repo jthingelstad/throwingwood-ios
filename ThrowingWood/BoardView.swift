@@ -258,6 +258,18 @@ import UIKit
               pitch.stand(fx: 0.8, fy: 0.75, phase: .down)
               for _ in 0..<3 { try pitch.tick(1.0 / 60) }
             }
+            if mode.hasPrefix("drive") { try prepareDrive(mode) }
+            if mode == "cpuraise" {
+              // engine 0.16's own raises watched: the inkast fixture's two kubbs thrown
+              // in, the computer raising them (setup.settled), frozen STOOD_AT s into it
+              for _ in 0..<12 where pitch.raiseWatch != .engine {
+                for _ in 0..<2400 where !pitch.canAim && pitch.raiseWatch != .engine { try pitch.tick(1.0 / 60) }
+                if pitch.raiseWatch == .engine { break }
+                try reviewSwing(back: nil)
+              }
+              let at = Double(ProcessInfo.processInfo.environment["STOOD_AT"] ?? "") ?? 0.6
+              for _ in 0..<Int((at * 60).rounded()) where pitch.raiseWatch == .engine { try pitch.tick(1.0 / 60) }
+            }
             if mode == "arc" || mode == "tilt" {
               // The plate open, a finger held on its slider three quarters along: the
               // side view eases in.
@@ -532,6 +544,14 @@ import UIKit
           case "settings", "matchsettings": model.screen == .settings
           case "practicemenu": model.screen == .practiceMenu
           case "aim", "nudge", "coach", "coachslow": model.screen == .match && pitch.canAim
+          case "drivearc", "drivemeter": reviewReady && pitch.canAim
+          case "drivearcopen": reviewReady && pitch.plan
+          case "drivecaption": reviewReady && pitch.held == .arc
+          case "drivemeterwound": reviewReady && pitch.dial.phase == "winding"
+          case "driveflight": reviewReady && pitch.playing
+          case "driveverdict", "driveshort": reviewReady && pitch.result != nil
+          case "driveshortcoach": reviewReady && pitch.canAim && pitch.coachShort
+          case "cpuraise": reviewReady && pitch.raiseWatch == .engine
           case "menu": model.screen == .menu
           case "verdict": pitch.result != nil
           case "verdictaim": reviewReady && pitch.result != nil && pitch.canAim
@@ -957,5 +977,78 @@ import UIKit
       }
     }
     private enum ReviewError: Error { case noRelease, noRest }
+
+    /// A swing on the dial as a player makes it: back to `back` (nil: the power band's
+    /// middle), a fast flick to the release band's middle, the finger lifted.
+    private func reviewSwing(back: Double?) throws {
+      let dt = 1.0 / 60
+      let back = back ?? ((pitch.dial.powerHi ?? 100) + (pitch.dial.powerLo ?? 80)) / 2
+      let stop = ((pitch.dial.releaseHi ?? 48) + (pitch.dial.releaseLo ?? 32)) / 2
+      func arm(_ angle: Double) throws {
+        let a = angle * .pi / 180
+        pitch.sample(CGPoint(x: sin(a), y: cos(a)))
+        try pitch.tick(dt)
+      }
+      try arm(0)
+      var a = -5.0
+      try arm(a)
+      while a > -back {
+        a = max(-back, a - 400 * dt)
+        try arm(a)
+      }
+      while a < stop {
+        a = min(stop, a + 2400 * dt)
+        try arm(a)
+      }
+      pitch.sample(nil)
+      try pitch.tick(dt)
+    }
+
+    /// Engine 0.16's drive (the advantage fixture): the thrower DRIVE_AT m short of the
+    /// nearest field kubb (8: a far base kubb), ARC at its floor with DRIVE_FLOOR=1, then
+    /// the shot's own step: the ARC plate open (the side view), a finger on its drive part
+    /// (the caption), the meter wound to the band, a drive in flight (FLIGHT_FRAMES in),
+    /// at rest with its verdict, one short of the band (SHORT) and the aim after it (the
+    /// coach's lead).
+    private func prepareDrive(_ mode: String) throws {
+      let env = ProcessInfo.processInfo.environment
+      let dt = 1.0 / 60
+      try pitch.reviewStand(short: Double(env["DRIVE_AT"] ?? "") ?? 1.5)
+      if env["DRIVE_FLOOR"] == "1" {
+        pitch.slide(.arc, to: 0, phase: .up)
+        for _ in 0..<90 { try pitch.tick(dt) }
+      }
+      switch mode {
+      case "drivearcopen":
+        try pitch.tapPlate(.arc)
+        for _ in 0..<90 { try pitch.tick(dt) }
+      case "drivecaption":
+        try pitch.tapPlate(.arc)
+        pitch.slide(.arc, to: pitch.driveFraction * 0.4, phase: .down)
+        for _ in 0..<90 { try pitch.tick(dt) }
+      case "drivemeterwound":
+        let back = ((pitch.dial.powerHi ?? 100) + (pitch.dial.powerLo ?? 80)) / 2
+        var a = 0.0
+        while a > -back {
+          a = max(-back, a - 400 * dt)
+          let r = a * .pi / 180
+          pitch.sample(CGPoint(x: sin(r), y: cos(r)))
+          try pitch.tick(dt)
+        }
+        gesture = .dial
+      case "driveflight":
+        try reviewSwing(back: nil)
+        let n = Int(env["FLIGHT_FRAMES"] ?? "") ?? 8
+        for _ in 0..<n where pitch.playing { try pitch.tick(dt) }
+      case "driveverdict", "driveshort", "driveshortcoach":
+        try reviewSwing(back: mode == "driveverdict" ? nil : (pitch.dial.powerLo ?? 100) - 30)
+        for _ in 0..<2000 where pitch.result == nil { try pitch.tick(dt) }
+        if mode == "driveshortcoach" {
+          for _ in 0..<2000 where !pitch.canAim { try pitch.tick(dt) }
+          pitch.verdictAway()
+        }
+      default: break
+      }
+    }
   #endif
 }

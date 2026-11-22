@@ -76,6 +76,36 @@ LANDSCAPE = [
     "linear-left-aim", "linear-right-aim", "linear-left-tilt", "clock-nudge", "linear-left-nudge",
     "coach", "coach-slow", "linear-left-coach",
 ]
+# Engine 0.16's drive and the engine's own raises, taken only when asked for (--only, or
+# --drive for all of them): name: (MATCH_REVIEW mode, fixture, meter, side, environment).
+# The advantage fixture is the web's tests/fixtures/snap-advantage.json (a group of field
+# kubbs off the advantage line); DRIVE_AT stands the thrower that many metres short of the
+# nearest (8: a far base kubb), DRIVE_FLOOR=1 puts ARC at its floor.
+DRIVE_SHOTS = {}
+for at, tag in [("1.5", "1_5m"), ("4", "4m"), ("8", "8m")]:
+    for plate, mode in [("closed", "drivearc"), ("open", "drivearcopen")]:
+        DRIVE_SHOTS[f"arc-{plate}-{tag}"] = (mode, "advantage", "clock", "right", {"DRIVE_AT": at})
+        if at == "1.5":
+            DRIVE_SHOTS[f"arc-{plate}-{tag}-floor"] = (mode, "advantage", "clock", "right", {"DRIVE_AT": at, "DRIVE_FLOOR": "1"})
+DRIVE_SHOTS["arc-caption-drive"] = ("drivecaption", "advantage", "clock", "right", {"DRIVE_AT": "1.5"})
+for i, n in enumerate([3, 6, 9, 12, 15, 20]):
+    DRIVE_SHOTS[f"drive-flight-{i}"] = ("driveflight", "advantage", "clock", "right", {"DRIVE_AT": "1.5", "FLIGHT_FRAMES": str(n)})
+DRIVE_SHOTS["drive-verdict"] = ("driveverdict", "advantage", "clock", "right", {"DRIVE_AT": "1.5"})
+DRIVE_SHOTS["drive-short-verdict"] = ("driveshort", "advantage", "clock", "right", {"DRIVE_AT": "1.5"})
+DRIVE_SHOTS["drive-short-coach"] = ("driveshortcoach", "advantage", "clock", "right", {"DRIVE_AT": "1.5"})
+for meter in ["clock", "linear"]:
+    for side in ["left", "right"]:
+        for at, tag, floor in [("1.5", "1_5m-floor", "1"), ("4", "4m-floor", "1"), ("4", "4m", "0")]:
+            for state, mode in [("rest", "drivemeter"), ("wound", "drivemeterwound")]:
+                DRIVE_SHOTS[f"meter-{meter}-{side}-{tag}-{state}"] = (
+                    mode, "advantage", meter, side, {"DRIVE_AT": at, "DRIVE_FLOOR": floor})
+# a thrown kubb's narrower bars (nothing built for it): the inkast's meter
+DRIVE_SHOTS["inkast-meter"] = ("aim", "inkast", "clock", "right", {})
+DRIVE_SHOTS["inkast-meter-linear"] = ("aim", "inkast", "linear", "right", {})
+for i, at in enumerate([0.1, 0.45, 0.6, 0.75, 0.95, 1.1, 1.25, 1.36]):
+    DRIVE_SHOTS[f"cpu-raise-{i:02d}"] = ("cpuraise", "inkast", "clock", "right", {"STOOD_AT": str(at)})
+ENV = {shot: v[4] for shot, v in DRIVE_SHOTS.items()}
+ON_REQUEST |= set(DRIVE_SHOTS)
 # Shots taken only on a phone on its side: STAND held with the clock at the left
 # (the plan block at the right edge), and the punishment bar with a refused
 # spot's reason.
@@ -86,7 +116,8 @@ LANDSCAPE_ONLY = {
 LANDSCAPE += list(LANDSCAPE_ONLY)
 # every other shot is a device that has learned the throw (no coach line)
 LEARNING = {"coach", "coachslow"}
-SHOTS = {**{m: (m, f, "clock", "right") for m, f in MODES.items()}, **METER_SHOTS, **LANDSCAPE_ONLY}
+SHOTS = {**{m: (m, f, "clock", "right") for m, f in MODES.items()}, **METER_SHOTS, **LANDSCAPE_ONLY,
+         **{k: v[:4] for k, v in DRIVE_SHOTS.items()}}
 APP = "com.throwingwood.app"
 # The review devices under the iOS 26.2 runtime and their picture names: both
 # phones, and a small and a large iPad (the same game on a bigger screen).
@@ -105,7 +136,7 @@ def sim(*args, **kwargs):
 def capture(phone, args):
     devices = json.loads(sim("list", "devices", "available", "-j", capture_output=True).stdout)
     device = next(d for d in devices["devices"]["com.apple.CoreSimulator.SimRuntime.iOS-26-2"]
-                  if d["name"] == phone)
+                  if (d["udid"] == args.udid if args.udid else d["name"] == phone))
     udid = device["udid"]
     boot = device["state"] == "Shutdown"
     if boot:
@@ -146,6 +177,7 @@ def capture(phone, args):
                 else:
                     shutil.copyfile(src, tmp / "review-solo.json")
             scene = {"SIMCTL_CHILD_REVIEW_SCENE": args.scene} if args.scene else {}
+            scene.update({f"SIMCTL_CHILD_{k}": v for k, v in ENV.get(shot, {}).items()})
             sim("launch", "--terminate-running-process", udid, APP,
                 "-pitch.meter", meter, "-pitch.meterSide", side,
                 "-pitch.throwsMade", "0" if mode in LEARNING else "9",
@@ -193,6 +225,9 @@ if __name__ == "__main__":
     parser.add_argument("--capture-only", action="store_true")
     parser.add_argument("--only", type=lambda v: set(v.split(",")), default=None,
                         help="comma-separated shot names (implies --capture-only)")
+    parser.add_argument("--drive", action="store_true",
+                        help="engine 0.16's drive and engine-raise shots (implies --capture-only)")
+    parser.add_argument("--udid", help="take the shots on this simulator (by id) in place of the named review device")
     parser.add_argument("--phone", action="append", choices=list(DEVICES),
                         help="one review device (repeatable)")
     parser.add_argument("--ipad", action="store_true", help="the two review iPads, not the phones")
@@ -203,6 +238,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     phones = args.phone or (IPADS if args.ipad else PHONES)
+    if args.drive:
+        args.only = (args.only or set()) | set(DRIVE_SHOTS)
     if args.only or args.scene:
         args.capture_only = True
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:

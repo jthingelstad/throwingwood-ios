@@ -178,4 +178,35 @@ import Testing
     for _ in 0..<60 { try online.tick(1.0 / 60) }
     #expect(online.displayedHash == hash)
   }
+
+  /// The engine's own raises watched online (engine 0.16.0's `setup.settled`, the table's
+  /// `engine` column): actions arriving meanwhile wait in the queue, the seat gives no right
+  /// to act, and they are drained on the first free frame, whether the show plays out or a
+  /// tap skips it.
+  @Test func theEnginesOwnRaisesHoldTheQueueLikeAnArrivingRaise() throws {
+    for ending in ["plays out", "a tap"] {
+      let (online, actions, _) = try setUp()
+      defer { online.close() }
+      let board = online.board
+      let n = try #require(board.need)
+      let id = try #require(n.kubb), pose = try #require(n.pose), end = try #require(n.ends?.first)
+      let kubb = StoodShow.Kubb(
+        id: id, lying: pose.piece(id: id),
+        standing: MatchNeed.Pose(x: end.pose.x, y: end.pose.y, angle: end.pose.angle, standing: true).piece(id: id),
+        toward: V2(cos(pose.angle ?? 0), sin(pose.angle ?? 0)), frame: n.side)
+      board.stoodShow = StoodShow(kubbs: [kubb], before: [], after: try board.read("view"))
+      #expect(board.raiseWatch == .engine && !board.raiseWatch.seatMayAct && !board.raiseWatch.appliesIncoming)
+      try deliver(online, Array(actions[0..<2]))
+      try online.tick(1.0 / 60)
+      #expect(online.displayedSeqForProbe == 0, "\(ending): waits")
+      if ending == "a tap" {
+        try online.skipRaise()
+      } else {
+        for _ in 0..<120 where board.raiseWatch == .engine { try online.tick(1.0 / 60) }
+      }
+      for _ in 0..<600 where online.displayedSeqForProbe < 2 { try online.tick(1.0 / 60) }
+      #expect(online.displayedSeqForProbe == 2, "\(ending): drained")
+      #expect(online.displayedHash == actions[1].1["hash"]?.string)
+    }
+  }
 }
