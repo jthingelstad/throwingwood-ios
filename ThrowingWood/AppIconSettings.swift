@@ -93,11 +93,27 @@ struct AppIconSettings: View {
   }
 
   private var tiles: some View {
-    let icons = AppIconArt.icons
-    let layout = type >= .accessibility3 ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))
-    return layout {
-      ForEach(Array(icons.enumerated()), id: \.offset) { i, icon in
-        tile(icon, index: i, count: icons.count)
+    let icons = Array(AppIconArt.icons.enumerated())
+    // three a row, as the Scene tiles; a last tile alone is centred at a tile's width.
+    // At the largest text sizes each tile is a row of its own.
+    let perRow = type >= .accessibility3 ? 1 : 3
+    let rows = stride(from: 0, to: icons.count, by: perRow).map { Array(icons[$0..<min($0 + perRow, icons.count)]) }
+    return VStack(spacing: 8) {
+      ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+        HStack(spacing: 8) {
+          let gaps = perRow - row.count
+          if gaps > 0, gaps % 2 == 0 {
+            ForEach(0..<gaps / 2, id: \.self) { _ in Color.clear.frame(maxWidth: .infinity, maxHeight: 1) }
+          }
+          ForEach(row, id: \.offset) { i, icon in
+            tile(icon, index: i, count: icons.count)
+          }
+          if gaps > 0 {
+            ForEach(0..<(gaps % 2 == 0 ? gaps / 2 : gaps), id: \.self) { _ in
+              Color.clear.frame(maxWidth: .infinity, maxHeight: 1)
+            }
+          }
+        }
       }
     }
     .accessibilityElement(children: .contain)

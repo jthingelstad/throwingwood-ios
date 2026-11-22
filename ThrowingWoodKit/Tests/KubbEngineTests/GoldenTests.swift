@@ -123,7 +123,7 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
   @Test func corpusIsForTheVendoredEngine() throws {
     let engine = try Engine(appVersion: testAppVersion)
     // Hash-neutral releases retain the exact corpus from the last change to match physics.
-    let expected = ["0.4.1": "0.2.0", "0.5.1": "0.5.0", "0.7.1": "0.5.0", "0.7.2": "0.5.0", "0.7.3": "0.5.0", "0.7.4": "0.5.0", "0.8.1": "0.8.0", "0.8.2": "0.8.0", "0.13.1": "0.13.0", "0.13.2": "0.13.0", "0.13.3": "0.13.0", "0.13.4": "0.13.0"][engine.engineVersion] ?? engine.engineVersion
+    let expected = ["0.4.1": "0.2.0", "0.5.1": "0.5.0", "0.7.1": "0.5.0", "0.7.2": "0.5.0", "0.7.3": "0.5.0", "0.7.4": "0.5.0", "0.8.1": "0.8.0", "0.8.2": "0.8.0", "0.13.1": "0.13.0", "0.13.2": "0.13.0", "0.13.3": "0.13.0", "0.13.4": "0.13.0", "0.15.1": "0.15.0"][engine.engineVersion] ?? engine.engineVersion
     #expect(corpus.version == expected, "run scripts/vendor-engine.sh sync")
     #expect(corpus.tune == Engine.tune)
     #expect(corpus.matches.count == pinnedCorpora[Engine.newest]?.matches)

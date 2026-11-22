@@ -16,7 +16,7 @@ submit it to Beta App Review for the Beta group whenever Jamie asks for one.
 - **Signing.** `Config/Signing.local.xcconfig` holds the team and
   `Config/AppStoreConnect.local` the API key's ids (both ignored by git; see
   `scripts/testflight.sh`).
-- **App icon.** The final icon is Jamie's call. His direction (2026-11-22): the top third of a king in profile, the crown framed, with an alternate per scene. It is built (the Park king as the primary with dark and tinted looks, Camping and Techno as alternates picked in Settings, drawn by the game's renderer: docs/RENDER.md "The app icon") and awaits his look before it goes in an upload.
+- **App icon.** The final icon is Jamie's call. His direction (2026-11-22): the top third of a king in profile, the crown framed, with an alternate per scene. It is built (the Park king as the primary with dark and tinted looks, the other six scenes as alternates picked in Settings, drawn by the game's renderer: docs/RENDER.md "The app icon") and awaits his look before it goes in an upload.
 
 ## Internal testers
 
@@ -29,7 +29,7 @@ engine 0.8, `0.3 (0.9.0)` for the first on engine 0.9, `0.4 (0.9.0)` for the fir
 with scenes, `0.7 (0.13.1)` for the first on engine 0.13, `0.8 (0.13.3)` for the first
 that carries the newest engine alone (docs/ENGINES.md: it plays no match with a build
 before 0.7 or a web tab on 0.9), `0.9 (0.13.4)` for the first with generated names and no
-typed name anywhere, `0.10 (0.15.0)` for the first with the engine's seven scenes and Kid
+typed name anywhere, `0.10 (0.15.1)` for the first with the engine's seven scenes and Kid
 matches (AGENTS.md "The version a player sees").
 `scripts/asc.swift` calls the App Store Connect API for the rest (groups,
 What to Test, review submissions).

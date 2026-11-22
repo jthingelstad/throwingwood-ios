@@ -379,7 +379,10 @@ function match.settleStanding(m, s)
 	if not wake then return 0 end
 	local w = world.new { surface = s.surface or "grass", pieces = match.worldPieces(s) }
 	for _, id in ipairs(wake) do world.wake(w.byId[id]) end
-	world.run(w)
+	-- m.run, when a host sets it, runs the world to rest in its place: the same steps in
+	-- the same order, in slices (session/neighbours, 0.15.1). Never saved (core/save).
+	local run = m.run or world.run
+	run(w)
 	local res = world.result(w)
 	local eps = debris.tune.matchEps
 	for _, p in ipairs(s.pieces) do
