@@ -6,9 +6,10 @@ An engine is carried only while we decide it is supported, never because it was 
 released (the owner, 2026-11-21: "Let's force all clients to the most recent engine. We
 should only support engines that we decide are worth supporting not just ones that have
 published so that we can push players to the new engines."). Today that is the newest
-alone: 0.18 (v0.18.0, golden corpus 0.18.0, 21 matches and 854 actions: two on the Techno
-grid, two Kid matches and two with computer players in teams among them; the computer's
-drive and the baton's blow, kubb-engine docs/VERSIONING.md). Every match plays on it: solo,
+alone: 1.0 (v1.0.0, the released engine, golden corpus 1.0.0, 21 matches and 880 actions:
+two on the Techno grid, two Kid matches and two with computer players in teams among them;
+the seat, pairRoll from the first step and propped pieces coming to rest, kubb-engine
+docs/VERSIONING.md 1.0.0). Every match plays on it: solo,
 practice and every pitch.
 
 The decision is written in one place, `TAG` and `OLDER` in `scripts/vendor-engine.sh`:
@@ -20,7 +21,11 @@ straight to 0.15; no iPhone build shipped 0.10 to 0.12 or 0.14. 0.15 went with a
 hashes), so a kept 0.15 match says `VersionWords.oldMatch`. 0.16 went with app 0.12 on
 2026-11-22, which moved straight to 0.18 (no iPhone build carried 0.17): 0.18 shares no
 match with 0.16 or 0.17 (the computer's drive and the baton's blow move the hashes), so a
-kept 0.16 match says `VersionWords.oldMatch` too.
+kept 0.16 match says `VersionWords.oldMatch` too. 0.18 went with app 1.0.0 on 2026-11-22
+(the owner: "lets move all four projects to version 1.0.0 and tag those releases. We will
+use that version to submit to the App Store as well."): 1.0 shares no match with 0.18 (the
+seat and pairRoll move every golden hash), so a kept 0.18 match says
+`VersionWords.oldMatch` (`SoloTrailTests`).
 
 A match still belongs to the engine it was started on, its `match.engine` major.minor,
 for its whole life (kubb-engine docs/VERSIONING.md), because a new minor can change how a

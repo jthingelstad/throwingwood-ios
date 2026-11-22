@@ -116,15 +116,18 @@ import Testing
     let partnerA = try #require(try await host.addComputer(side: "A", level: "pro"))
     let partnerB = try #require(try await host.addComputer(side: "B", level: "pro"))
     try await eventually { (try? self.team(guest, "B")) == ["Member_G1", partnerB] }
-    // the engine's choice of engine sees no seat as a player without one
+    // the engine's choice of engine sees no seat as a player without one (engine 1.0.0,
+    // kubb-engine docs/PITCH.md "Computer seats": a seat carries the pitch's engine, so
+    // `engineFor` leaves seats out; 0.17 and 0.18 counted each as a player carrying
+    // none, and the app took the seats out first): the plain call, given the document
+    // as it is, seats and all, finds the newest engine and misses no one
     #expect(try host.roomEngine()["engine"]?.string == Engine.newest)
-    // the engine gap behind `withoutSeats`: engine 0.18.0's own engineFor, given the
-    // document as it is, counts each seat as a player carrying no engine (when this
-    // fails, the engine has fixed it and withoutSeats can go)
     let raw = try host.newestCall(
       "engineFor",
       [("doc", .raw(host.pitch.document)), ("members", host.pitch.membersJSON), ("host", .string("Member_H1"))])
-    #expect(raw["engine"]?.isNull == true || raw["engine"] == nil)
+    #expect(raw["engine"]?.string == Engine.newest)
+    #expect(raw["missing"]?.items.isEmpty ?? true)
+    #expect(try JSONNode.parse(host.pitch.document)["teams"]?["A"]?.items.contains { host.isSeat($0.string) } == true)
 
     #expect(try await host.start(seed: 1717, at: Self.stampedStart))
     try await eventually { guest.state == .match }

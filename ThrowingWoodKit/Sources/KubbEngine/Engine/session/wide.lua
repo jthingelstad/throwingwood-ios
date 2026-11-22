@@ -251,6 +251,11 @@ local function settled(setup)
 		for _, f in ipairs { "lying", "standing", "pose", "king" } do
 			if e[f] then n[f] = frame.pose(e.side, e[f]) end
 		end
+		-- (1.0) the seat the kubb will stand at, a quaternion
+		if e.seat then
+			local qw, qx, qy, qz = frame.quat(e.side, e.seat.qw, e.seat.qx, e.seat.qy, e.seat.qz)
+			n.seat = { qw = qw, qx = qx, qy = qy, qz = qz }
+		end
 		-- (0.17.0) the surroundings too
 		if e.others then
 			n.others = {}

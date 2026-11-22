@@ -108,14 +108,20 @@ local function restZ(kind, qw, qx, qy, qz)
 	return k.hl * abs(r33) + k.r
 end
 
-local function newItem(p)
+-- surface: the world's (a name), for a standing kubb's seat (world.seat, 1.0): the pose
+-- a client draws is the one the throw's world will build, so nothing jumps when it does.
+local function newItem(p, surface)
 	local qw, qx, qy, qz = p.qw, p.qx, p.qy, p.qz
 	if not qw then
 		local yaw = (p.yaw or 0) / 2
 		qw, qx, qy, qz = math.cos(yaw), 0, 0, math.sin(yaw)
 	end
+	local seated = false
+	if surface then
+		qw, qx, qy, qz, seated = phys.seat(surface, p.kind, p.x or 0, p.y or 0, qw, qx, qy, qz)
+	end
 	return {
-		id = p.id, kind = p.kind, x = p.x, y = p.y, z = p.z or restZ(p.kind, qw, qx, qy, qz),
+		id = p.id, kind = p.kind, x = p.x, y = p.y, z = (not seated and p.z) or restZ(p.kind, qw, qx, qy, qz),
 		qw = qw, qx = qx, qy = qy, qz = qz,
 		toppled = p.toppled or false, base = p.base, role = p.role, half = p.half,
 		debris = p.debris, exact = p.z ~= nil,
@@ -136,20 +142,20 @@ end
 
 function throw.standUp(s)
 	local items = {}
-	for i, p in ipairs(s.layout) do items[i] = newItem(p) end
+	for i, p in ipairs(s.layout) do items[i] = newItem(p, s.surface) end
 	s.items = items
 	s.practiceBaton = 0
 end
 
-local function itemsFrom(pieces, debris)
+local function itemsFrom(pieces, debris, surface)
 	local items = {}
-	for i, p in ipairs(pieces) do items[i] = newItem(p) end
+	for i, p in ipairs(pieces) do items[i] = newItem(p, surface) end
 	for _, p in ipairs(debris or {}) do items[#items + 1] = newItem(p) end
 	return items
 end
 
 function throw.setPieces(s, pieces, debris)
-	s.items = itemsFrom(pieces, debris)
+	s.items = itemsFrom(pieces, debris, s.surface)
 end
 
 local function itemById(s, id)
@@ -1111,8 +1117,8 @@ end
 -- Engine pieces and debris (core/match's setup shape) as the renderer's items, without
 -- touching a throw's state: the pitch as it stands while nothing is set up to throw
 -- (raising, punishment kubbs, the end).
-function throw.itemsOf(pieces, debris)
-	return throw.items { items = itemsFrom(pieces, debris) }
+function throw.itemsOf(pieces, debris, surface)
+	return throw.items { items = itemsFrom(pieces, debris, surface) }
 end
 
 -- Fire launch L (how: "baton", "drill" or "lob") from where the player

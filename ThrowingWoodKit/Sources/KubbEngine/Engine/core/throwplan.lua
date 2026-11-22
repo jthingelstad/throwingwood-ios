@@ -626,37 +626,77 @@ function plan.snap(tx, ty, targets, n, radius)
 	return best, bi
 end
 
+-- plan.speedFor(driveBackMaxDeg), the fastest a planned drive may be: one carry solve,
+-- kept for the inputs it was worked out from (the reach at the top backswing, the
+-- reference loft, the hand's height, the baton's drag, g and the carry's step), so a plan
+-- under the knee spends no solve on it (1.0; it cost one a plan). The same bits.
+local topR, topLoft, topHand, topDrag, topG, topStep, topV = nil, nil, nil, nil, nil, nil, nil
+local function topSpeed()
+	local pt, ft = plan.tune, flight.tune
+	local R = plan.reach(pt.driveBackMaxDeg)
+	if R == topR and pt.refLoftDeg == topLoft and ft.handHeight == topHand and ft.dragK.baton == topDrag
+		and ft.g == topG and ft.carryStep == topStep then
+		return topV
+	end
+	topR, topLoft, topHand, topDrag, topG, topStep = R, pt.refLoftDeg, ft.handHeight, ft.dragK.baton, ft.g, ft.carryStep
+	topV = plan.speedFor(pt.driveBackMaxDeg)
+	return topV
+end
+
+-- Over the swing's top speed by drag-free flight alone (1.0)? A line at loft e (radians)
+-- over R (m) from a hand hz (m) over the aim, den = R tan(e) + hz > 0, needs at least the
+-- drag-free speed sqrt(g R^2 / (2 cos^2 e den)): drag only adds to the speed a line
+-- needs, so a line whose drag-free speed is past vmax is unfit with no carry. Close to
+-- the line straight at the aim (2 to 5 m from release 0, about 4e-5 m clear) that carry
+-- ran 3000 steps to return nan. Only with the hand over the aim (hz > 0, every throw the
+-- game plans; there the carry speed was measured at 1.004 times the drag-free speed or
+-- more wherever the drag-free one is near vmax). Returns the drag-free speed's excess
+-- over vmax when it is over (a positive lower bound of the carry speed's), else nil.
+local function dragFreeOver(R, e, hz, den, vmax)
+	if hz <= 0 then return nil end
+	local c = cos(e)
+	local v = sqrt(flight.tune.g * R * R / (2 * c * c * den))
+	if v > vmax then return v - vmax end
+	return nil
+end
+
 -- The drive's floor (0.16; made cheap in 0.18.0): the lowest release under the knee
 -- whose line a hand hz (m) over the aim makes over R (m) at loft share flat, at no more
 -- than plan.speedFor(driveBackMaxDeg); the knee when none under it does. The carry speed
 -- falls as the release rises, so the floor is the root of speed(release) = vmax: from the
 -- line's geometric limit (the loft straight at the aim, under which no speed reaches it)
 -- Illinois steps on [unfit, fit] to 1e-7 degrees, the fitting end returned, about 6 to 10
--- carry speeds where 0.16's bisection spent 24. Kept for the last (R, flat, hz, vmax), so a
--- plan whose release alone changed, and plan.arcFloor after it, reuse it. No tables.
+-- carry speeds where 0.16's bisection spent 24. A release whose drag-free speed is
+-- already past vmax costs no carry (dragFreeOver, 1.0: its excess stands in for the
+-- carry's, the same sign). Kept for the last (R, flat, hz, vmax), so a plan whose release
+-- alone changed, and plan.arcFloor after it, reuse it. No tables and no closures.
 local floorR, floorFlat, floorHz, floorV, floorRel = nil, nil, nil, nil, nil
 local huge = math.huge
+-- the floor's gap at release r: the carry speed less vmax (huge for a line no speed
+-- reaches), or the drag-free excess when that alone is over
+local function floorGap(r, R, flat, hz, vmax)
+	local e = rad(plan.loftFor(r) * flat)
+	-- at or under the line straight at the aim no speed reaches it
+	local den = R * tan(e) + hz
+	if den <= 0 then return huge end
+	local over = dragFreeOver(R, e, hz, den, vmax)
+	if over then return over end
+	local sp = carrySpeed(R, e, hz)
+	if sp ~= sp or sp <= 0 then return huge end
+	return sp - vmax
+end
 local function driveFloor(R, flat, hz)
 	local pt = plan.tune
-	local vmax = plan.speedFor(pt.driveBackMaxDeg)
+	local vmax = topSpeed()
 	if R == floorR and flat == floorFlat and hz == floorHz and vmax == floorV then return floorRel end
 	local knee = pt.driveKneeDeg
-	local function g(r)
-		local e = rad(plan.loftFor(r) * flat)
-		-- at or under the line straight at the aim no speed reaches it (and the carry
-		-- speed of such a line is not a number, 3000 carry steps to find out)
-		if R * tan(e) + hz <= 0 then return huge end
-		local sp = carrySpeed(R, e, hz)
-		if sp ~= sp or sp <= 0 then return huge end
-		return sp - vmax
-	end
 	local res
-	local gb = g(knee)
+	local gb = floorGap(knee, R, flat, hz, vmax)
 	if gb > 0 then
 		res = knee
 	else
 		local a = pt.releaseMinDeg
-		local ga = g(a)
+		local ga = floorGap(a, R, flat, hz, vmax)
 		if ga <= 0 then
 			res = a
 		else
@@ -666,7 +706,7 @@ local function driveFloor(R, flat, hz)
 				local r0 = plan.releaseFor(eMin)
 				if r0 > a and r0 < knee then
 					local r1 = r0 + 1e-6 * (knee - r0)
-					local g1 = g(r1)
+					local g1 = floorGap(r1, R, flat, hz, vmax)
 					if g1 > 0 then a, ga = r1, g1 end
 				end
 			end
@@ -680,7 +720,7 @@ local function driveFloor(R, flat, hz)
 					m = b - gb * (b - a) / (gb - ga)
 					if not (m > a and m < b) then m = 0.5 * (a + b) end
 				end
-				local gm = g(m)
+				local gm = floorGap(m, R, flat, hz, vmax)
 				if gm <= 0 then
 					b, gb = m, gm
 					if side == 1 and ga ~= huge then ga = 0.5 * ga end
@@ -746,19 +786,30 @@ function plan.solve(q, out)
 		local R = d - fwd
 		if R < 0.1 then R = 0.1 end
 		local pt = plan.tune
+		local fitSpeed, fitT = nil, nil
 		if rel < pt.driveKneeDeg then
 			-- the drive's floor (plan.tune.driveBackMaxDeg): a release whose line the hand
 			-- cannot make or whose speed is past the swing's is raised to the lowest that
 			-- can (driveFloor), never past the knee (above it every release is as before
-			-- 0.16). A release that fits costs one carry speed and no floor
-			local e = rad(loft)
-			local sp = (R * tan(e) + h - z > 0) and carrySpeed(R, e, h - z) or 0
-			if not (sp == sp and sp > 0 and sp <= plan.speedFor(pt.driveBackMaxDeg)) then
+			-- 0.16). A release that fits costs one carry speed and no floor; one whose
+			-- drag-free speed is already past the swing's costs no carry (1.0)
+			local e, hz = rad(loft), h - z
+			local den = R * tan(e) + hz
+			if den > 0 then
+				local vmax = topSpeed()
+				if not dragFreeOver(R, e, hz, den, vmax) then
+					local sp, spT = carrySpeed(R, e, hz)
+					-- a line that fits keeps its carry speed: the same call as below, the same bits
+					if sp == sp and sp > 0 and sp <= vmax then fitSpeed, fitT = sp, spT end
+				end
+			end
+			if not fitSpeed then
 				rel = driveFloor(R, flat, h - z)
 				loft = plan.loftFor(rel) * flat
 			end
 		end
-		local speed, T = carrySpeed(R, rad(loft), h - z)
+		local speed, T = fitSpeed, fitT
+		if not speed then speed, T = carrySpeed(R, rad(loft), h - z) end
 		if near > 0 and z > 0 and speed < ft.nearSpeed and h - z > 0.005 then
 			-- the hand is as low as it goes (flight.handAt) and the bowl would still
 			-- be soft: aim higher through the face until it is firm again (the

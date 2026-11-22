@@ -56,7 +56,7 @@ func goldenFolder(_ minor: String) -> String {
 /// The corpus each carried engine is pinned to, and its size: a new engine, or one we
 /// decide to support again (docs/ENGINES.md), changes this on purpose.
 let pinnedCorpora: [String: (corpus: String, matches: Int)] = [
-  "0.18": ("0.18.0", 21)
+  "1.0": ("1.0.0", 21)
 ]
 
 /// One golden match on one carried engine.
@@ -134,7 +134,7 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
   /// alone, since we support only the newest (docs/ENGINES.md). An engine it once
   /// carried (0.9, 0.8, 0.7) is not carried.
   @Test func everyCarriedEngineHasItsOwnCorpus() throws {
-    #expect(Engine.carried == ["0.18"])
+    #expect(Engine.carried == ["1.0"])
     #expect(Set(pinnedCorpora.keys) == Set(Engine.carried))
     for mm in Engine.carried {
       let engine = try Engine(minor: mm, appVersion: testAppVersion)
@@ -144,7 +144,7 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
       #expect(corpus.matches.count == pinnedCorpora[mm]?.matches)
       #expect(corpus.tune == Engine.tune)
     }
-    for gone in ["0.17", "0.16", "0.9", "0.8", "0.7", "0.6"] {
+    for gone in ["0.18", "0.17", "0.16", "0.9", "0.8", "0.7", "0.6"] {
       #expect(throws: EngineError.notCarried(gone)) { try Engine(minor: gone, appVersion: testAppVersion) }
     }
   }

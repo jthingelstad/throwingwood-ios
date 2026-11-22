@@ -171,11 +171,11 @@ at its own level. The web is the reference for every number and word (its docs/S
   On (On is Kid, Off sets it back to Club); with neither it is not shown.
 - **START.** `startCheck`'s refusals of the lineup itself (`why`: `person`, `size`,
   `level`) show the engine's `text` in the lobby's note (`PitchController.startRefusal`);
-  the lobby stays a lobby. The engine's `engineFor` is asked with the document's teams
-  less their seats (`PitchController.withoutSeats`, as the web's roomEngineFor): engine
-  0.18.0 counts a seat as a player who carries no engine, so a pitch with a seat would
-  otherwise never have an engine every player carries (an engine gap, pinned by
-  `ComputerSeatTests`). A side of several, seats counted, plays under a team name.
+  the lobby stays a lobby. The engine's `engineFor` is asked with the document as it is,
+  seats and all: from engine 1.0.0 a seat carries the pitch's engine, so `engineFor` leaves
+  seats out of the players it asks (kubb-engine docs/PITCH.md "Computer seats";
+  `ComputerSeatTests`). Engines 0.17 and 0.18 counted a seat as a player carrying none, and
+  the app took the seats out first; that workaround went with them. A side of several, seats counted, plays under a team name.
 - **The match.** Who acts is the engine's (`controlFor`, `mayAct`): the host's device runs
   every computer, a side's or a seat's, through its board's frames, and everyone else
   holds at the release and draws the action when it arrives; a person never acts for a

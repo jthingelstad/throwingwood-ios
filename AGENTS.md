@@ -66,7 +66,8 @@ agrees. So:
   the version against the tag (v0.4.1 explicitly retains the 0.2.0
   golden corpus, v0.5.1 and v0.7.1 to v0.7.4 the 0.5.0 one, v0.8.1 and v0.8.2 the 0.8.0 one, v0.13.1 to v0.13.4 the 0.13.0 one;
   v0.15.0 carries its own, 19 matches, and v0.15.1 keeps it; v0.16.0 its own, 19
-  matches and 724 actions; v0.18.0 its own, 21 matches and 854 actions;
+  matches and 724 actions; v0.18.0 its own, 21 matches and 854 actions; v1.0.0, the
+  released engine, its own, 21 matches and 880 actions;
   arbitrary older corpora are not accepted). Never edit the
   vendored files; a fix belongs
   in kubb-engine, then here by moving to its next tag. Never write in the
@@ -325,7 +326,8 @@ specified level."). The host's ADD COMPUTER per team, a seat's level bar, â†‘ â†
 and REMOVE call the engine's `addComputer`, `setComputerLevel`, `moveComputer` and
 `removeComputer` through `PitchController`, which decide every rule; the app decides
 nothing. The words and numbers are the web's (its docs/SYSTEM.md "Computer seats"),
-`SeatWords`. `engineFor` is asked without the seats (`withoutSeats`, an engine gap). A
+`SeatWords`. `engineFor` is asked with the document as it is (engine 1.0.0 leaves seats out
+itself; the app's `withoutSeats` went with 0.18). A
 match's computer players are the host's device's, as a computer side is. docs/ONLINE.md
 "Computer players".
 

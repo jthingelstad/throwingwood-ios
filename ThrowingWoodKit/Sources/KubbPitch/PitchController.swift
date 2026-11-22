@@ -251,7 +251,7 @@ import KubbEngine
   /// is counted too, carrying what this build carries.
   public func roomEngine(counting: Bool = false) throws -> JSONNode {
     var args: [(String, JS)] = [
-      ("doc", .raw(withoutSeats(pitch.document))), ("members", pitch.membersJSON),
+      ("doc", .raw(pitch.document)), ("members", pitch.membersJSON),
       ("host", pitch.host.map(JS.string) ?? .null),
     ]
     if counting { args += [("me", .string(pitch.you)), ("carries", carriesJS)] }
@@ -409,21 +409,6 @@ import KubbEngine
     return nil
   }
 
-  /// The document as `pitch.engineFor` must see it: its teams without the computer seats.
-  /// Engine 0.18.0's `engineFor` counts every lineup entry as a member with an engine, so
-  /// a seat, which has none, would leave no engine every player carries (the web's
-  /// roomEngineFor does the same, by `pitch.isSeat`; an engine gap, reported to it).
-  func withoutSeats(_ doc: JSONText) -> JSONText {
-    guard let d = try? JSONNode.parse(doc), let teams = d["teams"], teams.kind == .object else { return doc }
-    let has = teams.members.contains { $0.value.items.contains { isSeat($0.string) } }
-    guard has else { return doc }
-    let cleaned: [(String, JS)] = teams.members.map { side, list in
-      guard list.kind == .array else { return (side, .raw(list.raw)) }
-      return (side, .array(list.items.filter { !isSeat($0.string) }.map { .raw($0.raw) }))
-    }
-    return Self.replacing(d, [("teams", .object(cleaned))]).json
-  }
-
   /// Why START was refused for the lineup itself (`startCheck`'s `text`, engine 0.17: no
   /// person plays, a team over six, a seat's level), the engine's own sentence; nil when
   /// it was not, or the refusal was the engines'.
@@ -485,7 +470,7 @@ import KubbEngine
     let chosen = try newestCall(
       "engineFor",
       [
-        ("doc", .raw(withoutSeats(doc))), ("members", pitch.membersJSON), ("host", .string(pitch.you)),
+        ("doc", .raw(doc)), ("members", pitch.membersJSON), ("host", .string(pitch.you)),
         ("me", .string(pitch.you)), ("carries", carriesJS),
       ])
     guard let mm = chosen["engine"]?.string, engines.carries(mm) else {

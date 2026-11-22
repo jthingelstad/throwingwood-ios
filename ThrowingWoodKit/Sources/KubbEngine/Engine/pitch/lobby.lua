@@ -166,8 +166,9 @@ function lobby.startCheck(players, members, host, lenient)
 		if js.isTable(list) then
 			for _, p in ipairs(list) do
 				local id = get(p, "id")
-				-- a computer player has no engine of its own: the host's throws for it
-				if get(p, "cpu") == true then
+				-- a computer player has no engine of its own: the host's throws for it (a seat
+				-- id counts as one even when an entry has lost its `cpu`, 1.0)
+				if get(p, "cpu") == true or lobby.isSeat(id) then
 				elseif not same(id, host) then
 					local e = get(get(byId[id], "me"), "engine")
 					if e == nil or js.isNull(e) then
