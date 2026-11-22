@@ -103,7 +103,10 @@ end
 -- every player in the lineup (lobby.lineup: the teams' members still in the pitch) carry,
 -- and `me` too when given (a member asking what to announce before it takes a seat).
 -- `carries`, when given, is what `me` carries (its own presence may not have come back
--- from the pitch yet). Watchers do not count: START checks only players.
+-- from the pitch yet). Watchers do not count: START checks only players. Computer seats
+-- (`cpu:<n>`, 0.17) do not count either: a seat is played by the host's client, so it
+-- carries whatever engine the pitch runs on (until 1.0 each seat was a player who carried
+-- none, so a pitch with a seat never found an engine).
 --
 -- Returns { engine, missing = [ids], unknown = [ids] }. `engine` is null when no engine
 -- is carried by all; then `missing` names those who do not carry the engine the most of
@@ -129,10 +132,14 @@ function E.engineFor(doc, members, host, me, carries)
 	local lu = lobby.lineup(doc, js.isTable(members) and members or {})
 	if lu then
 		for _, s in ipairs(lobby.SIDES) do
-			for _, p in ipairs(lu.players[s]) do add(get(p, "id")) end
+			for _, p in ipairs(lu.players[s]) do
+				-- a computer seat (0.17) carries whatever engine the pitch runs on: the host's
+				-- client throws for it, so it is never a player with no engine (1.0)
+				if get(p, "cpu") ~= true and not lobby.isSeat(get(p, "id")) then add(get(p, "id")) end
+			end
 		end
 	end
-	add(me)
+	if not lobby.isSeat(me) then add(me) end
 
 	local lists = {}
 	for i, id in ipairs(ids) do

@@ -251,10 +251,11 @@ import Testing
     return (save, snapshot, dir)
   }
 
-  /// A kept unfinished match made on an engine this build no longer carries (0.9, by an
-  /// earlier build) is never played on another engine: the restore refuses it, changing
-  /// nothing, so the app can drop it with VersionWords.oldMatch and start afresh.
-  @Test(arguments: ["0.9.0", "0.8.2", "0.7.4"]) func aKeptMatchOnAnOlderEngineIsRefused(_ engine: String)
+  /// A kept unfinished match made on an engine this build no longer carries (0.18, the
+  /// engine before 1.0, or 0.9, by an earlier build) is never played on another engine:
+  /// the restore refuses it, changing nothing, so the app can drop it with
+  /// VersionWords.oldMatch and start afresh.
+  @Test(arguments: ["0.18.0", "0.9.0", "0.8.2", "0.7.4"]) func aKeptMatchOnAnOlderEngineIsRefused(_ engine: String)
     throws
   {
     let (save, snapshot, dir) = try keptOn(engine, finished: false)
@@ -279,14 +280,15 @@ import Testing
   /// A match finished on an older engine and reopened on its winner card: its
   /// finished-match file names the engine, so it is refused the same way, and the file
   /// goes with the save. A finished file of the newest engine stays.
-  @Test func aFinishedMatchOnAnOlderEngineIsRefused() throws {
-    let (save, snapshot, dir) = try keptOn("0.9.0", finished: true)
+  @Test(arguments: ["0.18.0", "0.9.0"]) func aFinishedMatchOnAnOlderEngineIsRefused(_ engine: String) throws {
+    let old = Engine.majorMinor(engine)!
+    let (save, snapshot, dir) = try keptOn(engine, finished: true)
     defer { try? FileManager.default.removeItem(at: dir) }
-    #expect(save.engineNamed(for: snapshot) == "0.9.0")
+    #expect(save.engineNamed(for: snapshot) == engine)
     let app = try PitchSession(appVersion: "test")
-    #expect(throws: OldMatch(engine: "0.9")) { try app.restore(snapshot, save: save) }
+    #expect(throws: OldMatch(engine: old)) { try app.restore(snapshot, save: save) }
     #expect(app.shareableMatch(save: save) == nil)
-    save.dropOld(engine: "0.9")
+    save.dropOld(engine: old)
     #expect(try save.read() == nil && save.finishedMatch() == nil)
 
     // a finished file of the newest is not an older match's, and stays
@@ -294,7 +296,7 @@ import Testing
     defer { try? FileManager.default.removeItem(at: keptDir) }
     try app.restore(keptSnapshot, save: kept)
     #expect(app.engine.minor == Engine.newest)
-    kept.dropOld(engine: "0.9")
+    kept.dropOld(engine: old)
     #expect(kept.finishedMatch() != nil)
   }
 

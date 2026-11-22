@@ -100,9 +100,8 @@ world.tune = {
 	                       -- baton lying in the groove of two lying batons rolled there with
 	                       -- nothing to stop it, rocked at the sleep threshold and held the
 	                       -- throw open to maxTime (the Gym gate's unsettled throw, 2026-11-22;
-	                       -- docs/notes/physics.md, "A baton rocking in a groove")
-	pairRollAfter = 4,     -- s: ... from this long after the throw only, so that every throw that
-	                       -- settles sooner keeps its hashes; the whole term waits for a minor
+	                       -- docs/notes/physics.md, "A baton rocking in a groove"); from the
+	                       -- first step since 1.0 (from 4 s into a throw in 0.18)
 	warm = 0.9,            -- fraction of last step's ground impulses applied up front
 	gyro = true,           -- gyroscopic term (torque-free precession; implicit, stable)
 	flightTurns = 4,       -- a drilled kubb's turn in flight (the air's turn, the gyroscopic term
@@ -123,6 +122,10 @@ world.tune = {
 	outMargin = 0.04,      -- m beyond a pitch line before a center counts as out (base kubbs
 	                       -- stand centered on the baselines)
 	maxTime = 12,          -- s; a throw is called at rest after this long regardless
+	seatOn = 1,            -- 1 (as shipped from 1.0.0): a kubb standing plumb leans in its seat in
+	                       -- the turf, up to its surface's `seat` (world.seat). 0: kubbs stand
+	                       -- plumb, as before 1.0. The owner, 2026-11-22: "yes turn on the kubbs
+	                       -- too stable"
 	stakeHeight = 0.15,    -- m above the ground (6 inches, Jamie 2026-11-14); stakes are fixed posts of radius pitch.stakeRadius
 	-- the air's drag on a thrown piece per kind (world.airDrag) is
 	-- tw.flight.tune.dragK, the figure the aim solves with
@@ -186,6 +189,7 @@ world.surfaces = {
 		dig = 1.0, digSpeed = 0.3, digRamp = 1.5, digLever = 0.006, digTime = 0.15,
 		bite = 0.7, biteTime = 0.05,
 		roll = 0.01,
+		seat = 2,         -- degrees: a standing kubb leans up to this in its seat (tune.seatOn; an estimate: a lawn's dips under a 7 cm foot, 1 to 3 mm)
 		texture = { cell = 0.25, muVar = 0.3, eVar = 0.5, digVar = 0.5, bump = 0.12, bumpSpeed = 0.8,
 			drag = 2.5, grip = 12, gripSpeed = 0.5 },
 	},
@@ -198,6 +202,7 @@ world.surfaces = {
 		dig = 3.0, digSpeed = 0.2, digRamp = 1.0, digLever = 0.03, digTime = 0.5,
 		bite = 2, biteTime = 0.1,
 		roll = 0.03,
+		seat = 3,         -- degrees: a standing kubb leans up to this in its seat (tune.seatOn; an estimate: a foot pressed into loose sand)
 		texture = { cell = 0.2, muVar = 0.25, eVar = 0.4, digVar = 0.7, bump = 0.18, bumpSpeed = 0.6,
 			drag = 6, grip = 20, gripSpeed = 0.6 },
 	},
@@ -210,6 +215,7 @@ world.surfaces = {
 		dig = 2.5, digSpeed = 0.3, digRamp = 1.2, digLever = 0.025, digTime = 0.4,
 		bite = 0, biteTime = 0.05,
 		roll = 0.004,
+		seat = 1.5,       -- degrees: a standing kubb leans up to this in its seat (tune.seatOn; an estimate: packed snow, a foot set down in a footprint)
 		texture = { cell = 0.3, muVar = 0.5, eVar = 0.3, digVar = 0.8, bump = 0.1, bumpSpeed = 0.8,
 			drag = 0.6, grip = 4, gripSpeed = 0.3, plough = 1.5,
 			footMu = 0.3, footSpeed = 0.3 },
@@ -228,6 +234,7 @@ world.surfaces = {
 		dig = 0, digSpeed = 0.3, digRamp = 1, digLever = 0, digTime = 0.15,
 		bite = 0, biteTime = 0.05,
 		roll = 0.002,
+		seat = 0,         -- degrees: a standing kubb leans up to this in its seat (tune.seatOn; a hard floor: none)
 		texture = { cell = 0.25, muVar = 0, eVar = 0, digVar = 0, bump = 0, bumpSpeed = 1e9,
 			drag = 0.6, grip = 60, gripSpeed = 0.7, hold = 6 },
 	},
@@ -320,6 +327,36 @@ function world.addBody(w, kind, id)
 	return b
 end
 
+-- A kubb's seat (tune.seatOn, 1.0): the turf under a kubb is never quite level, so a
+-- kubb standing plumb (set down or raised: its pose a turn about the vertical alone)
+-- leans up to its surface's `seat` degrees in a direction of its own, seeded from where
+-- it stands, the same each time a world is built there, in either side's view. It rests on the
+-- edge it leans to; struck, it is the ordinary physics' (a nudge rocks it back plumb: the
+-- turf gave), and once it has moved it keeps the pose it came to rest in. The king, a
+-- baton and a kubb that is not plumb are as given. surface: a world.surfaces entry or
+-- its name. Returns the pose and whether it was seated. The session's pieces (what a
+-- client draws while nothing plays) use the same, so a kubb does not jump when a throw's
+-- world is built.
+function world.seat(surface, kind, x, y, qw, qx, qy, qz)
+	if type(surface) == "string" then surface = world.surfaces[surface] end
+	local deg = surface and surface.seat or 0
+	if kind ~= "kubb" or qx ~= 0 or qy ~= 0 or world.tune.seatOn <= 0 or deg <= 0 then
+		return qw, qx, qy, qz, false
+	end
+	-- the same kubb whichever side's view the world is built in (core/frame: side B's is
+	-- the half turn about the pitch's centre, -x, 8 - y): seeded from the point as side A
+	-- sees it, and the lean's direction turned with the frame
+	local len, flip = world.tune.pitchLength, false
+	if y < len / 2 or (y == len / 2 and x < 0) then x, y, flip = -x, len - y, true end
+	local h = world.seedFrom(x, y)
+	local lean = rad(deg) * ((h & 1023) / 1023)
+	local dir = 2 * math.pi * (((h >> 10) & 1023) / 1024)
+	if flip then dir = dir + math.pi end
+	local lw, lx, ly, lz = quat.fromAxisAngle(-sin(dir), cos(dir), 0, lean)
+	qw, qx, qy, qz = quat.mul(lw, lx, ly, lz, qw, qx, qy, qz)
+	return qw, qx, qy, qz, true
+end
+
 -- Add a piece at rest on the ground. p = { id, kind, x, y, yaw } stands a
 -- kubb or king up (a baton lies along yaw); or give a full pose
 -- p.qw, p.qx, p.qy, p.qz (z is then chosen so it rests on the ground unless
@@ -335,8 +372,10 @@ function world.addPiece(w, p)
 			qw, qx, qy, qz = quat.mul(qw, qx, qy, qz, tw_, tx, ty, tz)
 		end
 	end
+	local seated
+	qw, qx, qy, qz, seated = world.seat(w.surface, p.kind, p.x or 0, p.y or 0, qw, qx, qy, qz)
 	body.setPose(b, p.x or 0, p.y or 0, 0, qw, qx, qy, qz)
-	if p.z then
+	if p.z and not seated then
 		b.z = p.z
 	else
 		b.z = -body.lowestZ(b)
@@ -2106,9 +2145,13 @@ function world.step(w)
 					end
 				end
 			end
-			-- a baton resting on other pieces: their rolling resistance (pairRoll),
-			-- late in a throw only (pairRollAfter)
-			if b.rrStamp == stamp and w.time > t.pairRollAfter then rollResist(b, t.pairRoll, b.rrImp) end
+			-- a baton resting on other pieces: their rolling resistance (pairRoll), from
+			-- a resting push, never more than its weight's this step (a blow is not a brake)
+			if b.rrStamp == stamp then
+				local imp, wt = b.rrImp, b.m * t.g * dt
+				if imp > wt then imp = wt end
+				rollResist(b, t.pairRoll, imp)
+			end
 			if b.dig > 0 then
 				b.dig = b.dig * exp(-dt / surf.digTime)
 				if b.dig < 1e-5 then b.dig = 0 end

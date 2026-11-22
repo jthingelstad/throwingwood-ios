@@ -238,6 +238,14 @@ local function viewPose(side, p)
 	return { x = v.x, y = v.y, standing = v.standing and true or false, angle = v.angle }
 end
 
+-- A settled kubb's seat (core/match, 1.0: the quaternion it stands at in the next throw's
+-- world, engine frame) in side's view frame, or nil.
+local function viewSeat(side, q)
+	if not q then return nil end
+	local qw, qx, qy, qz = frame.quat(side, q.qw, q.qx, q.qy, q.qz)
+	return { qw = qw, qx = qx, qy = qy, qz = qz }
+end
+
 -- ---------- options ----------
 
 local SURFACES = scenes.surfaceName -- { grass = "Grass", ..., grid = "Grid" }
@@ -712,10 +720,11 @@ local function plainSettled(st)
 		if e.kind == "raise" then
 			list[i] = { kind = "raise", id = e.id, side = e.side, which = e.which,
 				lying = viewPose(e.side, e.lying), standing = viewPose(e.side, e.standing),
-				displaced = e.displaced, crowded = e.crowded, others = others, king = viewPose(e.side, e.king) }
+				displaced = e.displaced, crowded = e.crowded, others = others, king = viewPose(e.side, e.king),
+				seat = viewSeat(e.side, e.seat) }
 		else
 			list[i] = { kind = "punish", id = e.id, side = e.side, pose = viewPose(e.side, e.pose),
-				others = others, king = viewPose(e.side, e.king) }
+				others = others, king = viewPose(e.side, e.king), seat = viewSeat(e.side, e.seat) }
 		end
 	end
 	return { raised = st.raised, punished = st.punished, list = list }
@@ -950,7 +959,7 @@ function Session:pitchItems()
 			end
 		end
 	end
-	return throw.itemsOf(pieces, debris.pieces(m.debris, side))
+	return throw.itemsOf(pieces, debris.pieces(m.debris, side), cmatch.surfaceName(m.game))
 end
 
 -- Everything the screen needs when nothing is playing back.

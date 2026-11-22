@@ -50,7 +50,7 @@ set -euo pipefail
 # 2026-11-21: "We should only support engines that we decide are worth supporting
 # not just ones that have published so that we can push players to the new
 # engines.").
-TAG=v0.18.0
+TAG=v1.0.0
 OLDER=()
 
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -150,8 +150,8 @@ check_one() {
     corpus=$(json_version "$golden/hashes.json")
     # A hash-neutral patch ships the exact corpus of the last release that changed
     # hashes (kubb-engine docs/VERSIONING.md "Release notes"): 0.4.1 carries 0.2.0's,
-    # 0.5.1 and 0.7.1 to 0.7.4 0.5.0's, 0.8.1 and 0.8.2 0.8.0's, 0.13.1 to 0.13.4 0.13.0's, 0.15.1 0.15.0's (0.18.0 carries its own:
-    # 21 matches, 854 actions). Arbitrary older corpora are
+    # 0.5.1 and 0.7.1 to 0.7.4 0.5.0's, 0.8.1 and 0.8.2 0.8.0's, 0.13.1 to 0.13.4 0.13.0's, 0.15.1 0.15.0's (1.0.0 carries its own:
+    # 21 matches, 880 actions). Arbitrary older corpora are
     # not accepted when moving to another release.
     case $version in
       0.4.1) expected=0.2.0 ;;

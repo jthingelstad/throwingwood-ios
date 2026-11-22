@@ -267,7 +267,13 @@ local function cornersInto(A, B, margin, sx_, sy_, sz_)
 				if d <= 0 or nx * sx_ + ny * sy_ + nz * sz_ < REF_COS then
 					-- inside, or near an edge of B: use the reference normal and
 					-- the distance to B's face plane along it (never more than
-					-- the true distance, so still a close contact)
+					-- the true distance, so still a close contact). A corner
+					-- outside B (d > 0) can lie behind that plane, past the face's
+					-- edge, beside B: it is at most touching, never inside (1.0;
+					-- a kubb propped on a lying kubb crept until such a corner read
+					-- 3.1 mm deep while it was 2.4 mm clear, and the push for it
+					-- kicked the pair awake every few tenths of a second, the Gym
+					-- gate's unsettled throw at 15:101)
 					if not plane then
 						local e1 = r11 * sx_ + r21 * sy_ + r31 * sz_
 						local e2 = r12 * sx_ + r22 * sy_ + r32 * sz_
@@ -279,6 +285,7 @@ local function cornersInto(A, B, margin, sx_, sy_, sz_)
 					end
 					local dp = px * sx_ + py * sy_ + pz * sz_ - plane
 					if d <= 0 and dp > 0 then dp = 0 end
+					if d > 0 and dp < 0 then dp = 0 end
 					d = dp
 					nx, ny, nz = sx_, sy_, sz_
 				end
@@ -646,6 +653,19 @@ local function sphereBox(A, B, cx, cy, cz, r, margin)
 	return false
 end
 
+-- The contact just added (the last) and the one at mid are the same contact: keep the
+-- deeper in mid's slot and drop the last (capsuleBox). No tables.
+local function keepDeeper(mid)
+	local j = C.n
+	if cSep[j] < cSep[mid] then
+		cA[mid], cB[mid], cSlot[mid] = cA[j], cB[j], cSlot[j]
+		cPx[mid], cPy[mid], cPz[mid] = cPx[j], cPy[j], cPz[j]
+		cNx[mid], cNy[mid], cNz[mid] = cNx[j], cNy[j], cNz[j]
+		cSep[mid] = cSep[j]
+	end
+	C.n = j - 1
+end
+
 -- Capsule A against box B: the closest points of the segment and the box,
 -- then the stretch of the segment that lies along the same feature of the
 -- box (its face or edge) is clipped to that feature's extent, and each end
@@ -714,10 +734,13 @@ function collide.capsuleBox(A, B, margin)
 		qz = sz > hz and hz or (sz < -hz and -hz or sz)
 		if (sx - qx) * (sx - qx) + (sy - qy) * (sy - qy) + (sz - qz) * (sz - qz) < best then t = 1 end
 	end
-	-- the closest pair; nothing nearer than the margin, no contact at all
-	if not sphereBox(A, B, x1 + 2 * ax * t, y1 + 2 * ay * t, z1 + 2 * az * t, r, margin) then
-		return false
-	end
+	-- the closest pair as the projection found it. Its miss is not the pair's: the
+	-- projection can stop on a point just over the margin while the stretch's end at
+	-- the feature's edge is inside (1.0: a kubb lying on a long edge against a sleeping
+	-- baton lost that contact one step in four, 0.56 mm in, and the step without it reset
+	-- its sleep, the Gym gate's unsettled throw at 20:332), so the stretch's ends are
+	-- tried either way
+	local hitMid = sphereBox(A, B, x1 + 2 * ax * t, y1 + 2 * ay * t, z1 + 2 * az * t, r, margin)
 	local mid = C.n
 	-- the stretch [lo, hi] of the segment within the feature's extent
 	local lo, hi = 0, 1
@@ -748,13 +771,26 @@ function collide.capsuleBox(A, B, margin)
 			if tb < hi then hi = tb end
 		end
 	end
-	-- each end of the stretch that is not the closest point already
+	-- each end of the stretch that is not the closest point already. An end within
+	-- CLIP_GAP of it is the same contact, so the two are one: the deeper of them (1.0;
+	-- the projection can stop short of the end, and a kubb on a long edge against a
+	-- sleeping baton had its load-bearing end, 1.7 mm deeper than the projected point,
+	-- dropped and kept by turns as the stretch's end crossed t - CLIP_GAP, the Gym gate's
+	-- unsettled throw at 22:400 of seed 5). With no closest contact every end is tried
 	local ends = 0
-	if lo < t - CLIP_GAP and sphereBox(A, B, x1 + 2 * ax * lo, y1 + 2 * ay * lo, z1 + 2 * az * lo, r, margin) then
-		ends = ends + 1
+	if lo < t then
+		if lo < t - CLIP_GAP or not hitMid then
+			if sphereBox(A, B, x1 + 2 * ax * lo, y1 + 2 * ay * lo, z1 + 2 * az * lo, r, margin) then ends = ends + 1 end
+		elseif sphereBox(A, B, x1 + 2 * ax * lo, y1 + 2 * ay * lo, z1 + 2 * az * lo, r, margin) then
+			keepDeeper(mid)
+		end
 	end
-	if hi > t + CLIP_GAP and sphereBox(A, B, x1 + 2 * ax * hi, y1 + 2 * ay * hi, z1 + 2 * az * hi, r, margin) then
-		ends = ends + 1
+	if hi > t then
+		if hi > t + CLIP_GAP or not hitMid then
+			if sphereBox(A, B, x1 + 2 * ax * hi, y1 + 2 * ay * hi, z1 + 2 * az * hi, r, margin) then ends = ends + 1 end
+		elseif sphereBox(A, B, x1 + 2 * ax * hi, y1 + 2 * ay * hi, z1 + 2 * az * hi, r, margin) then
+			keepDeeper(mid)
+		end
 	end
 	-- (0.18) both ends met: the stretch is a line contact, and its two ends carry it.
 	-- The closest point between them adds nothing a rigid line contact needs (it is
@@ -765,7 +801,7 @@ function collide.capsuleBox(A, B, margin)
 	-- left with a tenth less speed and turn (docs/notes/physics.md "The baton's blow").
 	-- Kept when it is deeper than both ends by more than CLIP_TOL_IN (a stretch over a
 	-- rounded edge, not flat), so nothing sinks where the ends stand clear.
-	if ends == 2 then
+	if ends == 2 and hitMid then
 		local j = C.n
 		local s1, s2, sm = cSep[j - 1], cSep[j], cSep[mid]
 		if s2 < s1 then s1 = s2 end
@@ -777,7 +813,7 @@ function collide.capsuleBox(A, B, margin)
 			C.n = j - 1
 		end
 	end
-	return true
+	return hitMid or ends > 0
 end
 
 -- Capsule A against capsule B: closest points of two segments (Ericson,

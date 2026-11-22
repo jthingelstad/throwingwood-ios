@@ -21,22 +21,31 @@ struct FeedbackTests {
   @Test(arguments: ["clean", "multi", "king", "miss-grass", "miss-sand", "miss-snow"])
   func recordedCues(name: String) throws {
     // Independent expected strikes, in 240 Hz solver steps, from the six fixture throws.
+    // Recorded again under wasmoon on engine 1.0.0 (`node tools/feel-fixtures.mjs`): the
+    // seat (a kubb leans in the turf), pairRoll from the first step and the plan's newer
+    // defaults (an aim's release and loft since the drive) move every throw, so each
+    // strike's step and strength moved with them. The double now knocks three times (b2
+    // takes the baton itself after b3 knocks it).
     typealias Strike = (tick: Int, gain: Double?, haptic: PitchHaptic)
-    let land: Strike = (256, nil, .landing(.grass, 0.14823098943332164))
-    let first: Strike = (256, 0.72, .contact(1))
+    let land: Strike = (292, nil, .landing(.grass, 0.4808307002851642))
+    let first: Strike = (208, 0.3989623088144916, .contact(0.4054857570638731))
     let strikes: [Strike]
     switch name {
     case "clean": strikes = [first, land]
     case "multi":
-      strikes = [first, land, (259, 0.22775718660688052, .contact(0.08843923445718614))]
+      strikes = [
+        first, (211, 0.23839082141453838, .contact(0.10813115076766355)),
+        (215, 0.4133023153561007, .contact(0.4320413247335196)),
+        (410, nil, .landing(.grass, 0.0123038558133205)),
+      ]
     case "king":
       strikes = [
-        (167, 0.5413613265632272, .contact(0.5689355442720453)), (167, nil, .king),
-        (200, nil, .landing(.grass, 0.1451845266485351)),
+        (89, 0.7085830109810256, .contact(0.8476383516350426)), (89, nil, .king),
+        (350, nil, .landing(.grass, 0.062442996432164895)),
       ]
-    case "miss-grass": strikes = [(186, nil, .landing(.grass, 0.3686926930467786))]
-    case "miss-sand": strikes = [(186, nil, .landing(.sand, 0.1138426191960219))]
-    default: strikes = [(186, nil, .landing(.snow, 0.3714566986479197))]
+    case "miss-grass": strikes = [(125, nil, .landing(.grass, 0.6230518111576101))]
+    case "miss-sand": strikes = [(125, nil, .landing(.sand, 0.3758358513691508))]
+    default: strikes = [(125, nil, .landing(.snow, 0.28356467203863456))]
     }
     let cues = try fixture(name).cues
     try #require(cues.count == strikes.count)
