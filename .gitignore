@@ -4,6 +4,9 @@
 DerivedData/
 build/
 xcuserdata/
+# Xcode writes the project's default workspace (a self reference and an empty
+# swiftpm folder) when the project is opened; the project needs none.
+*.xcodeproj/project.xcworkspace/
 *.xcuserstate
 *.ipa
 *.dSYM.zip
