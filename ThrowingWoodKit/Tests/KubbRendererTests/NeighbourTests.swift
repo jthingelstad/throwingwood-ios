@@ -198,13 +198,12 @@ import QuartzCore
     #expect(!Neon.lying(b1(10 + Calm.rise)) && abs(b1(11).z - 0.075) < 1e-9)
     f.settle(12)
     #expect(!f.moving(12) && f.pitches[0].rises.isEmpty)
-    // a fresh pitch: a kubb new to it rises from lying where it stands
-    let fresh = Calm.rises(from: [], to: [kubb("a1", 0, 0, lying: false)], at: 0)
-    #expect(fresh["a1"].map { Neon.lying($0.from) && abs($0.from.x) < 1e-9 } == true)
-    // many: the last starts at most riseSpan after the first
-    let many = (0..<20).map { kubb("k\($0)", Double($0) * 0.2, 6, lying: false) }
-    let spread = Calm.rises(from: [], to: many, at: 0).values.map(\.at)
-    #expect(spread.max()! <= Calm.riseSpan + 1e-9)
+    // a fresh pitch: every standing kubb rises from lying where it stands, quicker
+    let fresh = Calm.rises(from: [], to: [kubb("a1", 0, 0, lying: false), kubb("a2", 1, 0, lying: false)], at: 0, setup: true)
+    #expect(fresh["a1"].map { Neon.lying($0.from) && abs($0.from.x) < 1e-9 && $0.length == Calm.setupRise } == true)
+    #expect(fresh["a2"]?.at == Calm.setupStagger)
+    // any other beat that carries items just changes them
+    #expect(Calm.rises(from: [], to: after, at: 0).isEmpty)
   }
 
   /// No person is drawn at the Tournament, live or fixed, in any phase of a neighbour's
@@ -243,45 +242,46 @@ import QuartzCore
     n.close()
   }
 
-  /// The neighbours' sounds: a knock where a kubb was struck and where it went over, a
-  /// thud where the thrown piece comes down; quieter with distance (the pitch beside well
-  /// under the player's faintest knock, the far row fainter), panned by the camera,
-  /// capped at `voices` a frame, and none when the field is not live.
+  /// The neighbours' sounds (the web's neighbour-sound.js): a knock where a kubb went over
+  /// (`toppleT`), a louder one for the king, a softer, lower one where the thrown piece
+  /// lands; quieter with distance (the pitch beside about 10 dB under the player's knock,
+  /// the far row fainter), panned by where the pitch lies, at most `voices` at once (the
+  /// faintest dropped), silent round the player's own knock and when the field is not live.
   @Test func neighbourSoundsAreQuietFarAndCapped() throws {
     let json = #"""
       {"frameDt":0.04,"frames":5,"duration":0.2,"poseScale":1000,
        "projectile":{"id":"baton1","kind":"baton"},
        "bodies":[
         {"id":"baton1","kind":"baton","start":0,"frames":5,"poses":[0,0,1200,1000,0,0,0, 0,2000,900,1000,0,0,0, 0,4000,400,1000,0,0,0, 0,6000,30,1000,0,0,0, 0,6200,22,1000,0,0,0]},
-        {"id":"b3","kind":"kubb","team":"B","start":3,"frames":2,"poses":[0,8000,75,1000,0,0,0, 0,8100,35,707,707,0,0],"toppleT":0.4},
-        {"id":"king","kind":"king","start":4,"frames":1,"poses":[0,4000,150,1000,0,0,0]}]}
+        {"id":"b3","kind":"kubb","team":"B","start":3,"frames":2,"poses":[0,8000,75,1000,0,0,0, 0,8100,35,707,707,0,0],"toppleT":0.14},
+        {"id":"b4","kind":"kubb","team":"B","start":3,"frames":1,"poses":[0,8000,75,1000,0,0,0]},
+        {"id":"king","kind":"king","start":4,"frames":1,"poses":[0,4000,150,1000,0,0,0],"toppleT":0.18}]}
       """#
     let r = try JSONDecoder().decode(NeighbourRecording.self, from: Data(json.utf8))
     let cues = NeighbourSounds.cues(r, at: 100)
-    let thud = try #require(cues.first { $0.kind == .thud })
-    #expect(abs(thud.time - 100.12) < 1e-9 && abs(thud.y - 6) < 1e-9)  // the frame it comes down
-    let knocks = cues.filter { $0.kind == .knock }
-    #expect(knocks.map(\.time) == [100.12, 100.16, 100.4].map { $0 })  // b3 struck, king struck, b3 over
-    let king = try #require(knocks.first { abs($0.time - 100.16) < 1e-9 })
-    #expect(king.weight > 1)
-    #expect(knocks.last!.weight < 1)  // the topple, softer than the strike
-    // levels: beside, well under the player's faintest knock (0.8 x 0.9 x 0.25)
-    let faintest = 0.8 * 0.9 * 0.25
-    let beside = NeighbourSounds.gain(at: V3(8, 4, 0), weight: 1)
-    let far = NeighbourSounds.gain(at: V3(8, 16, 0), weight: 1)
-    let kingBeside = NeighbourSounds.gain(at: V3(8, 4, 0), weight: NeighbourSounds.king)
-    #expect(beside <= NeighbourSounds.most && beside < faintest)
-    #expect(kingBeside > beside && kingBeside < faintest)
-    #expect(far < beside / 2)
+    // the landing at its first frame on the ground after it flew; b3 over; the king; b4,
+    // struck but standing, makes none
+    #expect(cues.map(\.kind) == [.land, .hit, .king])
+    #expect(abs(cues[0].time - 100.12) < 1e-9 && abs(cues[1].time - 100.14) < 1e-9 && abs(cues[2].time - 100.18) < 1e-9)
+    // levels: the web's, against the player's own 0.8 x 0.9
+    let own = 0.8 * 0.9
+    #expect(NeighbourSounds.gain(distance: 8, kind: .hit) == 0.22)
+    #expect(abs(NeighbourSounds.gain(distance: hypot(8, 12), kind: .hit) - 0.22 * pow(8 / hypot(8, 12), 1.5)) < 1e-12)
+    #expect(NeighbourSounds.gain(distance: 8, kind: .king) < own)
+    #expect(NeighbourSounds.gain(distance: 8, kind: .land) < NeighbourSounds.gain(distance: 8, kind: .hit))
+    #expect(NeighbourSounds.gain(distance: 12, kind: .hit) < NeighbourSounds.gain(distance: 8, kind: .hit) * 0.6)
+    #expect(NeighbourSounds.gain(distance: 60, kind: .land) == 0)  // under the floor: not played
+    #expect(NeighbourSound(kind: .land, gain: 0.1, pan: 0).rate < NeighbourSound(kind: .hit, gain: 0.1, pan: 0).rate)
     // left and right as the camera looks
     let app = try SceneLooksTests.match("tournament")
-    #expect(NeighbourSounds.pan(at: V3(-8, 6, 0), camera: app.camera) < -0.3)
-    #expect(NeighbourSounds.pan(at: V3(8, 6, 0), camera: app.camera) > 0.3)
-    // at most `voices` a frame, the loudest kept
-    let many = (0..<6).map { NeighbourSound(kind: .knock, gain: Double($0) * 0.02, pan: 0) }
-    let kept = NeighbourSounds.loudest(many)
-    #expect(kept.count == NeighbourSounds.voices && kept.map(\.gain) == [0.1, 0.08, 0.06].map { $0 })
-    // a live field: its cues come due on its clock, each once; none once closed
+    #expect(NeighbourSounds.pan(x: -8, y: 4, camera: app.camera) < -0.3)
+    #expect(NeighbourSounds.pan(x: 8, y: 4, camera: app.camera) > 0.3)
+    // at most `voices`: a free voice, else the faintest when the new one is louder
+    #expect(NeighbourSounds.voice(gains: [0.1, nil, 0.2], gain: 0.05) == 1)
+    #expect(NeighbourSounds.voice(gains: [0.1, 0.05, 0.2], gain: 0.08) == 1)
+    #expect(NeighbourSounds.voice(gains: [0.1, 0.05, 0.2], gain: 0.04) == nil)
+    // a live field: its cues come due on its clock, each once; quiet round the player's
+    // own knock; none once closed
     let n = TournamentNeighbours()
     n.want(.init(seed: 5))
     var heard: [NeighbourSound] = []
@@ -291,7 +291,16 @@ import QuartzCore
       heard += n.sounds(session: app)
     }
     #expect(!heard.isEmpty)
-    #expect(heard.allSatisfy { $0.gain <= NeighbourSounds.most * NeighbourSounds.king && $0.gain < faintest })
+    #expect(heard.allSatisfy { $0.gain <= NeighbourSounds.near * NeighbourSounds.king && $0.gain < own })
+    app.knockAge = 0
+    var quiet: [NeighbourSound] = []
+    for _ in 0..<(60 * 40) {
+      n.tick(1.0 / 60)
+      n.drain()
+      app.knockAge = 0  // the player's own knock, sounding all along
+      quiet += n.sounds(session: app)
+    }
+    #expect(quiet.isEmpty)
     n.close()
     n.tick(1.0 / 60)
     #expect(n.sounds(session: app).isEmpty)

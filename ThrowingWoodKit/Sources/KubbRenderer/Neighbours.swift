@@ -114,8 +114,8 @@ struct NeighbourAdvance: Decodable, Sendable {
 /// the model; `NeighbourTests` holds this one to it). No people (the owner, 2026-11-22:
 /// "Tournament mode should not have people. Just pitches with live play."): the pieces
 /// move as if by unseen hands, calmly. A thrown piece shows once it is in the air
-/// (`Calm.airborne` from where it left), and kubbs a beat stands up (a raise, a fresh
-/// pitch set out) rise over `Calm.rise` s one after another rather than pop.
+/// (`Calm.airborne` from where it left), and kubbs a raise or a fresh pitch stands up rise
+/// one after another rather than pop.
 struct NeighbourField {
   struct Live {
     let id: Int
@@ -132,8 +132,8 @@ struct NeighbourField {
     private(set) var launch: V3?
     var from: NeighbourPoint?, side: String?, kind: String?
     var winner: String?
-    /// Pieces rising, by id: the pose they rise from and when they start.
-    var rises: [String: (from: Piece, at: Double)] = [:]
+    /// Pieces rising, by id (Calm).
+    var rises: [String: Rise] = [:]
     /// The throw's sounds (NeighbourSounds), on the field's clock.
     var cues: [NeighbourCue] = []
 
@@ -195,7 +195,9 @@ struct NeighbourField {
         p.rises = [:]
       }
       if let items = e.items {
-        p.rises = Calm.rises(from: p.items, to: items, at: e.at)
+        // kubbs raised, or a fresh pitch: they rise rather than appear standing
+        p.rises = e.phase == "raise" || e.phase == "setup"
+          ? Calm.rises(from: p.items, to: items, at: e.at, setup: e.phase == "setup") : [:]
         p.items = items
       }
       if let teams = e.teams { p.teams = teams }
@@ -247,7 +249,7 @@ struct NeighbourField {
         pieces = p.items
       }
       if !p.rises.isEmpty {
-        pieces = pieces.map { q in p.rises[q.id].map { Calm.risen($0.from, to: q, u: (now - $0.at) / Calm.rise) } ?? q }
+        pieces = pieces.map { q in p.rises[q.id].map { Calm.risen($0.from, to: q, u: (now - $0.at) / $0.length) } ?? q }
       }
       pieces = pieces.filter { $0.kind != "stake" }
       pieces += stakes.enumerated().map { i, s in
@@ -283,34 +285,40 @@ struct NeighbourField {
   }
 }
 
-/// How the neighbours' pieces move with no one to move them: calmly, as scenery.
+/// How the neighbours' pieces move with no one to move them: calmly, as scenery (the web's
+/// neighbours.js tune: rise, riseEvery, setupRise, setupEvery).
 enum Calm {
-  /// m a thrown piece is from where it left before it is drawn (a baton leaves a hand at
-  /// about shoulder height; with no hand drawn it would hang there for a frame or two).
+  /// m a thrown piece is from where it left before it is drawn (it leaves an empty hand
+  /// at about shoulder height; drawn at once it would hang there for a frame or two).
   static let airborne = 0.3
-  /// s a kubb takes to rise, and the gap between one and the next (a raise of six takes
-  /// 0.5 + 5 x 0.12 = 1.1 s; at most `riseSpan` s from the first to the last start).
-  static let rise = 0.5, stagger = 0.12, riseSpan = 1.2
+  /// s a kubb takes to stand up when a pitch's kubbs are raised, and between them.
+  static let rise = 0.6, stagger = 0.15
+  /// s a piece takes to stand when a fresh pitch sets out, and between them.
+  static let setupRise = 0.5, setupStagger = 0.07
 
   static func launch(_ pb: Playback) -> V3? {
     pb.pieces(at: 0).first { $0.id == pb.recording.projectile.id }?.center
   }
 
-  /// A kubb or the king standing in `to` that was not standing there in `from` rises:
-  /// from its own lying pose where it lay within half a metre (a raise), else from lying
-  /// where it now stands (a fresh pitch set out). Batons and lying pieces just change.
-  static func rises(from: [Piece], to: [Piece], at: Double) -> [String: (from: Piece, at: Double)] {
+  /// On a raise, a kubb or the king standing in `to` that lay in `from` rises from where
+  /// it lay; on a fresh pitch (`setup`), every standing kubb and the king rise from lying
+  /// where they stand. Batons and lying pieces just change.
+  static func rises(from: [Piece], to: [Piece], at: Double, setup: Bool = false) -> [String: Rise] {
     let was = Dictionary(from.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-    var out: [String: (from: Piece, at: Double)] = [:]
-    let up = to.filter { ($0.kind == "kubb" || $0.kind == "king") && !Neon.lying($0) }.filter { q in
-      guard let p = was[q.id] else { return true }
-      return Neon.lying(p) || simd_distance(p.center, q.center) > 0.05
-    }
-    let gap = up.count > 1 ? min(stagger, riseSpan / Double(up.count - 1)) : 0
-    for (k, q) in up.enumerated() {
-      var start = was[q.id].flatMap { Neon.lying($0) && simd_distance($0.center, q.center) < 0.5 ? $0 : nil }
-      if start == nil { start = lying(q) }
-      out[q.id] = (start!, at + Double(k) * gap)
+    var out: [String: Rise] = [:]
+    var k = 0
+    for q in to where (q.kind == "kubb" || q.kind == "king") && !Neon.lying(q) {
+      let start: Piece
+      if setup {
+        start = lying(q)
+      } else if let p = was[q.id], Neon.lying(p) {
+        start = p
+      } else {
+        continue
+      }
+      out[q.id] = Rise(
+        from: start, at: at + Double(k) * (setup ? setupStagger : stagger), length: setup ? setupRise : rise)
+      k += 1
     }
     return out
   }
@@ -338,8 +346,14 @@ enum Calm {
   }
 
   static func rising(_ p: NeighbourField.Live, _ now: Double) -> Bool {
-    p.rises.values.contains { now - $0.at < rise }
+    p.rises.values.contains { now - $0.at < $0.length }
   }
+}
+
+/// A piece standing up: from where, when it starts and how long it takes.
+struct Rise {
+  let from: Piece
+  let at, length: Double
 }
 
 // ---------- the second engine ----------

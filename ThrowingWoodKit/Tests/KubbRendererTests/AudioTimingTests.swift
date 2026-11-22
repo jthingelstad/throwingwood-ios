@@ -44,12 +44,12 @@
       #expect(times.allSatisfy { $0 >= 0 && $0 < 1000.0 / 30 }, "two 60 Hz simulator frames")
       print(
         "warm mixer onset ms \(times.sorted()), IO buffer ms \(session.ioBufferDuration * 1000)")
-      // the Tournament's neighbours: their own voices, a knock take and the landing's thud
+      // the Tournament's neighbours: their own voices, the knock takes lower
       var far: [Double] = []
       for i in 0..<8 {
         onset.withLock { $0 = 0 }
         let start = AVAudioTime.seconds(forHostTime: mach_absolute_time())
-        audio.play(NeighbourSound(kind: i % 2 == 0 ? .knock : .thud, gain: 1, pan: i % 4 < 2 ? -0.6 : 0.6))
+        audio.play(NeighbourSound(kind: i % 2 == 0 ? .hit : .land, gain: 1, pan: i % 4 < 2 ? -0.6 : 0.6))
         try await Task.sleep(for: .milliseconds(400))
         let time = onset.withLock { $0 }
         try #require(time > 0, "mixer produced no neighbour sound")

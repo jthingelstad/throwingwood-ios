@@ -181,8 +181,11 @@ public final class PitchSession {
   /// words twice are said twice.
   public internal(set) var raiseNews: (id: Int, text: String)?
   var raiseNewsCount = 0
-  /// The turn and side whose automatic raising has been announced.
+  /// The turn and side whose automatic raising has begun (its first kubb lay a moment and
+  /// its one line was said).
   var raiseRun: String?
+  /// Actions waiting behind a watched raise (OnlinePitch.actionsWaiting).
+  var raiseCatchUp = 0
   /// The raise screen's touch (RaiseTouch.swift): the kubb being tipped up, the end lit
   /// past half way, and the allowed end lit (for `left` seconds) after a refused one.
   public internal(set) var raiseDragging: RaiseTouch.Drag?
@@ -210,6 +213,9 @@ public final class PitchSession {
   var runsComputer = true
   var playerSide: () -> String? = { "A" } // solo seat; online asks pitch.playingSide at the win
   public var onFeedback: ((PitchFeedback) -> Void)?
+  /// s of display time since this board's own last knock (the neighbours keep quiet round
+  /// it, NeighbourSounds.ownGap).
+  var knockAge = Double.infinity
   public var cancelFeedback: (() -> Void)?
   public var canAim: Bool {
     acceptsInput && !playing && handoff == nil && !raiseShowing
@@ -497,6 +503,15 @@ public final class PitchSession {
     }
   }
 
+  /// This board's own knock sounded within `half` s, or is due within `half` s of the
+  /// recording's clock (the web's ownKnockNear): the neighbours keep quiet round it.
+  public func ownKnockNear(_ half: Double) -> Bool {
+    if knockAge < half { return true }
+    guard let p = playback, !p.finished else { return false }
+    let next = p.feedback[p.nextCue...].first { $0.cue.sound != nil }
+    return next.map { $0.time - p.nextTime < half } ?? false
+  }
+
   /// The verdict goes the moment the player starts to aim (a press on the pitch, the
   /// target, the stance, a tray plate or the meter): it is never in the way of the next
   /// throw (the owner, 2026-11-22: "the display stays on the screen for a while keeping the
@@ -511,6 +526,7 @@ public final class PitchSession {
     cancelFeedback?()
     raiseShow = nil
     stoodShow = nil
+    raiseCatchUp = 0
     input.reset()
     resetRaiseTouch()
     playback = nil
@@ -579,6 +595,7 @@ public final class PitchSession {
   @discardableResult public func tick(_ delta: Double) throws -> Bool {
     let dt = min(max(delta, 0.00001), 0.05)
     lookTime += dt
+    knockAge += dt
     var eased = false
     if freeCamera.easing {
       let was = freeCamera.moved
@@ -711,6 +728,7 @@ public final class PitchSession {
       camera = shown.camera
       dial = shown.dial
       while p.nextCue < p.feedback.count && p.feedback[p.nextCue].time <= t {
+        if p.feedback[p.nextCue].cue.sound != nil { knockAge = 0 }
         onFeedback?(p.feedback[p.nextCue].cue)
         p.nextCue += 1
       }
