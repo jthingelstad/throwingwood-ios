@@ -60,7 +60,7 @@ struct MatchOptionsCard: View {
         ForEach(model.pitch?.options.cardRows(model.selections) ?? []) { row in
           if row.id == "scene", let pitch = model.pitch {
             Text(row.label).labelStyle().accessibilityHidden(true)
-            SceneTiles(pitch: pitch, row: row, value: binding(row))
+            SceneTiles(scenery: pitch.scene.scenery, row: row, value: binding(row))
           } else {
             FormRow(row.label) { full in
               Segmented(label: row.label, choices: row.choices.map { ($0[0], $0[1]) }, value: binding(row), full: full)
@@ -92,23 +92,26 @@ struct MatchOptionsCard: View {
   }
 }
 
-/// The Scene row's picture tiles (the design's `.tiles`), one per scene in the engine's
-/// row: each scene's pitch as the app's own renderer draws it (never the mock-up's
-/// sketches), on the scene's own ground and set, its name under it; the chosen tile's
-/// name inverted, ink with paper type, and its plate raised by the hard shadow, so the
-/// choice is told by fill and shape, not colour. Seven do not fit across a phone, so they
-/// run in a strip that scrolls sideways: the next tile is cut at the card's edge (the cue
-/// that there are more) and the chosen one is scrolled into view. At the accessibility
-/// text sizes each tile is a row, its picture beside its name, one under another.
-/// VoiceOver reads the group as Scene and each tile as the bar's parts are
-/// ("Camping, selected, 3 of 7"), in the row's order.
+/// The Scene row's picture tiles (the design's `.tiles`, the web's SYSTEM.md "Scene
+/// tiles"), one per scene in the engine's row: each scene's postcard of the pitch as the
+/// app's own renderer draws it (`PitchScene.postcard`'s low camera, so its sky and scenery
+/// show), on the scene's own ground and set, its name under it in the buttons' capitals
+/// (Londrina Solid 16: the web's Inter 14 does not fit TOURNAMENT on a third of the 16e's
+/// card), two lines where it needs them (BLACK & WHITE). They wrap, 8 pt apart, three a row on a
+/// screen under 600 pt wide (the seventh centred on a row of its own) and four a row from
+/// 600 (four and three, centred); at the accessibility text sizes each tile is a row, its
+/// picture beside its name. The chosen tile's name inverted, ink with paper type, and its
+/// plate raised by the hard shadow, so the choice is told by fill and shape, not colour.
+/// Every tile at least 48 pt tall. VoiceOver reads the group as Scene and each tile as the
+/// bar's parts are ("Camping, selected, 3 of 7"), in the row's order. The solo card, the
+/// practice menu and the lobby (the host's).
 struct SceneTiles: View {
-  let pitch: PitchSession
+  /// The pieces the postcards show (the pitch behind the card).
+  let scenery: PitchScene
   let row: MatchOption
   @Binding var value: String
   @Environment(\.dynamicTypeSize) private var type
-  /// A tile's width: "TOURNAMENT" in the tiles' 14 pt capitals and the picture's 96:56.
-  static let tileWidth: CGFloat = 112
+  @Environment(\.screenGeometry) private var screen
   var body: some View {
     let names = row.choices.map { (id: $0[0], name: $0[1]) }
     Group {
@@ -117,19 +120,11 @@ struct SceneTiles: View {
           ForEach(Array(names.enumerated()), id: \.offset) { i, scene in tile(i, scene, count: names.count, wide: true) }
         }
       } else {
-        ScrollViewReader { reader in
-          ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 8) {
-              ForEach(Array(names.enumerated()), id: \.offset) { i, scene in
-                tile(i, scene, count: names.count, wide: false).frame(width: Self.tileWidth).id(scene.id)
-              }
-            }
-            // room for the chosen tile's hard shadow
-            .padding(.trailing, TW.controlShadow).padding(.bottom, TW.controlShadow)
-          }
-          .scrollClipDisabled()
-          .onAppear { reader.scrollTo(value, anchor: .center) }
+        CentredRows(columns: screen.size.width >= 600 ? 4 : 3, spacing: 8) {
+          ForEach(Array(names.enumerated()), id: \.offset) { i, scene in tile(i, scene, count: names.count, wide: false) }
         }
+        // room for the chosen tile's hard shadow
+        .padding(.trailing, TW.controlShadow).padding(.bottom, TW.controlShadow)
       }
     }
     .accessibilityElement(children: .contain)
@@ -141,11 +136,13 @@ struct SceneTiles: View {
     let picture = Canvas { ctx, size in
       ctx.withCGContext { cg in
         PitchRenderer.draw(
-          in: cg, size: size, camera: pitch.camera, scene: pitch.scene.scenery.dressed(scene.id), look: scene.id)
+          in: cg, size: size, camera: PitchScene.postcard, scene: scenery.dressed(scene.id), look: scene.id)
       }
     }
     .aspectRatio(96 / 56, contentMode: .fit)
-    let name = Text(scene.name).font(bodyFont(14, .bold, relativeTo: .subheadline)).tracking(14 * 0.04)
+    // the system's button face (Londrina Solid capitals): TOURNAMENT in Inter 14 needs
+    // about 100 pt and a third of the 16e's card gives 93, and nothing goes under 14 pt
+    let name = Text(scene.name).font(displayFont(16, relativeTo: .subheadline))
       .textCase(.uppercase).lineLimit(wide ? nil : 2).multilineTextAlignment(wide ? .leading : .center)
       .fixedSize(horizontal: false, vertical: true)
       .foregroundStyle(on ? Color.woodPaper : Color.woodInk)
@@ -164,9 +161,11 @@ struct SceneTiles: View {
           VStack(spacing: 0) {
             picture
             Rectangle().fill(Color.woodInk).frame(height: TW.line)
-            name.padding(.horizontal, 4).padding(.vertical, 4)
-              .frame(maxWidth: .infinity, minHeight: 44).background(on ? Color.woodInk : Color.woodBaton)
+            name.padding(.horizontal, 1).padding(.vertical, 6)
+              .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+              .background(on ? Color.woodInk : Color.woodBaton)
           }
+          .frame(minHeight: 48)
         }
       }
       .clipShape(RoundedRectangle(cornerRadius: TW.controlRadius))
@@ -180,6 +179,43 @@ struct SceneTiles: View {
     .accessibilityLabel(scene.name)
     .accessibilityValue(SegmentWords.value(index: i, count: count, selected: on))
     .accessibilityAddTraits(on ? .isSelected : [])
+  }
+}
+
+/// Rows of `columns` equal tiles, `spacing` apart, a short last row centred (the web's
+/// flex-wrap with justify-content: center); each row as tall as its tallest tile.
+struct CentredRows: Layout {
+  let columns: Int
+  let spacing: CGFloat
+  private func width(_ proposal: ProposedViewSize) -> CGFloat {
+    let w = proposal.width ?? 320
+    return max(1, (w - spacing * CGFloat(columns - 1)) / CGFloat(columns))
+  }
+  private func rows(_ subviews: Subviews, _ w: CGFloat) -> [(range: Range<Int>, height: CGFloat)] {
+    stride(from: 0, to: subviews.count, by: columns).map { start in
+      let r = start..<min(subviews.count, start + columns)
+      let h = r.map { subviews[$0].sizeThatFits(ProposedViewSize(width: w, height: nil)).height }.max() ?? 0
+      return (r, h)
+    }
+  }
+  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    let w = width(proposal)
+    let rs = rows(subviews, w)
+    let h = rs.reduce(0) { $0 + $1.height } + spacing * CGFloat(max(0, rs.count - 1))
+    return CGSize(width: proposal.width ?? w * CGFloat(columns) + spacing * CGFloat(columns - 1), height: h)
+  }
+  func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    let w = width(ProposedViewSize(width: bounds.width, height: nil))
+    var y = bounds.minY
+    for (range, h) in rows(subviews, w) {
+      let rowWidth = CGFloat(range.count) * w + spacing * CGFloat(range.count - 1)
+      var x = bounds.minX + (bounds.width - rowWidth) / 2
+      for i in range {
+        subviews[i].place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(width: w, height: h))
+        x += w + spacing
+      }
+      y += h + spacing
+    }
   }
 }
 
@@ -318,8 +354,8 @@ struct MenuGrid: View {
 
 /// The practice pitch's menu (the web's menu on the practice pitch, its words): SETTINGS,
 /// HOW TO THROW and FEEDBACK as the menus' plain buttons, then the practice's own Scene
-/// (seven: a plain button that opens its list, the system's control for five or more) and
-/// Surface only where the scene leaves one (Black & White's three, a segmented bar),
+/// (the seven picture tiles, as on the solo card and the web's MENU) and Surface only
+/// where the scene leaves one (Black & White's three, a segmented bar),
 /// BACK TO THE PITCH as go, HOME quiet, the version at the foot. A change of Scene starts
 /// a new practice in it, as on the web.
 struct PracticeMenu: View {
@@ -340,19 +376,21 @@ struct PracticeMenu: View {
           let rows = options.card(model.practiceScene)?.rows
         {
           ForEach(rows.filter { $0.id == "scene" || $0.id == "surface" }) { row in
-            FormRow(row.label) { full in
-              if row.id == "scene" {
-                ChoiceList(
-                  label: row.label, choices: row.choices.map { ($0[0], $0[1]) },
-                  value: Binding(get: { model.practiceScene }, set: { model.practiceScene = $0 }))
-              } else {
+            if row.id == "scene", let pitch = model.offline {
+              Text(row.label).labelStyle().accessibilityHidden(true)
+              SceneTiles(
+                scenery: pitch.scene.scenery, row: row,
+                value: Binding(get: { model.practiceScene }, set: { model.practiceScene = $0 }))
+                .disabled(model.playing)
+            } else if row.id == "surface" {
+              FormRow(row.label) { full in
                 Segmented(
                   label: row.label,
                   choices: row.choices.compactMap { c in Surface(rawValue: c[0]).map { ($0, c[1]) } },
                   value: Binding(get: { model.surface }, set: { model.setPracticeSurface($0) }), full: full)
               }
+              .disabled(model.playing)
             }
-            .disabled(model.playing)
           }
         }
       }

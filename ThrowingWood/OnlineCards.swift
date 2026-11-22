@@ -200,6 +200,11 @@ struct LobbyCard: View {
       // kept in the room until the host picks another
       let value = option.id == "scene" ? SceneID.shown(online.options["scene"]) : online.options[option.id] ?? ""
       let pick = Binding(get: { value }, set: { v in model.runOnline { try await online.option(option.id, v) } })
+      if option.id == "scene", online.isHost {
+        // the host's Scene: the seven picture tiles, as on the solo card (the web's lobby)
+        Text(option.label).labelStyle().accessibilityHidden(true)
+        SceneTiles(scenery: online.board.scene.scenery, row: option, value: pick)
+      } else {
       FormRow(option.label) { full in
         if !online.isHost {
           Text(option.choices.first { $0[0] == value }?.last ?? "").font(bodyFont(15, .bold))
@@ -208,6 +213,7 @@ struct LobbyCard: View {
         } else {
           ChoiceList(label: option.label, choices: option.choices.map { ($0[0], $0[1]) }, value: pick)
         }
+      }
       }
     }
     if let line = online.engineLine, line != online.note { Text(line).font(bodyFont(16, .bold)) }

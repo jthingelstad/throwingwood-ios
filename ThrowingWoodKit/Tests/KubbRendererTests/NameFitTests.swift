@@ -88,3 +88,17 @@ import Testing
     #expect(wide.1 * Self.headerScale <= Self.headerWide, "\(wide)")
   }
 }
+
+extension NameFitTests {
+  /// A scene tile's name (SceneTiles: Londrina Solid at 16, capitals, two lines where it
+  /// needs them) fits a third of a 16e's card whole word by word: (303 less two 8 pt gaps)
+  /// over three, less its 1 pt sides. Inter at 14, the web's, would not hold TOURNAMENT.
+  @Test func everySceneNameFitsItsTile() {
+    let room = (Self.card - 16) / 3 - 2
+    for e in SceneID.catalogue {
+      for word in e.name.uppercased().split(separator: " ") {
+        #expect(width(String(word), Self.display, 16) <= room, "\(word): \(width(String(word), Self.display, 16)) > \(room)")
+      }
+    }
+  }
+}

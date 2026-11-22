@@ -65,6 +65,7 @@ agrees. So:
   needed) verifies every file against the engine's own `engine.json`, and
   the version against the tag (v0.4.1 explicitly retains the 0.2.0
   golden corpus, v0.5.1 and v0.7.1 to v0.7.4 the 0.5.0 one, v0.8.1 and v0.8.2 the 0.8.0 one, v0.13.1 to v0.13.4 the 0.13.0 one;
+  v0.15.0 carries its own, 19 matches;
   arbitrary older corpora are not accepted). Never edit the
   vendored files; a fix belongs
   in kubb-engine, then here by moving to its next tag. Never write in the
@@ -396,22 +397,26 @@ checks this; keep it passing when a setting is added.
 
 ## Scenes
 
-A scene is a look only (Jamie, 2026-11-20: "dark mode for the game"): the world,
-the controls' skin and the throw's effects. It never changes play, the engine, a
-throw or a hash. Day is today's look and the default; Night is a real pitch at night
-under a full moon (lit pieces, stardust behind a thrown piece); Neon is our own black
-world on a grid of light (pieces edged in light, a ribbon and sparks; no film names).
-The web (0.7.0) is the reference: keep its numbers and colours (`SceneRenderer.swift`,
-`SceneEffects.swift`, `SceneSkin.swift`). Scene and Surface stay two settings.
+A scene is the engine's (core/scenes, engine 0.14; Jamie, 2026-11-21: "a Scene should
+have an allowed set of surfaces and pitch types"): it decides a match's surface and kubb
+set, and the app draws the world, the controls' skin and the throw's effects for it. It
+never changes a throw's physics or a hash beyond what its surface does. Seven, the
+engine's names (kubb-engine docs/notes/scenes.md): Park (`day`, the default), Beach,
+Camping (`night`: a real pitch at night under a full moon), Techno (`neon`: our own
+black world on a grid of light, no film names), Minnesota, Tournament and Black & White
+(`bw`, the Playdate's look). The web is the reference: keep its numbers and colours
+(`SceneRenderer.swift`, `SceneWorlds.swift`, `SceneEffects.swift`, `Impacts.swift`,
+`SceneSkin.swift`). docs/RENDER.md "Scenes" has each look.
 
-- **The Scene row** (shown as Park, Camping and Techno for the ids `day`, `night`,
-  `neon`, the owner's 2026-11-22 names, from the one table `SceneID.shownNames`;
-  `SceneID.row`) is offered only where the
-  match's engine takes a scene (0.9 on, `scene` in its OPTION_DEFAULTS): last in the
-  solo options (kept as `solo.option.scene`), in the lobby for the host (the room's
-  `settings.scene`, as the web writes it), and in the practice menu (kept as
-  `pitch.practiceScene`; a change starts a new practice in it, as on the web). A 0.8
-  or 0.7 match has no row and draws the day. Never a Scene row in the match menu.
+- **The catalogue** is the engine's; `SceneID.catalogue` is the app's copy for the
+  renderer, held to the engine's `scenes()` by a test. `SceneID.drawn` lists the scenes
+  this build draws (all seven).
+- **The options cards are scene first** (the engine's `pitch.optionRows({ scene })`):
+  the solo card (`SoloOptions.cardRows`), the practice menu and the lobby (the room's
+  `settings.scene`) show Scene first, Surface only where the scene leaves one (Black &
+  White), no Kubbs row. `scene` goes with every `new` and every lobby `setOptions`;
+  kept options (`solo.option.*`, `pitch.practiceScene`, `pitch.hostOptions`) go through
+  the scene. Never a Scene row in the match menu.
 - **An unknown id** draws as the day and is carried untouched (`SceneID.shown`).
 - **Everything that shows a match follows its scene** (`GameModel.shownScene`):
   play, watching, a reopened match, the replay and the winner card. Home, the
@@ -420,15 +425,30 @@ The web (0.7.0) is the reference: keep its numbers and colours (`SceneRenderer.s
   `SkinStore`; each pair of words and ground is 7:1 or better (`SceneSkinTests`).
   The day is the 1.0 system's tokens ("The 1.0 design" below, `DesignTests`); the
   pitch's own day picture (`PitchRenderer`, its five snapshots) does not move.
+- **Ground impacts** are on (`setImpacts`): Techno rings at each `timeline.impacts`
+  entry (and taps lightly), Beach puffs sand and Minnesota sprays snow.
+- **Black & White is one bit**: every pixel black or white (`Painter.mono`, no
+  antialiasing), its skin black and white, the dimming a checker (`SkinDim`).
+- **A spin the frames cannot show** is drawn as one (`Spin.swift`): never touch the
+  physics for how a throw looks.
 - **Reduce Motion** calms the effects: no trail or ribbon, fewer and shorter puffs,
-  no hit flash.
-- Review pictures take `--scene night|neon` on the solo and online tools
+  no hit flash, rings that do not grow, no falling snow.
+- Review pictures take `--scene <id>` on the solo and online tools
   (`<phone>-<scene>-<shot>.png`). docs/RENDER.md "Scenes".
 - **The app icon** is each scene's own king, drawn by the renderer (`AppIconArt`, the
   owner's direction of 2026-11-22): Park the primary with dark and tinted looks, Camping
   and Techno alternates picked in Settings' App icon row. Never edit the PNGs: change
   `AppIconArt` and run `scripts/make-app-icons.sh`. A new scene's icon is one line in
   `AppIconArt.icons` (`AppIconTests`). docs/RENDER.md "The app icon".
+
+## Kid matches
+
+The Kid computer makes a Kid match (engine 0.15, kubb-engine docs/notes/kid-mode.md); the
+engine does the rules. The app offers Kid first on the Computer row (the engine's), draws
+the Kid line (`aim.kidY`) in every renderer and the minimap, words STAND for it, says
+"Kid match" from `need.kid` (`HandoffWords.kid`), and shows a Kid ruling's flag
+(`ThrowResult.shownFlag`). Nothing may tell a child they were punished or lost when they
+were not (`KidTests`). docs/MATCH.md.
 
 ## The 1.0 design
 
@@ -476,13 +496,13 @@ the colours and nothing else (`SceneSkinTests` 7:1; the day 4.5:1, `DesignTests`
   only the WATCH tab on its team's colour over the faded meter. The coach is one
   inverted chip naming the marks by shape. VoiceOver reads the header, the prompt and
   distance, the meter, the tray, then the minimap (`MatchReaders.swift`). `TrayTests`.
-- **Play the computer**: the name row, Scene as three picture tiles from the app's own
-  renderer, Computer, Opening, Raising, Wind and Surface (`SoloOptions.cardRows`); no
-  Kubbs row, the scene decides the set (`SceneID.kubbs`): `startSolo` plays it and
-  `SoloOptions.keep` keeps it, whatever set was kept before. The lobby has no Kubbs row
-  either (`OnlinePitch.hiddenRows`, the web's HIDDEN_ROWS); the room's stored set is
-  left as it is and a match started there plays it, as on the web. The names a player sees for
-  the scenes are one table, `SceneID.shownNames`.
+- **Play the computer**: the name row, Scene as seven picture tiles from the app's own
+  renderer (three a row on a phone, four from 600 pt, the last row centred, a row each
+  at the accessibility sizes; the lobby's host and the practice menu have them too), Surface only for Black & White, Computer (Kid first), Opening, Raising and Wind
+  (`SoloOptions.cardRows`, the engine's card for the scene); no Kubbs row, the scene
+  decides the set: `startSolo` plays it and `SoloOptions.keep` keeps it, whatever set
+  was kept before. The lobby has no Kubbs row either (`OnlinePitch.hiddenRows`, the
+  web's HIDDEN_ROWS); the pitch holds the set to the scene's.
 
 ## Sound and haptics
 

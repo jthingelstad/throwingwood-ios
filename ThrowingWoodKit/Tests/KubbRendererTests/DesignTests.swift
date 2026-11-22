@@ -155,6 +155,22 @@ import Testing
     #expect(home.lowerBound < go.lowerBound)
   }
 
+  /// The seven tiles (the web's SYSTEM.md "Scene tiles"): three a row under 600 pt, four
+  /// from it, the last row centred, a row each at the accessibility sizes, each tile a
+  /// button at least 48 pt tall that VoiceOver reads by the engine's name with its place
+  /// ("Camping, selected, 3 of 7"), the group as Scene; drawn from the postcard camera.
+  @Test func theSceneTilesWorkForEveryone() throws {
+    let text = try String(contentsOf: Self.app.appending(path: "MatchCards.swift"), encoding: .utf8)
+    let start = try #require(text.range(of: "struct SceneTiles: View"))
+    let body = String(text[start.upperBound...].prefix(5000))
+    #expect(body.contains("CentredRows(columns: screen.size.width >= 600 ? 4 : 3, spacing: 8)"))
+    #expect(body.contains("type.isAccessibilitySize") && body.contains("PitchScene.postcard"))
+    #expect(body.contains("minHeight: 48") && body.contains("minHeight: TW.touch"))
+    #expect(body.contains(".accessibilityLabel(scene.name)") && body.contains("SegmentWords.value(index: i, count: count"))
+    #expect(body.contains(".accessibilityLabel(row.label)"))
+    #expect(SegmentWords.spoken("Camping", index: 2, count: 7, selected: true) == "Camping, selected, 3 of 7")
+  }
+
   // MARK: the scenes' names
 
   /// The names a player sees are the engine's (its Scene row), and the app's catalogue

@@ -121,13 +121,21 @@ public enum MeterWords {
   }
   /// The minimap as one image, the web's words (its hud.js mapSummary): "Map of the
   /// pitch: Mighty Maple 5 kubbs standing, Computer 4. The target is 8 metres out."
-  public static func mapSummary(standing: [String: Int]?, teams: [String: String]?, metres: Double?) -> String {
+  /// In a Kid match it ends with the Kid line: "The Kid line is 2 metres out."
+  /// (`kidLine`: m from the thrower's line).
+  public static func mapSummary(
+    standing: [String: Int]?, teams: [String: String]?, metres: Double?, kidLine: Double? = nil
+  ) -> String {
     var text = "Map of the pitch"
     if let a = standing?["A"], let b = standing?["B"] {
       text += ": \(teams?["A"] ?? "Team A") \(a) \(a == 1 ? "kubb" : "kubbs") standing, \(teams?["B"] ?? "Team B") \(b)"
     }
     text += "."
     if let d = spokenDistance(metres) { text += " The target is \(d) out." }
+    if let k = kidLine, k > 0 {
+      let m = (k * 10).rounded() / 10
+      text += " The Kid line is \(m == m.rounded() ? String(Int(m)) : String(m)) \(m == 1 ? "metre" : "metres") out."
+    }
     return text
   }
 }

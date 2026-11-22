@@ -86,13 +86,13 @@ import Testing
   }
 
   /// The practice menu's own options, Scene and (where the scene leaves one) Surface,
-  /// are the game's, from the engine's card: Scene's seven a list behind a plain button,
+  /// are the game's, from the engine's card: Scene's seven picture tiles (the web's MENU),
   /// Surface a segmented bar, never a native pop-up (the 1.0 system's controls).
   @Test func thePracticeMenusRowsAreSegmentedBars() throws {
     let menu = try body("MatchCards.swift", "PracticeMenu")
     let view = try file("GameView.swift")
     #expect(menu.contains("options.card(model.practiceScene)"))
-    #expect(menu.contains("ChoiceList(") && menu.contains("Segmented("))
+    #expect(menu.contains("SceneTiles(") && menu.contains("Segmented("))
     #expect(!menu.contains("Picker("))
     #expect(!view.contains("Picker("))
   }

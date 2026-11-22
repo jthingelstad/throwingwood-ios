@@ -202,8 +202,10 @@ import Observation
         }
         if let mode = ProcessInfo.processInfo.environment["MATCH_REVIEW"] {
           selections = pitch.options.defaults
-          // the solo options' Scene row picked (the review tools' --scene)
-          if let look = ProcessInfo.processInfo.environment["REVIEW_SCENE"] { selections["scene"] = look }
+          // the solo options' Scene row picked (the review tools' --scene), with its ground
+          if let look = ProcessInfo.processInfo.environment["REVIEW_SCENE"] {
+            selections = pitch.options.choosing(scene: look, selections)
+          }
           name = "Brave Birch"  // a generated name for the pictures (the fixtures' own say "You")
           if mode == "home" { return }
           if mode == "options" {
@@ -212,6 +214,23 @@ import Observation
           }
           if mode == "settings" {
             screen = .settings
+            return
+          }
+          if mode.hasPrefix("kid") {
+            // a Kid match against the Kid computer in the review's scene (no fixture: the
+            // engine starts it), at its first hand-off or aim
+            var kid = selections
+            kid["computer"] = "kid"
+            try pitch.startSolo(name: name, selections: kid, save: nil)
+            screen = .match
+            if mode != "kidhandoff" { pitch.dismissHandoff() }
+            return
+          }
+          if mode == "spin" {
+            // the practice pitch in the review's scene, drilling a kubb at SPIN's most
+            practiceScene = ProcessInfo.processInfo.environment["REVIEW_SCENE"] ?? "day"
+            openPractice()
+            try pitch.reviewDrill()
             return
           }
           if mode == "practicemenu" {

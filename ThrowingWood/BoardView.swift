@@ -152,6 +152,28 @@ import UIKit
           reviewReady = true
           run {
             if mode == "flight" { try prepareReview("flight") }
+            if mode == "ring" {
+              // Techno's floor: the throw played on until a ring is part way grown
+              try prepareReview("flight")
+              for _ in 0..<600 where pitch.playing {
+                if let age = pitch.ringAges.first, age > 0.28 { break }
+                try pitch.tick(1.0 / 60)
+              }
+            }
+            if mode == "spin" {
+              // a kubb drilled at SPIN's most, frozen while it turns too fast to show
+              try prepareReview("flight")
+              for _ in 0..<300 where pitch.playing && !pitch.spinsFast { try pitch.tick(1.0 / 60) }
+            }
+            if mode == "kidplan" {
+              try pitch.togglePlan()
+              for _ in 0..<90 { try pitch.tick(1.0 / 60) }
+            }
+            if mode == "kidstand" {
+              try pitch.tapPlate(.stand)
+              pitch.stand(fx: 0.5, fy: 0.25, phase: .down)
+              for _ in 0..<3 { try pitch.tick(1.0 / 60) }
+            }
             if mode == "verdict" { try prepareReview("rest") }
             if mode == "plan" {
               try pitch.togglePlan()
