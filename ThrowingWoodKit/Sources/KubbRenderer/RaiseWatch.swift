@@ -18,7 +18,8 @@ public enum RaiseWatch: Equatable, Sendable {
   /// Another member's raise, arriving online, already applied: tipping up at the sender's
   /// pace.
   case arriving
-  /// A raise the engine made itself (engine 0.16.0's `raised`; none today).
+  /// A raise the engine made itself, or a punishment kubb it placed (engine 0.16.0's
+  /// `need.setup.settled`).
   case engine
 
   /// New input (a gesture, a tap on the pitch other than the skip, the tray, the meter).

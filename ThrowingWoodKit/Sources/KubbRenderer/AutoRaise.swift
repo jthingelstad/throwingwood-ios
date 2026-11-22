@@ -137,23 +137,30 @@ struct RaiseShow {
 }
 
 /// Kubbs the engine stood up with no raise of this device's to show (the computer's own
-/// raises, or every raise in a match whose Raising is Automatic): seen the same way after
-/// the throw that sent them there, one after another, each in the raise scene, before the
-/// board moves on. Built only from the engine's own list (`engineRaised`, engine 0.16.0),
-/// every pose in the one frame it gives: today none.
+/// raises, every raise in a match whose Raising is Automatic) and the punishment kubbs it
+/// placed: seen the same way after the throw that sent them there, one after another in
+/// the order done, each in the raise scene with the watched raise's tip and pace, before
+/// the board moves on (the web's lift.js settledClips). Built only from the engine's own
+/// list (engine 0.16.0's `setup.settled`, `engineRaised`), every pose in the frame it gives.
 struct StoodShow {
   struct Kubb {
     let id: String
     /// Lying where the throw left it, and standing where the engine put it, both in the
     /// frame the raise view draws in, as the engine gives them.
     let lying, standing: Piece
-    /// From its middle toward the end it stands on, on the ground (unit).
+    /// From its middle toward the end it stands on, on the ground (unit): the lying pose's
+    /// own axis, end 1 the +axis end and end 2 the -axis end (core/raising), in its frame.
     let toward: V2
-    /// Its two ends' footprints, the one it stands on first.
-    let ends: [V2]
+    /// A punishment kubb the engine placed: not on the pitch before its turn.
+    var placed = false
+    /// The side whose view frame its poses are in ("A" for the world frame).
+    var frame: String? = nil
+    /// The pitch round it in its own frame, where the engine gives it (the entry's `others`
+    /// and `king`, from its next release); nil: the show's `before`.
+    var around: [Piece]? = nil
   }
   var kubbs: [Kubb]
-  /// The pitch round them, in the same frame.
+  /// The pitch round them, in the same frame (the king alone in the thrower's view).
   let before: [Piece]
   /// The view the board takes when the show ends.
   let after: ViewOutput
@@ -173,21 +180,38 @@ struct StoodShow {
 
   func up(reduced: Bool) -> Double { RaisePace.up(age: age, lead: lead, beat: beat, reduced: reduced) }
 
-  /// The kubb at this moment: lying, tipping onto its end, standing on the footprint, then
-  /// sliding to where the engine stood it when that is more than `RaisePace.displaced` away.
+  /// The kubb at this moment (the web's liftKubb): lying, tipping onto its end, then
+  /// standing, sliding from the footprint it tipped onto to where the engine stood it in
+  /// half the beat's rest.
   func shown(reduced: Bool) -> Piece {
     let kb = kubbs[k]
     let t = up(reduced: reduced)
     guard t >= 1 else { return Self.tilt(kb, t: t) }
+    if reduced { return kb.standing }
     let top = Self.tilt(kb, t: 1)
-    if reduced || simd_distance(V2(top.x, top.y), V2(kb.standing.x, kb.standing.y)) <= RaisePace.displaced {
-      return kb.standing
-    }
     let u = RaisePace.slid(age: age, lead: lead, beat: beat)
     var p = kb.standing
     p.x = top.x + (kb.standing.x - top.x) * u
     p.y = top.y + (kb.standing.y - top.y) * u
     return p
+  }
+
+  /// The pieces at this moment: the pitch round the kubb, the list's kubbs done standing
+  /// and those to come lying (a punishment kubb is not there before it is placed), and
+  /// the kubb itself.
+  func items(reduced: Bool) -> [Piece] {
+    let kb = kubbs[k]
+    let ids = Set(kubbs.map(\.id))
+    var items = (kb.around ?? before).filter { !ids.contains($0.id) }
+    for (j, other) in kubbs.enumerated() where j != k {
+      if j < k {
+        items.append(other.standing)
+      } else if !other.placed {
+        items.append(other.lying)
+      }
+    }
+    items.append(shown(reduced: reduced))
+    return items
   }
 
   /// A lying kubb tipped `t` up onto the end `toward` points to, pivoting on that end's
@@ -209,17 +233,61 @@ struct StoodShow {
     return p
   }
 
-  /// The raises the engine makes itself, with no raise need on this device (the
-  /// computer's own, and every raise of a match started with Raising: Automatic), as
-  /// clips: the kubbs and the pitch round them. The app never turns a pose from one side's
-  /// frame into another's to find them (the raise view draws in the raiser's frame, the
-  /// throw before it in the thrower's): from engine 0.16.0 the view hands them out as
-  /// `raised`, each kubb's id, the end it stands on, and its lying and standing poses in
-  /// the frame the raise view draws in. Until the app is on that engine this returns none,
-  /// and such a raise shows as it always did: the kubbs standing in the next view.
-  static func engineRaised(_ view: ViewOutput) -> (kubbs: [Kubb], others: [Piece])? {
-    // waits for the view's `raised` (engine 0.16.0)
-    nil
+  /// VoiceOver's one line for the show: "2 kubbs stood up.", "A punishment kubb placed.",
+  /// "A kubb stood up and a punishment kubb placed."
+  static func news(stood: Int, placed: Int) -> String {
+    func count(_ n: Int, _ what: String) -> String { n == 1 ? "a \(what)" : "\(n) \(what)s" }
+    var parts: [String] = []
+    if stood > 0 { parts.append("\(count(stood, "kubb")) stood up") }
+    if placed > 0 { parts.append("\(count(placed, "punishment kubb")) placed") }
+    let line = parts.joined(separator: " and ")
+    return line.prefix(1).uppercased() + line.dropFirst() + "."
+  }
+
+  /// The raises the engine made itself and the punishment kubbs it placed before this
+  /// throw (the computer's own, every raise of a match started with Raising: Automatic),
+  /// as clips, from the view's `need.setup.settled` (engine 0.16.0): each kubb's id, the
+  /// end it stands on and its lying and standing poses (a punishment kubb's one pose) in
+  /// the raiser's view frame, or the world frame in the wide view. The app never turns a
+  /// pose from one frame into another, or compares the pitch before and after, to find
+  /// them. Round them (`others`): the view's items where the view and the list are both
+  /// the world's (the wide view), else the king alone, who stands on the pitch's centre in
+  /// either frame (the web's settledLifts), until the engine gives each entry its own.
+  /// nil when there is none (and after a restore: the kubbs already stand).
+  static func engineRaised(_ view: ViewOutput, wide: Bool = false) -> (kubbs: [Kubb], others: [Piece])? {
+    guard view.need.kind == "throw", let list = view.need.setup?.settled?.list, !list.isEmpty else { return nil }
+    let world = wide && list.allSatisfy { $0.frame == "world" }
+    var kubbs: [Kubb] = []
+    for e in list {
+      let frame = e.frame == "world" ? "A" : e.side
+      var around: [Piece]? = nil
+      if e.others != nil || e.king != nil {
+        around = (e.others ?? []).map { $0.pose.piece(id: $0.id) } + (e.king.map { [$0.piece(id: "king", king: true)] } ?? [])
+      }
+      switch e.kind {
+      case "raise":
+        guard let l = e.lying, let st = e.standing else { continue }
+        let a = l.angle ?? 0
+        let sign = e.which == 2 ? -1.0 : 1.0
+        kubbs.append(
+          Kubb(
+            id: e.id, lying: MatchNeed.Pose(x: l.x, y: l.y, angle: l.angle, standing: false).piece(id: e.id),
+            standing: MatchNeed.Pose(x: st.x, y: st.y, angle: st.angle, standing: true).piece(id: e.id),
+            toward: V2(cos(a), sin(a)) * sign, frame: frame, around: around))
+      case "punish":
+        guard let p = e.pose else { continue }
+        let a = p.angle ?? 0
+        kubbs.append(
+          Kubb(
+            id: e.id, lying: MatchNeed.Pose(x: p.x, y: p.y, angle: p.angle, standing: false).piece(id: e.id),
+            standing: MatchNeed.Pose(x: p.x, y: p.y, angle: p.angle, standing: true).piece(id: e.id),
+            toward: V2(cos(a), sin(a)), placed: true, frame: frame, around: around))
+      default: continue
+      }
+    }
+    guard !kubbs.isEmpty else { return nil }
+    let others = world ? view.items : view.items.filter { $0.id == "king" }
+    return (kubbs, others)
   }
 }
 
@@ -403,17 +471,17 @@ extension PitchSession {
     return true
   }
 
-  /// After a throw has played: the kubbs the engine stood up with it (the computer's
-  /// raises, or a match raising automatically), watched before `view` is taken, from the
-  /// engine's own list in the raise view's frame (`StoodShow.engineRaised`: none until
-  /// engine 0.16.0). False when there is none (the caller adopts `view`). Not in the
-  /// watcher's wide view, which draws the world frame.
+  /// After a throw has played (or was skipped): the kubbs the engine stood up and placed
+  /// before the next (the computer's raises, a match raising automatically, a punishment
+  /// kubb it placed), watched before `view` is taken, from the engine's own list in the
+  /// frame it gives (`StoodShow.engineRaised`: the raiser's view frame, the world frame in
+  /// the watcher's wide view). False when there is none (the caller adopts `view`).
   func beginStoodShow(view: ViewOutput) -> Bool {
-    guard need != nil, view.need.kind != "raise", !scene.wide,
-      let raised = StoodShow.engineRaised(view), !raised.kubbs.isEmpty
+    guard need != nil, let raised = StoodShow.engineRaised(view, wide: scene.wide), !raised.kubbs.isEmpty
     else { return false }
     stoodShow = StoodShow(kubbs: raised.kubbs, before: raised.others, after: view)
-    announce("\(raised.kubbs.count == 1 ? "A kubb" : "\(raised.kubbs.count) kubbs") stood up.")
+    let stood = raised.kubbs.filter { !$0.placed }.count, placed = raised.kubbs.count - stood
+    announce(StoodShow.news(stood: stood, placed: placed))
     _ = try? stoodShowTick(0)
     return true
   }
@@ -432,13 +500,9 @@ extension PitchSession {
     }
     stoodShow = s
     let k = s.kubbs[s.k]
-    let t = s.up(reduced: reduceMotion)
-    var items = s.before.filter { p in !s.kubbs.contains { $0.id == p.id } }
-    for (j, other) in s.kubbs.enumerated() where j != s.k {
-      items.append(j < s.k ? other.standing : other.lying)
-    }
-    items.append(s.shown(reduced: reduceMotion))
-    scene.items = items
+    scene.items = s.items(reduced: reduceMotion)
+    // drawn in the kubb's own frame (the raiser's, or the world's in the wide view)
+    if let f = k.frame { scene.frameSide = f }
     scene.arc = nil
     scene.marker = nil
     scene.thrower = nil
@@ -449,9 +513,8 @@ extension PitchSession {
     scene.stillZoom = RaiseCamera.zoom
     scene.focusX = nil
     scene.stillLowest = nil
-    scene.footprints = k.ends.enumerated().map { j, e in
-      GroundMark(x: e.x, y: e.y, angle: atan2(k.toward.y, k.toward.x), allowed: true, chosen: j == 0 && t >= 0.5)
-    }
+    // no footprints: nothing is chosen, it is watched (the web's settledClips)
+    scene.footprints = nil
     revision += 1
     return true
   }

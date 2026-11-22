@@ -135,7 +135,7 @@ import simd
     let clip = StoodShow.Kubb(
       id: id, lying: pose.piece(id: id),
       standing: MatchNeed.Pose(x: end.pose.x, y: end.pose.y, angle: end.pose.angle, standing: true).piece(id: id),
-      toward: simd_normalize(V2(end.pose.x - pose.x, end.pose.y - pose.y)), ends: [V2(end.pose.x, end.pose.y)])
+      toward: simd_normalize(V2(end.pose.x - pose.x, end.pose.y - pose.y)))
     app.stoodShow = StoodShow(kubbs: [clip], before: [], after: try app.read("view"))
     #expect(app.raiseWatch == .engine)
   }
