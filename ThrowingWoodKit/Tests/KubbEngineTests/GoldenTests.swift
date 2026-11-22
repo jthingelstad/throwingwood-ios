@@ -7,8 +7,9 @@ import Testing
 /// its driver `Fixtures/golden/drive.lua` from the same release by
 /// scripts/vendor-engine.sh; an older engine's in `Fixtures/engines/<mm>/golden/`):
 /// the hash after every action of its seeded matches (twelve computer against
-/// computer, and since 0.8.0 a thirteenth of a person's short batons against the
-/// computer) on the engine's reference platform, the web's WebAssembly Lua with
+/// computer, since 0.8.0 a thirteenth of a person's short batons against the
+/// computer, and since 0.12.0 a person raised automatically against the pro
+/// computer and the beginner computer on both sides) on the engine's reference platform, the web's WebAssembly Lua with
 /// musl's libm (kubb-engine docs/DETERMINISM.md). Every engine the build carries
 /// must give every hash of its own corpus identically: then a match started on a
 /// phone and one in a browser are the same match, throw for throw.
@@ -54,6 +55,7 @@ func goldenFolder(_ minor: String) -> String {
 /// The corpus each carried engine is pinned to, and its size: a new engine, or a
 /// dropped one, changes this on purpose.
 let pinnedCorpora: [String: (corpus: String, matches: Int)] = [
+  "0.13": ("0.13.0", 15),
   "0.9": ("0.9.0", 13),
   "0.8": ("0.8.0", 13),
   "0.7": ("0.5.0", 12),
@@ -126,14 +128,15 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
     let expected = ["0.4.1": "0.2.0", "0.5.1": "0.5.0", "0.7.1": "0.5.0", "0.7.2": "0.5.0", "0.7.3": "0.5.0", "0.7.4": "0.5.0", "0.8.1": "0.8.0", "0.8.2": "0.8.0"][engine.engineVersion] ?? engine.engineVersion
     #expect(corpus.version == expected, "run scripts/vendor-engine.sh sync")
     #expect(corpus.tune == Engine.tune)
-    #expect(corpus.matches.count == 13)
+    #expect(corpus.matches.count == pinnedCorpora[Engine.newest]?.matches)
     #expect(engine.luaVersion == "Lua 5.4.5")
   }
 
-  /// Every engine the build carries, each with the corpus it is pinned to: 0.8
-  /// (the newest) and 0.7, kept so a match started on it plays on as it was.
+  /// Every engine the build carries, each with the corpus it is pinned to: 0.13
+  /// (the newest), and 0.9, 0.8 and 0.7, kept so a match started on one plays on
+  /// as it was.
   @Test func everyCarriedEngineHasItsOwnCorpus() throws {
-    #expect(Engine.carried == ["0.9", "0.8", "0.7"])
+    #expect(Engine.carried == ["0.13", "0.9", "0.8", "0.7"])
     #expect(Set(pinnedCorpora.keys) == Set(Engine.carried))
     for mm in Engine.carried {
       let engine = try Engine(minor: mm, appVersion: testAppVersion)

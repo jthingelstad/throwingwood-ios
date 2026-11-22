@@ -28,7 +28,7 @@ matchopts.list = {
 
 -- Not here: the kubb set and the scene. They are looks for the web and the iPhone only
 -- (Jamie's Settings sheet, 2026-11-20: sets and scenes are not on the Playdate), chosen
--- through the room's options (room/lobby MATCH_OPTIONS `set`; `scene`, an id the client
+-- through the pitch's options (pitch/lobby MATCH_OPTIONS `set`; `scene`, an id the client
 -- labels) and kept in the session's start. A choice table or save kept before 0.9 that
 -- carries `set` still loads: valid() reads only these rows' keys, and core/save hands
 -- back whatever options it wrote.

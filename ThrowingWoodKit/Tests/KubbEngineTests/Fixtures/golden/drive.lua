@@ -2,7 +2,9 @@
 -- door, kubbCall, as a host would, with the hash after every action. Twelve are
 -- computer against computer; the thirteenth (since 0.8.0) has a person's side
 -- swinging on the dial at chosen distances, so the corpus covers a player's baton
--- planned under flight.tune.nearM, which the computer never throws. Pure Lua: tests/golden/golden.mjs runs it under wasmoon (the reference)
+-- planned under flight.tune.nearM, which the computer never throws. The fourteenth and
+-- fifteenth (since 0.12.0) cover raising by side: a person raised automatically against
+-- the pro computer, and the beginner computer both sides (the twelve are at club). Pure Lua: tests/golden/golden.mjs runs it under wasmoon (the reference)
 -- and tests/golden/native.lua under desktop Lua.
 --
 -- golden.matches(): the matches, seeded across surfaces, wind and the first team.
@@ -51,6 +53,27 @@ function golden.matches()
 		},
 		near = { 0.35, 0.75, 1.25, 1.9, 2.0 },
 	}
+	-- Since 0.12.0, raising by side (core/match.raisePolicy): Team A a person whose kubbs
+	-- the engine raises (RAISING: AUTOMATIC, so by the engine's advice, par) against the
+	-- computer at pro (which raises par too), throwing as m13's person does. Seed 1027:
+	-- each side has kubbs that par stands on another end than apart would ...
+	out[14] = {
+		name = "m14-grass-off-B-auto-pro",
+		opts = {
+			mode = "match", cpu = "B", computer = "pro", raising = "auto", seed = 1027,
+			surface = "grass", wind = "off", first = "B", start = START, maxTurns = 10,
+		},
+		near = { 0.35, 0.75, 1.25, 1.9, 2.0 },
+	}
+	-- ... and the computer at beginner both sides, which stands its kubbs on the first end
+	-- the rules list.
+	out[15] = {
+		name = "m15-sand-off-A-beginner",
+		opts = {
+			mode = "match", cpu = "both", computer = "beginner", seed = 1015,
+			surface = "sand", wind = "off", first = "A", start = START, maxTurns = 6,
+		},
+	}
 	return out
 end
 
@@ -75,7 +98,7 @@ local function nearAction(match, need, aim, d, over)
 	local px, py = m.x, m.y - d
 	local sol = plan.solve({
 		projectile = "baton", px = px, py = py, tx = m.x, ty = m.y,
-		release = plan.arcFor("field"), level = aim.plan.level, surface = match.opts.surface, spin = 0,
+		release = plan.arcFor("baton", d), level = aim.plan.level, surface = match.opts.surface, spin = 0,
 		aimZ = plan.aimZFor("kubb"),
 	}, {})
 	local mid = (sol.powerLo + sol.powerHi) / 2

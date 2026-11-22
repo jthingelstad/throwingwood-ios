@@ -56,8 +56,9 @@ agrees. So:
 - **The game's Lua** comes from a tagged release of kubb-engine, named once,
   `TAG` in `scripts/vendor-engine.sh`. `sync` copies that tag's tree (never
   the working tree) from the kubb-engine checkout beside this one
-  (`KUBB_ENGINE_SOURCE` overrides) byte for byte: `core/`, `room/`,
-  `session/`, `tune/`, `version.lua`, `engine.json` and `LICENSE` into
+  (`KUBB_ENGINE_SOURCE` overrides) byte for byte: `core/`, `pitch/` (0.13
+  on) or `room/` (before), `session/`, `tune/`, `version.lua`, `engine.json`
+  and `LICENSE` into
   `ThrowingWoodKit/Sources/KubbEngine/Engine/`, and the engine's golden
   driver and corpus (`tests/golden/drive.lua`, `hashes.json`) into
   `Tests/KubbEngineTests/Fixtures/golden/`. `check` (in CI, no checkout

@@ -47,6 +47,28 @@ local floor = math.floor
 local world = {}
 
 world.tune = {
+	-- The dead landing (0.11; Jamie, 2026-11-21: "the contact with the ground is
+	-- completely on target and doesn't bounce. The roll dynamics can then occur
+	-- because a bounce and spin introduces a ton of dynamics you cannot control").
+	-- A drilled kubb that meets the turf nose first, spinning about its long axis,
+	-- pointing along its travel and not tumbling, is caught: it stops where it
+	-- touched, keeps its spin while it lies down, and the spin then rolls it a face
+	-- or two aside. One that flies wrong is not caught and bounces as any body does.
+	-- The catch is a rule, not contact physics: the plain contact stops the spin in
+	-- the step the nose lands (docs/notes/physics.md "The dead landing").
+	deadLanding = 1,       -- 0: no catch (the landing of 0.10)
+	deadNoseMin = 30,      -- degrees below the horizontal the nose must be at the touch, at least ...
+	deadNoseMax = 60,      -- ... and at most
+	deadSpinMin = 10,      -- rad/s about the long axis in the air, at least (no taps: the spiral's 3)
+	deadTurnMax = 0.8,     -- rad/s of any other turn in the air, at most (a tumbling kubb is not caught)
+	deadYawMax = 18,       -- degrees the nose may point off its travel over the ground
+	deadSpin = 1,          -- share of the spin it keeps while it lies down
+	deadRun = 0,           -- share of its speed over the ground it keeps at the touch
+	deadFlat = 0.09,       -- it is lying once its long axis is this near level (sine)
+	deadHold = 0.4,        -- s: a caught kubb not lying by now (held up on another) is let go
+	deadRoll = 0.6,        -- share of the kept spin that sets it rolling once it lies, without slipping
+	kubbSpinHold = 0.05,   -- share of the turf's hold on a rolling kubb that works on its spin about
+	                       -- the long axis (1: as 0.10, where the plug stopped the roll in a step)
 	dt = 1 / 240,          -- s, the fixed step (DESIGN 5)
 	g = 9.81,              -- m/s^2
 	iterations = 4,        -- velocity passes per step with the position bias (guess: enough for
@@ -455,13 +477,14 @@ end
 -- 1 + scatterJerk x the jerk read from wobbleRate against drill.tune.wobbleRate).
 -- On the ground it is a plain kubb, like any other piece.
 function world.launchDrill(w, id, x, lineY, swivel, loftDeg, speed, noseDownDeg, rollDeg, spinRate,
-		wobbleRate)
+		wobbleRate, scatter)
 	local dt = tw.drill.tune
 	wobbleRate = wobbleRate or 0
 	local jerk = wobbleRate / dt.wobbleRate
 	if jerk < 0 then jerk = -jerk end
 	if jerk > 1 then jerk = 1 end
 	local k = 1 + dt.scatterJerk * jerk
+	k = k * (scatter or 1)   -- the hand's steadiness (plan.levels' drillScatter; nil: 1)
 	local n1, n2, n3, n4 = drillScatter(w, x, lineY, swivel, loftDeg, speed, spinRate, wobbleRate)
 	local b = world.launch(w, "kubb", id, world.drillLaunchState(x, lineY, swivel, loftDeg, speed,
 		noseDownDeg, rollDeg, spinRate, wobbleRate,
@@ -1049,6 +1072,48 @@ function world.step(w)
 	local awakeCount = 0
 	local useGyro = t.gyro
 	local inAir = not w.firstContact
+	if t.deadLanding > 0 and w.projectile and w.projectile.dead then
+		-- the turf holds the caught kubb's nose like a socket: it keeps its spin until it
+		-- has lain down, then the spin rolls it
+		local pj = w.projectile
+		if w.time - pj.deadAt > t.deadHold then
+			pj.dead = nil   -- held up (on another kubb): the turf lets go, the spin is the ground's to stop
+		elseif -pj.r33 > t.deadFlat then
+			-- its spin, and its fall forward about the level axis across it; no turn aside
+			local ux, uy, uz = pj.r13, pj.r23, pj.r33
+			local hl = sqrt(ux * ux + uy * uy)
+			local px, py = -uy / hl, ux / hl
+			local wp = pj.wx * px + pj.wy * py
+			local k = pj.dead
+			pj.wx, pj.wy, pj.wz = k * ux + wp * px, k * uy + wp * py, k * uz
+			-- and no slide aside: the socket holds the nose, so the spin cannot drive it
+			-- across like a wheel (on sand's grip it ran a metre)
+			local fx, fy = ux / hl, uy / hl
+			local vf = pj.vx * fx + pj.vy * fy
+			pj.vx, pj.vy = vf * fx, vf * fy
+		else
+			-- lying: the spin it kept sets it rolling (deadRoll of it, with the sideways
+			-- speed of a roll without slipping), and the ordinary physics rolls it on
+			local k = pj.dead * t.deadRoll
+			local ux, uy = pj.r13, pj.r23
+			pj.wx, pj.wy, pj.wz = k * ux, k * uy, 0
+			pj.vx, pj.vy, pj.vz = k * 0.035 * uy, -k * 0.035 * ux, 0
+			pj.dead = nil
+		end
+	end
+	if inAir and t.deadLanding > 0 then
+		-- the drilled kubb's spin about its long axis as it flies, for the catch (tune.deadLanding)
+		local pj = w.projectile
+		if pj and pj.aeroK then
+			local wu = pj.wx * pj.r13 + pj.wy * pj.r23 + pj.wz * pj.r33
+			pj.flySpin = wu
+			pj.flyTurn = sqrt(max(0, pj.wx * pj.wx + pj.wy * pj.wy + pj.wz * pj.wz - wu * wu))
+			-- how far its nose points off its travel over the ground (sine)
+			local hv = sqrt(pj.vx * pj.vx + pj.vy * pj.vy)
+			local hu = sqrt(pj.r13 * pj.r13 + pj.r23 * pj.r23)
+			pj.flyYaw = (hv > 1e-6 and hu > 1e-6) and abs(pj.r13 * pj.vy - pj.r23 * pj.vx) / (hv * hu) or 1
+		end
+	end
 	local proj = w.projectile
 	for i = 1, nb do
 		local b = bodies[i]
@@ -1773,6 +1838,21 @@ function world.step(w)
 				w.onContact(w.time, a, nil, r[K_LNMAX])
 			end
 			if r[K_LNMAX] > 0 and a == proj and not w.firstContact then
+				-- the dead landing (tune.deadLanding): caught, it stops where it touched and
+				-- keeps its spin about the long axis and nothing else of its turn. It then
+				-- lies down and rolls (the top of world.step)
+				if t.deadLanding > 0 and a.flySpin then
+					local nose = -a.r33
+					if nose >= sin(rad(t.deadNoseMin)) and nose <= sin(rad(t.deadNoseMax))
+						and abs(a.flySpin) >= t.deadSpinMin and a.flyTurn <= t.deadTurnMax
+						and a.flyYaw <= sin(rad(t.deadYawMax)) then
+						w.deadLanded = true
+						local k = t.deadSpin * a.flySpin
+						a.vx, a.vy, a.vz = a.vx * t.deadRun, a.vy * t.deadRun, 0
+						a.wx, a.wy, a.wz = k * a.r13, k * a.r23, k * a.r33
+						a.dead, a.deadAt = k, w.time
+					end
+				end
 				noteContact(w, a, nil, cPx[idx], cPy[idx], cPz[idx])
 			end
 		elseif r[K_LNMAX] > 0 then
@@ -1872,6 +1952,28 @@ function world.step(w)
 						wx, wy, wz = wx - L * ix, wy - L * iy, wz - L * iz
 					end
 					b.wx, b.wy, b.wz = wx, wy, wz
+				elseif t.kubbSpinHold < 1 and b.dig > 0 then
+					-- a kubb's spin about its long axis is held by kubbSpinHold of the
+					-- plug only, the rest of its turn by all of it: as one vector the
+					-- plug stopped a lying kubb's roll in the step it began
+					local ux, uy, uz = b.r13, b.r23, b.r33
+					local wx, wy, wz = b.wx, b.wy, b.wz
+					local wu = wx * ux + wy * uy + wz * uz
+					b.wx, b.wy, b.wz = wx - wu * ux, wy - wu * uy, wz - wu * uz
+					rollResist(b, b.dig, gi)
+					local i11, i12, i13, i22, i23, i33 = b.i11, b.i12, b.i13, b.i22, b.i23, b.i33
+					local L = t.kubbSpinHold * b.dig * gi
+					if wu > 1e-9 or wu < -1e-9 then
+						local ix = i11 * ux + i12 * uy + i13 * uz
+						local iy = i12 * ux + i22 * uy + i23 * uz
+						local iz = i13 * ux + i23 * uy + i33 * uz
+						local stop = wu / (ux * ix + uy * iy + uz * iz)
+						if stop < 0 then stop = -stop end
+						if L > stop then L = stop end
+						if wu < 0 then L = -L end
+						local kx, ky, kz = wu * ux - L * ix, wu * uy - L * iy, wu * uz - L * iz
+						b.wx, b.wy, b.wz = b.wx + kx, b.wy + ky, b.wz + kz
+					end
 				else
 					rollResist(b, b.dig, gi)
 				end
