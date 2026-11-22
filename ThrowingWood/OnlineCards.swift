@@ -275,9 +275,10 @@ struct SeatRow: View {
     if online.isHost {
       VStack(alignment: .leading, spacing: 6) {
         Rule()
-        (Text(seat.name).font(bodyFont(16, .bold))
-          + Text(SeatWords.computerTag).font(bodyFont(14, .bold)).foregroundStyle(Color.woodMuted))
-          .fixedSize(horizontal: false, vertical: true)
+        Text(
+          "\(Text(seat.name).font(bodyFont(16, .bold)))\(Text(SeatWords.computerTag).font(bodyFont(14, .bold)).foregroundStyle(Color.woodMuted))"
+        )
+        .fixedSize(horizontal: false, vertical: true)
         if seat.shownLevel == "kid" {
           Text(SeatWords.level("kid")).font(bodyFont(15, .bold)).frame(minHeight: TW.touch)
         } else {
