@@ -284,7 +284,7 @@ struct CardFace: ViewModifier {
 
 /// A card's button row: the quiet buttons at the left, then the plain, the go last
 /// (the system: go is last in its row). Where they do not fit side by side, they stack,
-/// go at the foot.
+/// go at the foot and still at the right.
 struct ButtonRow<Leading: View, Trailing: View>: View {
   @ViewBuilder let leading: () -> Leading
   @ViewBuilder let trailing: () -> Trailing
@@ -295,9 +295,14 @@ struct ButtonRow<Leading: View, Trailing: View>: View {
         Spacer(minLength: 0)
         trailing()
       }
+      // one under the other where they do not fit side by side: the go still at the
+      // right, last
       VStack(alignment: .leading, spacing: 10) {
         leading()
-        trailing()
+        HStack {
+          Spacer(minLength: 0)
+          trailing()
+        }
       }
     }
   }

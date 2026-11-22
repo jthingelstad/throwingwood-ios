@@ -78,8 +78,14 @@ public struct PitchMember: Identifiable, Equatable {
   public private(set) var teamNames: [String: String] = ["A": "Team A", "B": "Team B"]
   public private(set) var options: [String: String] = [:]
   /// The rows the lobby offers: the room's engine's `MATCH_OPTIONS` (Computer since 0.9)
-  /// and, on an engine that takes a scene, the Scene row last (the web's SCENE_ROW).
+  /// but `hiddenRows`, and, on an engine that takes a scene, the Scene row last (the
+  /// web's SCENE_ROW).
   public private(set) var optionRows: [MatchOption] = []
+  /// The engine's rows the lobby leaves out (the web's HIDDEN_ROWS): the set, which the
+  /// scene decides (the 1.0 design), as on the solo card. The room's stored set is left
+  /// as it is (Classic unless an older client chose another), and a match started from
+  /// the lobby plays it, as on the web.
+  public static let hiddenRows: Set<String> = ["set"]
   /// The scene the lobby shows: the room's `settings.scene` on an engine that takes one,
   /// else the day. An id this build does not draw is the day, and kept in the room.
   public var lobbyScene: String {
@@ -369,7 +375,9 @@ public struct PitchMember: Identifiable, Equatable {
     options = try controller.roomOptions(pitch.document)
     optionRows =
       ((try? JSONDecoder().decode(
-        [MatchOption].self, from: Data(controller.optionRows().raw.text.utf8))) ?? []).filter { $0.id != "scene" }
+        [MatchOption].self, from: Data(controller.optionRows().raw.text.utf8))) ?? []).filter {
+          $0.id != "scene" && !Self.hiddenRows.contains($0.id)
+        }
       + (controller.lobbyTakesScene() ? [SceneID.row] : [])
     let lineup = try controller.pitchCall(
       "lineup", [("doc", .raw(pitch.document)), ("members", pitch.membersJSON)])

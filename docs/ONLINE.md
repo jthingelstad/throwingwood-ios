@@ -18,7 +18,9 @@ would run on (`PitchController.lobbyEngine`, the room's engine counting this mem
 and every option is read through that engine's `optionsOf` (since 0.9: the five in
 `options` and the engine's own `computer` and `scene` from the document's `settings`,
 kubb-engine docs/ROOM.md difference 9), or `lobbyOf`'s `options` on an older engine,
-which has no such call. So on 0.9 the host sets Computer (the computer's level,
+which has no such call. The Kubbs row is not offered (`OnlinePitch.hiddenRows`, the web's HIDDEN_ROWS: the 1.0
+design's scene decides the set); the room's stored set is left as it is, Classic unless an
+older client chose another, and the match plays it. So on 0.9 the host sets Computer (the computer's level,
 Beginner, Club or Pro) for the match; once a tester on 0.8 takes a seat, the row goes,
 since a 0.8 match would not take it, and a 0.8 client's own writes keep the host's
 setting. Scene (shown as Park, Camping and Techno, ids day, night and neon, `SceneID.row`, last) is the host's too, written to

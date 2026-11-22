@@ -163,17 +163,7 @@ import Observation
     guard let pitch = offline else { return }
     feedback.attach(pitch)
     let defaults = UserDefaults.standard
-    selections = pitch.options.defaults
-    for row in pitch.options.rows {
-      // the computer's level was kept as `solo.option.level` before it was the
-      // engine's `computer` option (0.9)
-      let keys = row.id == "computer" ? ["solo.option.computer", "solo.option.level"] : ["solo.option." + row.id]
-      if let saved = keys.lazy.compactMap({ defaults.string(forKey: $0) }).first,
-        row.choices.contains(where: { $0.first == saved })
-      {
-        selections[row.id] = saved
-      }
-    }
+    selections = pitch.options.load(defaults)
     name = PlayerName.load(defaults, names: pitch.names)
     let row = NameRowModel(names: pitch.names, kind: .player, text: name, label: "Your name")
     row.onChange = { [weak self] in self?.name = $0 }
@@ -374,10 +364,11 @@ import Observation
   func start() {
     share = nil
     perform {
-      try pitch?.startSolo(name: name, selections: selections, save: save)
-      for (key, value) in selections {
-        UserDefaults.standard.set(value, forKey: "solo.option." + key)
-      }
+      // the match plays the scene's set (startSolo), and that is what is kept
+      guard let pitch else { return }
+      try pitch.startSolo(name: name, selections: selections, save: save)
+      pitch.options.keep(selections, in: .standard)
+      selections = pitch.options.starting(selections)
       screen = .match
     }
   }
