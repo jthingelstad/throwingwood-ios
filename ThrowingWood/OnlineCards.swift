@@ -337,9 +337,21 @@ struct OnlineMenu: View {
       }
     } buttons: {
       VStack(alignment: .leading, spacing: 8) {
-        Button { model.screen = .match } label: { Text("BACK TO THE MATCH").frame(maxWidth: .infinity) }
-          .buttonStyle(WoodButton(accent: true))
-        QuietButton("HOME", action: model.home)
+        let back = Button { model.screen = .match } label: {
+          Text("BACK TO THE MATCH").lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity)
+        }.buttonStyle(WoodButton(accent: true))
+        if screen.wide {
+          // on its side a phone is about 390 pt tall: HOME quiet beside the go, last in
+          // its row, so the rows above are shown whole (as the match menu's)
+          HStack(spacing: 12) {
+            QuietButton("HOME", action: model.home)
+            Spacer(minLength: 0)
+            back.frame(maxWidth: 220)
+          }
+        } else {
+          back
+          QuietButton("HOME", action: model.home)
+        }
         if !footInRows { VersionFooter(label: online.board.versionLabel) }
       }
     }
