@@ -263,13 +263,16 @@ struct SheetCard: View {
       Text("Score sheet").cardTitle()
       Text("Planet Kubb Notation").labelStyle()
       GeometryReader { box in
-        ScrollView([.vertical, .horizontal]) {
+        ScrollView(.vertical) {
+          // a line longer than the box (the rules, a comment) wraps inside it rather
+          // than running past its right edge unseen; COPY and SAVE keep the text as it is
           Text(verbatim: positions ? sheet.text : sheet.shown.joined(separator: "\n"))
             .font(.system(size: 14, design: .monospaced))
-            .fixedSize(horizontal: true, vertical: true).textSelection(.enabled).padding(10)
+            .fixedSize(horizontal: false, vertical: true).textSelection(.enabled).padding(10)
             // a sheet shorter than its box (an iPad's tall window) starts at the
             // top, as it does where it overflows, not in the box's middle
-            .frame(minWidth: box.size.width, minHeight: box.size.height, alignment: .topLeading)
+            .frame(width: box.size.width, alignment: .topLeading)
+            .frame(minHeight: box.size.height, alignment: .topLeading)
         }
       }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(skin.isDay ? Color.white : Color.woodPaper).border(Color.woodInk)
