@@ -180,8 +180,8 @@ import Testing
   @Test func uprightTheMinimapIsUnderTheHeadersRightEnd() {
     for p in Self.upright {
       let map = WideLayout.uprightMinimap(size: p.size, safe: p.safe)
-      let w = min(74, p.size.width * 0.18)
-      #expect(map == CGRect(x: p.size.width - 12 - w, y: p.safe.top + 75, width: w, height: w * 1.65))
+      let w = min(78, p.size.width * 0.19)
+      #expect(map == CGRect(x: p.size.width - 12 - w, y: p.safe.top + 75, width: w, height: w * 1.95))
       // a taller header (a larger text size) pushes it down, never sideways
       let tall = WideLayout.uprightMinimap(size: p.size, safe: p.safe, headerBottom: p.safe.top + 140)
       #expect(tall.minX == map.minX && tall.minY == p.safe.top + 148)
@@ -198,7 +198,8 @@ import Testing
   }
 
   /// The minimap tells the teams apart by shape as well as colour: Team A circles, Team
-  /// B squares; and reads as one image with a summary.
+  /// B squares, the king a square with a crown; and reads as one image with the web's
+  /// summary.
   @Test func theMinimapsTeamsAreShapes() throws {
     func piece(_ team: String?, _ kind: String = "kubb") throws -> Piece {
       let t = team.map { #""team":"\#($0)","# } ?? ""
@@ -208,26 +209,39 @@ import Testing
     }
     #expect(PitchScene.mapShape(try piece("A")) == .circle)
     #expect(PitchScene.mapShape(try piece("B")) == .square)
-    #expect(PitchScene.mapShape(try piece(nil, "king")) == .triangle)
-    let app = try aiming()
-    let words = app.scene.mapSummary(teamA: "Brave Birch", teamB: "Computer")
-    #expect(words.hasPrefix("Map of the pitch. Computer: "))
-    #expect(words.contains("squares.") && words.contains("Brave Birch: ") && words.contains("circles."))
-    #expect(words.contains("The king standing.") && words.hasSuffix("The aim ringed."))
+    #expect(PitchScene.mapShape(try piece(nil, "king")) == .crown)
+    #expect(
+      MeterWords.mapSummary(standing: ["A": 5, "B": 4], teams: ["A": "Mighty Maple", "B": "Computer"], metres: 7.8)
+        == "Map of the pitch: Mighty Maple 5 kubbs standing, Computer 4. The target is 8 metres out.")
+    #expect(MeterWords.mapSummary(standing: ["A": 1, "B": 0], teams: nil, metres: nil)
+      == "Map of the pitch: Team A 1 kubb standing, Team B 0.")
+    #expect(MeterWords.mapSummary(standing: nil, teams: nil, metres: nil) == "Map of the pitch.")
+  }
+
+  /// The meter's own words, the web's stand-ins.
+  @Test func theMeterIsReadByItsMarks() {
+    #expect(MeterWords.spokenMeter(linear: false, watching: false)
+      == "Clock meter. Draw back to the stripes, then flick and let go on the solid mark.")
+    #expect(MeterWords.spokenMeter(linear: true, watching: true) == "Linear meter, shown for watching only.")
+    #expect(PlanScale.sideAmountText(7.4, kubb: false) == "7 degrees right")
+    #expect(PlanScale.sideAmountText(0, kubb: false) == "none")
+    #expect(PlanScale.sideAmountText(-1.25, kubb: true) == "1.25 left")
   }
 
   // MARK: The distance tab
 
   @Test func theDistanceTabIsTheThrowsDistanceToTheMetre() throws {
-    #expect(MeterWords.distance(7.6) == "8 m")
-    #expect(MeterWords.distance(8.49) == "8 m")
-    #expect(MeterWords.distance(4.5) == "5 m")
+    #expect(MeterWords.distance(7.6) == "8 M")
+    #expect(MeterWords.distance(8.49) == "8 M")
+    #expect(MeterWords.distance(4.5) == "5 M")
+    #expect(MeterWords.distance(0.3) == "1 M")
     #expect(MeterWords.distance(nil) == nil && MeterWords.distance(0) == nil && MeterWords.distance(.nan) == nil)
-    #expect(MeterWords.showsDistance("WIND BACK") && MeterWords.showsDistance("DRAW BACK"))
-    #expect(!MeterWords.showsDistance("FLICK!") && !MeterWords.showsDistance(nil))
+    for p in ["WIND BACK", "DRAW BACK", "FLICK!", "FLING!"] { #expect(MeterWords.showsDistance(p)) }
+    #expect(!MeterWords.showsDistance("CRANK DOWN") && !MeterWords.showsDistance(nil))
     #expect(MeterWords.spokenPrompt("WIND BACK", metres: 7.6) == "Wind back, 8 metres")
     #expect(MeterWords.spokenPrompt("WIND BACK", metres: 1.2) == "Wind back, 1 metre")
-    #expect(MeterWords.spokenPrompt("FLICK!", metres: 7.6) == "Flick!")
+    #expect(MeterWords.spokenPrompt("FLICK!", metres: 7.6) == "Flick, 8 metres")
+    #expect(MeterWords.spokenPrompt("CRANK DOWN", metres: 7.6) == "Crank down")
     // the session's distance is the engine's plan, and follows the circle
     let app = try aiming()
     let d0 = try #require(app.distance)
@@ -263,7 +277,9 @@ import Testing
       #"{"flag":"MISS","restText":"","verdicts":{"power":"SHORT","release":"ON","steady":"SHAKY","side":"PULLED LEFT"}}"#)
     #expect(r.words.map(\.text) == ["SHORT", "SHAKY", "PULLED LEFT", "ARC ON"])
     #expect(r.words.map(\.offTarget) == [true, true, true, false])
-    #expect(VerdictWords.spoken(flag: r.flag, words: r.words, rest: r.restText) == "Short, shaky, pulled left. Miss. Arc on.")
+    #expect(VerdictWords.spoken(flag: r.flag, words: r.words) == "Short. Shaky. Pulled left. Miss. Arc on.")
+    let one = try result(#"{"flag":"MISS","verdicts":{"power":"SHORT","release":"ON","steady":"STEADY","side":"STRAIGHT"}}"#)
+    #expect(VerdictWords.spoken(flag: one.flag, words: one.words) == "Short. Miss. Arc on, steady, straight.")
     let arrows: [String: VerdictWords.Arrow] = [
       "SHORT": .down, "LOW": .down, "LONG": .up, "HIGH": .up, "PULLED LEFT": .left, "PULLED RIGHT": .right,
       "SHAKY": .wavy, "SLOW": .clock,
@@ -272,7 +288,7 @@ import Testing
     for w in ["POWER ON", "ARC ON", "STEADY", "STRAIGHT"] { #expect(VerdictWords.arrow(w) == nil) }
     let good = try result(#"{"flag":"TOK!","verdicts":{"power":"ON","release":"ON","steady":"STEADY","side":"STRAIGHT"}}"#)
     #expect(good.words.allSatisfy { !$0.offTarget })
-    #expect(VerdictWords.spoken(flag: good.flag, words: good.words, rest: nil) == "Tok! Power on, arc on, steady, straight.")
+    #expect(VerdictWords.spoken(flag: good.flag, words: good.words) == "Tok. Power on, arc on, steady, straight.")
   }
 
   // MARK: The hand-off

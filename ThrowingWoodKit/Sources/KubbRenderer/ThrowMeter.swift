@@ -227,9 +227,9 @@ public struct LinearMeter: Equatable, Sendable {
       h = min(bottom - (safeTop + WideLayout.edge), t.heightMax)
       least = t.wideMinTravel
     } else {
-      // the header plate and the minimap (BoardView: top + 75, 1.65 of its width)
-      let mapW = min(74, size.width * 0.18)
-      let ceiling = safeTop + 75 + mapW * 1.65 + 10
+      // the header plate and the minimap (WideLayout.uprightMinimap: top + 75)
+      let map = WideLayout.uprightMinimap(size: size, safe: ScreenInsets(top: safeTop, bottom: safeBottom))
+      let ceiling = map.maxY + 10
       // the web's (layout.js linearBox): 0.47 of the height, never under
       // `heightMin` where there is the room nor over `heightMax`
       h = min(bottom - ceiling, max(size.height * t.heightShare, t.heightMin), t.heightMax)

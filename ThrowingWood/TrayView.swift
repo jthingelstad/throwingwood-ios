@@ -110,7 +110,7 @@ struct TrayView: View {
   private func spokenValue(_ p: TrayPlate) -> String {
     switch p {
     case .arc: "\(pitch.arcDegrees ?? 0) degrees"
-    case .tilt: PlanScale.sideValueText(pitch.sideStep ?? 0, kubb: pitch.throwsKubb)
+    case .tilt: PlanScale.sideAmountText(pitch.sideStep ?? 0, kubb: pitch.throwsKubb)
     case .stand: pitch.standValueText
     }
   }

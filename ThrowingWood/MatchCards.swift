@@ -627,11 +627,14 @@ struct MatchScreen: View {
       // the web's .panel, min(520px, 100% - 24px), centred: an iPad's is not a strip
       placement(n).frame(maxWidth: 520)
     } else if playing {
+      // the bottom corner away from the meter (the web's): the right beside the clock,
+      // the left beside a linear meter at the right
       HStack {
-        Spacer()
+        if !skipAtLeft { Spacer() }
         tool("SKIP", label: "Skip playback") {
           if let online = model.online { try online.skip() } else { try pitch.skipPlayback() }
         }
+        if skipAtLeft { Spacer() }
       }
     }
   }
@@ -648,6 +651,15 @@ struct MatchScreen: View {
       headerBottom: model.headerBottom)
     return TrayView(model: model, pitch: pitch, revision: revision, tray: f)
       .ignoresSafeArea()
+  }
+
+  /// Upright, SKIP stands at the left where a linear meter is at the right.
+  private var skipAtLeft: Bool {
+    let size = screen.size, safe = screen.safe
+    let m = model.meter.layout(
+      bounds: CGRect(origin: .zero, size: size),
+      safe: UIEdgeInsets(top: safe.top, left: safe.left, bottom: safe.bottom, right: safe.right))
+    return m.linear?.side == .right
   }
 
   /// SKIP (the 1.0 design): a plain button of normal size, 48 pt tall.

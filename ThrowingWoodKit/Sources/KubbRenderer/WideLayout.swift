@@ -268,11 +268,12 @@ public enum WideLayout {
     public var reach: CGRect { tray.reach }
   }
 
-  /// The minimap's size: max(56, min(118, 0.085 W, 0.16 H)) wide, 1.65 of that tall
-  /// (the app's map; the web's is 1.95).
+  /// The minimap's size (the web's minimapBox): max(56, min(118, 0.085 W, 0.16 H))
+  /// wide, twice as tall less a twentieth (1.95).
+  public static let mapTall: CGFloat = 1.95
   static func mapSize(_ size: CGSize) -> CGSize {
     let w = max(56, min(118, size.width * 0.085, size.height * 0.16))
-    return CGSize(width: w, height: w * 1.65)
+    return CGSize(width: w, height: w * mapTall)
   }
 
   /// The tray on a wide screen (the web's trayAt): the column at the edge away from
@@ -355,13 +356,14 @@ public enum WideLayout {
   }
 
   /// The minimap on an upright screen: under the header's right end (12 pt in from
-  /// the safe edge, as the header), at least 75 pt under the safe top and `edgeGap`
+  /// the safe edge, as the header), at least 75 pt under the safe top and `mapGap`
   /// under the header as measured (`header`, its maxY; a larger text size grows it),
-  /// min(74, 0.18 W) wide and 1.65 of that tall. It never moves while a control is held.
+  /// min(78, 0.19 W) wide and 1.95 of that tall (the web's). It never moves while a
+  /// control is held.
   public static func uprightMinimap(size: CGSize, safe: ScreenInsets, headerBottom: CGFloat? = nil) -> CGRect {
-    let w = min(74, size.width * 0.18)
+    let w = min(78, size.width * 0.19)
     let y = max(safe.top + 75, (headerBottom ?? 0) + mapGap)
-    return CGRect(x: size.width - safe.right - 12 - w, y: y, width: w, height: w * 1.65)
+    return CGRect(x: size.width - safe.right - 12 - w, y: y, width: w, height: w * mapTall)
   }
 
   // MARK: The raise and punishment bar

@@ -310,8 +310,8 @@ struct Verdict: View {
       ForEach(Array(result.words.enumerated()), id: \.offset) { _, word in
         if word.offTarget {
           HStack(spacing: 6) {
-            if let a = VerdictWords.arrow(word.text) { VerdictArrow(arrow: a).frame(width: 15, height: 15) }
-            Text(word.text).font(bodyFont(18, .bold, relativeTo: .body)).tracking(18 * 0.04)
+            if let a = VerdictWords.arrow(word.text) { VerdictArrow(arrow: a).frame(width: 14, height: 14) }
+            Text(word.text).font(bodyFont(18, .black, relativeTo: .body)).tracking(18 * 0.04)
               .lineLimit(1).minimumScaleFactor(0.7)
           }
           .foregroundStyle(Color.woodPaper)

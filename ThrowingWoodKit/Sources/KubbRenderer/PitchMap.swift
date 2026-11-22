@@ -67,8 +67,13 @@ extension PitchScene {
       switch shape {
       case .circle: path.addEllipse(in: CGRect(x: p.x - 2.6, y: p.y - 2.6, width: 5.2, height: 5.2))
       case .square: path.addRect(CGRect(x: p.x - 2.2, y: p.y - 2.2, width: 4.4, height: 4.4))
-      case .triangle:
-        path.addLines(between: [CGPoint(x: p.x, y: p.y - 3.4), CGPoint(x: p.x + 3.2, y: p.y + 2.4), CGPoint(x: p.x - 3.2, y: p.y + 2.4)])
+      case .crown:
+        // a square with a crown's three points on top
+        path.addLines(between: [
+          CGPoint(x: p.x - 2.6, y: p.y + 2.6), CGPoint(x: p.x - 2.6, y: p.y - 3.4), CGPoint(x: p.x - 1.3, y: p.y - 1.6),
+          CGPoint(x: p.x, y: p.y - 3.6), CGPoint(x: p.x + 1.3, y: p.y - 1.6), CGPoint(x: p.x + 2.6, y: p.y - 3.4),
+          CGPoint(x: p.x + 2.6, y: p.y + 2.6),
+        ])
         path.closeSubpath()
       }
       ctx.setFillColor(color(paint))
@@ -88,39 +93,14 @@ extension PitchScene {
 
 extension PitchScene {
   /// A piece's mark on the minimap: Team A a circle, Team B a square (the 1.0 design's
-  /// "Teams"), anything else (the king, a baton) a triangle.
-  public enum MapShape: Sendable { case circle, square, triangle }
+  /// "Teams"), the king a square with a crown (the web's), anything else (a baton) a
+  /// small square in the king's ink.
+  public enum MapShape: Sendable { case circle, square, crown }
   public static func mapShape(_ p: Piece) -> MapShape {
-    p.team == "A" ? .circle : (p.team == "B" ? .square : .triangle)
+    p.team == "A" ? .circle : (p.team == "B" ? .square : .crown)
   }
 
-  /// Is a piece standing (its own z axis within about 45 degrees of up)?
-  static func standing(_ p: Piece) -> Bool {
-    // the local z axis turned into the world: its z component
-    let q = p.rotation
-    let z = q.act(SIMD3<Double>(0, 0, 1)).z
-    return z > 0.7
-  }
 
-  /// The minimap as VoiceOver reads it, one image with a summary: each team's kubbs
-  /// standing and their shape, the king, and the aim ("Map of the pitch. Computer: 5
-  /// kubbs standing, squares. Brave Birch: 5 kubbs standing, circles. The king standing.
-  /// The aim ringed.").
-  public func mapSummary(teamA: String?, teamB: String?) -> String {
-    func count(_ team: String) -> Int {
-      items.filter { $0.kind == "kubb" && $0.team == team && Self.standing($0) }.count
-    }
-    func side(_ name: String?, _ team: String, _ shape: String) -> String {
-      let n = count(team)
-      return "\(name ?? "Team \(team)"): \(n) \(n == 1 ? "kubb" : "kubbs") standing, \(shape)."
-    }
-    var parts = ["Map of the pitch.", side(teamB, "B", "squares"), side(teamA, "A", "circles")]
-    if let king = items.first(where: { $0.kind == "king" }) {
-      parts.append(Self.standing(king) ? "The king standing." : "The king down.")
-    }
-    if let m = marker, m.shown != false { parts.append("The aim ringed.") }
-    return parts.joined(separator: " ")
-  }
 }
 
 /// The minimap's colours in a scene (palette.js NIGHT.skin and NEON.skin

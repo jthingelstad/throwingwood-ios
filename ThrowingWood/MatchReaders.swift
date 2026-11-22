@@ -27,11 +27,8 @@ struct MeterReader: View {
             .accessibilityLabel(words)
             .accessibilitySortPriority(2)
         }
-        let m = MeterWords.spokenMeter(linear: linear, watching: watching)
         element(frames.meter)
-          .accessibilityLabel(m.label)
-          .accessibilityValue(m.value)
-          .accessibilityHint(watching ? "" : "Draw back with one finger and flick forward to throw.")
+          .accessibilityLabel(MeterWords.spokenMeter(linear: linear, watching: watching))
           .accessibilitySortPriority(1)
       }
     }
@@ -76,7 +73,8 @@ struct MapReader: View {
           .offset(x: f.minX, y: f.minY)
           .accessibilityElement()
           .accessibilityAddTraits(.isImage)
-          .accessibilityLabel(pitch.scene.mapSummary(teamA: need.teams?["A"], teamB: need.teams?["B"]))
+          .accessibilityLabel(
+            MeterWords.mapSummary(standing: need.standing, teams: need.teams, metres: pitch.canAim ? pitch.distance : nil))
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

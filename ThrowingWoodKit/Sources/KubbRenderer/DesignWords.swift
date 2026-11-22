@@ -85,34 +85,50 @@ public enum CountWords {
 /// tab beside WIND BACK or DRAW BACK (the 1.0 design's "Meter marks and distance"), to
 /// the nearest metre, and what VoiceOver says for the prompt and the meter.
 public enum MeterWords {
-  /// The tab: "8 m" (the engine's plan `dist`, m from the stance to the target), or
-  /// nil where there is no distance.
+  /// The tab: "8 M" (the engine's plan `dist`, m from the stance to the target, never
+  /// under 1), the web's distanceWords; nil where there is no distance.
   public static func distance(_ metres: Double?) -> String? {
     guard let m = metres, m.isFinite, m > 0 else { return nil }
-    return "\(Int(m.rounded())) m"
+    return "\(max(1, Int(m.rounded()))) M"
   }
   /// Spoken: "8 metres", "1 metre".
   public static func spokenDistance(_ metres: Double?) -> String? {
     guard let m = metres, m.isFinite, m > 0 else { return nil }
-    let n = Int(m.rounded())
+    let n = max(1, Int(m.rounded()))
     return "\(n) \(n == 1 ? "metre" : "metres")"
   }
-  /// The prompts the tab stands beside: the clock's WIND BACK and the linear meter's DRAW BACK.
-  public static func showsDistance(_ prompt: String?) -> Bool { prompt == "WIND BACK" || prompt == "DRAW BACK" }
-  /// The prompt and the distance, spoken together: "Wind back, 8 metres".
+  /// The prompts the tab stands beside (the web's): WIND BACK and FLICK! on the clock,
+  /// DRAW BACK and FLING! on the linear meter.
+  public static func showsDistance(_ prompt: String?) -> Bool {
+    ["WIND BACK", "DRAW BACK", "FLICK!", "FLING!"].contains(prompt ?? "")
+  }
+  /// The prompt and the distance, spoken together, the web's words: "Wind back, 8
+  /// metres", "Flick, 8 metres" (no "!").
   public static func spokenPrompt(_ prompt: String?, metres: Double?) -> String? {
     guard let prompt, !prompt.isEmpty else { return nil }
-    let p = CountWords.sentence(prompt.lowercased())
+    let p = CountWords.sentence(prompt.lowercased().replacingOccurrences(of: "!", with: "").trimmingCharacters(in: .whitespaces))
     guard showsDistance(prompt), let d = spokenDistance(metres) else { return p }
     return "\(p), \(d)"
   }
   /// The WATCH tab on the computer's or another player's turn.
   public static let watch = "WATCH"
-  /// The meter, spoken (its marks by shape, as the coach names them).
-  public static func spokenMeter(linear: Bool, watching: Bool) -> (label: String, value: String) {
-    let label = linear ? "Linear meter" : "Clock meter"
-    if watching { return (label, "Watching only") }
-    return (label, "The stripes are the power band, the solid mark the release band.")
+  /// The meter, spoken (its marks by shape, as the coach names them), the web's words.
+  public static func spokenMeter(linear: Bool, watching: Bool) -> String {
+    let kind = linear ? "Linear meter" : "Clock meter"
+    return watching
+      ? "\(kind), shown for watching only."
+      : "\(kind). Draw back to the stripes, then flick and let go on the solid mark."
+  }
+  /// The minimap as one image, the web's words (its hud.js mapSummary): "Map of the
+  /// pitch: Mighty Maple 5 kubbs standing, Computer 4. The target is 8 metres out."
+  public static func mapSummary(standing: [String: Int]?, teams: [String: String]?, metres: Double?) -> String {
+    var text = "Map of the pitch"
+    if let a = standing?["A"], let b = standing?["B"] {
+      text += ": \(teams?["A"] ?? "Team A") \(a) \(a == 1 ? "kubb" : "kubbs") standing, \(teams?["B"] ?? "Team B") \(b)"
+    }
+    text += "."
+    if let d = spokenDistance(metres) { text += " The target is \(d) out." }
+    return text
   }
 }
 
@@ -134,17 +150,18 @@ public enum VerdictWords {
     default: nil
     }
   }
-  /// What VoiceOver says, once: the off words, the flag, the on-target words, the rest
-  /// ("Short. Miss. Arc on, steady, straight.").
-  public static func spoken(flag: String?, words: [ThrowResult.Verdict], rest: String?) -> String {
-    func say(_ s: String) -> String { CountWords.sentence(s.lowercased()) }
-    var parts: [String] = []
-    let off = words.filter(\.offTarget).map { $0.text.lowercased() }
-    if !off.isEmpty { parts.append(CountWords.sentence(off.joined(separator: ", "))) }
-    if let flag, !flag.isEmpty { parts.append(say(flag)) }
+  /// What VoiceOver says, once, the web's verdictSpeech: each off word a sentence,
+  /// then the flag, then the on-target words ("Short. Miss. Arc on, steady, straight.").
+  public static func spoken(flag: String?, words: [ThrowResult.Verdict], rest: String? = nil) -> String {
+    func sentence(_ s: String) -> String {
+      var l = s.lowercased()
+      while l.hasSuffix("!") { l.removeLast() }
+      return CountWords.sentence(l)
+    }
+    var parts = words.filter(\.offTarget).map { sentence($0.text) + "." }
+    if let flag, !flag.isEmpty { parts.append(sentence(flag) + ".") }
     let on = words.filter { !$0.offTarget }.map { $0.text.lowercased() }
-    if !on.isEmpty { parts.append(CountWords.sentence(on.joined(separator: ", "))) }
-    if let rest, !rest.isEmpty { parts.append(rest) }
-    return parts.map { $0.hasSuffix(".") || $0.hasSuffix("!") ? $0 : $0 + "." }.joined(separator: " ")
+    if !on.isEmpty { parts.append(sentence(on.joined(separator: ", ")) + ".") }
+    return parts.joined(separator: " ")
   }
 }
