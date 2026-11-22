@@ -13,6 +13,10 @@ import UIKit
   var plateFace: UIColor { UIColor(skin.prompt) }
   private var drop: UIColor { skin.isDay ? ink : UIColor(skin.drop) }
 
+  /// Dynamic Type for the words drawn on the meter (the prompt, the distance and WATCH
+  /// tabs, the coach chip): the body style's scale, at most 1.3 so they keep their place.
+  static var textScale: CGFloat { min(1.3, max(1, UIFontMetrics(forTextStyle: .body).scaledValue(for: 100) / 100)) }
+
   func disk(_ p: CGPoint, _ r: CGFloat, _ paint: UIColor) {
     context.setFillColor(paint.cgColor)
     context.fillEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
@@ -143,13 +147,14 @@ import UIKit
     disk(knob, r * 0.115, UIColor(skin.meterKnob))
     if let prompt = prompt ?? d.prompt {
       let y = c.y - r - 20
+      let size = 20 * Self.textScale
       if let distance, MeterWords.showsDistance(prompt) {
-        let wp = plateWidth(prompt, size: 20), wd = plateWidth(distance, size: 20)
+        let wp = plateWidth(prompt, size: size), wd = plateWidth(distance, size: size)
         let left = c.x - (wp + 8 + wd) / 2
-        text(prompt, at: CGPoint(x: left + wp / 2, y: y), size: 20, color: type, plate: true)
-        text(distance, at: CGPoint(x: left + wp + 8 + wd / 2, y: y), size: 20, color: paper, plate: true, fill: ink)
+        text(prompt, at: CGPoint(x: left + wp / 2, y: y), size: size, color: type, plate: true)
+        text(distance, at: CGPoint(x: left + wp + 8 + wd / 2, y: y), size: size, color: paper, plate: true, fill: ink)
       } else {
-        text(prompt, at: CGPoint(x: c.x, y: y), size: 20, color: type, plate: true)
+        text(prompt, at: CGPoint(x: c.x, y: y), size: size, color: type, plate: true)
       }
     }
     if showHint {
@@ -190,7 +195,7 @@ import UIKit
   /// The WATCH tab (the computer's or another player's turn), where the prompt goes, on
   /// the thrower's team colour.
   func watchTab(at p: CGPoint, size: Double, fill: UIColor, type: UIColor) {
-    text(MeterWords.watch, at: p, size: size, color: type, plate: true, fill: fill)
+    text(MeterWords.watch, at: p, size: size * Self.textScale, color: type, plate: true, fill: fill)
   }
 
   /// An end's number beside its footprint on the raise screen (the web's drawEndLabels):

@@ -211,7 +211,9 @@ import Observation
             return
           }
           if mode == "practicemenu" {
-            // the practice pitch's menu card (stage 3: its rows segmented bars)
+            // the practice pitch's menu card (stage 3: its rows segmented bars), in the
+            // review's scene
+            practiceScene = ProcessInfo.processInfo.environment["REVIEW_SCENE"] ?? "day"
             openPractice()
             screen = .practiceMenu
             return
