@@ -149,8 +149,11 @@ import simd
       }
       #expect(app.isDrive)
       let back = ((app.dial.powerHi ?? 100) + (app.dial.powerLo ?? 80)) / 2
+      let rail = app.railAt
       try swing(app, back: back)
       #expect(app.playing, "released")
+      // the header keeps its count of field kubbs while the throw plays
+      #expect(app.railAt == rail)
       var first: Piece?
       var frames = 0
       for _ in 0..<40 where app.playing {
