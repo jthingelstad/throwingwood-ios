@@ -236,7 +236,7 @@ import Testing
   @Test func optionsAndLocalStart() throws {
     let app = try PitchSession(appVersion: "test")
     #expect(
-      app.options.rows.map(\.id) == ["computer", "surface", "opening", "raising", "wind", "set", "scene"])
+      app.options.rows.map(\.id) == ["scene", "surface", "opening", "raising", "wind", "set", "computer"])
     var choices = app.options.defaults
     // a surface stands only where the scene allows it (engine 0.14): Black & White's
     choices["scene"] = "bw"

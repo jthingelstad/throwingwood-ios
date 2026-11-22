@@ -92,10 +92,12 @@ private func quick() -> PitchClient.Timing {
   }
 }
 
-/// The lobby has no Kubbs row (the 1.0 design: the scene decides the set; the web's
-/// HIDDEN_ROWS), and the room's stored set is left as it is, as on the web.
+/// The lobby's rows are the engine's card for the room's scene (engine 0.14,
+/// `optionRows`): Scene first, Surface only where the scene leaves one, no Kubbs row (the
+/// scene decides the set; the web's HIDDEN_ROWS). Every write names the scene, so the
+/// pitch holds the ground and the set to it.
 @Suite @MainActor struct LobbyRowsTests {
-  @Test func theLobbyHasNoKubbsRowAndLeavesTheSetAlone() async throws {
+  @Test func theLobbyIsTheScenesCard() async throws {
     let fake = FakePitch()
     let online = try OnlinePitch(
       url: URL(string: "ws://127.0.0.1:1")!, link: try #require(PitchLink(fake.code)), create: true,
@@ -104,13 +106,24 @@ private func quick() -> PitchClient.Timing {
     defer { online.close() }
     online.connect()
     try await soon { online.stage == .lobby && online.isHost && !online.optionRows.isEmpty }
-    let ids = online.optionRows.map(\.id)
-    #expect(!ids.contains("set") && ids.contains("surface") && ids.last == "scene")
+    #expect(online.optionRows.map(\.id) == ["scene", "computer", "opening", "raising", "wind"])
+    #expect(online.optionRows.first { $0.id == "computer" }?.choices.first?.first == "kid")
     #expect(OnlinePitch.hiddenRows == ["set"])
     #expect(online.options["set"] == "classic")
-    // a set an older client chose stays in the room, unseen and untouched
+    // a set the scene does not allow is held to the scene's
     try await online.option("set", "usa")
-    try await soon { online.options["set"] == "usa" }
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(online.options["set"] == "classic")
+    // the Tournament brings the USA set, Black & White a Surface row
+    try await online.option("scene", "tournament")
+    try await soon { online.options["scene"] == "tournament" }
+    #expect(online.options["set"] == "usa" && online.options["surface"] == "grass")
+    try await online.option("scene", "bw")
+    try await soon { online.optionRows.map(\.id).contains("surface") }
+    #expect(online.optionRows.map(\.id) == ["scene", "surface", "computer", "opening", "raising", "wind"])
+    try await online.option("surface", "snow")
+    try await soon { online.options["surface"] == "snow" }
+    #expect(online.options["scene"] == "bw" && online.options["set"] == "classic")
     #expect(!online.optionRows.map(\.id).contains("set"))
   }
 }

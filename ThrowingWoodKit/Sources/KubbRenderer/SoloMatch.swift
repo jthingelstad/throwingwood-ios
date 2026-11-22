@@ -1,5 +1,6 @@
 import Foundation
 import KubbEngine
+import KubbPitch
 
 public struct MatchOption: Decodable, Identifiable, Sendable {
   public let id, label: String
@@ -17,64 +18,104 @@ public struct MatchOption: Decodable, Identifiable, Sendable {
   }
 }
 
+/// The options card for one scene (the engine's `pitch.optionRows({ scene })`, since
+/// 0.14): the Scene row first with the engine's names, a Surface row only where the
+/// scene leaves one (Black & White), no Kubbs row while no scene allows two sets, and
+/// the scene's own surface and set (`defaults`) for a card that changes scene.
+public struct SceneCard: Sendable {
+  public let scene: String
+  public let rows: [MatchOption]
+  public let defaults: [String: String]
+}
+
 public struct SoloOptions {
+  /// Every option the engine takes (`MATCH_OPTIONS`: the Scene row first since 0.14, and
+  /// every surface and set it plays), as values a match may be started with.
   public let rows: [MatchOption], defaults: [String: String]
   public let nameLimit: Int
-  /// The throw levels (`LEVELS`): the computer's. A person has none (engine 0.13).
+  /// The throw levels (`LEVELS`): the computer's, Kid first since 0.15. A person has
+  /// none (engine 0.13).
   public let levels: [String]
   /// The engine takes the computer's level as a match option (`computer`, since 0.9).
-  /// On an older engine the row is the app's own, and its value goes on the
-  /// computer's player entry instead.
   public let takesComputer: Bool
   /// The engine takes a scene (`scene` in OPTION_DEFAULTS, since 0.9): the Scene row shows.
   public let takesScene: Bool
+  /// Each scene's card, from the engine (`pitch.optionRows`), by scene id.
+  public let cards: [String: SceneCard]
   init(engine: Engine) throws {
     struct Constants: Decodable {
       let MATCH_OPTIONS: [MatchOption], LEVELS: [String], OPTION_DEFAULTS: [String: String],
         NAME_MAX: Int
     }
-    struct Reply: Decodable { let value: Constants }
-    let c = try JSONDecoder().decode(Reply.self, from: Data(engine.call("pitch.constants").utf8))
+    struct Reply<T: Decodable>: Decodable { let value: T }
+    struct Card: Decodable {
+      let scene: String, rows: [MatchOption], defaults: [String: String]
+    }
+    let c = try JSONDecoder().decode(Reply<Constants>.self, from: Data(engine.call("pitch.constants").utf8))
       .value
     levels = c.LEVELS
     takesComputer = c.MATCH_OPTIONS.contains { $0.id == "computer" }
-    // The computer's level leads, as before: the engine's row on 0.9, the app's own
-    // before it. The Scene row (the client labels it, as the web's SCENE_ROW) comes
-    // last, on an engine that takes a scene.
-    let computer =
-      c.MATCH_OPTIONS.first { $0.id == "computer" }
-      ?? MatchOption(id: "computer", label: "Computer", choices: c.LEVELS.map { [$0, $0.capitalized] })
     takesScene = SceneID.taken(by: c.OPTION_DEFAULTS)
-    let rows =
-      [computer] + c.MATCH_OPTIONS.filter { $0.id != "computer" && $0.id != "scene" }
-      + (takesScene ? [SceneID.row] : [])
-    self.rows = rows
-    defaults = c.OPTION_DEFAULTS.filter { d in rows.contains { $0.id == d.key } }
-      .merging(["computer": "club"]) { old, _ in old }
+    rows = c.MATCH_OPTIONS
+    defaults = c.OPTION_DEFAULTS.filter { d in c.MATCH_OPTIONS.contains { $0.id == d.key } }
+      .merging(["computer": "club", "scene": "day"]) { old, _ in old }
     nameLimit = c.NAME_MAX
+    var cards = [String: SceneCard]()
+    for scene in c.MATCH_OPTIONS.first(where: { $0.id == "scene" })?.choices.map({ $0[0] }) ?? [] {
+      let card = try JSONDecoder().decode(
+        Reply<Card>.self,
+        from: Data(engine.call("pitch.optionRows", json: JS.object([("scene", .string(scene))]).ascii).utf8)
+      ).value
+      cards[scene] = SceneCard(scene: card.scene, rows: card.rows, defaults: card.defaults)
+    }
+    self.cards = cards
   }
 
-  /// The order of the rows on the Play the computer card (the 1.0 design, direction
-  /// A): Scene first (its picture tiles), then Computer, Opening, Raising and Wind.
-  /// Surface stays as a fifth row until a scene decides the ground; there is no Kubbs
-  /// row: the scene decides the set (`SceneID.kubbs`).
-  public static let cardOrder = ["scene", "computer", "opening", "raising", "wind", "surface"]
-  /// The card's rows, in `cardOrder`, those this engine offers.
-  public var cardRows: [MatchOption] {
-    Self.cardOrder.compactMap { id in rows.first { $0.id == id } }
+  /// The card for `scene`; an id the engine does not list is Park's, as it reads it.
+  public func card(_ scene: String?) -> SceneCard? {
+    cards[scene ?? "day"] ?? cards["day"]
   }
-  /// The selections a solo match starts with from the card: the set is the scene's
-  /// (no row picks it), whatever was kept for it before. `PitchSession.startSolo`
-  /// applies it, and `keep` writes it.
+
+  /// The order of the rows on an options card (the 1.0 design, direction A, scene first):
+  /// Scene (its picture tiles), Surface right under it where the scene leaves one (it is
+  /// part of the scene's choice), then Computer, Opening, Raising and Wind. A row the
+  /// engine adds that is not named here goes last; there is no Kubbs row while no scene
+  /// allows two sets.
+  public static let cardOrder = ["scene", "surface", "computer", "opening", "raising", "wind", "set"]
+  public static func ordered(_ rows: [MatchOption]) -> [MatchOption] {
+    rows.sorted { (cardOrder.firstIndex(of: $0.id) ?? 99) < (cardOrder.firstIndex(of: $1.id) ?? 99) }
+  }
+  /// The card's rows for the chosen scene, in `cardOrder`.
+  public func cardRows(_ selections: [String: String]) -> [MatchOption] {
+    Self.ordered(card(selections["scene"])?.rows ?? [])
+  }
+  /// The selections a match starts with: through the scene (core/scenes' resolve), so a
+  /// surface or set the scene does not allow is its own. `PitchSession.startSolo` applies
+  /// it, and `keep` and `load` write and read it.
   public func starting(_ selections: [String: String]) -> [String: String] {
     var s = selections
-    if rows.contains(where: { $0.id == "set" }) { s["set"] = SceneID.kubbs(of: s["scene"]) }
+    guard takesScene else { return s }
+    let scene = cards[s["scene"] ?? ""] != nil ? s["scene"]! : "day"
+    let entry = SceneID.entry(scene)
+    s["scene"] = scene
+    s["surface"] = entry.resolve(s["surface"].flatMap(Surface.init(rawValue:))).rawValue
+    s["set"] = entry.resolve(set: s["set"])
     return s
+  }
+  /// The selections after the player picks scene `id` on a card: the new scene's surface
+  /// and set (its `defaults`, the engine's client guide: "When the player changes scene,
+  /// take the new rows and their defaults").
+  public func choosing(scene id: String, _ selections: [String: String]) -> [String: String] {
+    var s = selections
+    s["scene"] = id
+    for (k, v) in card(id)?.defaults ?? [:] { s[k] = v }
+    return starting(s)
   }
 
   /// The card's selections kept on the device (`solo.option.<id>`): the defaults, then
   /// each kept value this engine still offers (the computer's level was kept as
-  /// `solo.option.level` before it was the engine's `computer` option, 0.9).
+  /// `solo.option.level` before it was the engine's `computer` option, 0.9), all through
+  /// the scene (a surface or set kept from before may come back as the scene's).
   public func load(_ defaults: UserDefaults) -> [String: String] {
     var selections = self.defaults
     for row in rows {
@@ -85,11 +126,11 @@ public struct SoloOptions {
         selections[row.id] = saved
       }
     }
-    return selections
+    return starting(selections)
   }
 
-  /// A started match's selections kept for the next card, as it started (the scene's
-  /// set, so an older kept set does not linger unseen).
+  /// A started match's selections kept for the next card, as it started (through the
+  /// scene, so an older kept surface or set does not linger unseen).
   public func keep(_ selections: [String: String], in defaults: UserDefaults) {
     for (key, value) in starting(selections) { defaults.set(value, forKey: "solo.option." + key) }
   }

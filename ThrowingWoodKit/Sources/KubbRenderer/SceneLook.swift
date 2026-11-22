@@ -1,30 +1,62 @@
 import CoreGraphics
 import simd
 
+/// One of the engine's scenes (core/scenes, engine 0.14): what it is called, the
+/// surfaces and kubb sets it allows (the default first) and what a renderer reads from
+/// it. The engine decides a match's surface and set through it; the app draws them.
+public struct SceneEntry: Equatable, Sendable {
+  public let id, name: String
+  public let surfaces: [Surface]
+  public let sets: [String]
+  /// A night sky: light drawn on dark.
+  public let dark: Bool
+  /// A ground impact rings (the session's `timeline.impacts`, `setImpacts`).
+  public let ring: Bool
+  /// Black and white only, the Playdate's own look.
+  public let mono: Bool
+  public var surface: Surface { surfaces[0] }
+  public var set: String { sets[0] }
+  /// The surface a match in this scene plays on: `s` if the scene allows it, else its
+  /// own (core/scenes' resolve).
+  public func resolve(_ s: Surface?) -> Surface { s.flatMap { surfaces.contains($0) ? $0 : nil } ?? surface }
+  public func resolve(set s: String?) -> String { s.flatMap { sets.contains($0) ? $0 : nil } ?? set }
+}
+
 /// A match's scene (engine 0.9's `scene`): the whole look of a pitch, its world,
 /// the skin on its controls and its effects. A look only: it never changes a
-/// throw, the engine or a hash. The web's src/render/scenes.js is the reference.
+/// throw or a hash; since engine 0.14 the scene decides the surface and the set, in
+/// the engine. The web's src/render/scenes.js is the reference for the look.
 public enum SceneID {
-  /// The scenes this build draws besides the day.
-  public static let drawn: Set<String> = ["night", "neon"]
-  /// The names a player sees for the scenes, in this one table and nowhere else: the
-  /// Scene row, the solo card's tiles, the lobby and the practice menu all read it. The
-  /// 1.0 design shows Day, Night and Neon as Park, Camping and Techno (the owner,
-  /// 2026-11-22: "Park camping and techno."), the web's SCENE_NAMES. The stored ids
-  /// (`day`, `night`, `neon`) never change, so nothing kept or shared breaks.
-  public static let shownNames: [(id: String, name: String)] = [
-    ("day", "Park"), ("night", "Camping"), ("neon", "Techno"),
+  /// The engine's catalogue (core/scenes `list`, the session's `scenes()`), in the
+  /// order a card offers it. `SceneTests.theCatalogueIsTheEnginesOwn` holds this copy to
+  /// the vendored engine's, so the renderer can read it without a Lua call. The stored
+  /// ids of three are older than their names: `day` is Park, `night` Camping, `neon`
+  /// Techno (the owner, 2026-11-22).
+  public static let catalogue: [SceneEntry] = [
+    SceneEntry(id: "day", name: "Park", surfaces: [.grass], sets: ["classic"], dark: false, ring: false, mono: false),
+    SceneEntry(id: "beach", name: "Beach", surfaces: [.sand], sets: ["classic"], dark: false, ring: false, mono: false),
+    SceneEntry(id: "night", name: "Camping", surfaces: [.grass], sets: ["classic"], dark: true, ring: false, mono: false),
+    SceneEntry(id: "neon", name: "Techno", surfaces: [.grid], sets: ["classic"], dark: true, ring: true, mono: false),
+    SceneEntry(
+      id: "minnesota", name: "Minnesota", surfaces: [.snow], sets: ["minnesota"], dark: false, ring: false, mono: false),
+    SceneEntry(id: "tournament", name: "Tournament", surfaces: [.grass], sets: ["usa"], dark: false, ring: false, mono: false),
+    SceneEntry(id: "bw", name: "Black & White", surfaces: [.grass, .sand, .snow], sets: ["classic"], dark: false, ring: false, mono: true),
   ]
-  /// The Scene row, the web's SCENE_ROW, from `shownNames`.
-  public static let row = MatchOption(
-    id: "scene", label: "Scene", choices: shownNames.map { [$0.id, $0.name] })
-  /// The kubb set a scene plays with. The solo card has no Kubbs row (the 1.0 design:
-  /// the scene decides the set); until the engine has a scene catalogue, every scene
-  /// keeps the set a match had by default before (the engine's OPTION_DEFAULTS
-  /// `set`, Classic). An unknown scene is the day's.
-  public static let kubbs: [String: String] = ["day": "classic", "night": "classic", "neon": "classic"]
-  public static func kubbs(of id: String?) -> String { kubbs[shown(id)] ?? "classic" }
-  /// The scene drawn for `id`: a scene this build knows, else the day. An unknown
+  /// The scenes this build draws besides the day (`SceneLook.drawn` in the engine's
+  /// client guide): it grows as each is drawn; one not in it is drawn as the day.
+  public static let drawn: Set<String> = ["night", "neon"]
+  /// The names a player sees, from the catalogue (the engine's `optionRows` Scene row
+  /// carries the same words; a card reads them from there).
+  public static var shownNames: [(id: String, name: String)] { catalogue.map { ($0.id, $0.name) } }
+  /// The catalogue's entry for `id`; an id it does not have is Park's, as the engine
+  /// reads it (scenes.get).
+  public static func entry(_ id: String?) -> SceneEntry {
+    catalogue.first { $0.id == id } ?? catalogue[0]
+  }
+  /// The kubb set a scene plays with: its own (the engine decides; no card has a Kubbs
+  /// row while no scene allows two).
+  public static func kubbs(of id: String?) -> String { entry(id).set }
+  /// The scene drawn for `id`: a scene this build draws, else the day. An unknown
   /// id is drawn as the day and passed through untouched wherever it is carried.
   public static func shown(_ id: String?) -> String {
     guard let id, drawn.contains(id) else { return "day" }

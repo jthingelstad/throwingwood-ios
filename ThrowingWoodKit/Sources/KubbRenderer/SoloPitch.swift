@@ -4,10 +4,11 @@ import KubbEngine
 import KubbPitch
 
 extension PitchSession {
-  /// A new practice pitch on `surface`, in `scene` (the practice menu's Scene, a
-  /// look only: the engine keeps it from the start and has no setter, so a new
-  /// scene is a new practice, as on the web). The day, an unknown id or an
-  /// engine that takes no scene: no scene is sent.
+  /// A new practice pitch in `scene` (the practice menu's Scene: the engine keeps it from
+  /// the start and has no setter, so a new scene is a new practice, as on the web), on
+  /// `surface` where the scene allows it, else the scene's own (engine 0.14: the scene
+  /// decides). The scene is always sent (the engine's client guide); an id the engine
+  /// does not list is Park.
   public func practice(scene: String? = nil, surface: Surface = .grass) throws {
     try useEngine(minor: nil)  // practice is always on the newest
     resetPresentation()
@@ -16,7 +17,7 @@ extension PitchSession {
     save = nil
     trailKept = false
     trailComplete = false
-    let look = scene.flatMap { options.takesScene && SceneID.drawn.contains($0) ? $0 : nil }
+    let look = options.takesScene ? (scene.flatMap { options.cards[$0] != nil ? $0 : nil } ?? "day") : nil
     try adopt(
       read(
         "new",

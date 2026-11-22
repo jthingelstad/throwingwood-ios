@@ -77,14 +77,14 @@ public struct PitchMember: Identifiable, Equatable {
   /// "Team A" / "Team B"): a side of several plays under it, and the lobby shows PLAYS AS.
   public private(set) var teamNames: [String: String] = ["A": "Team A", "B": "Team B"]
   public private(set) var options: [String: String] = [:]
-  /// The rows the lobby offers: the room's engine's `MATCH_OPTIONS` (Computer since 0.9)
-  /// but `hiddenRows`, and, on an engine that takes a scene, the Scene row last (the
-  /// web's SCENE_ROW).
+  /// The rows the lobby offers: the lobby engine's card for the room's scene
+  /// (`pitch.optionRows({ scene })`, since 0.14): Scene first, a Surface row only where
+  /// the scene leaves one, then Computer (Kid first since 0.15), Opening, Raising and
+  /// Wind, in the solo card's order (`SoloOptions.ordered`), never `hiddenRows`.
   public private(set) var optionRows: [MatchOption] = []
-  /// The engine's rows the lobby leaves out (the web's HIDDEN_ROWS): the set, which the
-  /// scene decides (the 1.0 design), as on the solo card. The room's stored set is left
-  /// as it is (Classic unless an older client chose another), and a match started from
-  /// the lobby plays it, as on the web.
+  /// Rows the lobby never shows (the web's HIDDEN_ROWS): the set, which the scene
+  /// decides (the 1.0 design), as on the solo card; the engine's card has no Kubbs row
+  /// while no scene allows two sets.
   public static let hiddenRows: Set<String> = ["set"]
   /// The scene the lobby shows: the room's `settings.scene` on an engine that takes one,
   /// else the day. An id this build does not draw is the day, and kept in the room.
@@ -150,7 +150,7 @@ public struct PitchMember: Identifiable, Equatable {
   /// whatever the new pitch's engine does not take (`PitchController.takenOptions`).
   static func keptOptions(_ defaults: UserDefaults) -> [String: String] {
     var kept = storedOptions(defaults)
-    if let scene = kept["scene"], !SceneID.row.choices.contains(where: { $0.first == scene }) {
+    if let scene = kept["scene"], !SceneID.catalogue.contains(where: { $0.id == scene }) {
       kept["scene"] = nil
     }
     return kept
@@ -373,12 +373,11 @@ public struct PitchMember: Identifiable, Equatable {
     // every option, the engine's own (computer, scene) too, on the engine the next
     // match would run on (PitchController.roomOptions)
     options = try controller.roomOptions(pitch.document)
-    optionRows =
-      ((try? JSONDecoder().decode(
-        [MatchOption].self, from: Data(controller.optionRows().raw.text.utf8))) ?? []).filter {
-          $0.id != "scene" && !Self.hiddenRows.contains($0.id)
-        }
-      + (controller.lobbyTakesScene() ? [SceneID.row] : [])
+    let card = controller.optionRows(scene: options["scene"] ?? "day")?["rows"] ?? (try? controller.optionRows())
+    optionRows = SoloOptions.ordered(
+      ((try? JSONDecoder().decode([MatchOption].self, from: Data((card?.raw.text ?? "[]").utf8))) ?? []).filter {
+        !Self.hiddenRows.contains($0.id)
+      })
     let lineup = try controller.pitchCall(
       "lineup", [("doc", .raw(pitch.document)), ("members", pitch.membersJSON)])
     // Which engine the next match would run on: the host and every player (watchers
@@ -471,8 +470,11 @@ public struct PitchMember: Identifiable, Equatable {
   public func option(_ key: String, _ value: String) async throws {
     // the host's options are kept for the next pitch they host, as the web keeps them
     if isHost { Self.keep(key, value, in: defaults) }
-    _ = try await controller.reduce(
-      "setOptions", fields: [("options", .object([(key, .string(value))]))])
+    // the scene goes with every write (engine 0.14: the pitch holds the surface and the
+    // set to the named scene's), so a change of scene brings its own ground
+    var sent: [(String, JS)] = [(key, .string(value))]
+    if key != "scene", controller.lobbyTakesScene() { sent.append(("scene", .string(options["scene"] ?? "day"))) }
+    _ = try await controller.reduce("setOptions", fields: [("options", .object(sent))])
   }
   public func access(open: Bool) async throws {
     _ = try await controller.reduce("setAccess", fields: [("open", .bool(open))])

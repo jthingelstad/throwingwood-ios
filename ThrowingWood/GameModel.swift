@@ -57,12 +57,15 @@ import Observation
   var revision = 0
   var sheet: ScoreSheet?
   var selections = [String: String]()
-  /// The practice pitch's scene (its menu's Scene), kept on the device.
-  var practiceScene = SceneID.shown(UserDefaults.standard.string(forKey: "pitch.practiceScene")) {
+  /// The practice pitch's scene (its menu's Scene), kept on the device: one of the
+  /// engine's catalogue (an id it does not list is Park).
+  var practiceScene = SceneID.entry(UserDefaults.standard.string(forKey: "pitch.practiceScene")).id {
     didSet {
       guard practiceScene != oldValue else { return }
       UserDefaults.standard.set(practiceScene, forKey: "pitch.practiceScene")
-      // the engine keeps a practice's scene from its start: a new practice in it, on the same surface
+      // the engine keeps a practice's scene from its start: a new practice in it, on the
+      // same surface where the scene allows it, else the scene's own
+      practiceSurface = SceneID.entry(practiceScene).resolve(practiceSurface)
       perform {
         try offline?.practice(scene: practiceScene, surface: practiceSurface)
       }
@@ -85,8 +88,9 @@ import Observation
   /// The practice behind the home card in the practice's scene and surface, then shown.
   func openPractice() {
     perform {
+      practiceSurface = SceneID.entry(practiceScene).resolve(practiceSurface)
       if let offline,
-        SceneID.shown(offline.scene.look) != practiceScene || offline.scene.surface != practiceSurface
+        (offline.scene.look ?? "day") != practiceScene || offline.scene.surface != practiceSurface
       {
         try offline.practice(scene: practiceScene, surface: practiceSurface)
       }
