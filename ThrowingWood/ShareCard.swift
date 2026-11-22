@@ -347,6 +347,7 @@ struct SealedCard: View {
       case "notthistime": return phase == .failed
       case "sealed": return model.sealed?.phase == .shown && model.screen == .match
       case "sealedfailed": return model.sealed?.phase == .failed
+      case "sealedold": return model.sealed?.phase == .old
       case "sealedloading": return model.screen == .sealed
       default: return phase == .refused
       }
