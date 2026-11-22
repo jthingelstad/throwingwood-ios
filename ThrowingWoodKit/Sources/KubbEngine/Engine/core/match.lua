@@ -241,25 +241,41 @@ function match.raisePolicy(m, side)
 	return tw.cpu.advice
 end
 
+local function poseCopy(p)
+	if not p then return nil end
+	return { x = p.x, y = p.y, standing = p.standing and true or false, angle = p.angle or 0 }
+end
+
 -- Raise every lying kubb and place every punishment kubb (automatically,
 -- with the engine's policies: the raising is the defender's, match.raisePolicy).
--- Returns how many of each.
+-- Returns how many of each, and the list of what was done in order (0.16.0, the
+-- setup's `settled`): { kind = "raise", id, side (who raised), which (the end, as a
+-- raise action names it), lying, standing (poses, the engine's frame), displaced,
+-- crowded } or { kind = "punish", id, side, pose }. Nothing here is saved or hashed.
 function match.settle(m)
 	local g = m.game
 	local raised, punished = 0, 0
+	local list = {}
 	while true do
 		local n = g:need()
 		if n.kind == "raise" then
-			g:raise(nil, match.raisePolicy(m, n.side))
+			local lying = poseCopy(n.pose)
+			local c = g:raise(nil, match.raisePolicy(m, n.side))
 			raised = raised + 1
+			list[#list + 1] = { kind = "raise", id = n.kubb, side = n.side, which = c.which, lying = lying,
+				standing = poseCopy(c.pose), displaced = c.displaced or false, crowded = c.crowded or false }
+			list[#list].standing.standing = true
 		elseif n.kind == "punish" then
+			local id = n.kubb
 			g:autoPunishment()
 			punished = punished + 1
+			local k = g.kubbs[id]
+			list[#list + 1] = { kind = "punish", id = id, side = n.side, pose = poseCopy(k and k.pose) }
 		else
 			break
 		end
 	end
-	return raised, punished
+	return raised, punished, list
 end
 
 -- The next throw, in the thrower's view frame:
@@ -297,8 +313,8 @@ end
 
 function match.setup(m)
 	local g = m.game
-	local raised, punished = match.settle(m)
-	if raised > 0 or punished > 0 then m.settled = { raised = raised, punished = punished } else m.settled = nil end
+	local raised, punished, list = match.settle(m)
+	if raised > 0 or punished > 0 then m.settled = { raised = raised, punished = punished, list = list } else m.settled = nil end
 	countTurn(m)
 	local n = g:need()
 	if n.kind == "over" then
@@ -339,6 +355,8 @@ function match.setup(m)
 		s.label = fmt("%s  %s %d of %d", match.teamName(side, g), n.kingShot and "king shot, baton" or "baton", n.n, n.of)
 	end
 	s.thrower = match.thrower(m)
+	-- what the engine raised and placed before this throw (match.settle; 0.16.0)
+	s.settled = m.settled
 	m.setup = s
 	return s
 end

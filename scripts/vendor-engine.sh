@@ -50,7 +50,7 @@ set -euo pipefail
 # 2026-11-21: "We should only support engines that we decide are worth supporting
 # not just ones that have published so that we can push players to the new
 # engines.").
-TAG=v0.15.1
+TAG=v0.16.0
 OLDER=()
 
 root=$(cd "$(dirname "$0")/.." && pwd)

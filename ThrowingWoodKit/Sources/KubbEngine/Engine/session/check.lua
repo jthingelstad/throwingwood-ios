@@ -306,7 +306,7 @@ local function tryPlan(ctx, rel, tilts, taps)
 	if relA < 0 then relA = 0 end
 	ctx.relA = relA
 	local effRel = sol.release + plan.shrink(relA - sol.release, lv.releaseHalf, lv.inGain)
-	if abs(launchLoft(sol, plan.loftFor(effRel), ctx.back, kubb) - L.loft) > TOL then
+	if abs(launchLoft(sol, plan.launchLoft(sol.release, effRel, kubb), ctx.back, kubb) - L.loft) > TOL then
 		return false, 2, "the loft is not one the stop gives"
 	end
 	local bestStage, bestWhy = 0, nil
@@ -329,7 +329,7 @@ local function releases(ctx)
 	local out, seen = {}, {}
 	local function add(r)
 		if r >= t.releaseMinDeg - EPS and r <= t.releaseMaxDeg + EPS then
-			r = plan.clampRelease(r)
+			r = plan.clampRelease(r, ctx.kubb and "kubb" or "baton")
 			if not seen[r] then seen[r] = true; out[#out + 1] = r end
 		end
 	end
@@ -352,7 +352,7 @@ local function releases(ctx)
 			q.release = rel
 			local sol = plan.solve(q, {})
 			local effRel = sol.release + plan.shrink(relA - sol.release, lv.releaseHalf, lv.inGain)
-			return launchLoft(sol, plan.loftFor(effRel), ctx.back, false) - L.loft
+			return launchLoft(sol, plan.launchLoft(sol.release, effRel, false), ctx.back, false) - L.loft
 		end
 		local r0, g0 = t.releaseMinDeg, gap(t.releaseMinDeg)
 		local r1 = r0
@@ -372,8 +372,10 @@ local function releases(ctx)
 			r0, g0 = r1, g1
 		end
 		if g0 == 0 then add(r0) end
-	elseif not ctx.sky and L.loft > t.loftMinDeg and L.loft < t.loftMaxDeg and lv.inGain < 1 then
-		local effRel = plan.releaseFor(L.loft)
+	elseif not ctx.sky and L.loft > t.lineMinDeg and L.loft < t.loftMaxDeg and lv.inGain < 1 then
+		-- (a plan from the knee up: its loft is the one line's, plan.launchLoft; a drive
+		-- is found by the plan the action names and the grid below)
+		local effRel = plan.releaseFor(L.loft, true)
 		add((effRel - lv.inGain * ctx.stop) / (1 - lv.inGain))
 	end
 	for _, r in pairs(t.arc) do add(r) end

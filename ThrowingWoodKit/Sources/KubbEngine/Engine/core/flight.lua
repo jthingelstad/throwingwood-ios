@@ -92,7 +92,7 @@ flight.tune = {
 	                       -- firm bowl's hand counts on
 	nearSpeed = 3.7,       -- m/s: the firm bowl's speed (backswing 67.4 with a full flick)
 	nearLoftDeg = 7,       -- degrees: the loft the firm bowl counts on before flattening (the
-	                       -- default arc's at nearM, plan.loftFor(plan.arcFor("baton", nearM));
+	                       -- default arc's at nearM until 0.16, plan.loftFor(plan.sharedArcFor(nearM));
 	                       -- 22 until 0.10, when a field kubb's arc was 4 o'clock at any distance)
 	nearTip = 1.2,         -- rad the baton leaves tipped forward from upright at d = 0 (a bowl
 	                       -- lets go of it leaning toward the target, not standing in the hand)

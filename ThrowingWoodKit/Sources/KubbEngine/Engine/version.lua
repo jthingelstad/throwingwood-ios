@@ -3,7 +3,7 @@
 -- vendors on its own, and the version names the whole engine (core, session, tune).
 import "core/tw"
 
-local VERSION <const> = "0.15.1"
+local VERSION <const> = "0.16.0"
 
 tw.engine = { name = "kubb-engine", version = VERSION }
 return VERSION

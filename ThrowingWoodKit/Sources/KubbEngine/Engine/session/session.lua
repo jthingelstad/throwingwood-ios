@@ -556,6 +556,27 @@ end
 
 -- ---------- what the client asks ----------
 
+-- What the engine raised and placed before this throw (0.16.0; core/match settle): the
+-- counts and, in the order done, each kubb: { kind = "raise", id, side (the side that
+-- raised: the defender), which (the end, as a raise action names it), lying, standing
+-- (poses in that side's view frame, raiseInfo's frame and shape), displaced, crowded } or
+-- { kind = "punish", id, side, pose }. nil when the engine raised nothing (a person who
+-- raised by hand, a throw with nothing to raise, a session restored after the raise).
+local function plainSettled(st)
+	if not st then return nil end
+	local list = {}
+	for i, e in ipairs(st.list or {}) do
+		if e.kind == "raise" then
+			list[i] = { kind = "raise", id = e.id, side = e.side, which = e.which,
+				lying = viewPose(e.side, e.lying), standing = viewPose(e.side, e.standing),
+				displaced = e.displaced, crowded = e.crowded }
+		else
+			list[i] = { kind = "punish", id = e.id, side = e.side, pose = viewPose(e.side, e.pose) }
+		end
+	end
+	return { raised = st.raised, punished = st.punished, list = list }
+end
+
 local function plainSetup(setup)
 	if not setup then return nil end
 	return {
@@ -570,7 +591,7 @@ local function plainSetup(setup)
 		-- key: the lineup's key for the player (on the web, the pitch member it belongs to)
 		thrower = setup.thrower and { id = setup.thrower.id, name = setup.thrower.name,
 			level = setup.thrower.level, key = setup.thrower.key } or nil,
-		settled = setup.settled,
+		settled = plainSettled(setup.settled),
 	}
 end
 
@@ -719,7 +740,7 @@ function Session:aimView()
 			set = ts.markerSet, kind = ts.markerKind, shown = not (ts.watching and not ts.cpuTarget) },
 		thrower = { x = ts.playerX, y = ts.playerY, swivel = ts.swivel, set = ts.stanceSet },
 		plan = {
-			release = ts.release, arcSet = ts.arcSet, tilt = ts.tilt, spin = ts.spin,
+			release = sol.release or ts.release, arcSet = ts.arcSet, tilt = ts.tilt, spin = ts.spin,
 			level = throw.levelFor(ts), speed = sol.speed, loft = sol.loft, swivel = sol.swivel, dist = sol.dist,
 			back = sol.back, powerLo = sol.powerLo, powerHi = sol.powerHi,
 			releaseLo = sol.releaseLo, releaseHi = sol.releaseHi,
