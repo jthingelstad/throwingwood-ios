@@ -336,7 +336,7 @@ struct MatchScreen: View {
         Text(
           (model.online != nil && !playing && model.online?.turnLabel.isEmpty == false)
             ? model.online!.turnLabel : (n.setup?.thrower?.name ?? n.team ?? "Match")
-        ).font(displayFont(27)).lineLimit(1)
+        ).font(displayFont(27)).lineLimit(1).minimumScaleFactor(0.6)  // the widest name fits (NameFitTests)
       }
       Spacer()
       VStack(alignment: .trailing) {

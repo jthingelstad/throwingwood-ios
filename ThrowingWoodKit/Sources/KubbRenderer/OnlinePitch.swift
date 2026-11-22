@@ -55,6 +55,9 @@ public struct PitchMember: Identifiable, Equatable {
     /// A shared match against the computer (the API's replay says `sealed`): watched and
     /// never joined (the web's docs/ROOMS.md 13.5). The app shows it from its replay.
     case sealed
+    /// The match on the pitch holds a name the game did not make (a forged start): not
+    /// shown, "Cannot show this match" (NameWords).
+    case namesRefused
   }
   public enum VersionCard: String { case newer, older }
   public let controller: PitchController
@@ -70,6 +73,9 @@ public struct PitchMember: Identifiable, Equatable {
   /// player carries (`pitch.engineFor`); nil while it can. Shown in the lobby.
   public private(set) var engineLine: String?
   public private(set) var isOpen = false
+  /// Each side's team name as shown (the document's `teamNames` when it passes, else
+  /// "Team A" / "Team B"): a side of several plays under it, and the lobby shows PLAYS AS.
+  public private(set) var teamNames: [String: String] = ["A": "Team A", "B": "Team B"]
   public private(set) var options: [String: String] = [:]
   /// The rows the lobby offers: the room's engine's `MATCH_OPTIONS` (Computer since 0.9)
   /// and, on an engine that takes a scene, the Scene row last (the web's SCENE_ROW).
@@ -172,9 +178,8 @@ public struct PitchMember: Identifiable, Equatable {
     let engines = try EngineShelf(appVersion: appVersion)
     let engine = engines.newest
     teamMax = try JSONNode.parse(engine.call("pitch.constants"))["value"]!["TEAM_MAX"]!.int!
-    let clean = try JSONNode.parse(
-      engine.call("pitch.cleanName", json: JS.object([("name", .string(name))]).ascii))
-    self.name = clean["value"]?.string ?? ""
+    // the device's name, a generated one (PlayerName): sent as it is
+    self.name = name
     let client = try PitchClient(
       url: url, pitch: link.code, appVersion: appVersion,
       // a watcher joins with an id of its own, never the player's: a member's role is
@@ -309,6 +314,10 @@ public struct PitchMember: Identifiable, Equatable {
     if hostChanged { openKey = nil }
     let doc = try JSONNode.parse(pitch.document)
     isOpen = doc["open"]?.bool == true
+    if controller.state == .namesRefused, doc["started"]?.bool == true {
+      stage = .namesRefused
+      return
+    }
     if let m = controller.match, doc["started"]?.bool == true {
       stage = .match
       if controller.state == .versionMismatch {
@@ -331,13 +340,14 @@ public struct PitchMember: Identifiable, Equatable {
     let teams = l["teams"]
     let a = Set(teams?["A"]?.items.compactMap(\.string) ?? [])
     let b = Set(teams?["B"]?.items.compactMap(\.string) ?? [])
-    members = try pitch.members.compactMap { m in
+    // every name checked (a generated name or a default, else "Player n"), two alike
+    // told apart ("II"): never the text that failed (docs/ONLINE.md "Names")
+    let shown = controller.shownNames().apart
+    teamNames = ["A": controller.teamNameOf("A"), "B": controller.teamNameOf("B")]
+    members = pitch.members.compactMap { m in
       guard let id = m["id"]?.string else { return nil }
-      let n =
-        try controller.pitchCall("cleanName", [("name", .raw(m["me"]?["name"]?.raw ?? .null))])
-        .string ?? ""
       return PitchMember(
-        id: id, name: n.isEmpty ? "Someone" : n,
+        id: id, name: shown[id] ?? "Someone",
         connected: m["connected"]?.bool == true, host: pitch.host == id, you: id == pitch.you,
         side: a.contains(id) ? "A" : b.contains(id) ? "B" : nil)
     }
@@ -356,6 +366,9 @@ public struct PitchMember: Identifiable, Equatable {
     let chosen = try controller.roomEngine()
     engineLine = lineup.isNull || chosen["engine"]?.string != nil ? nil : try blocked(chosen)
     canStart = isHost && !observing && !lineup.isNull && engineLine == nil
+    // the host rolls a team name for a side that has come to several players, once, so
+    // everyone sees what it will play as (the web's rollTeamNames)
+    if isHost, !observing { Task { [weak self] in _ = try? await self?.controller.rollTeamNames() } }
     if !isHost, members.contains(where: { $0.you && $0.side != nil }) {
       let host = try controller.carried(by: pitch.host)
       try checkVersion(host, key: pitch.host ?? "")
@@ -407,12 +420,33 @@ public struct PitchMember: Identifiable, Equatable {
   /// (engine 0.13: the pitch takes "club" for a member that names none, and changes
   /// nothing with it).
   public func profile(name: String) throws {
-    let clean = try controller.pitchCall("cleanName", [("name", .string(name))]).string ?? ""
-    if clean != self.name {
-      pitch.setMe([("name", .string(clean))])
-      self.name = clean
+    if name != self.name, controller.names.valid(.player, name).ok {
+      pitch.setMe([("name", .string(name))])
+      self.name = name
     }
   }
+  /// The host picks a side's team name in the lobby (its name row).
+  public func teamName(_ side: String, _ text: String) async throws {
+    try await controller.setTeamName(side, text)
+  }
+
+  /// The host's name row for a side's team name ("Team A's name"), once the side has a
+  /// generated team name (rolled when it came to several players); nil for everyone
+  /// else, who read the name as text, and until then.
+  public func teamRow(_ side: String) -> NameRowModel? {
+    guard isHost, !observing, let text = teamNames[side], controller.names.valid(.team, text).ok else { return nil }
+    if let row = teamRows[side] {
+      row.set(text)
+      return row
+    }
+    let row = NameRowModel(names: controller.names, kind: .team, text: text, label: "Team \(side)'s name")
+    row.onChange = { [weak self] t in
+      Task { [weak self] in try? await self?.teamName(side, t) }
+    }
+    teamRows[side] = row
+    return row
+  }
+  @ObservationIgnored private var teamRows: [String: NameRowModel] = [:]
   public func team(_ side: String?) async throws { try await controller.joinTeam(side) }
   public func option(_ key: String, _ value: String) async throws {
     // the host's options are kept for the next pitch they host, as the web keeps them
@@ -482,8 +516,7 @@ public struct PitchMember: Identifiable, Equatable {
     if controller.shout(word) { showShout(word, from: pitch.you) }
   }
   private func showShout(_ word: String, from: String?) {
-    let who = pitch.members.first { $0["id"]?.string == from }?["me"]?["name"]?.string ?? ""
-    shouts.append((who.isEmpty ? "Someone" : who) + "  " + word)
+    shouts.append(controller.nameOf(from) + "  " + word)
     shoutTimes.append(Int(Date().timeIntervalSince1970 * 1000))
     if shouts.count > 4 {
       shouts.removeFirst()

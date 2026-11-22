@@ -26,13 +26,13 @@ import Testing
     let dir = folder()
     defer { try? FileManager.default.removeItem(at: dir) }
     let save = MatchSave(file: dir.appending(path: "solo-match.json"))
-    let app = try finished(save, name: "Birch")
+    let app = try finished(save, name: "Brave Birch")
     let m = try #require(app.shareableMatch(save: save))
     #expect(m.key == save.finishedMatch()?.finalHash)
     #expect(m.key == (try app.engine.hash()))
-    #expect(m.name == "Birch")
+    #expect(m.name == "Brave Birch")
     #expect(m.source.actions.count == 1 && m.source.winner == "B" && m.source.now != nil)
-    guard case .message(let text, let bytes) = try app.shareMessage(m.source, name: "Alder")
+    guard case .message(let text, let bytes) = try app.shareMessage(m.source, name: "Mighty Maple")
     else {
       Issue.record("refused")
       return
@@ -40,7 +40,7 @@ import Testing
     let g = try JSONNode.parse(text.text)["g"]!
     #expect(g["client"]?.string == "ios")
     #expect(g["engine"]?.string == app.engine.engineVersion)
-    #expect(try JSONNode.parse(g["start"]!.string!)["opts"]?["teams"]?["A"]?["name"]?.string == "Alder")
+    #expect(try JSONNode.parse(g["start"]!.string!)["opts"]?["teams"]?["A"]?["name"]?.string == "Mighty Maple")
     #expect(g["end"]?.raw.text == #"{"winner":"B","throws":0}"#)
     #expect(bytes == text.text.utf8.count)
     // nothing about the device: only the five fields the web sends
@@ -56,11 +56,11 @@ import Testing
     let app = try PitchSession(appVersion: "test")
     var choices = app.options.defaults
     choices["scene"] = "night"
-    try app.startSolo(name: "Birch", selections: choices, save: save)
+    try app.startSolo(name: "Brave Birch", selections: choices, save: save)
     app.dismissHandoff()
     try app.resign()
     let m = try #require(app.shareableMatch(save: save))
-    guard case .message(let text, _) = try app.shareMessage(m.source, name: "Birch") else {
+    guard case .message(let text, _) = try app.shareMessage(m.source, name: "Brave Birch") else {
       Issue.record("refused")
       return
     }
@@ -72,12 +72,18 @@ import Testing
     #expect(watcher.scene.look == "night")
   }
 
-  @Test func theStandInYouStartsTheFieldEmpty() throws {
+  /// A match played under a name the game did not make (a typed one from before) starts
+  /// the row from the device's name: a typed name never reaches the reel.
+  @Test func aTypedNameNeverStartsTheRow() throws {
     let dir = folder()
     defer { try? FileManager.default.removeItem(at: dir) }
     let save = MatchSave(file: dir.appending(path: "solo-match.json"))
-    let app = try finished(save, name: "You")
-    #expect(try #require(app.shareableMatch(save: save)).name == "")
+    let app = try finished(save, name: "Mighty Maple")
+    #expect(try #require(app.shareableMatch(save: save, deviceName: "Lucky Larch")).name == "Mighty Maple")
+    // a typed name given for the match is never used: the session plays under a rolled one
+    let typed = try finished(MatchSave(file: dir.appending(path: "typed.json")), name: "Ada")
+    let start = try JSONNode.parse(typed.engine.call("snapshot"))["opts"]?["teams"]?["A"]?["name"]?.string
+    #expect(start != "Ada" && typed.names.valid(.player, start).ok)
   }
 
   @Test func practiceOnlineAndAMatchStillBeingPlayedHaveNoShare() throws {
@@ -86,21 +92,21 @@ import Testing
     let save = MatchSave(file: dir.appending(path: "solo-match.json"))
     // nothing finished yet
     let playing = try PitchSession(appVersion: "test")
-    try playing.startSolo(name: "Birch", selections: playing.options.defaults, save: save)
+    try playing.startSolo(name: "Brave Birch", selections: playing.options.defaults, save: save)
     #expect(playing.shareableMatch(save: save) == nil)
     // practice
     let practice = try PitchSession(appVersion: "test")
     try practice.practice()
     #expect(practice.shareableMatch(save: save) == nil)
     // a finished match, but the one on the screen is another
-    _ = try finished(save, name: "Birch")
+    _ = try finished(save, name: "Brave Birch")
     let other = try PitchSession(appVersion: "test")
-    try other.startSolo(name: "Alder", selections: other.options.defaults, save: nil)
+    try other.startSolo(name: "Mighty Maple", selections: other.options.defaults, save: nil)
     other.dismissHandoff()
     try other.resign()
     #expect(other.shareableMatch(save: save) == nil)
     // an online board on its winner card
-    let board = try finished(MatchSave(file: dir.appending(path: "other.json")), name: "Birch")
+    let board = try finished(MatchSave(file: dir.appending(path: "other.json")), name: "Brave Birch")
     board.onlineAction = { _ in }
     #expect(board.shareableMatch(save: save) == nil)
   }
@@ -114,10 +120,10 @@ import Testing
     var made: [String] = []
   }
 
-  private func card(_ wire: Wire, name: String = "Birch", made: ShareMade? = nil) -> SoloShare {
+  private func card(_ wire: Wire, name: String = "Brave Birch", made: ShareMade? = nil) throws -> SoloShare {
     SoloShare(
       key: "h",
-      name: name,
+      name: name, names: Names(engine: try Engine(appVersion: "test")),
       make: { name in
         wire.made.append(name)
         return made ?? .message(JSONText(#"{"t":"share","id":1,"g":{"name":"\#(name)"}}"#), bytes: 1)
@@ -134,41 +140,39 @@ import Testing
     for _ in 0..<2000 where share.state.phase == .sending { try await Task.sleep(for: .milliseconds(2)) }
   }
 
+  /// The card's name is the name row's, a generated one; nothing goes before SHARE, and
+  /// a name that does not pass (none can come from the row) is said once SHARE is pressed.
   @Test func nothingIsSentBeforeShareAndANameTheReelCannotTakeSaysWhy() async throws {
     let wire = Wire()
-    let share = card(wire, name: "")
-    #expect(share.view.form && share.say == nil && share.problem == .empty)
+    let share = try card(wire, name: "Ada")
+    #expect(share.view.form && share.say == nil && share.problem == .pick)
     share.send()
-    #expect(share.say == ShareWords.name(.empty) && wire.made.isEmpty && share.sent == 0)
-    share.type("you")
-    #expect(share.say == ShareWords.name(.you))
-    // spaces around a typed name are trimmed before it goes, as on the web
-    share.type(" Birch ")
-    #expect(share.say == nil && share.trimmed == "Birch")
-    share.type(String(repeating: "a", count: 20))
-    #expect(share.name.count == 16 && share.say == ShareWords.name(.long) && share.problem == nil)
-    share.type("Birch")
-    #expect(share.say == nil)
+    #expect(share.say == "Pick a name for your side." && wire.made.isEmpty && share.sent == 0)
+    // the row starts from a generated name in place of one that does not pass
+    let row = share.row
+    #expect(share.names.valid(.player, row.text).ok && share.name == row.text && share.problem == nil)
+    row.shuffle()
+    #expect(share.name == row.text && share.say == nil)
     #expect(wire.sent.isEmpty)
   }
 
   @Test func aCodeHandsOverToTheReelCard() async throws {
     let wire = Wire()
     wire.replies = [.success(ShareReply(code: "abcdefgh23", v: 1, why: nil))]
-    let share = card(wire)
+    let share = try card(wire)
     var codes: [String] = []
     share.onShared = { codes.append($0) }
     share.send()
     #expect(share.view.line == ShareWords.checking && share.view.bar)
     try await settled(share)
     #expect(codes == ["abcdefgh23"] && share.view.code == "abcdefgh23")
-    #expect(wire.made == ["Birch"] && wire.sent.count == 1)
+    #expect(wire.made == ["Brave Birch"] && wire.sent.count == 1)
   }
 
   @Test func offlineSendsNothingAndTriesAgainAsOftenAsPressed() async throws {
     let wire = Wire()
     wire.online = false
-    let share = card(wire)
+    let share = try card(wire)
     for _ in 0..<3 {
       share.send()
       #expect(share.view.text == ShareWords.offline && share.view.retry)
@@ -184,22 +188,22 @@ import Testing
   @Test func aFailedShareIsTriedOnceMoreWithTheSameMessage() async throws {
     let wire = Wire()
     wire.replies = [.failure(PitchError("failed")), .failure(PitchError("failed"))]
-    let share = card(wire)
+    let share = try card(wire)
     share.send()
     try await settled(share)
     #expect(share.view.text == ShareWords.failed && share.view.retry)
-    share.type("Other")  // the field is not on screen now; the message already made goes
+    share.set("Lucky Larch")  // the row is not on screen now; the message already made goes
     share.send()
     try await settled(share)
     #expect(share.view.text == ShareWords.notThisTime && !share.view.retry)
-    #expect(wire.sent.count == 2 && wire.sent[0] == wire.sent[1] && wire.made == ["Birch"])
+    #expect(wire.sent.count == 2 && wire.sent[0] == wire.sent[1] && wire.made == ["Brave Birch"])
     share.send()
     #expect(wire.sent.count == 2)
   }
 
   @Test func aRefusalKnownHereSendsNothing() async throws {
     let wire = Wire()
-    let share = card(wire, made: .refused(.tooLong))
+    let share = try card(wire, made: .refused(.tooLong))
     share.send()
     #expect(share.view.text == ShareWords.why(.tooLong) && !share.view.retry)
     share.open()
@@ -210,7 +214,7 @@ import Testing
   @Test func busyStartsOverWhenTheCardOpensAgain() async throws {
     let wire = Wire()
     wire.replies = [.success(ShareReply(code: nil, v: 0, why: "busy"))]
-    let share = card(wire)
+    let share = try card(wire)
     share.send()
     try await settled(share)
     #expect(share.view.text == ShareWords.why(.busy))

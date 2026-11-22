@@ -324,7 +324,7 @@ every person throws on one meter, its bars going by the throw's distance (the ow
 doesn't mean anything for the human player."; kubb-engine docs/notes/throw.md "The
 person's meter"). So the app has no level of the player's own on any screen: no
 Your level in Settings, no level on the solo options card's or the lobby's line
-(`PlayerLine`: the name and the way to Settings), and no words that present a level
+(`PlayerLine`: the name row), and no words that present a level
 as the player's difficulty (`ThrowLevelTests`). The computer's level stays a
 per-game choice: the options card's Computer level and the lobby's Computer, the
 match's `computer` option (kubb-engine docs/SESSION.md `newMatch`), kept per game in
@@ -337,15 +337,44 @@ member's presence. The engine and the pitch server need none: a lineup takes "cl
 for a member that names none (pitch/lobby.lua `matchOptions`), and the pitch server's
 `me` is free-form. A stored `pitch.throwLevel` from an earlier build is left unread.
 
+## Names are generated
+
+No name is typed anywhere (the owner, 2026-11-21; kubb-engine docs/NAMES.md): a typed
+name others can see is user-generated content, which App Store review would want
+report and block tools for. Every player and team name is made from the engine's word
+lists through its `names.*` calls (`Names` in KubbPitch, the web's src/game/names.js),
+and kept and sent as its text. The web (src/ui/name-row.js, src/net/pitch.js) is the
+reference: keep its words, order and behaviour.
+
+- **The device's name** (`PlayerName`, `pitch.name`): the first run rolls one from the
+  system's random source and keeps it; a kept text that is not a generated player name
+  (a typed name from before, or a default) is replaced on load and never shown.
+- **The name row** (`NameRowModel`, drawn by `NameRowView`): the name and SHUFFLE, then
+  each word's menu picker (`names.choices`) and its KEEP (KEPT when on); SHUFFLE keeps
+  the kept words. VoiceOver: the group "Your name" ("Name on the reel", "Team A's name"),
+  "Your name, first word", "Shuffle your name", "Keep Mighty when shuffling", and a
+  change announced as "Your name: Mighty Maple" (`NameRowTests`). It is in Settings, the
+  solo card's and the lobby's You row, under a lobby side of several as PLAYS AS (the
+  host's row; others read the name) and on the share card.
+- **Checks at display** (`Names.passes`: `ok` or `default`): a member's name that fails
+  is "Player n" by its place on its side, a team's "Team A" / "Team B", two alike in a
+  lobby "Mighty Maple II" (`PitchController.shownNames`). A match or replay whose names
+  fail is not shown ("Cannot show this match", `NameWords`). The host checks every name
+  before START and writes team names to the document's top-level `teamNames`; the app
+  never sends a typed name, and a `bad-name` refusal reads as any refused write.
+- **Fit**: every name from `names.all` is measured in the app's fonts (`NameFitTests`).
+
+docs/ONLINE.md "Names", docs/MATCH.md.
+
 ## Where a setting lives
 
 Each setting lives where the owner's scopes put it (his sheet, 2026-11-20). The
 device's (Your name, Sound, Haptics, Meter, Meter side) are together on
 one Settings card (`SettingsCard`), reached from home and from inside every match (the
 match and pitch menus' SETTINGS, the practice menu's Settings); no other screen makes
-their controls. The name is `PlayerName` (`pitch.name`, read once from the solo card's
-old `solo.name`); a set-up screen shows it in `PlayerLine` and asks for it only on a
-device that has none. The game's are the match options and nowhere else: the solo
+their controls, but for the name: the device's name row is in Settings and in a set-up
+screen's You row (`PlayerLine`, the solo card and the lobby), as on the web ("Names are
+generated"). The game's are the match options and nowhere else: the solo
 options card, the practice menu (Surface, kept as `pitch.practiceSurface`, and
 Scene) and the lobby, whose options a host's next pitch opens with
 (`pitch.hostOptions`, docs/ONLINE.md). Raising part way stays in the match menu

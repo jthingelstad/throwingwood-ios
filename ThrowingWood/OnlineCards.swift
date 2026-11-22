@@ -22,7 +22,7 @@ extension GameModel {
           screen = .invalidLink
           return
         }
-        name = "Birch"
+        name = "Brave Birch"
         // an observer: watching a match, between matches, or on an empty pitch
         let observe = ["observe", "observemoved", "watchcard", "noGame"].contains(mode)
         enter(link.observing(observe), create: mode == "host" || mode == "share")
@@ -93,6 +93,11 @@ struct OnlineCards: View {
         Button("JOIN THIS PITCH") { model.enter(online.link.observing(false), create: false) }
           .buttonStyle(WoodButton(accent: true))
       }
+    case .namesRefused:
+      // a match holding a name the game did not make (a forged start): not shown
+      if let online = model.online { Text("PITCH \(online.link.code)").font(.caption.bold()).tracking(1.5) }
+      Text(NameWords.badMatchTitle).font(displayFont(38))
+      Text(NameWords.badMatch).fixedSize(horizontal: false, vertical: true)
     case .reconnecting:
       Text("Reconnecting").font(displayFont(38))
       Text("Rejoining your place on the pitch…")
@@ -131,6 +136,18 @@ struct LobbyCard: View {
               model.runOnline { try await online.team(side) }
             }
             .disabled(players.count >= online.teamMax)
+          }
+        }
+        if players.count > 1 {
+          // a side of several plays under a team name, the host's to pick (a side of one
+          // plays under its player's name)
+          VStack(alignment: .leading, spacing: 2) {
+            Text(NameWords.playsAs).font(.caption.bold()).tracking(1.2)
+            if let row = online.teamRow(side) {
+              NameRowView(row: row)
+            } else {
+              Text(online.teamNames[side] ?? "Team \(side)").font(displayFont(22))
+            }
           }
         }
         if players.isEmpty {
@@ -221,7 +238,6 @@ struct LobbyCard: View {
   }
   /// The device's name (Settings), as the room knows it.
   private func profile() {
-    model.commitName()  // a name still in its field goes first
     model.perform { try online.profile(name: model.name) }
   }
 }

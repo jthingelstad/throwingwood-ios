@@ -8,10 +8,10 @@ A shared link currently opens the website in a browser.
 ## From lobby to match
 
 The socket opens when the player starts or joins a pitch. The host initializes
-the lobby document. Presence sends the locally remembered name after pitch.cleanName
-and the engines this build carries (`pitch.announce`, below). The lobby shows names, sides,
+the lobby document. Presence sends the device's name, a generated one, as it is, and
+the engines this build carries (`pitch.announce`, below). The lobby shows names, sides,
 watchers, host and connection state. A member can join either team or sit out.
-The player's name is the device's (Settings, `PlayerName`): the lobby shows it as a line with a way to Settings and asks only for a name the device does not have yet; a change in Settings goes to the room at once (`profile`). A member sends no level: engine 0.13 throws every person on one meter, and the lineup takes "club" for a member that names none (AGENTS.md "Levels are the computer's"). Team capacity, the computer's levels and match options come from the engine. The host sets
+The player's name is the device's (`PlayerName`), picked in the lobby's You row (the name row, "Names" below) or in Settings; a change goes to the room at once (`profile`). A member sends no level: engine 0.13 throws every person on one meter, and the lineup takes "club" for a member that names none (AGENTS.md "Levels are the computer's"). Team capacity, the computer's levels and match options come from the engine. The host sets
 options, invite-only or open access, and starts. An empty side plays as the
 computer. The options offered are the `MATCH_OPTIONS` of the engine the next match
 would run on (`PitchController.lobbyEngine`, the room's engine counting this member),
@@ -81,6 +81,38 @@ speaks the engine's contract for clients that carry several ("The room's engine"
 The review pictures of the two cards (docs/review/online `newer` and `older`) are the
 old rooms harness's and keep the earlier words until a pitch server harness makes them
 again.
+
+### Names
+
+Every name on a pitch is a generated one (AGENTS.md "Names are generated"; the web's
+docs/MULTIPLAYER.md "Names", PROTOCOL.md section 6a). The app offers only generated
+names, but a client is not proof, so every name it shows is checked (`Names.passes`:
+`names.valid`'s `ok` or `default`), in `PitchController`:
+
+- **A member's name** (`shownNames`, `nameOf`): its presence name when it passes, else
+  "Player n", n its place on its side (as the engine's lineup numbers a player with no
+  name; a watcher, its place on the pitch); a player of the match who has left, the
+  match's own name for them, checked. The lobby, the turn line ("Player 2 throws"), the
+  shouts and the version lines use it. In the lobby two members with one name are told
+  apart, by the pitch's order: "Mighty Maple", "Mighty Maple II", "III" (`Names.apart`);
+  the name itself is never changed.
+- **A side of several** plays under a team name the host rolls when the side first has
+  two players (`rollTeamNames`) and may change in its name row ("Team A's name"),
+  written to the document's own top-level `teamNames` (`{"A": "Birch Batons"}`, the
+  web's `setTeamName`; the engine's reducers keep a key they do not know). The lobby
+  shows it under the side as PLAYS AS: the host's name row, everyone else the name
+  (`OnlinePitch.teamNames`, "Team A" / "Team B" when it fails). A side of one plays
+  under its player's name (the engine's matchOptions).
+- **START** checks every name first (`checkedLineup`: a player's name that fails is
+  "Player n"; `teamNamed`: a side of several takes the lobby's team name, or one rolled
+  then), so an honest host never starts a match the pitch server would refuse.
+- **This member** sends only a generated name (`setMe`, `profile`); the pitch server
+  drops any other. A write it refuses `bad-name` reads as any refused write: "The pitch
+  did not take that. Try again." (the web's words).
+- **A match whose snapshot names a name that fails** (a forged start) is not shown or
+  played (`State.namesRefused`, `Stage.namesRefused`): "Cannot show this match" and
+  "This match has a name the game did not make, so it cannot be shown.", with HOME. A
+  shared match opened by its code is checked the same way (`PitchSession.checkNames`).
 
 ## One match, two clocks
 
@@ -220,16 +252,16 @@ The web's docs/REEL.md "The share card" is the contract: its words are `ShareWor
   finished file's last hash is the engine's, side B alone is the computer). A finished
   save restored by a build from before the trail has none, and the button is not shown.
 - **The card** (`ShareCard.swift`, `SoloShare`): the about line, "Name on the reel"
-  with the field prefilled from the match's team name unless the rules refuse it (the
-  stand-in "You" in any case, more than 16 characters counted as code points, nothing),
-  the sides line, the score sheet line, SHARE AND MAKE THE REEL and NOT NOW. Typing past
-  16 characters is cut and says "Up to 16 characters."; spaces around the name are
-  trimmed before it goes, as on the web. SHARE is faded while the name will not do.
-  NOT NOW closes the card and sends nothing.
+  with its name row (no text field: "Names" below), starting from the name the match
+  was played under when it is a generated name, else the device's name
+  (`ShareName.fromMatch`), the sides line, the score sheet line, SHARE AND MAKE THE
+  REEL and NOT NOW. A name that does not pass (none can come from the row) fades SHARE
+  and, once pressed, says "Pick a name for your side.", as does the server's refusal
+  `why: "name"`. NOT NOW closes the card and sends nothing.
 - **The message** (`ShareMessage.make`, section 13 of the web's docs/ROOMS.md): one
   `g: {client, engine, start, log, end}` sent to the API as `POST share {g}`
   (`PitchAPI.share`), with a 45 s wait for the answer. `start` and `log` come from the engine's `renameStart`
-  with the name typed, as on the web; `engine` is the version the match was played on,
+  with the name picked, as on the web; `engine` is the version the match was played on,
   and a match from another major.minor than the running engine is refused here as
   `engine`. `client` is `"ios"`, which the server checks and drops: it is never kept,
   and the kept record is the same as a web share's. Nothing else about the device is

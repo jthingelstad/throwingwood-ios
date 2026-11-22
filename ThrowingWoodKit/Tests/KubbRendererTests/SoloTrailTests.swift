@@ -8,7 +8,7 @@ import Testing
 /// The solo match's replay trail on disk (SoloTrail.swift, docs/MATCH.md "The replay trail").
 @MainActor struct SoloTrailTests {
   private static let setup =
-    #"{"mode":"match","seed":1001,"first":"A","cpu":"B","raising":"hand","surface":"grass","opening":"2-4-6","wind":"off","set":"classic","teams":{"A":{"name":"Ada","players":[{"name":"Ada","level":"club"}]},"B":{"name":"Computer","players":[{"name":"Computer","level":"club"}]}},"start":{"year":2026,"month":11,"day":17,"hour":12,"min":0}}"#
+    #"{"mode":"match","seed":1001,"first":"A","cpu":"B","raising":"hand","surface":"grass","opening":"2-4-6","wind":"off","set":"classic","teams":{"A":{"name":"Mighty Maple","players":[{"name":"Mighty Maple","level":"club"}]},"B":{"name":"Computer","players":[{"name":"Computer","level":"club"}]}},"start":{"year":2026,"month":11,"day":17,"hour":12,"min":0}}"#
 
   private func folder() -> URL {
     URL.temporaryDirectory.appending(path: "trail-" + UUID().uuidString)
@@ -96,7 +96,7 @@ import Testing
     let match = try #require(save.finishedMatch())
     #expect(match.complete && match.winner == winner)
     #expect(match.engine == app.engine.engineVersion)
-    #expect(match.name == "Ada")
+    #expect(match.name == "Mighty Maple")
     #expect(match.log.count == match.entries.count && match.throwCount > 10)
     #expect(match.start == (try JSONNode.parse(match.replay)["start"]?.string))
     // every kubb throw keeps its launch's `scatter` (engine 0.11 on): the trail holds
@@ -217,7 +217,7 @@ import Testing
     let dir = folder()
     defer { try? FileManager.default.removeItem(at: dir) }
     let save = MatchSave(file: dir.appending(path: "solo-match.json"))
-    let app = try startSolo(save, name: "Ada")
+    let app = try startSolo(save, name: "Mighty Maple")
     #expect(try MatchSave.fnv(#require(try save.read())) == app.engine.hash())
     #expect(try save.engineNamed(for: #require(try save.read())) == app.engine.engineVersion)
     try computerOrResign(app)
@@ -272,7 +272,7 @@ import Testing
     #expect(try save.read() == nil && save.readTrail() == nil)
     var choices = app.options.defaults
     choices["computer"] = "pro"
-    try app.startSolo(name: "Bo", selections: choices, save: save)
+    try app.startSolo(name: "Lucky Larch", selections: choices, save: save)
     #expect(Engine.majorMinor(save.readTrail()?.trail.engine) == Engine.newest)
   }
 
@@ -327,12 +327,12 @@ import Testing
     defer { try? FileManager.default.removeItem(at: dir) }
     let save = MatchSave(file: dir.appending(path: "solo-match.json"))
     #expect(save.finishedMatch() == nil)
-    let first = try startSolo(save, name: "Ada")
+    let first = try startSolo(save, name: "Mighty Maple")
     first.dismissHandoff()
     try first.resign()
     let one = try #require(save.finishedMatch())
     #expect(one.complete && one.winner == "B" && one.throwCount == 0 && one.entries.count == 1)
-    #expect(one.name == "Ada")
+    #expect(one.name == "Mighty Maple")
     // the resignation replays too
     let replay = try Engine(appVersion: "test")
     _ = try replay.call("replayLoad", json: one.replay.text)
@@ -352,12 +352,12 @@ import Testing
     let relaunched = MatchSave(file: save.file)
     #expect(relaunched.finishedMatch()?.start == one.start)
 
-    let second = try startSolo(relaunched, name: "Bo")
+    let second = try startSolo(relaunched, name: "Lucky Larch")
     #expect(relaunched.finishedMatch()?.start == one.start)
     second.dismissHandoff()
     try second.resign()
     let two = try #require(relaunched.finishedMatch())
-    #expect(two.start != one.start && two.name == "Bo")
+    #expect(two.start != one.start && two.name == "Lucky Larch")
   }
 
   // Killed after the last save and before the finished match was written: the next
@@ -366,7 +366,7 @@ import Testing
     let dir = folder()
     defer { try? FileManager.default.removeItem(at: dir) }
     let save = MatchSave(file: dir.appending(path: "solo-match.json"))
-    let app = try startSolo(save, name: "Ada")
+    let app = try startSolo(save, name: "Mighty Maple")
     let head = try Data(contentsOf: save.trailFile)
     app.dismissHandoff()
     try app.resign()

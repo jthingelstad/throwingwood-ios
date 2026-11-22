@@ -13,7 +13,9 @@ import SwiftUI
 @Observable @MainActor final class SealedPitch {
   /// `old`: the match was made on an engine this build no longer carries, so it is not
   /// shown (VersionWords.oldMatch), and trying again cannot mend it.
-  enum Phase { case loading, shown, failed, old }
+  /// `badNames`: the match holds a name the game did not make, so it is not shown
+  /// (NameWords.badMatch).
+  enum Phase { case loading, shown, failed, old, badNames }
   let code: String
   var phase = Phase.loading
   var board: PitchSession?
@@ -31,13 +33,13 @@ extension GameModel {
     #if targetEnvironment(simulator)
       if ProcessInfo.processInfo.environment["SHARE_REVIEW"] != nil { return }  // its own
     #endif
-    guard let pitch = offline, let found = pitch.shareableMatch(save: save) else {
+    guard let pitch = offline, let found = pitch.shareableMatch(save: save, deviceName: name) else {
       share = nil
       return
     }
     if share?.key == found.key { return }
     let share = SoloShare(
-      key: found.key, name: found.name,
+      key: found.key, name: found.name, names: pitch.names,
       make: { [weak pitch] name in
         guard let pitch else { throw PitchError("closed") }
         return try pitch.shareMessage(found.source, name: name)
@@ -122,6 +124,7 @@ extension GameModel {
       guard let kept, let snap = kept.snap else { throw PitchError("no-replay") }
       let board = try PitchSession(appVersion: Self.version)
       try board.restore(snap, save: nil, engine: kept.engine)  // on the match's own engine
+      try board.checkNames(snap)
       board.dismissHandoff()
       guard board.need?.kind == "over" else { throw PitchError("not-over") }
       pitch.board = board
@@ -131,6 +134,9 @@ extension GameModel {
       refresh()
     } catch is OldMatch {
       pitch.phase = .old
+      screen = .sealed
+    } catch is BadNamesMatch {
+      pitch.phase = .badNames
       screen = .sealed
     } catch {
       pitch.phase = .failed
@@ -146,7 +152,6 @@ struct ShareCard: View {
   let model: GameModel
   let share: SoloShare
   @Environment(\.screenGeometry) private var screen
-  @FocusState private var editing: Bool
   @State private var since = Date()
 
   private var ipad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
@@ -180,14 +185,7 @@ struct ShareCard: View {
       Text(ShareWords.about).fixedSize(horizontal: false, vertical: true)
       VStack(alignment: .leading, spacing: 4) {
         Text(ShareWords.label).font(.subheadline.bold())
-        TextField(
-          ShareWords.label, text: Binding(get: { share.name }, set: { share.type($0) }),
-          prompt: Text(ShareWords.placeholder)
-        )
-        .textFieldStyle(.roundedBorder).textInputAutocapitalization(.words)
-        .autocorrectionDisabled().submitLabel(.go).focused($editing)
-        .onSubmit { share.send() }
-        .accessibilityLabel(ShareWords.label)
+        NameRowView(row: share.row)
       }
       Text(ShareWords.sides).fixedSize(horizontal: false, vertical: true)
       Text(ShareWords.when).font(.footnote).fixedSize(horizontal: false, vertical: true)
@@ -203,14 +201,12 @@ struct ShareCard: View {
 
   @ViewBuilder private var buttons: some View {
     Button(ShareWords.share) {
-      editing = false
       since = Date()
       share.send()
     }
     .buttonStyle(WoodButton(accent: true)).disabled(share.problem != nil)
     .lineLimit(1)
     Button(ShareWords.notNow) {
-      editing = false
       model.closeShare()
     }.buttonStyle(WoodButton()).lineLimit(1)
   }
@@ -233,6 +229,10 @@ struct SealedCard: View {
       case .old:
         Text("PITCH \(pitch.code)").font(.caption.bold()).tracking(1.2)
         Text(VersionWords.oldMatch).font(displayFont(30)).fixedSize(horizontal: false, vertical: true)
+      case .badNames:
+        Text("PITCH \(pitch.code)").font(.caption.bold()).tracking(1.2)
+        Text(NameWords.badMatchTitle).font(displayFont(38))
+        Text(NameWords.badMatch).fixedSize(horizontal: false, vertical: true)
       default:
         // as the join that led here said it
         Text("Connecting").font(displayFont(38))
@@ -281,7 +281,8 @@ struct SealedCard: View {
         "sharedwinner": ShareReply(code: code, v: 1, why: nil),
       ]
       let share = SoloShare(
-        key: "review", name: mode == "cardempty" || mode == "cardtried" ? "" : "Birch",
+        key: "review", name: mode == "cardlong" ? "Zealous Mahogany" : "Brave Birch",
+        names: offline!.names,
         make: { name in
           mode == "toolong" ? .refused(.tooLong) : .message(JSONText(#"{"t":"share"}"#), bytes: 13)
         },
@@ -315,10 +316,7 @@ struct SealedCard: View {
       }
       openShare()
       switch mode {
-      case "card", "cardempty": break
-      case "cardyou": share.type("You")
-      case "cardlong": share.type("Birch and Juniper Club")
-      case "cardtried": share.send()
+      case "card", "cardlong": break
       case "notthistime":
         share.send()
         Task { @MainActor in
@@ -340,7 +338,7 @@ struct SealedCard: View {
       switch mode {
       case "winner": return model.screen == .match && model.share != nil
       case "sharedwinner": return model.screen == .match && phase == .shared
-      case "card", "cardempty", "cardyou", "cardlong", "cardtried": return model.screen == .share
+      case "card", "cardlong": return model.screen == .share
       case "checking": return phase == .sending
       case "shared": return model.screen == .reel && model.reel?.phase == .making
       case "failed", "offline": return phase == .error

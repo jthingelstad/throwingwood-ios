@@ -29,8 +29,8 @@ extension PitchSession {
   /// player entry). The person's entry names no level: from engine 0.13 every person
   /// throws on one meter (kubb-engine docs/notes/throw.md "The person's meter").
   public func startSolo(name: String, selections: [String: String], save: MatchSave?) throws {
-    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    let player = trimmed.isEmpty ? "You" : String(trimmed.prefix(options.nameLimit))
+    // the device's name, a generated one (PlayerName); anything else is never a name
+    let player = names.valid(.player, name).ok ? name : ((try? names.roll(.player))?.text ?? Names.playerDefault(1))
     let computer = selections["computer"] ?? options.defaults["computer"]!
     let time = Calendar(identifier: .gregorian).dateComponents(in: .current, from: Date())
     var setup: [String: Any] = selections.filter { options.rows.map(\.id).contains($0.key) }
@@ -63,13 +63,23 @@ extension PitchSession {
   /// A match named on an engine this build does not carry is never guessed at: it throws
   /// `OldMatch`, changing nothing, and the caller says it can no longer be replayed
   /// (VersionWords.oldMatch; docs/ENGINES.md). A save nothing names (written
-  /// before the trail) plays on the newest, as it always did.
+  /// before the trail) plays on the newest, as it always did. A caller putting back a
+  /// match someone could see (a kept solo match, a shared replay) checks its names first
+  /// (`checkNames`).
   public func restore(_ snapshot: String, save: MatchSave?, engine: String? = nil) throws {
     let named = engine ?? save?.engineNamed(for: snapshot)
     let mm = Engine.majorMinor(named)
     if let mm, !Engine.carried.contains(mm) { throw OldMatch(engine: mm) }
     try useEngine(minor: mm)
     try openMatch("restore", json: snapshot, save: save)
+  }
+
+  /// A kept match or a shared replay is shown only when every name in it is a generated
+  /// name or a default (`Names.badNames` of the snapshot's options): one holding a typed
+  /// name from before generated names, or a forged one, throws `BadNamesMatch`. Its
+  /// snapshot is hashed, so the name cannot be put right.
+  public func checkNames(_ snapshot: String) throws {
+    if !names.badNames(snapshot: snapshot).isEmpty { throw BadNamesMatch() }
   }
 
   func openMatch(_ method: String, json: String, save: MatchSave?) throws {

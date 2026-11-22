@@ -13,7 +13,9 @@ import KubbEngine
 /// action that arrives first wins: the outstanding ones are dropped (the pitch refuses
 /// them too), the engine goes back to the head and plays the peer's action.
 @MainActor public final class PitchController {
-  public enum State: String, Sendable { case lobby, match, versionMismatch, closed, failed }
+  /// `namesRefused`: the match on the pitch holds a name the game did not make (a forged
+  /// start), so it is not shown or played here (NameWords.badMatch).
+  public enum State: String, Sendable { case lobby, match, versionMismatch, namesRefused, closed, failed }
   public let pitch: PitchClient
   /// The engines this pitch can run (one Lua state per major.minor, made lazily).
   public let engines: EngineShelf
@@ -78,6 +80,9 @@ import KubbEngine
   private var lastN = 0
   /// A `resync` was sent; nothing more is played until its `state`.
   public private(set) var awaitingState = false
+  /// The engine's names door (the newest's words): every name this pitch shows, writes or
+  /// starts a match with is checked through it (docs/ONLINE.md "Names").
+  public private(set) lazy var names = Names(engine: engines.newest)
   private var observation: UUID?
   private var clock: Task<Void, Never>?
   private var lastAim: JSONText?
@@ -262,11 +267,12 @@ import KubbEngine
   private func call(_ name: String, _ args: JS? = nil) throws -> JSONNode {
     try JSONNode.parse(engine.call(name, json: args?.ascii ?? ""))
   }
-  /// This member's presence: its name. No level: a person throws on one meter (engine
-  /// 0.13), and the engine's lineup takes "club" for a member that names none.
+  /// This member's presence: its name, a generated one (the device's), sent as it is;
+  /// anything else is never sent (the pitch server would drop it). No level: a person
+  /// throws on one meter (engine 0.13), and the lineup takes "club" for a member that
+  /// names none.
   public func setMe(name: String) throws {
-    let clean = try pitchCall("cleanName", [("name", .string(name))])
-    pitch.setMe([("name", .raw(clean.raw))])
+    if names.valid(.player, name).ok { pitch.setMe([("name", .string(name))]) }
     try announce()
   }
 
@@ -339,8 +345,11 @@ import KubbEngine
   /// match number, and the engine's first hash, snapshot and start info. Nil when the
   /// lineup cannot start (then `mismatch` says why, when it is the engines).
   private func build(doc: JSONText, seed: Int, at: JSONText) throws -> Built? {
-    let lineup = try pitchCall("lineup", [("doc", .raw(doc)), ("members", pitch.membersJSON)])
-    if lineup.isNull { return nil }
+    // every name the match takes passes the check first, so an honest host never starts
+    // a match the pitch server would refuse `bad-name` (docs/ONLINE.md "Names")
+    let raw = try pitchCall("lineup", [("doc", .raw(doc)), ("members", pitch.membersJSON)])
+    if raw.isNull { return nil }
+    let lineup = try JSONNode.parse(checkedLineup(raw).ascii)
     let players = lineup["players"]!.raw
     // The pitch's engine now, from this document and presence: the newest that the host
     // and every player carry.
@@ -378,9 +387,13 @@ import KubbEngine
       state = .versionMismatch
       return nil
     }
-    let opts = try pitchCall(
-      "matchOptions",
-      [("doc", .raw(doc)), ("lineup", .raw(lineup.raw)), ("seed", .int(seed)), ("start", .raw(at))])
+    let opts = try JSONNode.parse(
+      teamNamed(
+        pitchCall(
+          "matchOptions",
+          [("doc", .raw(doc)), ("lineup", .raw(lineup.raw)), ("seed", .int(seed)), ("start", .raw(at))]),
+        lineup: lineup, doc: doc
+      ).ascii)
     let args = JS.object(opts.members.map { ($0.key, JS.raw($0.value.raw)) } + [("mode", .string("match"))])
     _ = try call("new", args)
     let snap = try engine.call("snapshot")
@@ -400,6 +413,133 @@ import KubbEngine
     return Built(
       doc: Self.with(value, [("match", Self.header(of: m))]).json, n: n, hash: hash, snap: snap,
       meta: Self.meta(of: m, version: engine.engineVersion).json)
+  }
+
+  // MARK: - Names (docs/ONLINE.md "Names"; the web's pitch.js)
+
+  /// The lineup with every name checked: a player's presence name that is not a
+  /// generated name or a default becomes "Player n" (n their place on the side, as the
+  /// engine's lineup numbers a player with no name). The web's checkedLineup.
+  func checkedLineup(_ lu: JSONNode) -> JS {
+    var sides: [(String, JS)] = []
+    for side in ["A", "B"] {
+      let list = (lu["players"]?[side]?.items ?? []).enumerated().map { k, p -> JS in
+        names.passes(.player, p["name"]?.string)
+          ? .raw(p.raw) : Self.with(p, [("name", .string(Names.playerDefault(k + 1)))])
+      }
+      sides.append((side, .array(list)))
+    }
+    return Self.replacing(lu, [("players", .object(sides))])
+  }
+
+  /// A match's options with its team names: a side of several plays under the team name
+  /// the host picked in the lobby (the document's `teamNames`), or one rolled now; a side
+  /// of one under its player's name (the engine's matchOptions); the computer's as it is.
+  func teamNamed(_ opts: JSONNode, lineup: JSONNode, doc: JSONText) throws -> JS {
+    guard let teams = opts["teams"], teams.kind == .object else { return .raw(opts.raw) }
+    let picked = try? JSONNode.parse(doc)["teamNames"]
+    var out: [(String, JS)] = []
+    for (side, t) in teams.members {
+      let several = (lineup["players"]?[side]?.items.count ?? 0) > 1
+      guard several, lineup["cpu"]?.string != side else {
+        out.append((side, .raw(t.raw)))
+        continue
+      }
+      let p = picked?[side]?.string
+      let name = names.valid(.team, p).ok ? p! : (try names.roll(.team))?.text ?? Names.teamDefault(side)
+      out.append((side, Self.replacing(t, [("name", .string(name))])))
+    }
+    return Self.replacing(opts, [("teams", .object(out))])
+  }
+
+  /// Every member's name as shown, by id: its presence name when it passes, else
+  /// "Player n" (n its place on its side; a watcher, its place on the pitch); a player of
+  /// the match who has left, the match's own name for them, checked. `apart` adds "II"
+  /// to the second of two members with one name, for the lobby.
+  public func shownNames() -> (plain: [String: String], apart: [String: String]) {
+    let lobby = try? pitchCall("lobbyOf", [("doc", .raw(pitch.document))])
+    func place(_ id: String, _ i: Int) -> Int {
+      for side in ["A", "B"] {
+        if let k = lobby?["teams"]?[side]?.items.firstIndex(where: { $0.string == id }) { return k + 1 }
+      }
+      return i + 1
+    }
+    var order: [(id: String, name: String)] = []
+    for (i, m) in pitch.members.enumerated() {
+      guard let id = m["id"]?.string else { continue }
+      let n = m["me"]?["name"]?.string
+      order.append((id, n?.isEmpty == false && names.passes(.player, n) ? n! : Names.playerDefault(place(id, i))))
+    }
+    for side in ["A", "B"] {
+      for (k, p) in (match?["players"]?[side]?.items ?? []).enumerated() {
+        guard let id = p["id"]?.string, !order.contains(where: { $0.id == id }) else { continue }
+        order.append((id, names.shown(.player, p["name"]?.string, fallback: Names.playerDefault(k + 1))))
+      }
+    }
+    return (Dictionary(order.map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a }), Names.apart(order))
+  }
+
+  /// A member's name as shown (never the text that failed).
+  public func nameOf(_ id: String?) -> String {
+    guard let id else { return "" }
+    return shownNames().plain[id] ?? "Someone"
+  }
+
+  /// A side's team name as the lobby shows it: the document's when it is a generated team
+  /// name, else "Team A" / "Team B".
+  public func teamNameOf(_ side: String) -> String {
+    names.shown(.team, (try? JSONNode.parse(pitch.document))?["teamNames"]?[side]?.string, fallback: Names.teamDefault(side))
+  }
+
+  /// The host picks a side's team name (a generated team name only), written into the
+  /// document's own top-level `teamNames` (`{ A?, B? }`, the web's setTeamName: the
+  /// engine's reducers keep a key they do not know).
+  @discardableResult public func setTeamName(_ side: String, _ text: String) async throws -> Bool {
+    guard !observing, pitch.isHost, side == "A" || side == "B", names.valid(.team, text).ok else { return false }
+    return try await pitch.update { doc in
+      guard let d = try? JSONNode.parse(doc), d.kind == .object else { return nil }
+      if d["teamNames"]?[side]?.string == text { return nil }
+      var fields = (d["teamNames"]?.members ?? []).filter { $0.key != side }.map { ($0.key, JS.raw($0.value.raw)) }
+      fields.append((side, .string(text)))
+      return Self.replacing(d, [("teamNames", .object(fields))]).json
+    } != nil
+  }
+
+  /// The host, in the lobby: a side of several with no team name gets one rolled, once,
+  /// so everyone sees what it will play as (the web's rollTeamNames). The side's name
+  /// when one was written.
+  @discardableResult public func rollTeamNames() async throws -> String? {
+    guard !observing, pitch.isHost, state == .lobby || state == .versionMismatch, pitch.status == .open,
+      !rollingTeam, teamRolls < 3
+    else { return nil }
+    let lobby = try pitchCall("lobbyOf", [("doc", .raw(pitch.document))])
+    let ids = Set(pitch.members.compactMap { $0["id"]?.string })
+    let picked = (try? JSONNode.parse(pitch.document))?["teamNames"]
+    for side in ["A", "B"] {
+      let several = (lobby["teams"]?[side]?.items ?? []).filter { ids.contains($0.string ?? "") }.count > 1
+      guard several, !names.valid(.team, picked?[side]?.string).ok, let text = try names.roll(.team)?.text else { continue }
+      rollingTeam = true
+      teamRolls += 1
+      defer { rollingTeam = false }
+      if try await setTeamName(side, text) {
+        teamRolls = 0
+        return text
+      }
+      return nil
+    }
+    return nil
+  }
+  private var rollingTeam = false
+  private var teamRolls = 0
+
+  /// `node` (an object) with `fields` set: a key it has keeps its place, a new one goes
+  /// last (as JavaScript's `{ ...node, key }` writes it).
+  static func replacing(_ node: JSONNode, _ fields: [(String, JS)]) -> JS {
+    var out: [(String, JS)] = node.members.map { m in
+      (m.key, fields.first { $0.0 == m.key }?.1 ?? .raw(m.value.raw))
+    }
+    for f in fields where !node.members.contains(where: { $0.key == f.0 }) { out.append(f) }
+    return .object(out)
   }
 
   /// The match's header, all the document keeps of it (the web's pitch.js `start`):
@@ -499,11 +639,10 @@ import KubbEngine
       default: return "Your throw"
       }
     }
-    let name = pitch.members.first { $0["id"]?.string == actor }?["me"]?["name"]?.string
     let verb =
       n["kind"]?.string == "raise"
       ? "raises" : n["kind"]?.string == "punish" ? "places a kubb" : "throws"
-    return "\(name?.isEmpty == false ? name! : "Someone") \(verb)"
+    return "\(nameOf(actor)) \(verb)"
   }
 
   private func refreshSeat() throws {
@@ -639,6 +778,16 @@ import KubbEngine
       mayAct = false
       match = probe
       if show, let probe { try present?(.restore(probe)) }
+      return
+    }
+    // a match whose names are not all generated names or defaults (a forged start: an
+    // honest host checks them, and so does the pitch server) is not shown or played: its
+    // snapshot is hashed, so its names cannot be put right here
+    guard names.badNames(snapshot: snap).isEmpty else {
+      state = .namesRefused
+      mismatch = nil
+      mayAct = false
+      match = probe
       return
     }
     engine = on

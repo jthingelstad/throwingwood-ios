@@ -28,7 +28,8 @@ the version as `<app version> (<engine version>)`, `0.2 (0.8.1)` for the first b
 engine 0.8, `0.3 (0.9.0)` for the first on engine 0.9, `0.4 (0.9.0)` for the first
 with scenes, `0.7 (0.13.1)` for the first on engine 0.13, `0.8 (0.13.3)` for the first
 that carries the newest engine alone (docs/ENGINES.md: it plays no match with a build
-before 0.7 or a web tab on 0.9) (AGENTS.md "The version a player sees").
+before 0.7 or a web tab on 0.9), `0.9 (0.13.3)` for the first with generated names and no
+typed name anywhere (AGENTS.md "The version a player sees").
 `scripts/asc.swift` calls the App Store Connect API for the rest (groups,
 What to Test, review submissions).
 
@@ -44,43 +45,59 @@ Test, all set with `scripts/asc.swift`.
 
 ## Data that leaves the device
 
-- The pitch code, persistent random room member ID, typed name, connection
-  presence and engine version travel to the rooms service. People on the pitch
-  can see names, teams and connection state.
-- Team choices, match options, throw, raise and placement actions, scores,
-  snapshots and game history travel in the shared document and action riders.
-  The server retains match records, including typed names. It keeps an eligible
-  finished replay for people with the pitch link.
-- Current aim and selected shouts are relayed to the other members. An open
-  pitch publishes its code and aggregate listing on the website.
+No name is typed anywhere in the app (since 0.9, 2026-11-21): every player and team
+name is generated from the game's own word lists ("Mighty Maple", "Birch Batons") and
+picked in a name row (AGENTS.md "Names are generated"). The pitch server drops any
+other name it is sent and refuses a document or a start that names one.
+
+- The pitch code, the persistent random member ID, the device's generated name, the
+  connection presence and the engines carried travel to the pitch server
+  (`throwingwood-pitches`, first party). No level is sent. People on the pitch see the
+  generated names, teams and connection state.
+- Team choices, generated team names, match options, throw, raise and placement
+  actions, scores, snapshots and game history travel in the shared document and
+  actions. The pitch server keeps the match record, generated names included, and an
+  eligible finished replay for people with the pitch link.
+- Current aim and the four preset shouts are relayed to the other members. An open
+  pitch publishes its code and an aggregate listing (seats and state, never a name).
 - Choosing Send in practice, solo or online play transmits the answers, marked
   pieces, timing, build, viewport, engine version and replayable game state.
-  Online reports also include the room code and document version. Reports can contain player names from the match. The report replaces
-  member identifiers in the captured state. The server stores reports privately.
-- The rooms handshake sends the app origin and versioned user agent. Private
-  recording and report tags identify the client and engine version. Sharing a
-  pitch through the system sheet sends its URL to the destination the user picks.
-- A match against the computer leaves the phone only when the player presses
-  SHARE AND MAKE THE REEL on its share card. That sends the finished match (its
-  options, actions and result) and the name typed on the card to the rooms
-  service, which checks it, keeps it as a replay with a link of its own for a
-  year and makes its reel. The card says so before anything is sent. Nothing
-  else about the player or the device is in it.
+  Online reports also include the pitch code and document version. Reports can contain
+  the match's generated names. The report replaces member identifiers in the captured
+  state. The server stores reports privately.
+- The pitch handshake sends a versioned user agent. Private report tags identify the
+  client and engine version. Sharing a pitch through the system sheet sends its URL to
+  the destination the user picks.
+- A match against the computer leaves the phone only when the player presses SHARE AND
+  MAKE THE REEL on its share card. That sends the finished match (its options, actions
+  and result) under the generated name picked on the card to the API, which checks the
+  names, keeps it as a replay with a link of its own for a year and makes its reel. The
+  card says so before anything is sent. Nothing else about the player or the device is
+  in it.
+
+**What a player authors that others see**: nothing free-form. Others see the player's
+generated name and team name (picked from the game's word lists), the four preset
+shouts (NICE!, OOH!, TOK!, UNLUCKY), match options from fixed lists, and the play
+itself (aim, throws, raises). The only free text in the app is Send feedback's answers,
+which go privately to the developer and are never shown to anyone else.
 
 ## App Privacy worksheet
 
-Answer **Yes** to data collection and **No** to tracking for this build. There are no ad or analytics SDKs. Practice and solo stay on the phone unless the player sends feedback or shares a finished solo match for its highlight reel. Sound and haptic preferences stay on the phone. Multiplayer retains identifiable gameplay on the first-party service. The developer also uses the private game records to study throws and improve play. Apple's Analytics purpose covers that use of gameplay data.
+Proposed for the next submission (nothing is changed in App Store Connect from here).
+Answer **Yes** to data collection and **No** to tracking. There are no ad or analytics SDKs. Practice and solo stay on the phone unless the player sends feedback or shares a finished solo match for its highlight reel. Sound and haptic preferences stay on the phone. Multiplayer retains identifiable gameplay on the first-party service. The developer also uses the private game records to study throws and improve play. Apple's Analytics purpose covers that use of gameplay data.
 
 | App Store Connect type | Purpose | What travels or is kept |
 | --- | --- | --- |
-| Contact Info — Name | App Functionality | The “Your name” field accepts a name or nickname and shows it to the pitch. It can remain in the match. |
-| Identifiers — User ID | App Functionality | The pitch display name acts as a handle. The member key links someone to their seat when reconnecting. |
+| Identifiers — User ID | App Functionality | The generated display name acts as a screen name on the pitch and in its replay. The member key links someone to their seat when reconnecting. |
 | Identifiers — Device ID | App Functionality | A persistent random key in this installation's defaults identifies the member to the service across pitches. |
-| User Content — Gameplay Content | App Functionality, Analytics | Teams, levels, actions, board state and scores support play, shared replays and analysis of recorded games. |
-| User Content — Customer Support | App Functionality | A player can send free text: two answers about a throw, or one box of any other feedback. |
+| User Content — Gameplay Content | App Functionality, Analytics | Teams, generated names, actions, board state and scores support play, shared replays and analysis of recorded games. |
+| User Content — Customer Support | App Functionality | A player can send free text privately to the developer: two answers about a throw, or one box of any other feedback. |
 | Diagnostics — Other Diagnostic Data | App Functionality | The report includes build, engine, viewport, time, and game state needed to reproduce the throw. |
 
-Mark all six types **linked to the user**. Records can connect the installation, pitch and typed names. Even a report with substituted member IDs can be joined back to the game by room and document version. Mark tracking **No** for each type. Ordinary aim and preset shouts are transient. The app requests no contacts, location, photos, microphone, advertising identifier or payments. Its add-only `NSPhotoLibraryAddUsageDescription` is there for the share sheet's Save Video on a highlight reel; iOS asks then, and the app never reads the library. A reel request sends only the pitch code and the version number of its kept match, and the video is downloaded from the site. Review the public privacy-policy URL and these answers against the submitted build. [Apple's privacy definitions](https://developer.apple.com/app-store/app-privacy-details/)
+**Contact Info — Name** comes off: no name the person types is collected; a generated
+name is made from the game's words and holds nothing about the person. Mark the five
+types **linked to the user**: records connect the installation, the pitch and its
+generated names. Even a report with substituted member IDs can be joined back to the game by pitch and document version. Mark tracking **No** for each type. Ordinary aim and preset shouts are transient. The app requests no contacts, location, photos, microphone, advertising identifier or payments. Its add-only `NSPhotoLibraryAddUsageDescription` is there for the share sheet's Save Video on a highlight reel; iOS asks then, and the app never reads the library. A reel request sends only the pitch code and the version number of its kept match, and the video is downloaded from the site. Review the public privacy-policy URL and these answers against the submitted build. [Apple's privacy definitions](https://developer.apple.com/app-store/app-privacy-details/)
 
 The bundled `PrivacyInfo.xcprivacy` declares two required-reason categories. `CA92.1` covers the app's own UserDefaults for settings and its random member key in GameModel, GameFeedback and DeviceMemberIDStore. `35F9.1` covers elapsed time within the app. PitchAudio compares systemUptime to each sound voice's busy-until time. That clock stays on device. The report's wall-clock timestamp comes from Date. The core, Lua and musl supply game logic and math. [Apple's required reasons](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype)
 
@@ -88,8 +105,8 @@ The bundled `PrivacyInfo.xcprivacy` declares two required-reason categories. `CA
 
 | Question group | Proposed response and basis |
 | --- | --- |
-| User-generated content | Yes. Players choose display names visible to others. Match replays can include those names. |
-| Messaging and chat | Yes. Four preset shouts go directly to the pitch. Free-text feedback and throw reports go privately to the developer. |
+| User-generated content | Proposed: No (from 0.9). A player authors nothing free-form that others see: names and team names are generated from the game's own word lists and picked from them (the pitch server refuses any other), shouts are four presets, options come from fixed lists. Free-text feedback goes privately to the developer. Apple has not ruled on picked-from-list names that we know of (kubb-engine docs/NAMES.md section 6), so this is defensible, not certain. |
+| Messaging and chat | Proposed: No. Players cannot write to each other: the only thing sent between them beyond play is one of four preset shouts (NICE!, OOH!, TOK!, UNLUCKY). Answer Yes instead if Apple counts preset emotes as chat. Feedback goes privately to the developer. |
 | Contests | Frequent. Playing a scored game against another player is central to the app. There are no stakes or prizes. |
 | In-app controls | No parental controls or age assurance. |
 | Other capabilities | No social media feed, unrestricted web access or advertising. Sharing uses the system share sheet. |
