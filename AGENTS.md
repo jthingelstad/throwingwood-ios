@@ -253,8 +253,9 @@ is `docs/ROOMS-CLIENT.md`. The references are the web repository's
 `backend/pitch-server/PROTOCOL.md` and `API.md`, and its docs/MULTIPLAYER.md section
 "What the iPhone app mirrors": keep those the same as the web (the message flow, the
 start `meta` and document header, the reconnect timings, the aim rules, the pace). New
-code says "pitch"; the engine's `room.*` calls keep their name. Lobby, seat and sync
-rules are exclusively the engine's `room.*` API. Keep engine JSON as raw text. Use the
+code says "pitch", and so does the bridge: the engine's `pitch.*` calls (`room.` was
+their old spelling, which only engines before 0.13 needed). Lobby, seat and sync rules
+are exclusively the engine's `pitch.*` API. Keep engine JSON as raw text. Use the
 tagged record/report helpers. Close the controller/client when its owner ends.
 
 The addresses are `PitchConfiguration`, one value each (pitch server, API, site), with a
@@ -266,7 +267,7 @@ or the live API from a test or a review tool. The pace between actions is `Pacin
 Read [docs/ONLINE.md](docs/ONLINE.md) for the screen, recording and lifecycle contract.
 OnlinePitch connects the authoritative controller to a separately paced PitchSession;
 someone else's turn shows its hand-off as a banner over the live dial, never the modal
-card. Keep admission and seat decisions in room.*. Keep all simulator, script and review
+card. Keep admission and seat decisions in pitch.*. Keep all simulator, script and review
 sockets on 127.0.0.1. The online review pictures (docs/review/online, docs/review/observer)
 are the last ones the old rooms harness made; it went with the rooms server on 2026-11-21,
 and a harness that seats its players on the pitch server's `wrangler dev` is open (the

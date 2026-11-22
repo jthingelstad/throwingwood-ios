@@ -233,7 +233,7 @@ public enum ShareMessage {
     {
       return .refused(.tooLong)
     }
-    let budget = try JSONNode.parse(engine.call("room.constants"))["value"]?["LOG_BUDGET"]?.int
+    let budget = try JSONNode.parse(engine.call("pitch.constants"))["value"]?["LOG_BUDGET"]?.int
     let kept =
       JS.array(
         log.enumerated().map { i, e in

@@ -46,15 +46,17 @@ not new code: its tag in `OLDER`, `.copy("Engines")` on the KubbEngine target in
   `Engines/<major.minor>/`), `Engine(minor:)` makes one, and each is a Lua state of its
   own, made the first time something needs it (`PitchSession.useEngine`, `EngineShelf`
   in `PitchController`).
-- Online, the member announces every engine it carries (`room.announce`), the room's
-  engine is `room.engineFor` of the host and the players, START stamps the match with it,
+- Online, the member announces every engine it carries (`pitch.announce`), the room's
+  engine is `pitch.engineFor` of the host and the players, START stamps the match with it,
   and each match plays on its own engine (docs/ONLINE.md "Engines in one room").
 - A kept solo match resumes on the engine its own files name, and a shared match on the
   engine its kept replay names.
 
 The session's older-engine fallbacks (no `aim.controls` before 0.9, no `optionsOf` or
 `computer` option before 0.9, no scene before 0.9) stay with it: they cost nothing while
-no older engine is carried.
+no older engine is carried. The bridge says `pitch.`, which only 0.13 on answer, so an
+older engine carried again would need its old spelling, `room.` (kubb-engine
+docs/VERSIONING.md 0.13.0, "The pitch rename").
 
 ## Looking back at a match
 

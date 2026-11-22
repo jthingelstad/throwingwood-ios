@@ -8,8 +8,9 @@ The references, read-only, are the web repository's `backend/pitch-server/PROTOC
 (the wire), `backend/pitch-server/API.md` (the HTTPS API) and `docs/MULTIPLAYER.md`,
 whose section "What the iPhone app mirrors" lists what the two clients must keep the
 same. The web's own client is `src/net/pitch-client.js`, `src/net/aim.js` and
-`src/net/pitch.js`; where this doc gives a number, it is theirs. New code says "pitch";
-the engine's `room.*` calls keep their name.
+`src/net/pitch.js`; where this doc gives a number, it is theirs. New code says "pitch",
+and so does the bridge: the engine's `pitch.*` calls (`room.` was their old spelling,
+which only engines before 0.13 needed).
 
 ## Ownership and lifetime
 
@@ -52,7 +53,7 @@ protocol's examples):
 - `join {member, role, me, v?, n?, seq?, create?}`: `role` is `player` or `observer`;
   `v` the document version held (the pitch leaves the document out when it is the
   same); `n` and `seq` the match and last action held, own actions in flight not
-  counted. `me` is the presence: name and `room.announce`'s engines (no level)
+  counted. `me` is the presence: name and `pitch.announce`'s engines (no level)
   (docs/ONLINE.md "Engines in one room").
 - `me {me}`; `set {id, base, doc}`, compare-and-set on `base`; `start {id, base, doc,
   n, h, snap, meta}`; `act {id, n, seq, a, h, snap, over?, c: "ios"}`; `cast {d, all?}`;
@@ -147,7 +148,7 @@ their exact source spans. A snapshot is an opaque string.
 ## Pitch effects
 
 All lobby reducers, version checks, seat ownership, control and sync decisions use the
-vendored engine's `room.*` calls. Swift holds no second copy of those rules. `reduce`
+vendored engine's `pitch.*` calls. Swift holds no second copy of those rules. `reduce`
 exposes joinTeam, setOptions, setAccess, pruneTeams and backToLobby; host reducers check
 host ownership again inside the compare-and-set reducer.
 

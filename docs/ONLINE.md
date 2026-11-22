@@ -8,8 +8,8 @@ A shared link currently opens the website in a browser.
 ## From lobby to match
 
 The socket opens when the player starts or joins a pitch. The host initializes
-the lobby document. Presence sends the locally remembered name after room.cleanName
-and the engines this build carries (`room.announce`, below). The lobby shows names, sides,
+the lobby document. Presence sends the locally remembered name after pitch.cleanName
+and the engines this build carries (`pitch.announce`, below). The lobby shows names, sides,
 watchers, host and connection state. A member can join either team or sit out.
 The player's name is the device's (Settings, `PlayerName`): the lobby shows it as a line with a way to Settings and asks only for a name the device does not have yet; a change in Settings goes to the room at once (`profile`). A member sends no level: engine 0.13 throws every person on one meter, and the lineup takes "club" for a member that names none (AGENTS.md "Levels are the computer's"). Team capacity, the computer's levels and match options come from the engine. The host sets
 options, invite-only or open access, and starts. An empty side plays as the
@@ -47,9 +47,9 @@ engines we decide to support, today the newest alone (docs/ENGINES.md). It still
 speaks the engine's contract for clients that carry several ("The room's engine",
 "Speaking down"), so an older build or a web tab that carries several agrees with it:
 
-- Presence is `room.announce`: `engines`, every major.minor this build carries, and
+- Presence is `pitch.announce`: `engines`, every major.minor this build carries, and
   the legacy `engine` written as the room's engine with the `+engines` mark
-  (`"0.13+engines"`). The room's engine is `room.engineFor` counting this member;
+  (`"0.13+engines"`). The room's engine is `pitch.engineFor` counting this member;
   before the room is known it is the newest. It is announced again whenever the
   answer changes.
 - The lobby asks `engineFor` (the host and the lineup; watchers do not count) and
@@ -113,7 +113,7 @@ and every client waits the same, so a watcher keeps up with the thrower.
 ## The highlight reel
 
 When the finished match has a kept replay (`PitchController.finishedReplay`:
-the engine's `room.replayOf` is not null, the same test as the web's WATCH
+the engine's `pitch.replayOf` is not null, the same test as the web's WATCH
 REPLAY), the winner card adds a button, MAKE A HIGHLIGHT REEL. It opens the reel
 card (`ReelCard.swift`), which holds a pitch code and, optionally, the match it
 is for (`HighlightReel` in KubbRenderer), so a solo match can use it once a solo
