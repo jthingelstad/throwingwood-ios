@@ -34,7 +34,7 @@ public struct SoloOptions {
         NAME_MAX: Int
     }
     struct Reply: Decodable { let value: Constants }
-    let c = try JSONDecoder().decode(Reply.self, from: Data(engine.call("room.constants").utf8))
+    let c = try JSONDecoder().decode(Reply.self, from: Data(engine.call("pitch.constants").utf8))
       .value
     levels = c.LEVELS
     takesComputer = c.MATCH_OPTIONS.contains { $0.id == "computer" }

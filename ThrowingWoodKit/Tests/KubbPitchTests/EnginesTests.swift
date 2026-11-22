@@ -23,7 +23,7 @@ import Testing
     try await guest.ready()
     try await eventually { p.pitch.members.contains { $0["id"]?.string == id } }
     _ = try await p.pitch.update { doc in
-      try p.roomCall("joinTeam", [("doc", .raw(doc)), ("id", .string(id)), ("side", .string(side))]).raw
+      try p.pitchCall("joinTeam", [("doc", .raw(doc)), ("id", .string(id)), ("side", .string(side))]).raw
     }
     return guest
   }

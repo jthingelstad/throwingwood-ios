@@ -67,7 +67,7 @@ public struct PitchMember: Identifiable, Equatable {
   public private(set) var isHost = false
   public private(set) var canStart = false
   /// Why the pitch cannot start, in a player's words, when the room has no engine every
-  /// player carries (`room.engineFor`); nil while it can. Shown in the lobby.
+  /// player carries (`pitch.engineFor`); nil while it can. Shown in the lobby.
   public private(set) var engineLine: String?
   public private(set) var isOpen = false
   public private(set) var options: [String: String] = [:]
@@ -171,9 +171,9 @@ public struct PitchMember: Identifiable, Equatable {
     board = try PitchSession(appVersion: appVersion)
     let engines = try EngineShelf(appVersion: appVersion)
     let engine = engines.newest
-    teamMax = try JSONNode.parse(engine.call("room.constants"))["value"]!["TEAM_MAX"]!.int!
+    teamMax = try JSONNode.parse(engine.call("pitch.constants"))["value"]!["TEAM_MAX"]!.int!
     let clean = try JSONNode.parse(
-      engine.call("room.cleanName", json: JS.object([("name", .string(name))]).ascii))
+      engine.call("pitch.cleanName", json: JS.object([("name", .string(name))]).ascii))
     self.name = clean["value"]?.string ?? ""
     let client = try PitchClient(
       url: url, pitch: link.code, appVersion: appVersion,
@@ -327,14 +327,14 @@ public struct PitchMember: Identifiable, Equatable {
     stage = .lobby
     queue.removeAll()
     displayedMatch = nil
-    let l = try controller.roomCall("lobbyOf", [("doc", .raw(pitch.document))])
+    let l = try controller.pitchCall("lobbyOf", [("doc", .raw(pitch.document))])
     let teams = l["teams"]
     let a = Set(teams?["A"]?.items.compactMap(\.string) ?? [])
     let b = Set(teams?["B"]?.items.compactMap(\.string) ?? [])
     members = try pitch.members.compactMap { m in
       guard let id = m["id"]?.string else { return nil }
       let n =
-        try controller.roomCall("cleanName", [("name", .raw(m["me"]?["name"]?.raw ?? .null))])
+        try controller.pitchCall("cleanName", [("name", .raw(m["me"]?["name"]?.raw ?? .null))])
         .string ?? ""
       return PitchMember(
         id: id, name: n.isEmpty ? "Someone" : n,
@@ -349,7 +349,7 @@ public struct PitchMember: Identifiable, Equatable {
       ((try? JSONDecoder().decode(
         [MatchOption].self, from: Data(controller.optionRows().raw.text.utf8))) ?? []).filter { $0.id != "scene" }
       + (controller.lobbyTakesScene() ? [SceneID.row] : [])
-    let lineup = try controller.roomCall(
+    let lineup = try controller.pitchCall(
       "lineup", [("doc", .raw(pitch.document)), ("members", pitch.membersJSON)])
     // Which engine the next match would run on: the host and every player (watchers
     // do not count). A version is never shown unless it stops play.
@@ -407,7 +407,7 @@ public struct PitchMember: Identifiable, Equatable {
   /// (engine 0.13: the pitch takes "club" for a member that names none, and changes
   /// nothing with it).
   public func profile(name: String) throws {
-    let clean = try controller.roomCall("cleanName", [("name", .string(name))]).string ?? ""
+    let clean = try controller.pitchCall("cleanName", [("name", .string(name))]).string ?? ""
     if clean != self.name {
       pitch.setMe([("name", .string(clean))])
       self.name = clean
@@ -448,7 +448,7 @@ public struct PitchMember: Identifiable, Equatable {
   private func clock(_ now: Int) {
     do {
       if pitch.isHost, !observing, isOpen || openKey != nil {
-        let listing = try controller.roomCall(
+        let listing = try controller.pitchCall(
           "openListing",
           [
             ("doc", .raw(pitch.document)), ("members", pitch.membersJSON),

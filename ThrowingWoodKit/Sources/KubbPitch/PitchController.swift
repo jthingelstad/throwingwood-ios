@@ -1,7 +1,7 @@
 import Foundation
 import KubbEngine
 
-/// A headless pitch. Lobby, seat and engine rules are exclusively the engine's `room.*`;
+/// A headless pitch. Lobby, seat and engine rules are exclusively the engine's `pitch.*`;
 /// this type owns the effects: socket writes, engine actions, the optimistic action
 /// queue and its recovery, and the host's clock.
 ///
@@ -20,7 +20,7 @@ import KubbEngine
   /// The engine the pitch runs on now: the match's own (`meta.engine`) once there is
   /// one this build carries, else the newest (kubb-engine docs/ROOM.md "Speaking down").
   public private(set) var engine: Engine
-  /// The presence fields last announced (`room.announce`: `engine` and `engines`).
+  /// The presence fields last announced (`pitch.announce`: `engine` and `engines`).
   public private(set) var announced: JSONText?
   public private(set) var state: State = .lobby
   public private(set) var mismatch: JSONText?
@@ -133,18 +133,21 @@ import KubbEngine
     mayAct = false
   }
 
-  public func roomCall(_ name: String, _ args: [(String, JS)] = []) throws -> JSONNode {
-    try Self.roomCall(engine, name, args)
+  /// One of the engine's pitch calls (`pitch.<name>`, kubb-engine docs/PITCH.md) on the
+  /// match's engine. Engine 0.13 renamed the module; `room.` was the spelling only the
+  /// engines before it needed, and none is carried (docs/ENGINES.md).
+  public func pitchCall(_ name: String, _ args: [(String, JS)] = []) throws -> JSONNode {
+    try Self.pitchCall(engine, name, args)
   }
-  /// A room call of the newest engine: the calls for several engines in one room
+  /// A pitch call of the newest engine: the calls for several engines in one room
   /// (`engineFor`, `carried`, `announce`, `speakAs`, `compareEngines`) are only there.
   public func newestCall(_ name: String, _ args: [(String, JS)] = []) throws -> JSONNode {
-    try Self.roomCall(engines.newest, name, args)
+    try Self.pitchCall(engines.newest, name, args)
   }
-  private static func roomCall(_ engine: Engine, _ name: String, _ args: [(String, JS)]) throws
+  private static func pitchCall(_ engine: Engine, _ name: String, _ args: [(String, JS)]) throws
     -> JSONNode
   {
-    let result = try JSONNode.parse(engine.call("room." + name, json: JS.object(args).ascii))
+    let result = try JSONNode.parse(engine.call("pitch." + name, json: JS.object(args).ascii))
     guard let value = result["value"] else { throw PitchError("engine-result") }
     return value
   }
@@ -162,14 +165,14 @@ import KubbEngine
   }
 
   /// Every match option the room holds, defaults filled in, on the lobby's engine:
-  /// `room.optionsOf` (since 0.9: `options`' five and the engine's own from the
+  /// `pitch.optionsOf` (since 0.9: `options`' five and the engine's own from the
   /// document's `settings`, kubb-engine docs/ROOM.md difference 9), or on an older
   /// engine, which has no such call, `lobbyOf`'s `options`.
   public func roomOptions(_ doc: JSONText) throws -> [String: String] {
     let on = lobbyEngine()
     let all =
-      try (try? Self.roomCall(on, "optionsOf", [("doc", .raw(doc))]))
-      ?? Self.roomCall(on, "lobbyOf", [("doc", .raw(doc))])["options"]
+      try (try? Self.pitchCall(on, "optionsOf", [("doc", .raw(doc))]))
+      ?? Self.pitchCall(on, "lobbyOf", [("doc", .raw(doc))])["options"]
     return Dictionary(
       uniqueKeysWithValues: (all?.members ?? []).compactMap { k, v in v.string.map { (k, $0) } })
   }
@@ -177,7 +180,7 @@ import KubbEngine
   /// The options the host may set (`MATCH_OPTIONS` of the lobby's engine) as raw JSON
   /// rows `[id, label, [[value, label]]]`.
   public func optionRows() throws -> JSONNode {
-    let rows = try Self.roomCall(lobbyEngine(), "constants", [])["MATCH_OPTIONS"]
+    let rows = try Self.pitchCall(lobbyEngine(), "constants", [])["MATCH_OPTIONS"]
     return try rows ?? JSONNode.parse("[]")
   }
 
@@ -185,7 +188,7 @@ import KubbEngine
   /// host may pick one, written to the room's `settings.scene`. On 0.8 or 0.7 none is
   /// offered and the pitch is drawn as the day.
   public func lobbyTakesScene() -> Bool {
-    (try? Self.roomCall(lobbyEngine(), "constants", [])["OPTION_DEFAULTS"]?["scene"]) != nil
+    (try? Self.pitchCall(lobbyEngine(), "constants", [])["OPTION_DEFAULTS"]?["scene"]) != nil
   }
 
   /// A new pitch this member hosts (version 0, no document yet): its lobby, and in it
@@ -198,10 +201,10 @@ import KubbEngine
     guard !observing else { return false }
     return try await pitch.update { [self] doc in
       guard doc == .null, pitch.isHost else { return nil }
-      let lobby = try roomCall("lobbyOf", [("doc", .raw(doc))])
+      let lobby = try pitchCall("lobbyOf", [("doc", .raw(doc))])
       let taken = try takenOptions(kept)
       guard !taken.isEmpty else { return lobby.raw }
-      let set = try Self.roomCall(
+      let set = try Self.pitchCall(
         lobbyEngine(), "setOptions",
         [
           ("doc", .raw(lobby.raw)),
@@ -227,7 +230,7 @@ import KubbEngine
     return taken
   }
 
-  /// The room's engine (`room.engineFor`): the newest major.minor the host and every
+  /// The room's engine (`pitch.engineFor`): the newest major.minor the host and every
   /// player carry, `{ engine | null, missing, unknown }`. With `counting` this member
   /// is counted too, carrying what this build carries.
   public func roomEngine(counting: Bool = false) throws -> JSONNode {
@@ -239,7 +242,7 @@ import KubbEngine
     return try newestCall("engineFor", args)
   }
 
-  /// What a member carries, from its presence (`room.carried`), newest first.
+  /// What a member carries, from its presence (`pitch.carried`), newest first.
   public func carried(by id: String?) throws -> [String] {
     let me = pitch.members.first { $0["id"]?.string == id }?["me"]?.raw ?? .null
     return try newestCall("carried", [("me", .raw(me))]).items.compactMap(\.string)
@@ -262,7 +265,7 @@ import KubbEngine
   /// This member's presence: its name. No level: a person throws on one meter (engine
   /// 0.13), and the engine's lineup takes "club" for a member that names none.
   public func setMe(name: String) throws {
-    let clean = try roomCall("cleanName", [("name", .string(name))])
+    let clean = try pitchCall("cleanName", [("name", .string(name))])
     pitch.setMe([("name", .raw(clean.raw))])
     try announce()
   }
@@ -284,7 +287,7 @@ import KubbEngine
       if name == "joinTeam" { args.append(("id", .string(pitch.you))) }
       // options are set on the engine they are offered from (`lobbyEngine`)
       let on = name == "setOptions" ? lobbyEngine() : engine
-      let value = try Self.roomCall(on, name, [("doc", .raw(doc))] + args)
+      let value = try Self.pitchCall(on, name, [("doc", .raw(doc))] + args)
       return value.isNull ? nil : value.raw
     } != nil
   }
@@ -336,7 +339,7 @@ import KubbEngine
   /// match number, and the engine's first hash, snapshot and start info. Nil when the
   /// lineup cannot start (then `mismatch` says why, when it is the engines).
   private func build(doc: JSONText, seed: Int, at: JSONText) throws -> Built? {
-    let lineup = try roomCall("lineup", [("doc", .raw(doc)), ("members", pitch.membersJSON)])
+    let lineup = try pitchCall("lineup", [("doc", .raw(doc)), ("members", pitch.membersJSON)])
     if lineup.isNull { return nil }
     let players = lineup["players"]!.raw
     // The pitch's engine now, from this document and presence: the newest that the host
@@ -368,14 +371,14 @@ import KubbEngine
       control = .null
     }
     let members = try newestCall("speakAs", [("members", pitch.membersJSON), ("engine", .string(mm))]).raw
-    let check = try roomCall(
+    let check = try pitchCall(
       "startCheck", [("players", .raw(players)), ("members", .raw(members)), ("host", .string(pitch.you))])
     guard check["ok"]?.bool == true else {
       mismatch = check.raw
       state = .versionMismatch
       return nil
     }
-    let opts = try roomCall(
+    let opts = try pitchCall(
       "matchOptions",
       [("doc", .raw(doc)), ("lineup", .raw(lineup.raw)), ("seed", .int(seed)), ("start", .raw(at))])
     let args = JS.object(opts.members.map { ($0.key, JS.raw($0.value.raw)) } + [("mode", .string("match"))])
@@ -383,9 +386,9 @@ import KubbEngine
     let snap = try engine.call("snapshot")
     let hash = try engine.hash()
     // The match number is the pitch's next, whatever the lobby counted.
-    let lobby = try roomCall("lobbyOf", [("doc", .raw(doc))])
+    let lobby = try pitchCall("lobbyOf", [("doc", .raw(doc))])
     let counted = max(lobby["n"]?.int ?? 0, lastN)
-    let value = try roomCall(
+    let value = try pitchCall(
       "startMatch",
       [
         ("doc", .raw(Self.with(lobby, [("n", .int(counted))]).json)), ("snap", .string(snap)),
@@ -482,11 +485,11 @@ import KubbEngine
     ])
   }
   public var playingSide: String? {
-    try? roomCall("playingSide", [("ctx", context()), ("me", .string(pitch.you))]).string
+    try? pitchCall("playingSide", [("ctx", context()), ("me", .string(pitch.you))]).string
   }
   public var actorDescription: String {
     guard let n = try? JSONNode.parse(need),
-      let actor = try? roomCall("shownActor", [("need", .raw(need)), ("ctx", context())]).string
+      let actor = try? pitchCall("shownActor", [("need", .raw(need)), ("ctx", context())]).string
     else { return "" }
     if actor == "cpu" { return "Computer throws" }
     if mayAct {
@@ -513,8 +516,8 @@ import KubbEngine
     let next =
       observing
       ? try JSONNode.parse(Self.noSeat)
-      : try roomCall("controlFor", [("ctx", ctx), ("me", .string(pitch.you))])
-    let same = try roomCall("sameControl", [("a", .raw(control)), ("b", .raw(next.raw))])
+      : try pitchCall("controlFor", [("ctx", ctx), ("me", .string(pitch.you))])
+    let same = try pitchCall("sameControl", [("a", .raw(control)), ("b", .raw(next.raw))])
     if same.bool != true {
       let gainedCPU =
         next["cpu"]?.bool == true && (try? JSONNode.parse(control)["cpu"]?.bool) != true
@@ -527,7 +530,7 @@ import KubbEngine
     need = try engine.call("need").asJSON
     mayAct =
       try !observing
-      && roomCall("mayAct", [("need", .raw(need)), ("ctx", ctx), ("me", .string(pitch.you))]).bool
+      && pitchCall("mayAct", [("need", .raw(need)), ("ctx", ctx), ("me", .string(pitch.you))]).bool
         == true
   }
 
@@ -628,7 +631,7 @@ import KubbEngine
     let theirs = m["engine"]?.string
     let on = engines.carries(theirs) ? try engines.engine(Engine.majorMinor(theirs)!) : engine
     let probe = composite(snap: snap, seq: seq, hash: h, over: over)
-    let check = try Self.roomCall(
+    let check = try Self.pitchCall(
       on, "mayPlay", [("engine", .string(on.engineVersion)), ("match", .raw(probe?.raw ?? .null))])
     guard check["ok"]?.bool == true else {
       state = .versionMismatch

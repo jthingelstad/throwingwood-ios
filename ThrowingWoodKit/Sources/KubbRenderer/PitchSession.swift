@@ -186,7 +186,7 @@ public final class PitchSession {
   var onlineAction: ((JSONText) throws -> Void)?
   public internal(set) var acceptsInput = true
   var runsComputer = true
-  var playerSide: () -> String? = { "A" } // solo seat; online asks room.playingSide at the win
+  var playerSide: () -> String? = { "A" } // solo seat; online asks pitch.playingSide at the win
   public var onFeedback: ((PitchFeedback) -> Void)?
   public var cancelFeedback: (() -> Void)?
   public var canAim: Bool {

@@ -101,7 +101,7 @@ extension ReelAnswer {
 }
 
 /// What identifies a finished match on a pitch: its number and, when it has one, its
-/// final hash as raw JSON (the engine's `room.replayOf`). A pitch that has had a
+/// final hash as raw JSON (the engine's `pitch.replayOf`). A pitch that has had a
 /// rematch keeps a newer match under the same code.
 public struct ReelMatch: Equatable, Sendable {
   public let n: Int
@@ -121,7 +121,7 @@ public struct KeptReplay: Equatable, Sendable {
   /// The finished match's last snapshot (`snap`), when the replay carries one: a sealed
   /// pitch (a shared match) is shown from it.
   public let snap: String?
-  /// The engine the match was played on (`engine`, `room.replayOf`'s copy of
+  /// The engine the match was played on (`engine`, `pitch.replayOf`'s copy of
   /// `match.engine`), when the replay names one.
   public let engine: String?
   /// A shared match against the computer: the pitch never plays again (API.md "replay").
