@@ -662,9 +662,9 @@ struct MatchScreen: View {
               turn: n.turn ?? 1, n: n.setup?.n, of: n.setup?.of, projectile: n.setup?.projectile, watching: watching,
               at: n.kind == "throw" ? pitch.railAt : nil)
         )
-        // upright the line may take two lines at the largest text sizes; on its side
+        // upright the line may take two lines at the larger text sizes; on its side
         // the header's plate has a fixed height
-        .labelStyle().foregroundStyle(Color.woodMuted).lineLimit(fills ? 1 : 3).minimumScaleFactor(0.7)
+        .labelStyle().foregroundStyle(Color.woodMuted).lineLimit(fills ? 1 : 2).minimumScaleFactor(0.7)
         Text(
           (online && !playing && !pitch.raiseShowing && model.online?.turnLabel.isEmpty == false)
             ? model.online!.turnLabel
@@ -701,6 +701,10 @@ struct MatchScreen: View {
     .padding(.leading, 8)
     .frame(maxHeight: fills ? .infinity : nil)
     .modifier(Plate(fill: .woodBaton, inset: 5))
+    // a plate over the pitch beside two numbers and MENU: its words stop growing at the
+    // first accessibility size, where the line still takes two lines and the widest name
+    // one (at AX3XL the line took three and the name was cut, "Brave Bi...")
+    .dynamicTypeSize(.xSmall ... .accessibility1)
   }
 
   /// A side's base kubbs standing: a chip on the team's colour.
