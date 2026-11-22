@@ -26,7 +26,8 @@ internal only (`testFlightInternalTestingOnly` in
 hand; the build number is the commit count, so a commit uploads once. A player sees
 the version as `<app version> (<engine version>)`, `0.2 (0.8.1)` for the first build on
 engine 0.8, `0.3 (0.9.0)` for the first on engine 0.9, `0.4 (0.9.0)` for the first
-with scenes (AGENTS.md "The version a player sees").
+with scenes, `0.7 (0.13.0)` for the first on engine 0.13 (AGENTS.md "The version a
+player sees").
 `scripts/asc.swift` calls the App Store Connect API for the rest (groups,
 What to Test, review submissions).
 
