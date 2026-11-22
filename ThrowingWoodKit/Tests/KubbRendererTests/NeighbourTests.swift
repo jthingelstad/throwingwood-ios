@@ -242,9 +242,10 @@ import QuartzCore
     n.close()
   }
 
-  /// The neighbours' sounds (the web's neighbour-sound.js): a knock where a kubb went over
-  /// (`toppleT`), a louder one for the king, a softer, lower one where the thrown piece
-  /// lands; quieter with distance (the pitch beside about 10 dB under the player's knock,
+  /// The neighbours' sounds (the web's neighbour-sound.js, from engine 0.16.0's `hits` and
+  /// `landing`): a knock at each body's first hit, as loud as it was hard, a louder one for
+  /// the king, a quiet tap for a kubb left standing, a softer, lower one where the thrown
+  /// piece lands; quieter with distance (the pitch beside about 10 dB under the player's knock,
   /// the far row fainter), panned by where the pitch lies, at most `voices` at once (the
   /// faintest dropped), silent round the player's own knock and when the field is not live.
   @Test func neighbourSoundsAreQuietFarAndCapped() throws {
@@ -255,14 +256,35 @@ import QuartzCore
         {"id":"baton1","kind":"baton","start":0,"frames":5,"poses":[0,0,1200,1000,0,0,0, 0,2000,900,1000,0,0,0, 0,4000,400,1000,0,0,0, 0,6000,30,1000,0,0,0, 0,6200,22,1000,0,0,0]},
         {"id":"b3","kind":"kubb","team":"B","start":3,"frames":2,"poses":[0,8000,75,1000,0,0,0, 0,8100,35,707,707,0,0],"toppleT":0.14},
         {"id":"b4","kind":"kubb","team":"B","start":3,"frames":1,"poses":[0,8000,75,1000,0,0,0]},
-        {"id":"king","kind":"king","start":4,"frames":1,"poses":[0,4000,150,1000,0,0,0],"toppleT":0.18}]}
+        {"id":"king","kind":"king","start":4,"frames":1,"poses":[0,4000,150,1000,0,0,0],"toppleT":0.18}],
+       "hits":[{"t":0.13,"id":"b3","strength":0.6},{"t":0.135,"id":"b4","strength":0.2},
+               {"t":0.15,"id":"b3","strength":1},{"t":0.17,"id":"king","strength":1},
+               {"t":0.16,"id":"baton1","strength":0.5}],
+       "landing":{"t":0.11,"strength":0.4}}
       """#
     let r = try JSONDecoder().decode(NeighbourRecording.self, from: Data(json.utf8))
     let cues = NeighbourSounds.cues(r, at: 100)
-    // the landing at its first frame on the ground after it flew; b3 over; the king; b4,
-    // struck but standing, makes none
-    #expect(cues.map(\.kind) == [.land, .hit, .king])
-    #expect(abs(cues[0].time - 100.12) < 1e-9 && abs(cues[1].time - 100.14) < 1e-9 && abs(cues[2].time - 100.18) < 1e-9)
+    // engine 0.16.0's `hits` and `landing` (the web's rule): the landing at `landing.t`;
+    // each body once, at its first hit (b3's second hit is not heard again); b3 toppled, as
+    // loud as its hit was hard; b4, struck and left standing, a tap at 0.45 of that; the
+    // king 1.5 times; nothing for the thrown piece's own contact
+    #expect(cues.map(\.kind) == [.land, .hit, .tap, .king])
+    #expect(zip(cues.map(\.time), [100.11, 100.13, 100.135, 100.17]).allSatisfy { abs($0 - $1) < 1e-9 })
+    let lv = cues.map(\.level)
+    #expect(abs(lv[0] - (0.35 + 0.65 * 0.4)) < 1e-12)
+    #expect(abs(lv[1] - (0.35 + 0.65 * 0.6)) < 1e-12)
+    #expect(abs(lv[2] - (0.35 + 0.65 * 0.2) * 0.45) < 1e-12)
+    #expect(lv[3] == 1)
+    #expect(abs(NeighbourSounds.gain(distance: 8, kind: .king, level: 1) - 0.22 * 1.5) < 1e-12)
+    #expect(abs(NeighbourSounds.gain(distance: 8, kind: .tap, level: lv[2]) - 0.22 * lv[2]) < 1e-12)
+    #expect(NeighbourSound(kind: .tap, gain: 0.1, pan: 0).rate > NeighbourSound(kind: .hit, gain: 0.1, pan: 0).rate)
+    // a recording without them (none struck, no landing listed) still knocks at a topple
+    let bare = #"""
+      {"frameDt":0.04,"frames":1,"duration":0.2,"poseScale":1000,"projectile":{"id":"baton1","kind":"baton"},
+       "bodies":[{"id":"b2","kind":"kubb","start":0,"frames":1,"poses":[0,8000,35,707,707,0,0],"toppleT":0.1}]}
+      """#
+    let old = NeighbourSounds.cues(try JSONDecoder().decode(NeighbourRecording.self, from: Data(bare.utf8)), at: 0)
+    #expect(old == [NeighbourCue(time: 0.1, kind: .hit)])
     // levels: the web's, against the player's own 0.8 x 0.9
     let own = 0.8 * 0.9
     #expect(NeighbourSounds.gain(distance: 8, kind: .hit) == 0.22)
