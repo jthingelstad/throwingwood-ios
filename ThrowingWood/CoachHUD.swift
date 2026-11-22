@@ -27,7 +27,8 @@ extension PracticeHUD {
     case .clock(let c):
       // the prompt plate (dial(...): centred r + 20 over the hub, Londrina 20); the
       // chip stands 8 pt over it
-      let font = UIFont(name: "LondrinaSolid-Black", size: 20) ?? .boldSystemFont(ofSize: 20)
+      let size = 20 * PracticeHUD.textScale
+      let font = UIFont(name: "LondrinaSolid-Black", size: size) ?? .boldSystemFont(ofSize: size)
       let half = ("W" as NSString).size(withAttributes: [.font: font]).height / 2 + 3
       return CoachPlace(bottom: c.center.y - c.radius - 20 - half - 8, anchor: c.center.x, align: .center)
     case .linear(let g):
@@ -75,7 +76,7 @@ extension PracticeHUD {
   /// pills at once. `beside` is no longer used: one chip has no lead beside it.
   func coach(_ c: Coach.Line, _ p: CoachPlace, left: CGFloat, width: CGFloat, beside: CoachAlign? = nil) {
     guard width > 40 else { return }
-    let size: CGFloat = 15
+    let size: CGFloat = 15 * Self.textScale
     let font = Self.inter(size, .heavy)
     let lineHeight: CGFloat = size * 1.25
     let style = NSMutableParagraphStyle()
