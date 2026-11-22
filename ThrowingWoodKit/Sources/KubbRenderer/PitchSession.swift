@@ -691,6 +691,9 @@ public final class PitchSession {
     let text = try engine.call("frame", json: args)
     let a = try decoder.decode(AimOutput.self, from: Data(text.utf8))
     let railBefore = railAt
+    // read before the answer's aim is taken: a release's answer already carries the next
+    // throw's aim, and the coach judges the throw that was made
+    let wasDrive = isDrive
     aim(a.aim, camera: a.camera)
     // the release's aim already counts what the throw will fell: the header keeps the
     // count it had until the throw has played (the web's does)
@@ -702,17 +705,18 @@ public final class PitchSession {
       }
     }
     if let recording = a.recording {
-      try beginPlayback(recording, local: own)
+      try beginPlayback(recording, local: own, drive: own && wasDrive)
       if let action = try JSONNode.parse(text)["action"] { try committed(action.raw) }
     }
     return true
   }
 
-  /// `local`: the throw was made on this device (its verdicts are the player's).
-  func beginPlayback(_ recording: Recording, local: Bool = false) throws {
+  /// `local`: the throw was made on this device (its verdicts are the player's). `drive`:
+  /// it was a drive, read by the caller before the release's answer replaced the aim (a
+  /// drive's SHORT verdict is coached).
+  func beginPlayback(_ recording: Recording, local: Bool = false, drive: Bool = false) throws {
     playbackLocal = local
-    // read before the plan goes: a drive's SHORT verdict is coached
-    playbackDrive = local && isDrive
+    playbackDrive = drive
     plan = false
     openPlate = nil
     endSlide()
