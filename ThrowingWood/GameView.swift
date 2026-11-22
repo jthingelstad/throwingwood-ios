@@ -232,7 +232,7 @@ struct GameView: View {
             .pickerStyle(.menu).disabled(model.playing)
           }
           ReportButton(model: model)
-          // the device's own (name, level, sound, haptics, meter) are in Settings
+          // the device's own (name, sound, haptics, meter) are in Settings
           Button("Settings", systemImage: "gearshape", action: model.openSettings)
           if let label = model.pitch?.versionLabel {
             Section {

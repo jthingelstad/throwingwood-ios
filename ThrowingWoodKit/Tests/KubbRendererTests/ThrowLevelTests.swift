@@ -5,8 +5,10 @@ import Testing
 
 @testable import KubbRenderer
 
-/// The player's own level is one value on the device (Jamie, 2026-11-20: "Yes
-/// this is a device/user setting... not a per game setting.").
+/// The player's kept level: one value on the device, no longer set on any screen.
+/// From engine 0.13 a person throws on one meter whatever level is named (kubb-engine
+/// docs/notes/throw.md "The person's meter"); the level is still kept and passed for
+/// matches on the carried engines before 0.13, which plan a person's throw at it.
 @MainActor struct ThrowLevelTests {
   private let levels = ["beginner", "club", "pro"]
   private func defaults(_ values: [String: String]) -> UserDefaults {
@@ -69,7 +71,8 @@ import Testing
     #expect(d.string(forKey: "solo.name") == "Ada")
   }
 
-  /// The solo set-up's Level row is the computer's; the player throws at the device's.
+  /// The solo set-up's level row is the computer's; the player's kept level still
+  /// goes on the player's entry (the engine takes and keeps it).
   @Test func soloSplitsThePlayersLevelFromTheComputers() throws {
     let app = try PitchSession(appVersion: "test")
     var choices = app.options.defaults
@@ -77,45 +80,41 @@ import Testing
     try app.startSolo(name: "Ada", level: "pro", selections: choices, save: nil)
     let snapshot = try app.engine.call("snapshot")
     #expect(snapshot.contains(#""level":"pro""#))
-    // on 0.9 the computer's level is the match's own option, not its player entry
+    // since 0.9 the computer's level is the match's own option, not its player entry
     #expect(snapshot.contains(#""computer":"beginner""#))
-    // the player's first throw is planned at the player's level
-    let view = try JSONNode.parse(app.engine.call("view"))
-    if view["need"]?["cpu"]?.bool == false {
-      #expect(view["aim"]?["plan"]?["level"]?.string == "pro")
+  }
+
+  /// The bars of a person's practice throw at each level (the engine's setLevel), on
+  /// the carried engine `minor`, straight through the session calls the app makes.
+  private func bars(minor: String, levels: [String]) throws -> [[Double?]] {
+    let engine = try Engine(minor: minor, appVersion: "test")
+    _ = try engine.call("new", json: #"{"mode":"practice","surface":"grass"}"#)
+    return try levels.map { level in
+      _ = try engine.call("setLevel", json: #"{"level":"\#(level)"}"#)
+      let dial = try #require(JSONNode.parse(engine.call("view"))["dial"])
+      return ["powerLo", "powerHi", "releaseLo", "releaseHi"].map { dial[$0]?.double }
     }
   }
 
-  /// A change of the setting mid-match applies to the throw in hand (the engine's
-  /// setLevel), and the match's record keeps the level it started with.
-  @Test func aChangeAppliesFromTheThrowInHand() throws {
-    let app = try PitchSession(appVersion: "test")
-    var choices = app.options.defaults
-    choices["first"] = "A"
-    try app.startSolo(name: "Ada", level: "club", selections: choices, save: nil)
-    let before = try app.engine.call("snapshot")
-    try app.useLevel("pro")
-    let view = try JSONNode.parse(app.engine.call("view"))
-    if view["need"]?["cpu"]?.bool == false {
-      #expect(view["aim"]?["plan"]?["level"]?.string == "pro")
-    }
-    #expect(try app.engine.call("snapshot").contains(#""level":"club""#))
-    _ = before
+  /// On 0.13 a person's level changes nothing in their throw: the bars are the
+  /// meter's whatever level is set.
+  @Test func onTheNewestEveryLevelThrowsOnTheOneMeter() throws {
+    let got = try bars(minor: Engine.newest, levels: levels)
+    #expect(got[0][0] != nil)
+    #expect(got.allSatisfy { $0 == got[0] })
   }
 
-  /// Practice throws at the device's level too.
-  @Test func practiceFollowsTheSetting() throws {
-    let app = try PitchSession(appVersion: "test")
-    try app.practice()
-    try app.useLevel("beginner")
-    let view = try JSONNode.parse(app.engine.call("view"))
-    #expect(view["aim"]?["plan"]?["level"]?.string == "beginner")
+  /// A carried engine before 0.13 still plans a person's throw at the level, so the
+  /// kept level is still passed to it.
+  @Test func aCarriedEngineStillThrowsAtTheKeptLevel() throws {
+    let got = try bars(minor: "0.9", levels: ["beginner", "pro"])
+    #expect(got[0] != got[1])
   }
 
-  /// No set-up screen asks for the player's level: the solo set-up card and the
-  /// online lobby show the level line, and only Settings and the menus' level row
-  /// (LevelSetting) bind it.
-  @Test func noSetUpScreenPresentsTheLevelPicker() throws {
+  /// No screen asks for or shows the player's level: the solo set-up card and the
+  /// online lobby show the player's line (the name and the way to Settings), and
+  /// nothing binds the kept level.
+  @Test func noScreenPresentsThePlayersLevel() throws {
     let app = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
       .appending(path: "../../../ThrowingWood").standardized
     func body(_ file: String, _ view: String) throws -> String {
@@ -126,17 +125,15 @@ import Testing
       return String(rest[..<end])
     }
     for (file, view) in [("MatchCards.swift", "MatchOptionsCard"), ("OnlineCards.swift", "LobbyCard")] {
-      let b = try body(file, view)
-      #expect(b.contains("LevelLine(model: model)"), "\(view) shows the level line")
-      #expect(!b.contains("$model.throwLevel"), "\(view) binds no level")
-      #expect(!b.contains("LevelSetting("), "\(view) presents no level picker")
-      #expect(!b.contains(#"Picker("Level""#) && !b.contains(#"Picker("Your level""#))
+      #expect(try body(file, view).contains("PlayerLine(model: model)"), "\(view) shows the player's line")
     }
     let all = try FileManager.default.contentsOfDirectory(atPath: app.path)
       .filter { $0.hasSuffix(".swift") }
-    let binders = try all.filter {
-      try String(contentsOf: app.appending(path: $0), encoding: .utf8).contains("$model.throwLevel")
+    for name in all {
+      let text = try String(contentsOf: app.appending(path: name), encoding: .utf8)
+      #expect(!text.contains("$model.throwLevel"), "\(name) binds the player's level")
+      #expect(!text.contains("Your level") && !text.contains("Throwing at"), "\(name) shows the player's level")
+      #expect(!text.contains("LevelSetting(") && !text.contains("LevelLine("), "\(name) presents a level")
     }
-    #expect(binders == ["LevelSettings.swift"])
   }
 }

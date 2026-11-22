@@ -54,18 +54,11 @@ import Observation
   var revision = 0
   var sheet: ScoreSheet?
   var selections = [String: String]()
-  /// The player's own throw level, the device's one value (ThrowLevel). The solo
-  /// set-up's `selections["computer"]` is the computer's.
-  var throwLevel = ThrowLevel.fallback {
-    didSet {
-      guard throwLevel != oldValue else { return }
-      ThrowLevel.store(throwLevel, in: .standard)
-      perform {
-        try offline?.useLevel(throwLevel)
-        if let online { try online.profile(name: online.name, level: throwLevel) }
-      }
-    }
-  }
+  /// The player's kept throw level (ThrowLevel): no screen sets it any more. From
+  /// engine 0.13 a person's throw is on one meter whatever it says; it is still
+  /// passed so a match on a carried engine before 0.13 throws as it always did. The
+  /// solo set-up's `selections["computer"]` is the computer's level.
+  private(set) var throwLevel = ThrowLevel.fallback
   /// The practice pitch's scene (its menu's Scene), kept on the device.
   var practiceScene = SceneID.shown(UserDefaults.standard.string(forKey: "pitch.practiceScene")) {
     didSet {
@@ -134,7 +127,7 @@ import Observation
     screen = .settings
   }
   /// The player's name, the device's one value (PlayerName), set in Settings. A
-  /// change is kept and, on a pitch, told to the room (the level's way).
+  /// change is kept and, on a pitch, told to the room.
   var name = "" {
     didSet {
       guard name != oldValue else { return }

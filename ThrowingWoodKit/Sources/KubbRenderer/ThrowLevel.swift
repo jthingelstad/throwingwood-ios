@@ -1,16 +1,15 @@
 import Foundation
 
-/// The player's own throw level (Beginner, Club or Pro): one value on the device,
-/// set in Settings, never asked per game (Jamie, 2026-11-20: "Yes this is a
-/// device/user setting... not a per game setting."). Practice, a match against
-/// the computer and an online pitch all throw at it. The computer's level is a
-/// different thing: it stays the solo set-up's per-game choice.
-///
-/// The engine reads a thrower's level for each throw (session.lua: every throw
-/// takes the thrower's level from the match, and `setLevel` changes the one in
-/// hand), and a throw action carries its launch, not the level. So a change
-/// applies from the player's next throw; the match keeps the levels it started
-/// with in its record.
+/// The player's kept throw level (Beginner, Club or Pro): one value on the device.
+/// No screen sets it any more (2026-11-21). From kubb-engine 0.13 a level is the
+/// computer's standard only and every person throws on one meter (its
+/// docs/notes/throw.md "The person's meter"), so on 0.13 it changes nothing in a
+/// person's throw. It is kept and still passed (a solo match's player entry,
+/// practice's and a throw's `setLevel`, the pitch member's `level`) because the
+/// engine still takes those fields, and because a match on a carried engine before
+/// 0.13 (0.9, 0.8, 0.7: a kept solo match, a pitch with a peer on 0.9) plans a
+/// person's throw at it, as it did when it was set. The computer's level is a
+/// different thing: the solo set-up's and the lobby's per-game choice.
 public enum ThrowLevel {
   public static let key = "pitch.throwLevel"
   /// First run: today's default.
@@ -36,9 +35,4 @@ public enum ThrowLevel {
   }
 
   public static func store(_ level: String, in d: UserDefaults) { d.set(level, forKey: key) }
-
-  /// What a set-up screen shows instead of a picker.
-  public static func line(_ level: String) -> String {
-    "Throwing at \(level.capitalized)."
-  }
 }

@@ -20,7 +20,8 @@ public struct MatchOption: Decodable, Identifiable, Sendable {
 public struct SoloOptions {
   public let rows: [MatchOption], defaults: [String: String]
   public let nameLimit: Int
-  /// The throw levels (`LEVELS`): the player's own (ThrowLevel) and the computer's.
+  /// The throw levels (`LEVELS`): the computer's, and the player's kept one
+  /// (ThrowLevel), which only a carried engine before 0.13 throws by.
   public let levels: [String]
   /// The engine takes the computer's level as a match option (`computer`, since 0.9).
   /// On an older engine the row is the app's own, and its value goes on the

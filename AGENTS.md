@@ -309,29 +309,35 @@ opengames), from the old rooms harness until a pitch server one is made (above).
 docs/ONLINE.md "Observers and open games",
 docs/RENDER.md "The watcher's wide view".
 
-## Your level
+## Levels are the computer's
 
-The player's own throw level (Beginner, Club, Pro) is one value on the device,
-never asked per game (Jamie, 2026-11-20: "Yes this is a device/user setting...
-not a per game setting."). `ThrowLevel` (KubbRenderer) stores it as
-`pitch.throwLevel`; Settings sets it (`LevelSetting`), and the solo
-options card and the lobby show it as a line with a way to Settings
-(`LevelLine`), never a picker (`ThrowLevelTests` checks both screens). Practice,
-solo and online all throw at it. The engine reads a thrower's level for each
-throw, so a change applies from the next throw; the match's record keeps the
-levels it started with. The computer's level is a separate, per-game choice: the
-options card's Computer level and the lobby's Computer, the match's `computer`
-option on engine 0.9 (kubb-engine docs/SESSION.md `newMatch`), kept per game in
+From engine 0.13 a level (Beginner, Club, Pro) is the computer's standard only and
+every person throws on one meter, its bars going by the throw's distance (the owner,
+2026-11-21: "player level really should only mean for the computer opponent. It
+doesn't mean anything for the human player."; kubb-engine docs/notes/throw.md "The
+person's meter"). So the app has no level of the player's own on any screen: no
+Your level in Settings, no level on the solo options card's or the lobby's line
+(`PlayerLine`: the name and the way to Settings), and no words that present a level
+as the player's difficulty (`ThrowLevelTests`). The computer's level stays a
+per-game choice: the options card's Computer level and the lobby's Computer, the
+match's `computer` option (kubb-engine docs/SESSION.md `newMatch`), kept per game in
 `solo.option.computer` (read from the older `solo.option.level` once).
+
+The level the player last set stays kept (`ThrowLevel`, `pitch.throwLevel`), and is
+still passed where the engine takes one (the solo player's entry, `setLevel` for
+practice and a throw, the pitch member's `level`): 0.13 takes and keeps those fields
+and changes nothing with them, and a match on a carried engine before 0.13 (a kept
+0.9 match, a pitch with a peer on 0.9) plans a person's throw at it as it always did.
+Never drop the field from a stored setting, a kept match or a shared document.
 
 ## Where a setting lives
 
 Each setting lives where the owner's scopes put it (his sheet, 2026-11-20). The
-device's (Your name, Your level, Sound, Haptics, Meter, Meter side) are together on
+device's (Your name, Sound, Haptics, Meter, Meter side) are together on
 one Settings card (`SettingsCard`), reached from home and from inside every match (the
 match and pitch menus' SETTINGS, the practice menu's Settings); no other screen makes
 their controls. The name is `PlayerName` (`pitch.name`, read once from the solo card's
-old `solo.name`); a set-up screen shows it in `LevelLine` and asks for it only on a
+old `solo.name`); a set-up screen shows it in `PlayerLine` and asks for it only on a
 device that has none. The game's are the match options and nowhere else: the solo
 options card, the practice menu (Surface, kept as `pitch.practiceSurface`, and
 Scene) and the lobby, whose options a host's next pitch opens with

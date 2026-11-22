@@ -11,7 +11,7 @@ The socket opens when the player starts or joins a pitch. The host initializes
 the lobby document. Presence sends the locally remembered name after room.cleanName,
 the level and the engines this build carries (`room.announce`, below). The lobby shows names, sides,
 watchers, host and connection state. A member can join either team or sit out.
-The player's name and own level are the device's (Settings, `PlayerName`, `ThrowLevel`): the lobby shows them as a line with a way to Settings and asks only for a name the device does not have yet; a change in Settings goes to the room at once (`profile`). Team capacity, the levels and match options come from the engine. The host sets
+The player's name is the device's (Settings, `PlayerName`): the lobby shows it as a line with a way to Settings and asks only for a name the device does not have yet; a change in Settings goes to the room at once (`profile`). The member's `level` is the device's kept level (`ThrowLevel`, no longer set on any screen): engine 0.13 throws every person on one meter whatever it says, and a match on 0.9 still plans the person's throw at it. Team capacity, the levels and match options come from the engine. The host sets
 options, invite-only or open access, and starts. An empty side plays as the
 computer. The options offered are the `MATCH_OPTIONS` of the engine the next match
 would run on (`PitchController.lobbyEngine`, the room's engine counting this member),
@@ -256,8 +256,8 @@ The web's docs/REEL.md "The share card" is the contract: its words are `ShareWor
 - Joining (`/ws?pitch=<code>`, no Origin) sends the persistent random member ID, the
   role, name, level and the engines carried (`engine` as the room's engine with
   `+engines`, and `engines`), and on a rejoin the document version and the `n` and `seq`
-  of the last action held (own actions in flight not counted). Name and level changes
-  in Settings go as `me` (in a match the level applies to the player's next throw).
+  of the last action held (own actions in flight not counted). A name change in
+  Settings goes as `me`.
   Members, host and connection changes come from the pitch server, which picks the host.
 - Aim goes as a cast `{t: "aim", s, k, c}` (`k` counts this device's samples, `c` its
   clock) at most 15 a second and only when it changed; the aim just before a release
