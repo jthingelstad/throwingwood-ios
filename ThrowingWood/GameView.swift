@@ -132,7 +132,7 @@ struct GameView: View {
     // a verdict is announced once when it comes, the off words first
     .onChange(of: model.result) { _, r in
       guard let r, UIAccessibility.isVoiceOverRunning else { return }
-      AccessibilityNotification.Announcement(VerdictWords.spoken(flag: r.flag, words: r.words, rest: r.restText)).post()
+      AccessibilityNotification.Announcement(VerdictWords.spoken(flag: r.shownFlag, words: r.words, rest: r.restText)).post()
     }
     .onOpenURL { model.join($0.absoluteString) }
     .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
@@ -282,7 +282,7 @@ struct Verdict: View {
       } else {
         VStack(alignment: .leading, spacing: 6) {
           flag
-          if cut != .flag || result.flag == nil { words }
+          if cut != .flag || result.shownFlag == nil { words }
           if cut == .full { rest }
         }
       }
@@ -295,12 +295,12 @@ struct Verdict: View {
         .offset(x: TW.controlShadow, y: TW.controlShadow))
     .allowsHitTesting(false)
     .accessibilityElement(children: .ignore)
-    .accessibilityLabel(VerdictWords.spoken(flag: result.flag, words: result.words, rest: result.restText))
+    .accessibilityLabel(VerdictWords.spoken(flag: result.shownFlag, words: result.words, rest: result.restText))
   }
   // the caption strip online beside a linear meter on its side is as narrow
   // as 112.6 pt (the SE): a long flag (HELICOPTER) shrinks, never truncates
   @ViewBuilder private var flag: some View {
-    if let flag = result.flag {
+    if let flag = result.shownFlag {
       Text(flag).font(displayFont(29, relativeTo: .title)).foregroundStyle(Color.woodInk)
         .lineLimit(1).minimumScaleFactor(0.6)
     }

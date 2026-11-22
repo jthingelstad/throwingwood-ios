@@ -67,6 +67,11 @@ extension PitchScene {
     ctx.setLineDash(phase: 0, lengths: [3, 2])
     segment(point(-2.5, 4), point(2.5, 4), white)
     if let y = advantageY { segment(point(-2.5, y), point(2.5, y), ink) }
+    // the Kid line: dots (a Kid match), told apart from the advantage line's dashes
+    if let y = shownKidY {
+      ctx.setLineDash(phase: 0, lengths: [1, 2])
+      segment(point(-2.5, y), point(2.5, y), ink)
+    }
     ctx.setLineDash(phase: 0, lengths: [])
     if let t = thrower, let m = marker, m.shown != false {
       segment(point(t.x, t.y), point(m.x, m.y), white)

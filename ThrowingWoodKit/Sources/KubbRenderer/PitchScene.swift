@@ -45,6 +45,9 @@ public struct PitchScene: Decodable, Sendable {
   var set: String
   var items: [Piece]
   var advantageY: Double?
+  /// The Kid line (a Kid match, engine 0.15's `aim.kidY`): every kubb and every baton at a
+  /// kubb is thrown from it. Drawn as short dots with a cone at each end.
+  var kidY: Double?
   var marker, thrower: GroundMark?
   var arc: [V3]?
   // Release preserves the aim's projected x even as the camera starts tracking the throw.

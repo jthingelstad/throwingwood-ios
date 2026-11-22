@@ -59,6 +59,7 @@ extension PitchSession {
     scene.marker = nil
     scene.thrower = nil
     scene.advantageY = nil
+    scene.kidY = nil
     scene.focusX = nil
     scene.stillLowest = nil
     scene.stillPad = nil
