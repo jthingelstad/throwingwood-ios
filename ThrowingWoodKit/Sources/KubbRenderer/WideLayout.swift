@@ -324,10 +324,17 @@ public enum WideLayout {
   /// pt from the safe top to the header row (the web's railTop).
   static let edgeGap: CGFloat = 10
 
-  /// The minimap's place under the header's right end before the captions are placed.
-  static func nominalMap(size: CGSize, rail r: CGRect, menu m: CGRect) -> CGRect {
+  /// The minimap's place under the header's right end before the captions are placed;
+  /// where that end stands over the throwing line (the header moved in beside a linear
+  /// meter at the left), under the header `planClear` short of the line, so the map
+  /// never covers the pitch's middle, where the target usually is.
+  /// `offLine` false: under the header's right end wherever it is (where short of the
+  /// line the map would meet the linear meter's tab or coach line, on the narrower phones).
+  static func nominalMap(size: CGSize, rail r: CGRect, menu m: CGRect, offLine: Bool = true) -> CGRect {
     let s = mapSize(size)
-    return CGRect(x: r.maxX - s.width, y: max(r.maxY, m.maxY) + mapGap, width: s.width, height: s.height)
+    let line = size.width / 2 - planClear
+    let x = offLine ? min(r.maxX, max(line, r.minX + s.width)) - s.width : r.maxX - s.width
+    return CGRect(x: x, y: max(r.maxY, m.maxY) + mapGap, width: s.width, height: s.height)
   }
 
   /// The set-up tray at the edge away from the meter and the minimap under the
@@ -342,17 +349,21 @@ public enum WideLayout {
   ) -> Plan {
     let t = tray(meter: meter, size: size, safe: safe, side: side)
     let r = rail(size: size, safe: safe, meter: meter), m = menu(size: size, safe: safe, meter: meter)
-    var map = nominalMap(size: size, rail: r, menu: m)
     let cap = caption(size: size, safe: safe, trayWidth: trayWidth, meter: meter, side: side)
-    if captionHasItsOwnLine(cap, size: size, safe: safe, meter: meter), cap.minX < map.maxX, cap.maxX > map.minX {
-      map.origin.y = cap.maxY + mapGap
-    }
     var keepOut = [meterBox(meter, size: size, safe: safe, side: side), t.reach]
     if let lm = meter.linear { keepOut += [lm.tab, coachBand(lm, size: size)] }
-    if map.maxY > size.height - safe.bottom || map.minX < safe.left || keepOut.contains(where: { $0.intersects(map) }) {
-      map = .null
+    func placed(offLine: Bool) -> CGRect {
+      var map = nominalMap(size: size, rail: r, menu: m, offLine: offLine)
+      if captionHasItsOwnLine(cap, size: size, safe: safe, meter: meter), cap.minX < map.maxX, cap.maxX > map.minX {
+        map.origin.y = cap.maxY + mapGap
+      }
+      if map.maxY > size.height - safe.bottom || map.minX < safe.left || keepOut.contains(where: { $0.intersects(map) }) {
+        return .null
+      }
+      return map
     }
-    return Plan(tray: t, minimap: map)
+    let map = placed(offLine: true)
+    return Plan(tray: t, minimap: map.isNull ? placed(offLine: false) : map)
   }
 
   /// The minimap on an upright screen: under the header's right end (12 pt in from
