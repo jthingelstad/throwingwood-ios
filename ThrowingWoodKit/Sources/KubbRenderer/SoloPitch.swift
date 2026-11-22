@@ -186,6 +186,7 @@ extension PitchSession {
   public func tapPlate(_ p: TrayPlate?) throws {
     let next = p == openPlate ? nil : p
     if next != nil && !canAim { return }
+    if next != nil { verdictAway() }
     if next == openPlate { return }
     if plan != (next == .arc) {
       try cancelInput()

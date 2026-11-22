@@ -20,6 +20,30 @@ extension Camera {
   }
 }
 
+/// The raise scene's camera (the web's scenes.js tune): across the kubb's length from its
+/// near side, looking down at it. Twice as far back as it first stood (the owner,
+/// 2026-11-22: "When raising kubbs the camera view is too close. We need to see about
+/// twice as much to know how to raise them."): the same angle down and the same lens, so
+/// twice the ground shows each way round the kubb (its neighbours, the lines near it,
+/// often the king) and the kubb is drawn half as big; its touch target stays at least
+/// 44 pt across (RaiseTouch.margin round it). The web's numbers: 2.3 m back (1.15
+/// before), 2.1 m up (1.05), the look point 0.24 m toward the camera (0.12), f 520.
+enum RaiseCamera {
+  static let back = 2.3, up = 2.1, lead = 0.24, focal = 520.0
+  /// Upright, the frame drawn this much larger than the width fit (the web's 1.8).
+  static let zoom = 1.8
+
+  /// For a kubb lying at (x, y) along `axis` (either way), in the defender's frame: the
+  /// camera stands on the side of it toward the defender's baseline (y down), or, side on,
+  /// toward the middle of the pitch.
+  static func camera(x: Double, y: Double, axis: V2) -> Camera {
+    var normal = V3(-axis.y, axis.x, 0)
+    if normal.y > 0.05 || (abs(normal.y) <= 0.05 && normal.x * x > 0) { normal = -normal }
+    let spot = V3(x, y, 0)
+    return .looking(from: spot + normal * back + V3(0, 0, up), at: spot + normal * lead, focal: focal)
+  }
+}
+
 extension MatchNeed.Pose {
   func piece(id: String, king: Bool = false) -> Piece {
     let down = standing == false
@@ -48,6 +72,24 @@ extension PitchSession {
     return shown.origin.y + shown.k * low
   }
 
+  /// The top, on a screen of `size`, of what the next throw is aimed at: the target ring,
+  /// a kubb standing in it (0.3 m: the king's height) and the arc's last 1.5 m. nil
+  /// while no aim is shown (WideLayout.verdictClear keeps the verdict above it).
+  public func aimTop(in size: CGSize) -> CGFloat? {
+    guard need == nil || need?.kind == "throw", let m = scene.marker, m.shown != false else { return nil }
+    let pr = scene.projection(size, shownCamera)
+    let r = m.r ?? 0.3
+    var points: [CGPoint] = (0..<16).compactMap { k in
+      let a = Double(k) / 16 * 2 * .pi
+      return pr.project(V3(m.x + r * cos(a), m.y + r * sin(a), 0))
+    }
+    if let top = pr.project(V3(m.x, m.y, 0.3)) { points.append(top) }
+    for p in scene.arc ?? [] where hypot(p.x - m.x, p.y - m.y) < 1.5 {
+      if let q = pr.project(p) { points.append(q) }
+    }
+    return points.map(\.y).min()
+  }
+
   /// Where the ground point (x, y) is drawn on a screen of `size` (review tools).
   public func groundPoint(x: Double, y: Double, in size: CGSize) -> CGPoint? {
     scene.projection(size, camera).project(V3(x, y, 0))
@@ -69,12 +111,8 @@ extension PitchSession {
     if let king = n.king { scene.items.append(king.piece(id: "king", king: true)) }
     if let p = n.pose, n.kind == "raise" {
       let a = p.angle ?? 0
-      var normal = V3(-sin(a), cos(a), 0)
-      if normal.y > 0.05 || (abs(normal.y) <= 0.05 && normal.x * p.x > 0) { normal = -normal }
-      let spot = V3(p.x, p.y, 0)
-      camera = .looking(
-        from: spot + normal * 1.15 + V3(0, 0, 1.05), at: spot + normal * 0.12, focal: 520)
-      scene.stillZoom = 1.8
+      camera = RaiseCamera.camera(x: p.x, y: p.y, axis: V2(cos(a), sin(a)))
+      scene.stillZoom = RaiseCamera.zoom
       // on a phone on its side: the lowest of the kubb, its footprints and its
       // numbers stays above the bar (WideLayout.stillLift), with the press's
       // margin round the kubb below it, which also covers a number's circle

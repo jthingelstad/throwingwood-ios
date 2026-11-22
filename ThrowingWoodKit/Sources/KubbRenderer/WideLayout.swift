@@ -366,6 +366,44 @@ public enum WideLayout {
     return CGRect(x: size.width - safe.right - 12 - w, y: y, width: w, height: w * mapTall)
   }
 
+  // MARK: The verdict
+
+  /// The last throw's verdict (the flag, its words and the rest; the wind over it) is
+  /// never over the place the next throw is aimed at (the owner, 2026-11-22: "the display
+  /// stays on the screen for a while keeping the player from being able to aim at
+  /// times"): it stops `verdictGap` above the top of the target ring, the kubb in it and
+  /// the arc's last 1.5 m (`PitchSession.aimTop`), and gives way as the caption stack
+  /// does where that is short (the rest, then the words), never under the flag alone
+  /// (`verdictLeast`). It takes no touches, and the first press of the aim takes it away.
+  public static let verdictGap: CGFloat = 8
+  /// The flag alone (the caption's height on a wide screen).
+  public static let verdictLeast: CGFloat = 62
+  /// Upright, the most the stack takes at the default text size: the wind's plate (30),
+  /// 8, and the verdict with a flag, two rows of words and a line of rest (134; the web's
+  /// verdictTall 132).
+  public static let verdictTall: CGFloat = 172
+
+  /// Upright: the band under the header (`headerBottom`, as measured, + 8), from the safe
+  /// left + 12 to 8 short of the minimap, `tall` deep (the stack's own height), stopped
+  /// above the aim. The tray (at the bottom), the meter and the minimap are clear of it.
+  public static func verdictBand(
+    size: CGSize, safe: ScreenInsets, headerBottom: CGFloat, aimTop: CGFloat?, tall: CGFloat = verdictTall
+  ) -> CGRect {
+    let map = uprightMinimap(size: size, safe: safe, headerBottom: headerBottom)
+    let x = safe.left + 12
+    let band = CGRect(x: x, y: headerBottom + 8, width: max(0, map.minX - 8 - x), height: tall)
+    return verdictClear(band, aimTop: aimTop)
+  }
+
+  /// `room` stopped `verdictGap` above the aim's top (nil: no aim shown), never under
+  /// `verdictLeast`.
+  public static func verdictClear(_ room: CGRect, aimTop: CGFloat?) -> CGRect {
+    guard let a = aimTop else { return room }
+    var r = room
+    r.size.height = max(verdictLeast, min(room.height, a - verdictGap - room.minY))
+    return r
+  }
+
   // MARK: The raise and punishment bar
 
   /// A wide screen no taller than this shows the raise and punishment panel as a

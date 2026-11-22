@@ -152,6 +152,7 @@ extension PitchSession {
   /// ground the picture shows is fixed at the press, so it never shifts under the
   /// finger. `.cancel`: the plate went away under the finger.
   public func stand(fx: Double, fy: Double, phase: SlidePhase) {
+    if phase == .down { verdictAway() }
     switch phase {
     case .down:
       guard canAim else { return }

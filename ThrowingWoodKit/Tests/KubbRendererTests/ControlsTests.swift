@@ -345,32 +345,29 @@ import simd
 
   // MARK: Automatic raising
 
-  @Test func autoRaiseWaitsItsGapForEachKubb() {
+  @Test func autoRaiseStartsOnceForEachKubb() {
     var a = AutoRaise()
     func tick(_ dt: Double, _ key: String?) -> Bool { a.tick(dt, raising: key) }
     #expect(!a.seen)
     #expect(!tick(1, "1:k:1"))
     #expect(a.seen)  // the menu shows Raising from now on
     a.setGame(true)
-    #expect(!tick(0.05, "1:k:1"))
-    #expect(a.waiting)
-    #expect(!tick(0.6, "1:k:1"))
-    #expect(tick(0.1, "1:k:1"))
+    // the watched raise starts at once (its kubb lies a moment in RaiseShow)
+    #expect(tick(0.05, "1:k:1"))
     #expect(!tick(1, "1:k:1"))  // once for each kubb
-    // a card over it: the wait starts again
+    // a card over it: it starts again after
     #expect(!tick(0.05, nil))
-    #expect(!a.waiting)
-    #expect(!tick(0.05, "1:k:1"))
+    #expect(tick(0.05, "1:k:1"))
     // the engine would not raise it: back to the player, as the web's refused()
     a.refused()
     #expect(!a.on && !a.game)
     #expect(!tick(10, "1:k:2"))
-    #expect(!a.waiting)
     var rest = AutoRaise()
     rest.restOfTurn()
     #expect(rest.on && !rest.game)
+    rest.hurryUp()
     rest.turnEnded()
-    #expect(!rest.on)
+    #expect(!rest.on && !rest.hurry)
     // BY HAND ends AUTO ALL too; REST OF GAME keeps going past the turn
     rest.restOfTurn()
     rest.setGame(false)
@@ -379,6 +376,25 @@ import simd
     rest.setGame(true)
     rest.turnEnded()
     #expect(rest.on && rest.game)
+  }
+
+  /// Half a second a kubb, quicker with many, so a whole raise never passes four seconds;
+  /// each step lies, tips and stands.
+  @Test func aWatchedRaiseKeepsItsPace() {
+    #expect(Pacing.raiseStep(1) == 0.5 && Pacing.raiseStep(8) == 0.5)
+    #expect(abs(Pacing.raiseStep(10) - 0.4) < 1e-12)
+    for n in 1...20 { #expect(Double(n) * Pacing.raiseStep(n) <= Pacing.autoRaiseMost + 1e-9) }
+    let s = RaiseShow(i: 0, pending: nil, step: 0.5)
+    #expect(abs(s.total - 0.5) < 1e-12 && s.lie > 0 && s.tip > s.lie && s.hold > 0)
+    var t = s
+    t.age = s.lie + s.tip / 2
+    #expect(abs(t.up(reduced: false) - 0.5) < 1e-9)
+    // Reduce Motion: no tip, but it still stands after its lying, one kubb at a time
+    #expect(t.up(reduced: true) == 1)
+    t.age = s.lie / 2
+    #expect(t.up(reduced: true) == 0)
+    // AUTO: the player is already looking at the kubb, so it tips at once
+    #expect(RaiseShow(i: 0, pending: nil, step: 0.5, lies: false).lie == 0)
   }
 
   @Test func automaticRaisingIsForThisMatchOnly() throws {
@@ -404,22 +420,118 @@ import simd
       try #require(first.kind == "raise" && (first.of ?? 0) >= 2 && first.n == 1)
       if mode == "setting" { app.raiseAutomatically = true } else { app.raiseRest() }
       #expect(app.raisingRest == (mode == "autoAll"))
-      var raised = 0, clock = 0.0, lastAt = 0.0
-      for _ in 0..<400 where app.need?.kind == "raise" {
-        let n = app.need?.n
-        try app.tick(0.05)
-        clock += 0.05
-        if app.need?.n != n || app.need?.kind != "raise" {
-          raised += 1
-          #expect(clock - lastAt >= AutoRaise.gap - 1e-9)
-          lastAt = clock
+      var raised = 0, clock = 0.0, lastAt = 0.0, tipped = 0
+      let step = Pacing.raiseStep(first.of ?? 1)
+      for _ in 0..<800 where app.need?.kind == "raise" {
+        let n = try #require(app.need)
+        let end = app.defaultEnd(n)
+        let hash = try app.engine.hash()
+        try app.tick(0.02)
+        clock += 0.02
+        // part way up, on the end the engine will choose, drawn with the hand drag's tip
+        if let d = app.raiseDragging, d.t > 0, d.t < 1 {
+          #expect(d.i == end)
+          tipped += 1
+        }
+        // the action goes as the kubb starts to tip: the same action the engine had before
+        if try app.engine.hash() != hash {
           _ = try reference.call("apply", json: #"{"type":"raise"}"#)
           #expect(try app.engine.hash() == reference.hash())
         }
+        if app.need?.n != n.n || app.need?.kind != "raise" {
+          raised += 1
+          #expect(clock - lastAt >= step - 0.021, "\(clock - lastAt)")
+          #expect(clock - lastAt <= step + 0.041, "\(clock - lastAt)")
+          lastAt = clock
+        }
       }
       #expect(raised == first.of)
+      #expect(tipped > 0)
+      #expect(clock <= Pacing.autoRaiseMost + 0.1)
       try app.tick(0.05)
       #expect(!app.raisingRest)
+    }
+  }
+
+  /// AUTO watches its one kubb tip up; a tap skips the rest of an AUTO ALL at once, every
+  /// action the same and in the same order.
+  @Test func aWatchedRaiseCanBeSkipped() throws {
+    let app = try PitchSession(appVersion: "test")
+    let reference = try Engine(appVersion: "test")
+    let start = try fixture("raise-many")
+    try app.restore(start, save: nil)
+    _ = try reference.call("restore", json: start)
+    let first = try #require(app.need)
+    try app.raiseWatched()
+    #expect(app.raiseShowing)
+    // AUTO tips at once: its action has gone
+    _ = try reference.call("apply", json: #"{"type":"raise"}"#)
+    #expect(try app.engine.hash() == reference.hash())
+    for _ in 0..<40 where app.raiseShowing { try app.tick(0.02) }
+    #expect(!app.raiseShowing && app.need?.n == 2 && !app.raisingRest)
+    app.raiseRest()
+    try app.tick(0.02)
+    #expect(app.raiseShowing)
+    try app.skipRaise()
+    var ticks = 0
+    while app.need?.kind == "raise" && ticks < 20 {
+      try app.tick(0.001)
+      ticks += 1
+    }
+    #expect(app.need?.kind != "raise", "the rest stood in \(ticks) ticks")
+    for _ in 2...(first.of ?? 2) { _ = try reference.call("apply", json: #"{"type":"raise"}"#) }
+    #expect(try app.engine.hash() == reference.hash())
+  }
+
+  /// One line for VoiceOver for a whole automatic raise, not a line a kubb.
+  @Test func aWatchedRaiseIsOneLine() throws {
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(fixture("raise-many"), save: nil)
+    app.raiseAutomatically = true
+    var lines: Set<Int> = []
+    for _ in 0..<400 where app.need?.kind == "raise" {
+      try app.tick(0.02)
+      if let n = app.raiseNews { lines.insert(n.id) }
+    }
+    #expect(lines.count == 1)
+    #expect(app.raiseNews?.text.contains("automatically") == true)
+  }
+
+  /// The computer's raises (no raise need of this device's: the engine stands them as the
+  /// turn changes) are watched after the throw that sent the kubbs over, one after
+  /// another in the raise scene, before the next view; with Reduce Motion each stands
+  /// with no tip. The match's actions and hashes are the engine's own.
+  @Test func theComputersRaisesAreWatched() throws {
+    for reduced in [false, true] {
+      // the computer plays both sides, so its kubbs land and are raised by it
+      let app = try PitchSession(appVersion: "test")
+      try app.openMatch("new", json: #"{"mode":"match","seed":11,"cpu":"both"}"#, save: nil)
+      app.reduceMotion = reduced
+      var seen = false, tipped = false, kubbs = 0
+      for _ in 0..<(60 * 60 * 6) {
+        if app.need?.kind == "over" { break }
+        try app.tick(1.0 / 60)
+        if let s = app.stoodShow {
+          seen = true
+          kubbs = max(kubbs, s.kubbs.count)
+          #expect(app.raiseShowing && !app.canAim)
+          #expect(s.inPlace || app.scene.stillZoom == RaiseCamera.zoom)
+          let k = s.kubbs[s.k]
+          if let shown = app.scene.items.first(where: { $0.id == k.id }), shown.z > 0.04, shown.z < 0.07 {
+            tipped = true
+          }
+        } else if seen {
+          break
+        }
+      }
+      #expect(seen, "reduced \(reduced)")
+      #expect(kubbs >= 1)
+      #expect(tipped != reduced, "reduced \(reduced)")
+      // afterwards the board shows the engine's own view
+      if app.need?.kind == "throw" {
+        let v: ViewOutput = try app.read("view")
+        #expect(Set(v.items.map(\.id)) == Set(app.scene.items.map(\.id)))
+      }
     }
   }
 

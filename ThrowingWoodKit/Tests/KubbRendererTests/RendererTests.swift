@@ -239,11 +239,15 @@ struct RendererTests {
     let without = raster(ground)
     let a = withBaton.data!.assumingMemoryBound(to: UInt8.self)
     let b = without.data!.assumingMemoryBound(to: UInt8.self)
+    // the baton itself (since the far baseline stands at 41% of the height, 2026-11-22,
+    // it is drawn inside the scanned rows too): only its shadow is counted
+    let baton = try #require(pitch.scene.projection(size, pitch.camera).project(piece.center))
     var shadowPixels = 0
     for y in 400..<844 {
       for x in 0..<390 {
         let i = (y * 390 + x) * 4
         if a[i] == b[i] && a[i + 1] == b[i + 1] { continue }
+        if hypot(Double(x) - baton.x, Double(y) - baton.y) < 45 { continue }
         shadowPixels += 1
         try #require(hypot(Double(x) - center.x, Double(y) - center.y) < 60)
       }

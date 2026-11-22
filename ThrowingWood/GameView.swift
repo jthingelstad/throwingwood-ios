@@ -134,6 +134,11 @@ struct GameView: View {
       guard let r, UIAccessibility.isVoiceOverRunning else { return }
       AccessibilityNotification.Announcement(VerdictWords.spoken(flag: r.shownFlag, words: r.words, rest: r.restText)).post()
     }
+    // a watched raise is one line, not a line a kubb (AutoRaise.swift)
+    .onChange(of: model.raiseNewsID) { _, _ in
+      guard UIAccessibility.isVoiceOverRunning, !model.raiseNews.isEmpty else { return }
+      AccessibilityNotification.Announcement(model.raiseNews).post()
+    }
     .onOpenURL { model.join($0.absoluteString) }
     .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
       if let url = activity.webpageURL { model.join(url.absoluteString) }

@@ -52,6 +52,10 @@ public struct PitchScene: Decodable, Sendable {
   var arc: [V3]?
   // Release preserves the aim's projected x even as the camera starts tracking the throw.
   var focusX: Double? = nil
+  /// The far baseline's frame y in the aim camera (`PitchProjection.farFrame`), taken at
+  /// each throw's adopt: a tall screen places it at `PitchProjection.anchorAt` whoever
+  /// throws from where (the web's Game.farFrameY).
+  var farFrameY: Double? = nil
   var stillZoom: Double? = nil
   /// A raise or punishment scene's lowest point the player works on: a frame y
   /// and the screen points below it (WideLayout.stillLift).
@@ -86,7 +90,7 @@ public struct PitchScene: Decodable, Sendable {
       lift = WideLayout.stillLift(size: size, lowest: low, pad: stillPad ?? 0, floor: floor)
     }
     return PitchProjection(
-      size: size, camera: camera, focusX: focusX ?? 200, stillZoom: stillZoom, lift: lift)
+      size: size, camera: camera, focusX: focusX ?? 200, stillZoom: stillZoom, lift: lift, anchorY: farFrameY)
   }
   var footprints, keepOut: [GroundMark]?
   /// The pieces turning faster than the frames can show, by id (Spin.swift): set by the
@@ -102,11 +106,29 @@ public struct PitchProjection {
   let origin: V2
   let principal: V2
   static let near = 0.05
+  /// A tall screen places the far baseline (frame y `anchorY`, the aim camera's own) this
+  /// far down: 0.41 (the web's layout.js anchorAt; the owner, 2026-11-22: "I wonder if our
+  /// camera view should be a touch lower so the kubbs we are aiming at are a little lower
+  /// on the screen"). Before, frame y 112 stood at 0.33, which put the far baseline at 31%
+  /// of the height from the baseline. The band under the header holds the minimap and
+  /// the verdict.
+  public static let anchorAt = 0.41
+  /// The far baseline's frame y when no aim camera gave one (a throw from the baseline's).
+  public static let anchorY = 96.0
+
+  /// The far baseline's frame y in `camera` (the 400 x 240 frame), held to 40...180.
+  static func farFrame(_ camera: Camera) -> Double? {
+    guard let p = PitchProjection(size: CGSize(width: 400, height: 240), camera: camera).project(V3(0, 8, 0)),
+      p.y.isFinite
+    else { return nil }
+    return max(40, min(180, Double(p.y)))
+  }
 
   /// `lift`: pt a wide screen's frame moves up, the same scale (WideLayout.stillLift).
+  /// `anchorY`: the far baseline's frame y in the aim camera (`farFrame`).
   public init(
     size: CGSize, camera: Camera, focusX: Double = 200, stillZoom: Double? = nil, lift: Double = 0,
-    letterbox: Bool = false
+    letterbox: Bool = false, anchorY: Double? = nil
   ) {
     c = camera
     self.size = size
@@ -119,7 +141,7 @@ public struct PitchProjection {
         let room = half - 40
         let pan = max(focusX - room, min(focusX + room, 200))
         let center = max(half, min(400 - half, pan))
-        origin = V2(size.width / 2 - center * k, size.height * 0.33 - 112 * k)
+        origin = V2(size.width / 2 - center * k, size.height * Self.anchorAt - (anchorY ?? Self.anchorY) * k)
       }
     } else {
       k = min(size.width / 400, size.height / 240)
