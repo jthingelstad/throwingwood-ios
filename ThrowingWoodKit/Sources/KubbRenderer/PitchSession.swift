@@ -431,14 +431,27 @@ public final class PitchSession {
       scene.focusX = nil
     }
   }
+  /// The side whose view frame the board draws now, decided here and nowhere else (the
+  /// live neighbours turn with it, `PitchScene.neighboursTurned`): the need's side while it
+  /// has one (the thrower's for an aim and its throw, the defender's for a raise or a
+  /// punishment kubb, whose poses the engine gives in that side's frame); otherwise (a
+  /// finished match, live, resumed or reopened, or a match adopted from a pitch) the frame
+  /// the engine holds the match's pitch in, the session's `frameSide`, which is the
+  /// snapshot's `side` (session.restore sets it from there, and a live session's is the
+  /// last throw's, the same side). A practice has no side: Team A's. A throw's recording
+  /// plays in the frame of the need it was thrown under, which stays until the next adopt.
+  func viewFrame(of n: MatchNeed) -> String? {
+    if ["throw", "raise", "punish"].contains(n.kind) { return n.side }
+    struct Snap: Decodable { let side: String? }
+    guard let text = try? engine.call("snapshot") else { return nil }
+    return (try? decoder.decode(Snap.self, from: Data(text.utf8)))?.side
+  }
+
   func adopt(_ v: ViewOutput) throws {
     let wide = scene.wide
-    let frame = scene.frameSide
     scene = PitchScene(surface: v.surface, set: v.set, items: v.items, look: v.scene)
     scene.wide = wide
-    // the view's frame is its need's side (the session's frameSide); a finished match
-    // keeps the last throw's, and a practice is Team A's
-    scene.frameSide = v.need.kind == "over" ? frame : (v.need.side ?? (need == nil ? nil : frame))
+    scene.frameSide = viewFrame(of: v.need)
     dial = v.dial
     aim(v.aim, camera: v.camera)
     if need != nil {

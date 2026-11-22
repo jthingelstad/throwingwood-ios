@@ -239,3 +239,119 @@ import QuartzCore
     grid.close()
   }
 }
+
+/// The live field turns with the frame the board draws in, decided in one place
+/// (`PitchSession.viewFrame(of:)`): the thrower's for an aim, the defender's for a raise or
+/// a punishment kubb, the match's own for a finished one, reopened or not.
+@MainActor struct NeighbourFrameTests {
+  static func fixture(_ name: String) throws -> String {
+    let url = try #require(Bundle.module.url(forResource: "Fixtures/solo/\(name)", withExtension: "json"))
+    return try String(contentsOf: url, encoding: .utf8)
+  }
+
+  /// The frame the pitch itself is drawn in, read from its pieces, not from the session:
+  /// a team's base kubbs still on a baseline stand on the near one (y 0) in that team's
+  /// frame and on the far one (y 8) in the other's. nil when no base kubb says.
+  static func pitchFrame(_ items: [Piece]) -> String? {
+    var a = 0, b = 0
+    for p in items where p.kind == "kubb" && abs(p.x) <= 2.6 {
+      let near = abs(p.y) < 0.35, far = abs(p.y - 8) < 0.35
+      guard near || far, let team = p.team else { continue }
+      if (team == "A") == near { a += 1 } else { b += 1 }
+    }
+    return a == b ? nil : (a > b ? "A" : "B")
+  }
+
+  /// The field's frame agrees with what the board draws: by the pieces for an aim or a
+  /// finished match, and by where the work is for a raise (the kubb lies in the raiser's
+  /// own half, nearer its baseline) or a punishment kubb (it goes in that half).
+  static func agree(_ app: PitchSession, _ label: String) throws {
+    let n = try #require(app.need, "\(label)")
+    let field = app.scene.frameSide ?? "A"
+    #expect(app.scene.neighboursTurned == (field == "B"), "\(label)")
+    switch n.kind {
+    case "raise":
+      #expect(field == n.side, "\(label): raise in \(n.side ?? "?")'s frame, field \(field)")
+      #expect(try #require(n.pose).y < 4, "\(label)")
+    case "punish":
+      #expect(field == n.side, "\(label): punish in \(n.side ?? "?")'s frame, field \(field)")
+      let b = try #require(n.bounds)
+      #expect(b.yMin >= -0.05 && b.yMax <= 4.05, "\(label)")
+    default:
+      if let seen = pitchFrame(app.scene.items) { #expect(field == seen, "\(label): pitch in \(seen)'s frame, field \(field)") }
+    }
+  }
+
+  /// A match walked from a raise through every raise and punishment kubb to the next
+  /// throws, the computer's included: the field's frame is the pitch's at every view.
+  @Test func theFieldTurnsWithEveryScreen() throws {
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(Self.fixture("raise"), save: nil)
+    let size = CGSize(width: 390, height: 844)
+    var seen = Set<String>()
+    var throwsSeen = 0
+    for step in 0..<20000 {
+      let n = try #require(app.need)
+      if !app.playing {
+        try Self.agree(app, "step \(step) \(n.kind) \(n.side ?? "-")")
+        seen.insert("\(n.kind) \(n.side ?? "-")")
+      }
+      if n.kind == "raise", !app.playing {
+        let i = try #require(n.ends?.firstIndex { $0.ok != false })
+        #expect(try app.raiseTap(i))
+      } else if n.kind == "punish", !app.playing {
+        let b = try #require(n.bounds)
+        // try spots across the allowed ground until one is legal
+        var placed = false
+        for y in stride(from: b.yMin + 0.3, through: b.yMax - 0.1, by: 0.4) where !placed {
+          for x in stride(from: b.xMin + 0.2, through: b.xMax - 0.2, by: 0.5) where !placed {
+            guard let at = app.groundPoint(x: x, y: y, in: size) else { continue }
+            try app.movePunishment(to: at, size: size)
+            if app.placement?.ok == true {
+              try app.placePunishment()
+              placed = true
+            }
+          }
+        }
+        #expect(placed)
+      } else if n.kind == "throw", n.cpu != true, !app.playing {
+        throwsSeen += 1
+        if throwsSeen > 1 { break }
+        // the person's throw: the engine plays it for this test
+        _ = try app.engine.call("setControl", json: #"{"sides":[],"cpu":true}"#)
+        try app.adopt(app.read("view"))
+      } else if n.kind == "over" {
+        break
+      } else {
+        try app.tick(1.0 / 60)
+      }
+    }
+    // the raises and the punishment kubb in Team A's frame, the computer's throw in Team
+    // B's and the person's next in Team A's
+    #expect(seen.isSuperset(of: ["raise A", "punish A", "throw B", "throw A"]), "\(seen.sorted())")
+  }
+
+  /// A finished match whose last throw was Team B's, reopened: on a fresh launch, and on
+  /// a session that showed a Team A pitch before. The field is in Team B's frame, as the
+  /// engine restores the pitch.
+  @Test func aFinishedMatchReopensInItsOwnFrame() throws {
+    let over = try Self.fixture("over")
+    for before in [nil, "aim"] {
+      let app = try PitchSession(appVersion: "test")
+      if let before { try app.restore(Self.fixture(before), save: nil) }
+      try app.restore(over, save: nil)
+      #expect(app.need?.kind == "over")
+      #expect(app.scene.frameSide == "B", "after \(before ?? "a fresh launch")")
+      #expect(Self.pitchFrame(app.scene.items) == "B")
+      #expect(app.scene.neighboursTurned)
+      try Self.agree(app, "over after \(before ?? "launch")")
+      // a practice after it is Team A's again; the wide view is never turned
+      try app.practice(scene: "tournament")
+      #expect(app.scene.frameSide == nil && !app.scene.neighboursTurned)
+    }
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(over, save: nil)
+    #expect(try app.watchWide(size: CGSize(width: 844, height: 390), safe: ScreenInsets()))
+    #expect(!app.scene.neighboursTurned)
+  }
+}
