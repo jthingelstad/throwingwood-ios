@@ -132,6 +132,8 @@ def capture(phone, args):
                     snap = json.loads(src.read_text())
                     snap["opts"]["scene"] = args.scene
                     snap["opts"]["surface"], snap["opts"]["set"] = SCENES[args.scene]
+                    if "game" in snap.get("save", {}):
+                        snap["save"]["game"]["surface"] = SCENES[args.scene][0].capitalize()
                     (tmp / "review-solo.json").write_text(json.dumps(snap))
                 else:
                     shutil.copyfile(src, tmp / "review-solo.json")
