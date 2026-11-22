@@ -63,7 +63,7 @@ The scenery stands off the pitch (outside |x| 3.5 m, or past y 10.5 m) and is dr
 - **Ground impacts** (`Impacts.swift`, the web's impacts.js): the session asks for them once per Lua state (`setImpacts`), and each recording's `timeline.impacts` lists where pieces met the ground hard. Techno rings: a circle on the ground growing from 0.06 m to 0.22 + 0.17 × speed m (at most 0.95) over 0.75 s of the throw's clock (slow motion included), in the piece's side's light (the king his own, the baton white), with a bloom of 7 and 3.5 pt, none nearer the camera than 2.2 m; each ring of a tenth of the strength or more taps lightly (`PitchHaptic.impact`), but where the baton's own landing already does. Beach and Minnesota puff a small cartoon cloud (three discs of sand or snow with the ink line, swelling, rising 0.12 m and shrinking away over 0.55 s, never over 11 pt across) where a piece comes down faster than 1.4 m/s.
 - **Reduce Motion**: no stardust trail and no ribbon, fewer and shorter puffs, no hit flash, rings that hold 45% of their size and fade where they struck, puffs that only shrink, no falling snow.
 - **The Kid line** (a Kid match, engine 0.15's `aim.kidY`): short dots across the pitch (0.05 m on, 0.09 off, the web's), never drawn over the advantage line itself, with a traffic cone 0.3 m tall just off each sideline (x ±2.85: orange with a white band, Black & White's white with a black band, Techno's lit), in every scene and on the minimap (dots). The thrower stands on it, so the aim's own view is past it; the side view, the wide view, the minimap and STAND show it.
-- **A spin the frames cannot show** (`Spin.swift`, the web's spinAmount and drawSpin): each shown frame measures each piece's turn since the frame before, split into the twist about its long axis and the swing. Past 30 degrees a frame of twist (fully at 50; a square section repeats every quarter turn, so an eighth a frame reads backwards; a baton's twist never shows) or 60 of swing (fully at 100: end over end a half turn repeats), the piece is drawn with four in-between poses from where it was, each at 0.42 at full blur, its own pose at 0.45, back to the plain drawing as it slows. SPIN at its most launches a kubb at about 69 rad/s, 66 degrees a frame at 60 Hz: a full spin; at 120 Hz the turn a frame halves to 33 degrees, a touch of blur; slow motion shows none. Black & White draws the poses solid. The physics is never touched (`SpinTests`).
+- **A spin the frames cannot show** (`Spin.swift`, the web's spinAmount and drawSpin; a close drive, engine 0.16, does not turn and is never drawn as one): each shown frame measures each piece's turn since the frame before, split into the twist about its long axis and the swing. Past 30 degrees a frame of twist (fully at 50; a square section repeats every quarter turn, so an eighth a frame reads backwards; a baton's twist never shows) or 60 of swing (fully at 100: end over end a half turn repeats), the piece is drawn with four in-between poses from where it was, each at 0.42 at full blur, its own pose at 0.45, back to the plain drawing as it slows. SPIN at its most launches a kubb at about 69 rad/s, 66 degrees a frame at 60 Hz: a full spin; at 120 Hz the turn a frame halves to 33 degrees, a touch of blur; slow motion shows none. Black & White draws the poses solid. The physics is never touched (`SpinTests`).
 - **Glows** are the web's glow.js: one round sprite per colour, drawn once and stamped (`Glow.swift`). The geometry, colours and effect counts follow the web's code; the stars' exact pixels and the antialiasing are Core Graphics' own.
 
 **Making it fast enough.** Core Graphics on iOS rasterizes on the CPU, after `draw(_:)` returns (`CABackingStoreUpdate` on the main thread), so the app's FrameTiming "update+draw" does not include it; the display callback's spacing does. Two things were slow and are now not: CG shades a linear gradient pixel by pixel, so the night sky and the neon's horizon band are filled as runs of whole device rows of one 8-bit colour (`rowGradient`); and thousands of tiny antialiased squares, so the steady stars are whole device pixels of about their own area, filled without antialiasing in one call. The picture is the same to the eye.
@@ -232,6 +232,45 @@ The iPads are the iPad mini (A17 Pro) and the iPad Pro 13-inch (M5) under iOS 26
 - Batons have 24-sided circular cross-sections with a projected cap and highlight, plain wood in every set with no bands (Jamie, 2026-11-20: "Batons are always plain and never changed for the set."). The web constructs analytic ellipses. End-grain rings and pith, crown interiors, cheese spots and some bevels use simpler paths. Small differences appear on close wood and around silhouettes. These are presentation approximations. Positions in moving pieces use the recording's 1e−5 quantization; the session camera uses its full-precision playback.
 - The provisional dial uses the web's angle convention, zones, prompt, power and release targets and last-throw marks. It has a simpler face, hand, ticks and knob. The native burst uses its own text metrics, short chip animation and crown path. Labels use the system face, display words use Londrina. The native screen stacks its verdict under the heading. These UI differences are intentional.
 
+## The drive
+
+Engine 0.16 extends a baton's ARC down through flat to a downward drive (kubb-engine
+docs/notes/throw.md "The drive"; the web's plan-sliders.js and tray.js are the reference).
+
+- **The range** is `aim.controls.arc` whenever ARC is drawn: `min` the throw's floor (about 0
+  at 1 m, 0.3 at 1.5 m, 5 at 2 m, 12 at 4 m, 15 from about 5 m), `knee` 15. It moves with the
+  circle and the stance, so `PitchSession.replan` draws again when the control changes, the
+  plate open or not (`DriveTests.theRangeFollowsTheCircleWithThePlateOpen`).
+- **The track** with a drive part (`PlanControl.driveFraction` > 0) is two straight scales
+  joined at the knee: the floor to 15 on the lowest 0.3 × (15 − floor) / 15 of the run, 15 to
+  165 on the rest. `ArcSlider` hatches the part in the scene's wood at 55% (4 pt stripes every
+  8, at 135 degrees, the web's), from 3 pt under the run's foot to the knee, under a 3 pt ink
+  line across the plate at the knee, and names it DRIVE up the lane of marks, reading upward,
+  where the part is at least 54 pt tall (`ArcDrive.wordFrom`; Londrina 14: the web's 10 px word
+  shows from 44 px, and nothing in the app is under 14 pt). The marks are the knee's and above,
+  on the upper scale; none under it. At 8 m the floor is the knee and the slider is 15 to 165
+  as before, no hatching.
+- **The words**: the band, `DRIVE −5°` under the knee (a true minus; `ARC 22°` over it), on the
+  closed plate and the open one; VoiceOver "Arc, 5 degrees down, drive" on the closed plate
+  (label Arc, value "5 degrees down, drive") and "Arc 5 degrees down, drive" on the open
+  slider. The closed plate's picture for a drive is the web's: from the hand high at the left,
+  dashed, down into a kubb's face at the right, its middle lower as the loft goes under 0.
+  The held caption: "A DRIVE GOES IN LOW AND HARD, WITH NO FLIP." (a baton over the knee "A
+  HIGHER ARC DROPS IN STEEPER. A LOWER ARC DRIVES IN HARDER.", a kubb "A LOWER ONE SKIDS IN.").
+- **The side view** draws the engine's `aim.arc` point by point, as for any throw, so a flight
+  leaving the hand going down falls all the way to the kubb's face (cut 0.45 m short of the
+  target along the ground only, as the web's arcInAir); nothing assumes it rises first.
+- **No flip**: under the knee the engine eases the baton's turn to none, so a close drive's
+  poses turn under the spin drawing's 60 degrees a frame and `Spin.swift` leaves it alone
+  (`DriveTests.aCloseDriveDoesNotFlip`); nothing in the app draws a turn of its own.
+- **Pictures** (`python3 tools/solo-snapshots.py <app> --drive`, with `--phone`, `--udid`,
+  `--landscape` or `--ipad`): ARC closed and open at 1.5 m (its default and its floor), 4 m and
+  8 m, the caption on the drive part, a drive in flight, its verdict, a SHORT one and the
+  coach after it, the meter at a drive on both meters and sides, the inkast's meter (a thrown
+  kubb's narrower bars), and frames of the computer's raise watched (`cpuraise`, `STOOD_AT` how far through the show, 0 to 1).
+  They stand on the web's advantage position (`Fixtures/solo/advantage.json`, `DRIVE_AT`,
+  `DRIVE_FLOOR`).
+
 ## The meter
 
 The throw's meter is the player's choice, kept on the device: MENU (practice) or the match menus, Meter, Clock or Linear (`pitch.meter`, clock by default), and Side, Left or Right (`pitch.meterSide`, right by default) for the linear meter. `KubbRenderer/ThrowMeter.swift` holds the geometry and which touches each meter claims, and both feed the same `PointerDial`: the clock its finger's angle about the centre, the linear meter `meterPoint(arm:)` for the knob's height. The engine and its `pointer` tune do not know which meter is on the screen.
@@ -240,6 +279,7 @@ The throw's meter is the player's choice, kept on the device: MENU (practice) or
 - **The linear meter** (`LinearMeterHUD.swift`) is a port of the web's `src/render/linear.js`, its tune number for number: two columns in one ink frame with a hard shadow, the lane (targets) toward the screen's centre and the channel (the wood knob) toward the edge, the prompt a tab at the knob's home. The knob's home is the clock's 6, the middle of the track; the backswing runs down, toward the player, and the forward swing up, on one scale. The box is 0.2 of the width (64 to 96 pt) and 0.47 of the height, at least 390 pt and at most 450 pt, the web's, and stands 7 pt off the edge and the bottom safe area, under the minimap. An upright screen that cannot give it 320 pt of track (a short phone) shows the clock. On a wide screen the box has the whole safe height and needs 260 pt of track ("A phone on its side" above). Its words: DRAW BACK, FLING!, BACK TO MIDDLE, with the throw's distance on an inverted tab beside DRAW BACK (the tab's room is 6 tab heights, `LinearMeter.tabRoom`, and the nudge keeps clear of it). The tray stands at the other edge (`Tray.uprightEdge`), so nothing of it is under the meter or its tabs. The plates are SwiftUI views over the board, so a press on one never reaches `BoardView` (never a throw), and a press on the meter never reaches a plate.
 - **The bars go by distance** (engine 0.13): wide for a short throw, narrow for a long one (5.6 and 21 degrees either side at 4 m, 2 and 7.5 at 8 m), the same for every person. `dial.powerLo..powerHi` and `releaseLo..releaseHi` are the bars for the plan as it stands, and change whenever the circle or the stance moves; the session's aim calls read the new dial with the move (`PitchSession.replan`), and every meter (the clock, the linear meter, the nudge's swing, the coach's stage) draws from `pitch.dial` on each paint and keeps no copy, so a moved plan is drawn with its own bars (`ControlsTests.theBarsAndTheArcsDefaultFollowThePlan`). A release past its bar comes back HIGH or LOW and PULLED LEFT or RIGHT; the verdict shows the misses first (`MeterTests.aReleasePastItsBarIsPulledAndSaysSo`).
 - **Red** starts at `max(overDeg, powerHi)` on both meters: the engine's overpower cost counts from the power target's top (core/throwplan), so a long throw's target past 11 o'clock is never drawn as overpowered.
+- **A drive** (engine 0.16, "The drive" below) is planned hard: at ARC's floor its power band is far round, about 134 to 146 at 1.5 m and 4 m (125 to 147 across the close throws), under the overpowered mark at 150, so the red starts at the engine's mark and never over the band, on both meters, both sides, upright and on its side (`DriveTests.theMeterAtADriveKeepsItsBandClearOfTheOverpoweredZone`).
 - **The last throw** (the engine's `lastBack` and `lastStop`) is a faded ghost of the knob where it was, 60% of its size at 45% opacity, so it reads as "where your last throw went" and never as a target. The web draws the same.
 
 ### Touches

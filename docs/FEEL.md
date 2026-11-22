@@ -41,16 +41,23 @@ ground contact.
 
 The Tournament's neighbouring pitches are heard, quiet and far (the owner, 2026-11-22:
 "We should hear the sounds from the other pitches."; `NeighbourSounds.swift`, the web's
-src/game/neighbour-sound.js and its numbers). The engine's neighbour recording has no
-timeline (kubb-engine session/neighbours.lua keeps a far pitch's recording small: only
-the bodies that moved, 25 poses a second), so the cues come from what it carries, on the
-field's own clock (`TournamentNeighbours.clock`, which stops while the match is paused):
+src/game/neighbour-sound.js and its numbers and rule). The engine's neighbour recording is
+small (kubb-engine session/neighbours.lua: only the bodies that moved, 25 poses a second),
+and from engine 0.16.0 carries `hits` (the first contact on each body struck, `{ t, id,
+strength }`, strength 0 to 1, an impulse of 2 N s being 1) and `landing` (`{ t, strength }`,
+the thrown piece's first touch of the ground). The cues come from those, on the field's own
+clock (`TournamentNeighbours.clock`, which stops while the match is paused). Each body knocks
+once, at its first hit; a share s = 0.35 + 0.65 x strength sets how loud:
 
 | Cue | From the recording | Gain at the pitch beside | Played as |
 | --- | --- | --- | --- |
-| Hit | A kubb's `toppleT`: it went over | 0.22 | A knock take at rate 0.9 (± 6%) |
-| King | The king's `toppleT` | 0.33 (1.5 times) | The same, louder |
-| Land | The thrown piece's first pose at or under 0.06 m after it was over 0.2 m | 0.12 (0.55 times) | A knock take at rate 0.72 (± 6%): a thud on grass, not wood on wood |
+| Hit | A kubb's first hit, the kubb toppled (its body has a `toppleT`) | 0.22 x s | A knock take at rate 0.9 (± 6%) |
+| King | The king's first hit, the king toppled | 0.33 x s (1.5 times) | The same, louder |
+| Tap | A kubb's (or a stake's) first hit, left standing | 0.22 x s x 0.45 | A knock take at rate 0.945 (0.9 x 1.05, ± 6%): a tap, not a fall |
+| Land | `landing.t` | 0.12 x s (0.55 times) | A knock take at rate 0.72 (± 6%): a thud on grass, not wood on wood |
+
+A body that toppled with no hit listed (none should) still knocks at its `toppleT`, at full
+weight. Nothing is read from the poses.
 
 The gain is `0.22 x min(1, (8 / d)^1.5)` times the cue's weight, d being the metres
 between the neighbour's origin and the player's: the pitch beside (8 m) about 10 dB under
@@ -64,12 +71,6 @@ within 0.25 s either side of the player's own knock (`PitchSession.ownKnockNear`
 obey SOUND only, never HAPTICS, and stop with the pitch: none in the background, while
 paused or under Reduce Motion, where no neighbours run.
 
-What the engine should add: the neighbour recording's bodies carry `toppleT` but not the
-moment a kubb is struck, how hard, or when the thrown piece first touches the ground (the
-session's `timeline.contacts` and `batonLanding`). A kubb struck that stays standing makes
-no sound, every topple weighs the same, and the landing is read from 25-a-second poses (up
-to 40 ms late). A `hits` list of `{ t, id, strength }` and a `landing { t, strength }` on
-each neighbour recording would give each sound its real time and weight for a few bytes.
 
 ## Core Haptics transients
 
