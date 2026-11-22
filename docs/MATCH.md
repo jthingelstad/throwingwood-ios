@@ -22,6 +22,22 @@ A Kid match (engine 0.15, kubb-engine docs/notes/kid-mode.md) is the Kid compute
 - An over need shows the winner even if a resignation retained a previous handoff in the session. The end card takes its winner, reason and statistics from `need`. The sheet displays `sheet().shown` by default. Show positions, COPY and SAVE use the complete Planet Kubb Notation text returned by the session. SAVE uses the session's filename and the iOS file picker.
 - The app writes the opaque UTF-8 snapshot atomically in Application Support at match start and after each committed action. A cold launch restores the session and reestablishes control. During flight the committed throw is already in that file. Cold restoration opens at the next decision. An ordinary background/foreground cycle preserves the in-memory camera and pauses display time. Home keeps an unfinished save for the next PLAY THE COMPUTER. Home after a win clears the finished save.
 
+## A match's length
+
+Engine 0.18.0 (kubb-engine docs/SESSION.md "Actions", `at`): the start a match is made
+with carries the device's UTC offset (`utcOffset`, minutes east of UTC; `MatchClock.start`,
+in a solo START and a pitch host's START), and every action the app makes carries its
+stamp, the device's UTC clock on that offset (`MatchClock.stamp`, the web's
+src/game/clock.js stampOn): every `frame` call (the person's and the computer's throws are
+made in it) and every raise, punishment kubb and resignation, through one place,
+`PitchSession.stamped`. An action from someone else keeps its own stamp. The engine writes
+the End and Duration from the last stamp, so the winner card shows `7 min` and the score
+sheet `[Duration "7m"]`. A start with no offset (a fixture, a match from before) gets no
+stamps, and a finished match with no stamps has no `winner.minutes` and no Duration line:
+the card then shows no time, never "Under a minute", and a length that cannot be true
+(over twelve hours) is not shown either (`MatchClock.shown`, the web's cards.js; the card
+shows 1 to 720 minutes). `MatchClockTests`.
+
 ## The replay trail
 
 A match against the computer is kept so it can be played again from its start, for sharing and a highlight reel later (the reel design's "Sharing a match against the computer"). `SoloTrail.swift` keeps it beside the save, in Application Support, on the device only. Only the share card reads it, and only when the person presses SHARE AND MAKE THE REEL is anything sent (docs/ONLINE.md "Sharing a match against the computer").

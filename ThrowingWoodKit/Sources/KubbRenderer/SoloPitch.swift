@@ -35,7 +35,8 @@ extension PitchSession {
     // the device's name, a generated one (PlayerName); anything else is never a name
     let player = names.valid(.player, name).ok ? name : ((try? names.roll(.player))?.text ?? Names.playerDefault(1))
     let computer = selections["computer"] ?? options.defaults["computer"]!
-    let time = Calendar(identifier: .gregorian).dateComponents(in: .current, from: Date())
+    // the start on the device's clock with its UTC offset, which every stamp is on
+    let start = try JSONSerialization.jsonObject(with: Data(MatchClock.start(clockNow()).ascii.utf8))
     var setup: [String: Any] = selections.filter { options.rows.map(\.id).contains($0.key) }
     var cpu: [String: Any] = ["name": "Computer"]
     if !options.takesComputer {
@@ -48,10 +49,7 @@ extension PitchSession {
         "A": ["name": player, "players": [["name": player]]],
         "B": ["name": "Computer", "players": [cpu]],
       ],
-      "start": [
-        "year": time.year!, "month": time.month!, "day": time.day!, "hour": time.hour!,
-        "min": time.minute!,
-      ],
+      "start": start,
     ]) { _, new in new }
     let data = try JSONSerialization.data(withJSONObject: setup)
     try useEngine(minor: nil)  // a new match is always on the newest
@@ -206,7 +204,7 @@ extension PitchSession {
 
   public func resign() throws {
     guard need != nil, need?.kind != "over" else { return }
-    let action = JSONText(#"{"type":"resign","side":"A"}"#)
+    let action = JSONText(stamped(#"{"type":"resign","side":"A"}"#))
     let r: PlacementCheck = try read("apply", action.text)
     if r.ok {
       if !playing { try adopt(read("view")) }
@@ -256,7 +254,8 @@ extension PitchSession {
     try applyPlacement(#"{"type":"punish","x":\#(c.x),"y":\#(c.y)}"#)
   }
 
-  @discardableResult private func applyPlacement(_ json: String) throws -> Bool {
+  @discardableResult private func applyPlacement(_ unstamped: String) throws -> Bool {
+    let json = stamped(unstamped)
     let response: PlacementCheck = try read("apply", json)
     guard response.ok else {
       placement = response

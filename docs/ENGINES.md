@@ -6,8 +6,9 @@ An engine is carried only while we decide it is supported, never because it was 
 released (the owner, 2026-11-21: "Let's force all clients to the most recent engine. We
 should only support engines that we decide are worth supporting not just ones that have
 published so that we can push players to the new engines."). Today that is the newest
-alone: 0.16 (v0.16.0, golden corpus 0.16.0, 19 matches and 724 actions: two on the Techno
-grid and two Kid matches among them; the drive, kubb-engine docs/notes/throw.md). Every match plays on it: solo,
+alone: 0.18 (v0.18.0, golden corpus 0.18.0, 21 matches and 854 actions: two on the Techno
+grid, two Kid matches and two with computer players in teams among them; the computer's
+drive and the baton's blow, kubb-engine docs/VERSIONING.md). Every match plays on it: solo,
 practice and every pitch.
 
 The decision is written in one place, `TAG` and `OLDER` in `scripts/vendor-engine.sh`:
@@ -16,7 +17,10 @@ one per major.minor. `OLDER` is empty. Moving to a new minor drops the last one 
 we decide otherwise. 0.9, 0.8 and 0.7 went on 2026-11-21 (app 0.8); 0.13 went with app 0.10, which moved
 straight to 0.15; no iPhone build shipped 0.10 to 0.12 or 0.14. 0.15 went with app 0.11 on
 2026-11-22: 0.16 shares no match with it (a person's default throws and the drive move the
-hashes), so a kept 0.15 match says `VersionWords.oldMatch`.
+hashes), so a kept 0.15 match says `VersionWords.oldMatch`. 0.16 went with app 0.12 on
+2026-11-22, which moved straight to 0.18 (no iPhone build carried 0.17): 0.18 shares no
+match with 0.16 or 0.17 (the computer's drive and the baton's blow move the hashes), so a
+kept 0.16 match says `VersionWords.oldMatch` too.
 
 A match still belongs to the engine it was started on, its `match.engine` major.minor,
 for its whole life (kubb-engine docs/VERSIONING.md), because a new minor can change how a

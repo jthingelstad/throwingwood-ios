@@ -124,7 +124,21 @@ public typealias PracticePitch = PitchSession
 @MainActor
 public final class PitchSession {
   let appVersion: String
-  var trail = ReportTrail()
+  var trail = ReportTrail() {
+    // the match's clock is its start's (MatchClock), read again only for another match
+    didSet { if trail.start != oldValue.start { clockStart = MatchClock.Start(snapshot: trail.start) } }
+  }
+  /// The match's start as its clock reads it (its snapshot's `opts.start`, with the
+  /// starting host's `utcOffset`), nil outside a match or for a start with no fields.
+  private(set) var clockStart: MatchClock.Start?
+  /// The device's clock, which a test may set.
+  var clockNow: () -> Date = Date.init
+  /// An action's `at` now on the match's clock (engine 0.18.0, docs/MATCH.md "A match's
+  /// length"): nil outside a match and for a start with no offset.
+  func stamp() -> JS? { need == nil ? nil : MatchClock.stamp(on: clockStart, now: clockNow()) }
+  /// An action this device makes (a raise, a punishment kubb, a resignation), or a `frame`
+  /// call's input, with the match's stamp: every one goes through here.
+  func stamped(_ json: String) -> String { MatchClock.adding(stamp(), to: json) }
   /// The engine this session runs on now: the newest, or the one a match belongs to
   /// (`useEngine(minor:)`).
   public private(set) var engine: Engine
@@ -622,8 +636,8 @@ public final class PitchSession {
     input.reset()
     guard canAim else { return }
     // The session's plan-held frame disarms even a forward swing. Ease immediately back to aim.
-    let _: AimOutput = try read("frame", #"{"plan":true,"dt":0.001}"#)
-    let a: AimOutput = try read("frame", #"{"dt":0.016666666666666666}"#)
+    let _: AimOutput = try read("frame", stamped(#"{"plan":true,"dt":0.001}"#))
+    let a: AimOutput = try read("frame", stamped(#"{"dt":0.016666666666666666}"#))
     aim(a.aim, camera: a.camera)
     if let d = a.dial { dial = d }
   }
@@ -688,7 +702,7 @@ public final class PitchSession {
     // the computer's throws come through here too: only the player's own
     // carry verdicts and may change what the coach says next
     let own = need?.cpu != true
-    let text = try engine.call("frame", json: args)
+    let text = try engine.call("frame", json: stamped(args))
     let a = try decoder.decode(AimOutput.self, from: Data(text.utf8))
     let railBefore = railAt
     // read before the answer's aim is taken: a release's answer already carries the next
