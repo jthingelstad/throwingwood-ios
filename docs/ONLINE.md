@@ -160,13 +160,42 @@ faster for each action waiting behind it. The queue waits while the board plays 
 or watches a raise, and drains on the first frame the board is free, judged from the
 state rather than from the moment it ended, so a playback or raise ended anywhere else (a
 tap's skip, `OnlinePitch.skip` and `skipRaise`, or a resync) never leaves an action
-unapplied (Codex on PR #46). A watched raise is busy as a throw's playback is, for
-everything that waits on one: no remote aim is drawn over it (the newest is sampled again
-on the first frame after, so the watcher is not behind), nothing may act on the need it
-shows and no hand-off banner comes up until it ends, the header keeps the raise's words,
-and the meter, nudge, coach, minimap and their readers stay away (Codex on PR #46 again).
+unapplied (Codex on PR #46). What a watched raise allows is below ("A watched raise online").
 A gap or disagreement restores the head snapshot. After a win the host can put everyone back in
 the lobby with the same teams.
+
+### A watched raise online
+
+A raise is watched tipping up (docs/MATCH.md) while the board still shows the raise need
+and the engine may already be past it, so what may happen then is decided in one place:
+`RaiseWatch` (what is watched) and `Seat.decide` (what the seat makes of it), both in
+KubbRenderer; `RaiseWatchTests` and `OnlineRaiseTests` hold every row with an outcome
+(Codex on PR #46, three findings in this seam). Whose raise, and when:
+
+- **This device's own, lead-in** (`ownLeadIn`): AUTO ALL, REST OF GAME or the menu's
+  Raising: Automatic has scheduled the kubb's `raise`; the kubb lies, the action is not
+  yet applied or sent. AUTO has no lead-in.
+- **This device's own, tipping** (`ownTipping`): the action has been applied and sent
+  (the write may still be landing); the kubb tips up, then stands. Between two kubbs
+  nothing is watched until the next need is adopted and the seat gives the right to act
+  again after the write lands.
+- **Another member's, arriving** (`arriving`): already applied from the queue, tipping at
+  the sender's pace, faster for each action waiting behind it.
+- **The engine's own** (`engine`): engine 0.16.0's `raised`; none today.
+
+| | Own, lead-in | Own, tipping | Arriving | Engine |
+| --- | --- | --- | --- | --- |
+| New input (gestures, the tray, the meter) | Blocked; a tap skips | Blocked; a tap skips | Blocked; a tap skips | Blocked; a tap skips |
+| Submitting | Its scheduled action keeps its authority and is sent when the kubb tips | Already sent; the write lands as any other | Nothing to send | Nothing to send |
+| The seat (a shout, a member joining or leaving, a seat change) | Keeps the right to act while the pitch still gives it; if it does not (moved off the team, the seat changed, an action arrived, the pitch closed) the unsent action is dropped before it is applied: nothing sent, the engine untouched, the kubb lying | No right to act while the write is out; the tick seats again after | No right to act until it ends; the tick seats again on the first free frame | As arriving |
+| Hand-off banner | None | None | None until it ends | None until it ends |
+| Another member's aim | Not drawn | Not drawn | Not drawn; the newest is drawn on the first frame after | As arriving |
+| Incoming actions | Wait in the queue (and drop the unsent raise, as the match moved on) | Wait in the queue | Wait; drained on the first free frame, judged from the state | As arriving |
+| A resync, a rematch | The show is cleared, its action never applied | The show is cleared | The show is cleared, the queue with it | As arriving |
+| The pitch closing, the app in the background | The unsent action is dropped (background) or the board let go (closing); the resync on return starts afresh | Frames stop; the resync on return clears it | As tipping | As tipping |
+
+The header keeps the raise's words, and the meter, nudge, coach, minimap and their
+readers stay away, in every column.
 
 The pace between actions is one tune, `Pacing` (KubbRenderer), the web's
 src/game/pacing.js: 0.8 s rest after a throw, 0.4 s before the first kubb of a turn's automatic raise and a beat of at most 0.5 s a kubb after it (4 s a whole raise at most). Every screen

@@ -220,6 +220,9 @@ public struct PitchMember: Identifiable, Equatable {
     suspended = true
     timeout?.cancel()
     pitch.close()
+    // the right to act goes with the connection: a raise of this device's not yet sent is
+    // dropped before it is applied (RaiseWatch), never applied and then refused
+    board.dropUnsentRaise()
     board.acceptsInput = false
     board.runsComputer = false
   }
@@ -589,14 +592,16 @@ public struct PitchMember: Identifiable, Equatable {
   private func seat() throws {
     let current =
       stage == .match && controller.state == .match && pitch.status == .open && !suspended && !ended
-    // a watched raise is busy as a throw's playback is: the board shows the need before
-    // it, so nothing may act on it, and no banner shows, until it ends (the tick seats
-    // again then)
-    let caughtUp =
-      current && !writing && queue.isEmpty && !controller.starting
-      && displayedSeq == controller.sequence && !board.raiseShowing
+    // what a watched raise allows comes from one place (RaiseWatch, docs/ONLINE.md "A
+    // watched raise online"; `Seat.decide`)
+    let watch = board.raiseWatch
+    let seat = Seat.decide(
+      current: current, writing: writing, queueEmpty: queue.isEmpty, starting: controller.starting,
+      caughtUpSeq: displayedSeq == controller.sequence, mayAct: controller.mayAct, watch: watch)
+    let caughtUp = seat.caughtUp
     let wasActing = board.acceptsInput
-    board.acceptsInput = caughtUp && controller.mayAct
+    board.acceptsInput = seat.acceptsInput
+    if seat.dropUnsentRaise { board.dropUnsentRaise() }
     if wasActing && !board.acceptsInput {
       board.resetContact()
     }
@@ -615,13 +620,13 @@ public struct PitchMember: Identifiable, Equatable {
     board.watching = stage == .match && (observing || controller.playingSide == nil)
     if current { turnLabel = controller.actorDescription }
     // Someone else's turn: its card becomes a banner, so the dial shows under it.
-    if caughtUp, !controller.mayAct, !board.acceptsInput, let c = board.handoff {
+    if seat.banner, let c = board.handoff {
       watchHandoff = HandoffBanner(handoff: c, until: Self.now() + HandoffBanner.ms)
       board.dismissHandoff()
     }
   }
   private func drain() throws {
-    while !board.playing && !board.raiseShowing, let first = queue.first {
+    while !board.playing && board.raiseWatch.appliesIncoming, let first = queue.first {
       let wait = first.2 - Self.now()
       if wait > 0 {
         if holding == nil {
@@ -670,7 +675,7 @@ public struct PitchMember: Identifiable, Equatable {
   }
   /// Scripted seats use the same release/placement submission as a gesture.
   public func act(_ action: JSONText) throws {
-    guard board.acceptsInput, !board.playing, !board.raiseShowing else { throw PitchError("not-acting") }
+    guard board.acceptsInput, !board.playing, !board.raiseWatch.blocksInput else { throw PitchError("not-acting") }
     try applyOnBoard(action)
     try submit(action)
   }
@@ -723,7 +728,7 @@ public struct PitchMember: Identifiable, Equatable {
   }
   /// The board is drawing something the queue waits behind: a throw's playback or a
   /// watched raise.
-  private var boardBusy: Bool { board.playing || board.raiseShowing }
+  private var boardBusy: Bool { board.playing || board.raiseWatch != .none }
   @discardableResult public func tick(_ dt: Double) throws -> Bool {
     // this member's aim as it stands before the frame: a release in this frame sends it
     let aim = stage == .match && board.canAim && !writing ? JSONText(try board.engine.call("aimState")) : nil
@@ -760,7 +765,7 @@ public struct PitchMember: Identifiable, Equatable {
     // nor while a raise is watched (Codex on PR #46): its engine is at the next throw
     // already, and an aim shown then would take the raise view's camera mid-raise; the
     // newest aim is sampled again on the first frame after it, so the watcher is not behind
-    guard stage == .match, !board.acceptsInput, !boardBusy, waiting,
+    guard stage == .match, !board.acceptsInput, !board.playing, board.raiseWatch.drawsRemoteAim, waiting,
       let aim = aims.sample(now: now), aim != shownAim,
       let output: AimOutput = try? board.read("showAim", aim.text)
     else { return false }
@@ -827,4 +832,25 @@ public struct HandoffBanner {
   public static let ms = 2500
   public let handoff: MatchNeed.Handoff
   public let until: Int
+}
+
+/// The seat's decision from what it knows (OnlinePitch.seat): whether the board is caught
+/// up with the pitch, whether this device may act on it, whether a scheduled raise of its
+/// own must be dropped before it is applied, and whether another's hand-off may show as a
+/// banner. A watched raise's part comes from RaiseWatch (docs/ONLINE.md "A watched raise
+/// online").
+struct Seat: Equatable {
+  let caughtUp, acceptsInput, dropUnsentRaise, banner: Bool
+
+  static func decide(
+    current: Bool, writing: Bool, queueEmpty: Bool, starting: Bool, caughtUpSeq: Bool, mayAct: Bool,
+    watch: RaiseWatch
+  ) -> Seat {
+    let caughtUp = current && !writing && queueEmpty && !starting && caughtUpSeq && watch.seatMayAct
+    let accepts = caughtUp && mayAct
+    return Seat(
+      caughtUp: caughtUp, acceptsInput: accepts,
+      dropUnsentRaise: watch.holdsUnsentAction && !accepts,
+      banner: caughtUp && watch.showsBanner && !mayAct)
+  }
 }
