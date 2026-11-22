@@ -142,7 +142,11 @@ public final class PitchSession {
   private var resultAge = 0.0
   /// The coach line's slow flick (Coach.swift): this player's own last throw was SLOW.
   public internal(set) var coachSlow = false
+  /// ... and this player's own last throw was a drive that fell SHORT (Coach.swift).
+  public internal(set) var coachShort = false
   private var playbackLocal = false
+  /// The throw playing was planned as a drive (engine 0.16, ARC under its knee).
+  private var playbackDrive = false
   /// The shown scene's effects (`useLook`): fed by the playback, drawn after the pieces.
   public private(set) var effects: SceneEffects?
   /// Seconds since this session began, for the night's twinkling stars.
@@ -154,6 +158,9 @@ public final class PitchSession {
   /// The loft (ARC's words) and the side: a baton's tilt in degrees or a kubb's spin
   /// in taps, any value on 0.9.
   public private(set) var arcDegrees: Int?, sideStep: Double?
+  /// The planned launch loft in degrees, as the engine gives it (under 0 for a drive that
+  /// leaves the hand going down, engine 0.16).
+  public private(set) var loft: Double?
   /// The engine's numbers for ARC and for TILT or SPIN (`aim.controls`, since 0.9);
   /// nil on an older engine, whose sliders keep their fixed scale and steps.
   public private(set) var arcControl: PlanControl?, sideControl: PlanControl?
@@ -319,6 +326,30 @@ public final class PitchSession {
     dial = (try read("view") as DialView).dial
     revision += 1
   }
+  /// The review tools' and tests' close throw (engine 0.16's drive; the web's tests'
+  /// standAt): the thrower stands `d` m short of the nearest of the throw's targets (a far
+  /// standing base kubb from 7.5 m), aimed at it, as far forward as the rules let them.
+  /// Review only.
+  public func reviewStand(short d: Double) throws {
+    struct V: Decodable {
+      struct N: Decodable {
+        struct S: Decodable { let targets: [String]? }
+        let setup: S?
+      }
+      struct A: Decodable { let forwardY: Double? }
+      let need: N, aim: A, items: [Piece]
+    }
+    let v: V = try read("view")
+    let target: Piece? =
+      d >= 7.5
+      ? v.items.first { $0.kind == "kubb" && $0.y > 7.5 && $0.z > 0.07 }
+      : (v.need.setup?.targets ?? []).compactMap { id in v.items.first { $0.id == id } }.min { $0.y < $1.y }
+    guard let t = target else { return }
+    let y = max(0, min(v.aim.forwardY ?? 0, t.y - d))
+    try replan("setStance", #"{"x":\#(t.x),"y":\#(y)}"#)
+    try replan("setTarget", #"{"x":\#(t.x),"y":\#(t.y),"snap":true}"#)
+  }
+
   /// The seed the Tournament's neighbours open with (TournamentNeighbours): the match's
   /// own (its snapshot's `opts.seed`, so two phones in one match can show the same
   /// tournament), or for a practice one of this session's, kept while it lasts.
@@ -422,7 +453,8 @@ public final class PitchSession {
     distance = a.plan?.dist
     camera = c
     mix = a.mix ?? 0
-    arcDegrees = a.plan?.loft.map { Int($0.rounded()) }
+    loft = a.plan?.loft
+    arcDegrees = a.plan?.loft.map { PlanScale.whole($0) }
     sideStep = a.projectile == "kubb" ? a.plan?.spin : a.plan?.tilt
     release = a.plan?.release
     projectile = a.projectile
@@ -560,11 +592,16 @@ public final class PitchSession {
     let previousArc = arcDegrees
     let previousSide = sideStep
     let previousRelease = release
+    let previousControl = arcControl
     let a: AimOutput = try read(method, args)
     aim(a.aim, camera: a.camera)
     let view: DialView = try read("view")
     dial = view.dial
-    if arcDegrees != previousArc || sideStep != previousSide || release != previousRelease {
+    // ARC's range moves with the circle and the stance (engine 0.16: its floor), so the
+    // open slider is drawn again when it does, whatever the plan
+    if arcDegrees != previousArc || sideStep != previousSide || release != previousRelease
+      || arcControl != previousControl
+    {
       revision += 1
     }
   }
@@ -670,6 +707,8 @@ public final class PitchSession {
   /// `local`: the throw was made on this device (its verdicts are the player's).
   func beginPlayback(_ recording: Recording, local: Bool = false) throws {
     playbackLocal = local
+    // read before the plan goes: a drive's SHORT verdict is coached
+    playbackDrive = local && isDrive
     plan = false
     openPlate = nil
     endSlide()
@@ -711,7 +750,9 @@ public final class PitchSession {
   }
 
   private func noteOwnResult() {
-    if playbackLocal { coachSlow = result?.slowFlick ?? false }
+    guard playbackLocal else { return }
+    coachSlow = result?.slowFlick ?? false
+    coachShort = Coach.shortDrive(power: result?.verdicts?.power, drive: playbackDrive)
   }
 
   private func play(_ dt: Double) throws {

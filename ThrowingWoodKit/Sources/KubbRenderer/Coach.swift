@@ -28,6 +28,10 @@ public enum Coach {
   ]
   /// The lead line for the throw after one the engine called SLOW.
   public static let slowLine = "SLOW FLICK. FLICK FASTER."
+  /// The lead line for the throw after a drive (engine 0.16: a release under ARC's knee)
+  /// the engine called SHORT: a drive is planned hard, so its stripes are far round (a
+  /// backswing of about 128 to 131 at 3 to 4 m) and a short one fell under them.
+  public static let driveShortLine = "A DRIVE NEEDS MORE POWER."
 
   public struct Line: Equatable, Sendable {
     public let stage: Stage
@@ -51,12 +55,16 @@ public enum Coach {
 
   /// Was the flick too slow? `power`: this player's own throw's power verdict.
   public static func slow(power: String?) -> Bool { power == "SLOW" }
+  /// Was it a drive that fell SHORT (its power under the band)? `drive`: it was planned
+  /// under ARC's knee.
+  public static func shortDrive(power: String?, drive: Bool) -> Bool { drive && power == "SHORT" }
 
   /// The coach for this frame, or nil. `thrown`: this device's throws;
-  /// `slow`: this player's last throw was SLOW.
-  public static func line(thrown: Int, slow: Bool, stage: Stage) -> Line? {
-    if !slow && thrown >= learnedAt { return nil }
-    return Line(stage: stage, lead: slow ? slowLine : nil, line: lines[stage]!)
+  /// `slow`: this player's last throw was SLOW; `short`: it was a drive that fell SHORT
+  /// (slow wins: a slow flick is the first thing to mend).
+  public static func line(thrown: Int, slow: Bool, short: Bool = false, stage: Stage) -> Line? {
+    if !slow && !short && thrown >= learnedAt { return nil }
+    return Line(stage: stage, lead: slow ? slowLine : short ? driveShortLine : nil, line: lines[stage]!)
   }
 }
 

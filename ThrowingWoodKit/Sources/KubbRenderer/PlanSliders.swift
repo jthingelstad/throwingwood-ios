@@ -19,33 +19,83 @@ public struct PlanControl: Decodable, Sendable, Equatable {
   public let min, max, value, tick, step: Double
   public let `default`: Double?
   public let unit, scope: String?
+  /// ARC's knee (engine 0.16, `arc.knee`, 15: half past 5): under it a baton's release is
+  /// a drive. nil on TILT, SPIN and an engine before 0.16.
+  public let knee: Double?
   public init(
     min: Double, max: Double, value: Double, tick: Double, step: Double, default: Double? = nil,
-    unit: String? = nil, scope: String? = nil
+    unit: String? = nil, scope: String? = nil, knee: Double? = nil
   ) {
     (self.min, self.max, self.value, self.tick, self.step) = (min, max, value, tick, step)
-    (self.default, self.unit, self.scope) = (`default`, unit, scope)
+    (self.default, self.unit, self.scope, self.knee) = (`default`, unit, scope, knee)
+  }
+
+  // The drive (engine 0.16, kubb-engine docs/notes/throw.md "The drive"; the web's
+  // plan-sliders.js): a baton's ARC reaches down through flat to a downward drive. `min`
+  // is the throw's floor, which moves with the circle and the stance (0 at a kubb a metre
+  // away, about 12 at 4 m, the knee from about 5 m), and the release under `knee` is the
+  // drive. A thrown kubb has no drive: its range starts at the knee.
+
+  /// Of the track the part under the knee takes when the floor is 0 (the web's
+  /// `drive.share`); less as the floor rises toward the knee, none once it is there. A
+  /// straight track would give the whole drive (15 degrees out of 165) 9% of ARC, too
+  /// little for a thumb.
+  public static let driveShare = 0.3
+
+  /// The knee where the track has a drive part, or nil (a kubb's, TILT, SPIN, an engine
+  /// before 0.16, or a floor at the knee: nothing under it is offered).
+  public var driveKnee: Double? {
+    guard let k = knee, k.isFinite, k > min + 1e-6, k < max else { return nil }
+    return k
+  }
+  /// The share of the track under the knee (0 when there is none).
+  public var driveFraction: Double {
+    guard let k = driveKnee else { return 0 }
+    return Self.driveShare * PlanScale.clamp01((k - min) / k)
+  }
+  /// A release under the knee is a drive.
+  public func isDrive(_ release: Double?) -> Bool {
+    guard let k = knee, k.isFinite, let r = release, r.isFinite else { return false }
+    return r < k - 1e-6
   }
 
   /// A value's place on the track (0 the low end, 1 the high) and back, never rounded.
+  /// With a drive part the track is two straight scales joined at the knee: the floor to
+  /// the knee on the lowest `driveFraction`, the knee to the top on the rest.
   public func fraction(_ v: Double) -> Double {
-    max > min ? PlanScale.clamp01((v - min) / (max - min)) : 0.5
+    guard max > min else { return 0.5 }
+    let x = Swift.max(min, Swift.min(max, v))
+    let kf = driveFraction
+    guard kf > 0, let k = knee else { return PlanScale.clamp01((x - min) / (max - min)) }
+    return x < k
+      ? PlanScale.clamp01((x - min) / (k - min) * kf)
+      : PlanScale.clamp01(kf + (x - k) / (max - k) * (1 - kf))
   }
-  public func value(at f: Double) -> Double { min + PlanScale.clamp01(f) * (max - min) }
+  public func value(at f: Double) -> Double {
+    let u = PlanScale.clamp01(f)
+    let kf = driveFraction
+    guard kf > 0, let k = knee else { return min + u * (max - min) }
+    return u < kf ? min + u / kf * (k - min) : k + (u - kf) / (1 - kf) * (max - k)
+  }
 
   /// The marks on a track `run` points long: one a tick, or, where ticks would come
   /// closer than `gap` points, the fewest ticks apart that divide a step (a baton's
   /// tilt, 1 degree ticks on a 64 point track, marks every 5; a kubb's spin, quarter
-  /// taps, marks every half). The value is free between them.
+  /// taps, marks every half). The value is free between them. ARC with a drive part has
+  /// its marks from the knee up, on that part of the track; the drive part is hatched
+  /// and named instead (the web hides its ticks there).
   public func marks(run: Double, gap: Double = 4) -> [Double] {
     guard tick > 0, max > min, run > 0 else { return [] }
+    let low = driveKnee ?? min
+    let span = (max - low), shown = run * (1 - driveFraction)
+    guard span > 0, shown > 0 else { return [] }
     let ticksPerStep = Swift.max(1, Int((step / tick).rounded()))
     let every =
       (1...ticksPerStep).first { k in
-        ticksPerStep % k == 0 && Double(k) * tick / (max - min) * run >= gap
+        ticksPerStep % k == 0 && Double(k) * tick / span * shown >= gap
       } ?? ticksPerStep
     let spacing = Double(every) * tick
-    let first = (min / spacing).rounded(.up) * spacing
+    let first = (low / spacing - 1e-9).rounded(.up) * spacing
     return stride(from: first, through: max + spacing * 1e-9, by: spacing).map { $0 }
   }
 }
@@ -98,7 +148,30 @@ public enum PlanScale {
 
   /// The headers' words: ARC 32° (the loft), TILT 10R, SPIN 2L, SPIN 1.25R, TILT 0.
   /// A tilt shows whole degrees, a spin its taps to a hundredth (0.9 takes any value).
-  public static func arcLabel(loft: Int?) -> String { "ARC \(loft ?? 0)°" }
+  /// A drive (engine 0.16, a release under ARC's knee) says so: DRIVE 3°, DRIVE −5° (the
+  /// launch's loft, under 0 when the baton leaves the hand going down; the web's arcLabel).
+  public static func arcLabel(loft: Double?, drive: Bool = false) -> String {
+    drive ? "DRIVE \(signed(loft))°" : "ARC \(whole(loft))°"
+  }
+  /// For VoiceOver (the web's arcValueText): "Arc, 32 degrees", "Arc, 3 degrees, drive",
+  /// "Arc, 5 degrees down, drive". `name`: what goes before the value ("Arc, " on the
+  /// plate, "Arc " on the open slider, "" for a value read after its label).
+  public static func arcValueText(loft: Double?, drive: Bool, name: String = "Arc, ") -> String {
+    let r = whole(loft)
+    let v = r < 0 ? "\(-r) degrees down" : "\(r) degrees"
+    return "\(name)\(v)\(drive ? ", drive" : "")"
+  }
+  /// The loft as the plate shows it: whole degrees, a half up (JavaScript's Math.round,
+  /// as the web shows it), never -0.
+  public static func whole(_ loft: Double?) -> Int {
+    guard let l = loft, l.isFinite else { return 0 }
+    return Int((l + 0.5).rounded(.down))
+  }
+  /// The loft with a true minus sign (U+2212) under 0.
+  static func signed(_ loft: Double?) -> String {
+    let r = whole(loft)
+    return r < 0 ? "\u{2212}\(-r)" : "\(r)"
+  }
   public static func sideLabel(_ value: Double, kubb: Bool) -> String {
     let word = kubb ? "SPIN" : "TILT"
     let shown = amount(value, kubb: kubb)
@@ -131,15 +204,29 @@ public enum PlanScale {
     return text
   }
 
-  /// The line on the screen while a slider is held: what it does to the throw.
-  public static func caption(_ slider: PlanSlider, kubb: Bool) -> String {
+  /// The line on the screen while a slider is held: what it does to the throw (the web's
+  /// CAPTIONS, in capitals). From engine 0.16 a baton's lower arc drives in (the owner,
+  /// 2026-11-22: "A real player would throw hard at a tight group this close"): its
+  /// caption says what a lower arc does now, and under the knee what a drive is. A kubb
+  /// has no drive and keeps its words.
+  public static func caption(_ slider: PlanSlider, kubb: Bool, drive: Bool = false) -> String {
     switch slider {
-    case .arc: "A HIGHER ARC DROPS IN STEEPER. A LOWER ONE SKIDS IN."
+    case .arc:
+      kubb
+        ? "A HIGHER ARC DROPS IN STEEPER. A LOWER ONE SKIDS IN."
+        : drive ? driveCaption : "A HIGHER ARC DROPS IN STEEPER. A LOWER ARC DRIVES IN HARDER."
     case .side:
       kubb
         ? "SPIN KEEPS A DRILLED KUBB STEADY IN THE AIR."
         : "TILT LEANS THE BATON TO STEER IT THROUGH A GROUP."
     }
+  }
+  public static let driveCaption = "A DRIVE GOES IN LOW AND HARD, WITH NO FLIP."
+  /// ARC's VoiceOver hint: the caption in a sentence.
+  public static func arcHint(kubb: Bool) -> String {
+    kubb
+      ? "A higher arc drops in steeper, a lower one skids in."
+      : "A higher arc drops in steeper, a lower arc drives in harder. Under the knee it is a drive."
   }
 }
 
@@ -258,6 +345,14 @@ extension PitchSession {
     sideControl?.fraction(sideStep ?? 0)
       ?? PlanScale.sideFraction(sideSteps, kubb: throwsKubb)
   }
+  /// The throw in hand is a drive (engine 0.16: a baton's planned release under ARC's
+  /// knee).
+  public var isDrive: Bool { !throwsKubb && (arcControl?.isDrive(release) ?? false) }
+  /// The share of ARC's track that is the drive's this frame (0: none), from the floor
+  /// the engine gives now.
+  public var driveFraction: Double { throwsKubb ? 0 : (arcControl?.driveFraction ?? 0) }
+  /// ARC's plate words: ARC 32°, DRIVE −5°.
+  public var arcTitle: String { PlanScale.arcLabel(loft: loft, drive: isDrive) }
   /// ARC's marks on a track `run` points long, `long` the level throw's (3 o'clock).
   public func arcMarks(run: Double) -> [(f: Double, long: Bool)] {
     guard let c = arcControl else { return PlanScale.arcMarks }

@@ -109,7 +109,12 @@ extension View {
 
 struct ArcSlider: View {
   /// `place`: the knob (0 the bottom); `marks`: the marks for a track so many points long.
-  let place: Double, loft: Int?, held: Double?
+  let place: Double, held: Double?
+  /// The band's words (ARC 32°, DRIVE −5°) and VoiceOver's value and hint.
+  let title: String, valueText: String, hint: String
+  /// The share of the track under ARC's knee, the drive's (engine 0.16; 0: none), from the
+  /// floor the engine gives this frame.
+  var drive: Double = 0
   let marks: (Double) -> [(f: Double, long: Bool)]
   let enabled: Bool
   let slide: (Double, SlidePhase) -> Void
@@ -121,15 +126,16 @@ struct ArcSlider: View {
   @GestureState private var touching = false
   private let inset: CGFloat = 18
   var body: some View {
-    SliderPlate(title: PlanScale.arcLabel(loft: loft), width: width, height: height, close: close) {
+    SliderPlate(title: title, width: width, height: height, close: close) {
       Canvas { ctx, size in
         let run = size.height - inset * 2
         let slotX: CGFloat = size.width * 0.32
         func y(_ f: Double) -> CGFloat { inset + run * (1 - f) }
+        let m0 = size.width * 0.6, m1 = size.width * 0.86, m2 = size.width * 0.76
+        if drive > 0 { driveZone(ctx, size: size, top: y(drive), bottom: y(0) + 3, lane: (m0 + m1) / 2) }
         ctx.fill(
           Path(roundedRect: CGRect(x: slotX - 3, y: inset - 4, width: 6, height: run + 8), cornerRadius: 3),
           with: .color(.woodInk))
-        let m0 = size.width * 0.6, m1 = size.width * 0.86, m2 = size.width * 0.76
         for m in marks(run) {
           var line = Path()
           line.move(to: CGPoint(x: m0, y: y(m.f)))
@@ -162,8 +168,8 @@ struct ArcSlider: View {
     .opacity(enabled ? 1 : 0.5)
     .accessibilityElement(children: .ignore)
     .accessibilityLabel("Arc")
-    .accessibilityValue("Arc \(loft ?? 0) degrees")
-    .accessibilityHint("A higher arc drops in steeper, a lower one skids in.")
+    .accessibilityValue(valueText)
+    .accessibilityHint(hint)
     .accessibilityAdjustableAction { direction in
       switch direction {
       case .increment: step(1)
@@ -172,6 +178,41 @@ struct ArcSlider: View {
       }
     }
   }
+
+  /// ARC's drive part (the web's .slider-drive): the track under the knee hatched in wood
+  /// across the plate, its top the knee's heavy ink line, and DRIVE up the lane of marks
+  /// (which has none under the knee) where the part is tall enough for the word.
+  private func driveZone(_ ctx: GraphicsContext, size: CGSize, top: CGFloat, bottom: CGFloat, lane: CGFloat) {
+    let zone = CGRect(x: 0, y: top, width: size.width, height: max(0, bottom - top))
+    var c = ctx
+    c.clip(to: Path(zone))
+    // the web's 135 degree stripes: 4 pt of wood at 55% every 8 pt
+    var stripes = Path()
+    var x = -zone.height
+    while x < size.width + zone.height {
+      stripes.move(to: CGPoint(x: x, y: zone.maxY))
+      stripes.addLine(to: CGPoint(x: x + zone.height, y: zone.minY))
+      x += 8 * 2.squareRoot()
+    }
+    c.stroke(stripes, with: .color(Color.woodHeader.opacity(0.55)), lineWidth: 4)
+    ctx.fill(Path(CGRect(x: 0, y: top - 1.5, width: size.width, height: 3)), with: .color(.woodInk))
+    if zone.height >= ArcDrive.wordFrom {
+      var w = ctx
+      w.translateBy(x: lane, y: zone.maxY - 5)
+      w.rotate(by: .degrees(-90))
+      w.draw(
+        Text(ArcDrive.word).font(displayFont(14)).tracking(0.5).foregroundStyle(Color.woodInk),
+        at: .zero, anchor: .leading)
+    }
+  }
+}
+
+/// ARC's drive part's word (the web's `drive.word`) and the least height that names it:
+/// the web hides it under 44 px at 10 px; the app's words are never under 14 pt, so it
+/// needs a taller part.
+enum ArcDrive {
+  static let word = "DRIVE"
+  static let wordFrom: CGFloat = 54
 }
 
 struct SideSlider: View {

@@ -696,7 +696,7 @@ struct MatchScreen: View {
       } else if let stand = pitch.standCaption, n.kind == "throw" {
         SliderCaption(text: stand, maxWidth: wide).aligned(from)
       } else if let held = pitch.held, n.kind == "throw" {
-        SliderCaption(text: PlanScale.caption(held, kubb: pitch.throwsKubb), maxWidth: wide).aligned(from)
+        SliderCaption(text: PlanScale.caption(held, kubb: pitch.throwsKubb, drive: pitch.isDrive), maxWidth: wide).aligned(from)
       } else if let wind = pitch.windText, n.kind == "throw" {
         Text(wind).font(bodyFont(14, .bold, relativeTo: .footnote)).modifier(Plate(inset: 5))
       }

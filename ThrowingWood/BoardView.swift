@@ -639,11 +639,13 @@ import UIKit
       // the coach line: words for the thrower, never while watching, over the
       // nudge's ghost (which shows the same stroke) or with a slider's caption
       var slow = pitch.coachSlow
+      var short = pitch.coachShort
       #if targetEnvironment(simulator)
         if matchReview == "coachslow" { slow = true }
+        if matchReview == "coachshort" { short = true }
       #endif
       if pitch.canAim, ghost == nil, pitch.held == nil,
-        let line = Coach.line(thrown: nudge.thrown, slow: slow, stage: Coach.stage(pitch.dial))
+        let line = Coach.line(thrown: nudge.thrown, slow: slow, short: short, stage: Coach.stage(pitch.dial))
       {
         let place = PracticeHUD.coachPlace(meter, wide: WideLayout.isWide(bounds.size))
         var plans = model.screen == .match ? trayFrames : []
