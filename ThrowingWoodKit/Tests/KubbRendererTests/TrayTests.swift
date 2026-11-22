@@ -280,6 +280,11 @@ import Testing
     #expect(VerdictWords.spoken(flag: r.flag, words: r.words) == "Short. Shaky. Pulled left. Miss. Arc on.")
     let one = try result(#"{"flag":"MISS","verdicts":{"power":"SHORT","release":"ON","steady":"STEADY","side":"STRAIGHT"}}"#)
     #expect(VerdictWords.spoken(flag: one.flag, words: one.words) == "Short. Miss. Arc on, steady, straight.")
+    // where it came to rest is on screen under the verdict, so it is spoken too
+    #expect(
+      VerdictWords.spoken(flag: one.flag, words: one.words, rest: "50 CM AWAY")
+        == "Short. Miss. Arc on, steady, straight. 50 cm away.")
+    #expect(VerdictWords.spoken(flag: one.flag, words: one.words, rest: "") == "Short. Miss. Arc on, steady, straight.")
     let arrows: [String: VerdictWords.Arrow] = [
       "SHORT": .down, "LOW": .down, "LONG": .up, "HIGH": .up, "PULLED LEFT": .left, "PULLED RIGHT": .right,
       "SHAKY": .wavy, "SLOW": .clock,
