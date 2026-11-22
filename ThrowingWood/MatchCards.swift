@@ -394,11 +394,19 @@ struct MenuGrid: View {
 /// a new practice in it, as on the web.
 struct PracticeMenu: View {
   @Bindable var model: GameModel
+  @Environment(\.dynamicTypeSize) private var type
+  @Environment(\.screenGeometry) private var screen
   var body: some View {
+    // on a screen on its side, or at the largest text sizes, the version goes with the
+    // rows (as the match menu's), so the pinned foot leaves the rows their room
+    let footInRows = FootInRows.at(type, wide: screen.wide)
     CardScreen(width: 400) {
       VStack(alignment: .leading, spacing: TW.rowGap) {
         Text("Menu").cardTitle()
-        let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+        // three across on a screen on its side, so the Scene tiles come into view
+        // one under another at the largest text sizes, as the match menu's grid
+        let columns = Array(
+          repeating: GridItem(.flexible(), spacing: 12), count: type >= .accessibility3 ? 1 : screen.wide ? 3 : 2)
         LazyVGrid(columns: columns, spacing: 12) {
           SettingsButton(model: model)
           Button(action: model.openHowTo) { Text("HOW TO THROW").frame(maxWidth: .infinity) }
@@ -427,19 +435,30 @@ struct PracticeMenu: View {
             }
           }
         }
+        if footInRows, let label = model.pitch?.versionLabel { VersionFooter(label: label) }
       }
     } buttons: {
       VStack(alignment: .leading, spacing: 8) {
-        Button {
+        let back = Button {
           model.screen = .practice
         } label: {
-          Text("BACK TO THE PITCH").frame(maxWidth: .infinity)
+          Text("BACK TO THE PITCH").lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity)
         }.buttonStyle(WoodButton(accent: true))
-        HStack {
-          Spacer()
-          QuietButton("HOME", action: model.home)
+        if screen.wide {
+          // on its side: HOME quiet at the left and the go at the right, in one row
+          HStack(spacing: 12) {
+            QuietButton("HOME", action: model.home)
+            Spacer(minLength: 0)
+            back.frame(maxWidth: 220)
+          }
+        } else {
+          back
+          HStack {
+            Spacer()
+            QuietButton("HOME", action: model.home)
+          }
         }
-        if let label = model.pitch?.versionLabel { VersionFooter(label: label) }
+        if !footInRows, let label = model.pitch?.versionLabel { VersionFooter(label: label) }
       }
     }
   }
