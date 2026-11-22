@@ -47,7 +47,8 @@ intensity and sharpness. Intensities and sharpness use the Core Haptics 0–1 sc
 | Tick | Own arm enters or exits the power or release band | (0, 0.18, 0.75) per edge |
 | Release | Own input frame releases the throw | (0, 0.78, 0.65) |
 | Contact | A recorded wood pair strikes | (0, 0.15 + 0.80s, 0.65) |
-| Landing | Baton first hits grass, sand or snow | (0, 0.10 + 0.35s, 0.20 grass / 0.10 sand / 0.04 snow) |
+| Landing | Baton first hits grass, sand, snow or the grid | (0, 0.10 + 0.35s, 0.20 grass / 0.10 sand / 0.04 snow / 0.55 grid) |
+| Ring | A ground impact of strength 0.1 or more in a scene that rings (Techno), but within 30 ms of the baton's landing | (0, 0.08 + 0.3s, 0.9) |
 | King down | King burst on the displayed throw | (0, 0.90, 0.32), (85, 0.66, 0.18) |
 | Win | Newly displayed winner is the solo player's side or the online member's playing side | (0, 0.40, 0.45), (95, 0.72, 0.70) |
 | Hand-off | Presentation opens the engine's hand-off card | (0, 0.32, 0.40) |

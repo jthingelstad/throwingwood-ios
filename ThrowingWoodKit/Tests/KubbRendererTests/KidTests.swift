@@ -41,6 +41,10 @@ import Testing
     let p = app.standPoint
     #expect(StandPad.caption(x: p.x, y: p.y, aim: app.standAim) == "MIDDLE, ON THE KID LINE. STAND ANYWHERE FROM BEHIND YOUR LINE UP TO THE KID LINE.")
     #expect(StandPad.valueText(x: p.x, y: p.y, aim: app.standAim) == "middle, on the kid line")
+    // VoiceOver's minimap names it
+    #expect(app.kidLineOut == 2)
+    #expect(MeterWords.mapSummary(standing: ["A": 3, "B": 3], teams: nil, metres: 6, kidLine: app.kidLineOut)
+      == "Map of the pitch: Team A 3 kubbs standing, Team B 3. The target is 6 metres out. The Kid line is 2 metres out.")
     // a kubb's limit is the Kid line too
     let kubb = StandAim(projectile: "kubb", lineY: 0, forwardY: 2, kidY: 2)
     #expect(StandPad.Span(kubb).limit == 2)

@@ -286,6 +286,25 @@ public final class PitchSession {
     engine = e
   }
 
+  /// The review tools' spin picture: the practice pitch drilling a kubb (`setDrill`) at
+  /// SPIN's most (`setSpin`, the engine's `controls.spin.max`). Review only.
+  public func reviewDrill() throws {
+    _ = try engine.call("setDrill", json: #"{"on":true}"#)
+    try adopt(read("view"))
+    let most = sideControl?.max ?? 1
+    let a: AimOutput = try read("setSpin", #"{"spin":\#(most)}"#)
+    aim(a.aim, camera: a.camera)
+    struct DialView: Decodable { let dial: DialState }
+    dial = (try read("view") as DialView).dial
+    revision += 1
+  }
+  /// The Kid line's distance in front of the thrower's own line (m), in a Kid match.
+  public var kidLineOut: Double? { scene.kidY.map { $0 - standAim.lineY } }
+  /// The live rings' ages (s), for the review tools' ring picture.
+  public var ringAges: [Double] { effects?.impacts?.live.map(\.age) ?? [] }
+  /// A piece is drawn as a spin this frame (Spin.swift), most of the way.
+  public var spinsFast: Bool { scene.spins?.values.contains { $0.u > 0.8 } == true }
+
   /// Ground impacts on (`setImpacts`, engine 0.14), once per Lua state: each recording's
   /// `timeline.impacts` from the next throw, for the scenes that ring or puff
   /// (Impacts.swift). Presentation only, in no snapshot, action or hash; an engine before

@@ -102,13 +102,12 @@ public struct SoloOptions {
     s["set"] = entry.resolve(set: s["set"])
     return s
   }
-  /// The selections after the player picks scene `id` on a card: the new scene's surface
-  /// and set (its `defaults`, the engine's client guide: "When the player changes scene,
-  /// take the new rows and their defaults").
+  /// The selections after the player picks scene `id` on a card: the new scene's rows,
+  /// and its surface and set, the ones chosen kept where it allows them, else its defaults
+  /// (the web's throughScene: Black & White keeps the sand a player chose before Beach).
   public func choosing(scene id: String, _ selections: [String: String]) -> [String: String] {
     var s = selections
     s["scene"] = id
-    for (k, v) in card(id)?.defaults ?? [:] { s[k] = v }
     return starting(s)
   }
 

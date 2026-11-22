@@ -21,6 +21,20 @@ MODES = {
     "winner": "over", "sheet": "over",
     # Settings opened from a match's menu, in the match's scene (--scene)
     "matchsettings": "aim",
+    # engine 0.15: a Kid match the app starts against the Kid computer (no fixture), its
+    # hand-off, aim, side view (the Kid line and its cones) and STAND (worded for the
+    # line); Techno's ring part way grown (--scene neon); a kubb drilled at SPIN's most
+    "kidhandoff": None, "kidaim": None, "kidplan": None, "kidstand": None,
+    "ring": "aim", "spin": None,
+}
+# Shots taken only when asked for (--only): they need a scene or show one thing.
+ON_REQUEST = {"kidhandoff", "kidaim", "kidplan", "kidstand", "ring", "spin"}
+# The engine's catalogue (core/scenes): each scene's ground and set, so a fixture shown
+# in a scene is the match a scene would have started (engine 0.14: the scene decides).
+SCENES = {
+    "day": ("grass", "classic"), "beach": ("sand", "classic"), "night": ("grass", "classic"),
+    "neon": ("grid", "classic"), "minnesota": ("snow", "minnesota"), "tournament": ("grass", "usa"),
+    "bw": ("grass", "classic"),
 }
 # The match with the linear meter (and the nudge) beside the plan's sliders:
 # name: (MATCH_REVIEW mode, fixture, meter, side). The meter is a launch
@@ -104,6 +118,8 @@ def capture(phone, args):
                 continue
             if args.landscape and not args.only and shot not in LANDSCAPE:
                 continue
+            if not args.only and shot in ON_REQUEST:
+                continue
             if not args.landscape and shot in LANDSCAPE_ONLY:
                 continue
             ready = tmp / "review-ready"
@@ -115,6 +131,7 @@ def capture(phone, args):
                     # the same match in a scene: its options name it, as a match started in it does
                     snap = json.loads(src.read_text())
                     snap["opts"]["scene"] = args.scene
+                    snap["opts"]["surface"], snap["opts"]["set"] = SCENES[args.scene]
                     (tmp / "review-solo.json").write_text(json.dumps(snap))
                 else:
                     shutil.copyfile(src, tmp / "review-solo.json")
@@ -171,7 +188,7 @@ if __name__ == "__main__":
     parser.add_argument("--ipad", action="store_true", help="the two review iPads, not the phones")
     parser.add_argument("--landscape", choices=["left", "right"],
                         help="turn the interface this way (the landscape shots)")
-    parser.add_argument("--scene", choices=["night", "neon"],
+    parser.add_argument("--scene", choices=list(SCENES),
                         help="the shots in a scene (<phone>-<scene>-<shot>.png; implies --capture-only)")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)

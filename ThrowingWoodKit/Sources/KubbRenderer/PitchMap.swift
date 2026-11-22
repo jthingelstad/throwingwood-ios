@@ -23,6 +23,19 @@ extension PitchScene {
     return s
   }
 
+  /// A scene tile's postcard of the pitch (the web's SYSTEM.md "Scene tiles"): a low
+  /// camera from behind the near baseline, the eye at (0.6, -5.2, 1.5) m looking at (0, 9,
+  /// 0.9) m, focal length 330 in the 400 by 240 frame, so the scene's sky and scenery show.
+  public static let postcard: Camera = {
+    let eye = V3(0.6, -5.2, 1.5), at = V3(0, 9, 0.9)
+    let f = simd_normalize(at - eye)
+    let r = simd_normalize(cross(f, V3(0, 0, 1)))
+    let u = cross(r, f)
+    return Camera(
+      px: eye.x, py: eye.y, pz: eye.z, fx: f.x, fy: f.y, fz: f.z, rx: r.x, ry: r.y, rz: r.z, ux: u.x, uy: u.y,
+      uz: u.z, f: 330, cx: 200, cy: 120, lx: at.x, ly: at.y, lz: at.z)
+  }()
+
   /// The minimap's plate: the same as a tray plate's (the 1.0 design, "Minimap: one
   /// home"): a 3 pt ink line, radius 6 and a 3 pt hard shadow.
   public static let mapLine: CGFloat = 3, mapRadius: CGFloat = 6, mapShadow: CGFloat = 3

@@ -74,7 +74,9 @@ struct MapReader: View {
           .accessibilityElement()
           .accessibilityAddTraits(.isImage)
           .accessibilityLabel(
-            MeterWords.mapSummary(standing: need.standing, teams: need.teams, metres: pitch.canAim ? pitch.distance : nil))
+            MeterWords.mapSummary(
+              standing: need.standing, teams: need.teams, metres: pitch.canAim ? pitch.distance : nil,
+              kidLine: pitch.kidLineOut))
       }
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
