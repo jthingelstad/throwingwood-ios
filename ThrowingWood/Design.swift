@@ -225,7 +225,7 @@ struct CardScreen<Rows: View, Buttons: View>: View {
             ScrollView {
               rows().fixedSize(horizontal: false, vertical: true)
             }
-            .scrollBounceBehavior(.basedOnSize).defaultScrollAnchor(.top)
+            .scrollBounceBehavior(.basedOnSize).defaultScrollAnchor(Self.anchor)
           }
           // the rows are offered all the height the button row leaves (a VStack
           // would offer them a share), so a card that fits is shown whole
@@ -246,6 +246,17 @@ struct CardScreen<Rows: View, Buttons: View>: View {
       .frame(maxWidth: .infinity, maxHeight: fill ? .infinity : nil, alignment: .top)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+  }
+}
+
+extension CardScreen {
+  /// Where a card's scrolling rows open: the top, or the foot for a review picture of
+  /// a card's last rows (`REVIEW_CARD_FOOT`, the simulator only).
+  static var anchor: UnitPoint {
+    #if targetEnvironment(simulator)
+      if ProcessInfo.processInfo.environment["REVIEW_CARD_FOOT"] != nil { return .bottom }
+    #endif
+    return .top
   }
 }
 

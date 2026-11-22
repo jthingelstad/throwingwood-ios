@@ -381,7 +381,7 @@ docs/ONLINE.md "Names", docs/MATCH.md.
 ## Where a setting lives
 
 Each setting lives where the owner's scopes put it (his sheet, 2026-11-20). The
-device's (Your name, Sound, Haptics, Meter, Meter side) are together on
+device's (Your name, Sound, Haptics, Meter, Meter side, App icon) are together on
 one Settings card (`SettingsCard`), reached from home and from inside every match (the
 match and pitch menus' SETTINGS, the practice menu's Settings); no other screen makes
 their controls, but for the name: the device's name row is in Settings and in a set-up
@@ -424,6 +424,11 @@ The web (0.7.0) is the reference: keep its numbers and colours (`SceneRenderer.s
   no hit flash.
 - Review pictures take `--scene night|neon` on the solo and online tools
   (`<phone>-<scene>-<shot>.png`). docs/RENDER.md "Scenes".
+- **The app icon** is each scene's own king, drawn by the renderer (`AppIconArt`, the
+  owner's direction of 2026-11-22): Park the primary with dark and tinted looks, Camping
+  and Techno alternates picked in Settings' App icon row. Never edit the PNGs: change
+  `AppIconArt` and run `scripts/make-app-icons.sh`. A new scene's icon is one line in
+  `AppIconArt.icons` (`AppIconTests`). docs/RENDER.md "The app icon".
 
 ## The 1.0 design
 

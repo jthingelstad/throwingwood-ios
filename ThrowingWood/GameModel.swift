@@ -226,6 +226,11 @@ import Observation
           raiseAutomatically = mode == "raiseauto"
           if mode == "raiserest" { pitch.raiseRest() }
           if mode == "menu" { screen = .menu }
+          if mode == "matchsettings" {
+            // Settings from the match's menu, in the match's scene
+            screen = .menu
+            openSettings()
+          }
           if mode == "sheet" { showSheet() }
           return
         }

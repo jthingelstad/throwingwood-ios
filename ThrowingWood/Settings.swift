@@ -118,13 +118,16 @@ struct PlayerLine: View {
 }
 
 /// Settings: the device's own choices in one place (the owner's scopes: name,
-/// sound, haptics, meter and its side), reached from home, a set-up screen's line, the
-/// match and pitch menus and the practice menu. Nothing about one game is here: those
+/// sound, haptics, meter and its side; and the app's icon), reached from home, a set-up
+/// screen's line, the match and pitch menus and the practice menu. Nothing about one game is here: those
 /// are the game's options (the solo options, the practice menu, the lobby). The 1.0
 /// design: the name with SHUFFLE and two word steppers, Sound, Haptics, Meter, Meter
 /// side, one muted line, the version at the foot and DONE, go, at the bottom right.
+/// App icon follows them: the home screen's icon, a tile per scene's king (the owner's
+/// direction, 2026-11-22).
 struct SettingsCard: View {
   @Bindable var model: GameModel
+  @State private var icon = AppIconChoice()
   @Environment(\.dynamicTypeSize) private var type
   @Environment(\.screenGeometry) private var screen
   var body: some View {
@@ -143,6 +146,10 @@ struct SettingsCard: View {
         FeedbackSettings(feedback: model.feedback)
         Rule()
         MeterSettings(meter: model.meter)
+        if icon.available {
+          Rule()
+          AppIconSettings(choice: icon)
+        }
         if footInRows, let label = model.pitch?.versionLabel { VersionFooter(label: label) }
       }
     } buttons: {
@@ -167,6 +174,6 @@ struct SettingsButton: View {
     Button(action: model.openSettings) {
       Text("SETTINGS").frame(maxWidth: .infinity)
     }
-    .accessibilityHint("Your name, sound, haptics and meter")
+    .accessibilityHint("Your name, sound, haptics, meter and app icon")
   }
 }
