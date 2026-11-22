@@ -328,24 +328,42 @@ struct MatchMenu: View {
       }
     } buttons: {
       VStack(alignment: .leading, spacing: 8) {
-        Button {
-          model.screen = .match
-        } label: {
-          Text("BACK TO THE MATCH").frame(maxWidth: .infinity)
-        }.buttonStyle(WoodButton(accent: true))
-        HStack {
-          QuietButton(pitch.need?.resignPending == nil ? "RESIGN" : "RESIGNING…") {
-            model.perform {
-              try pitch.resign()
-              model.screen = .match
-            }
-          }.disabled(pitch.need?.resignPending != nil)
-          Spacer()
-          QuietButton("HOME", action: model.home)
+        if screen.wide {
+          // on its side a phone is about 390 pt tall: RESIGN and HOME quiet beside the go,
+          // last in its row, so the rows above are shown whole
+          HStack(spacing: 12) {
+            resign
+            QuietButton("HOME", action: model.home)
+            back.frame(maxWidth: 220)
+          }
+        } else {
+          back
+          HStack {
+            resign
+            Spacer()
+            QuietButton("HOME", action: model.home)
+          }
         }
         if !footInRows { VersionFooter(label: pitch.versionLabel) }
       }
     }
+  }
+
+  private var back: some View {
+    Button {
+      model.screen = .match
+    } label: {
+      Text("BACK TO THE MATCH").lineLimit(1).minimumScaleFactor(0.7).frame(maxWidth: .infinity)
+    }.buttonStyle(WoodButton(accent: true))
+  }
+
+  private var resign: some View {
+    QuietButton(pitch.need?.resignPending == nil ? "RESIGN" : "RESIGNING…") {
+      model.perform {
+        try pitch.resign()
+        model.screen = .match
+      }
+    }.disabled(pitch.need?.resignPending != nil)
   }
 }
 
