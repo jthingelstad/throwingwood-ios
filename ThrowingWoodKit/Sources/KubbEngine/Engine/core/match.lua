@@ -35,6 +35,7 @@ import "core/debris"
 import "core/order"
 import "core/world"
 import "core/body"
+import "core/cpu"      -- the computer's raising by level (match.raisePolicy)
 
 local rules, notation, frame, outcome, debris = tw.rules, tw.notation, tw.frame, tw.outcome, tw.debris
 local order, world, body, pitch = tw.order, tw.world, tw.body, tw.pitch
@@ -96,6 +97,8 @@ function match.new(opts)
 		debris = debris.new(),    -- batons and downed kubbs lying on the pitch this turn
 		order = order.new(g.teams),   -- who throws (core/order)
 		lineup = match.lineupOf(g, opts.teams),   -- each player's roster key and level
+		cpu = opts.cpu,           -- the sides the computer plays (match.raisePolicy), or nil
+		raising = opts.raising,   -- a policy by side (match.raisePolicy), or nil
 	}
 end
 
@@ -179,15 +182,74 @@ local function countTurn(m)
 	if m.game.turn ~= m.turn then m.turn, m.tossed = m.game.turn, 0 end
 end
 
+-- ---------- raising by side (0.12.0) ----------
+--
+-- The defender's kubbs are raised by the policy of the side that defends: the computer
+-- by its level (core/cpu.raising: pro par, club apart, beginner first), a person by the
+-- engine's best advice (cpu.advice, par). That needs to know which sides the computer
+-- plays, which a match knows from
+--   m.cpu      the sides the computer plays: a list ({ "B" }, {} for none) or a set
+--              ({ B = true }); match.new's `cpu`. Not saved (core/save): a client that
+--              resumes a match sets it again (the session does, from its options).
+--   m.mode     "Vs Playdate" when m.cpu is not given: Team B is the Playdate (core/lineup's
+--              VS PLAYDATE). The mode is saved, so a resumed match knows it too.
+-- and each computer side's level from the lineup (its first player that has one; none:
+-- autothrow.tune.level, as its throws). m.raising = { A = policy, B = policy }
+-- (match.new's `raising`, not saved) names a side's policy outright, a name in
+-- tw.raising.policies or a function(dec, ctx); it wins over the rest.
+-- A match that says none of this (no cpu, no raising, another mode) raises every kubb
+-- with the game's one policy, game.raisePolicy (apart), as before 0.12.
+
+-- The sides the computer plays as a set ({ B = true }), {} for none, or nil when the
+-- match does not say.
+function match.cpuSides(m)
+	local c = m.cpu
+	if c == nil then
+		if m.mode == "Vs Playdate" then return { B = true } end
+		return nil
+	end
+	local out = {}
+	for k, v in pairs(c) do
+		if type(k) == "number" then out[v] = true elseif v then out[k] = true end
+	end
+	return out
+end
+
+-- The level of `side` (its first player in the lineup that has one), or nil.
+function match.sideLevel(m, side)
+	for _, e in ipairs(m.lineup and m.lineup[side] or {}) do
+		if e.level then return e.level end
+	end
+	return nil
+end
+
+-- The policy `side`'s kubbs are raised with when the engine raises them: m.raising's;
+-- else, when the match knows which sides the computer plays, a function that raises as
+-- the computer at the side's level (cpu.raise, which keeps its reason in cpu.last) for a
+-- computer side and cpu.advice ("par") for a person's; else nil, which Game:raise takes
+-- as the game's own (game.raisePolicy).
+function match.raisePolicy(m, side)
+	local r = m.raising and m.raising[side]
+	if r ~= nil then return r end
+	local sides = match.cpuSides(m)
+	if not sides then return nil end
+	if sides[side] then
+		local level = match.sideLevel(m, side)
+		return function(dec, ctx) return tw.cpu.raise(dec, ctx, level) end
+	end
+	return tw.cpu.advice
+end
+
 -- Raise every lying kubb and place every punishment kubb (automatically,
--- with the engine's policies). Returns how many of each.
+-- with the engine's policies: the raising is the defender's, match.raisePolicy).
+-- Returns how many of each.
 function match.settle(m)
 	local g = m.game
 	local raised, punished = 0, 0
 	while true do
 		local n = g:need()
 		if n.kind == "raise" then
-			g:raise(nil)
+			g:raise(nil, match.raisePolicy(m, n.side))
 			raised = raised + 1
 		elseif n.kind == "punish" then
 			g:autoPunishment()

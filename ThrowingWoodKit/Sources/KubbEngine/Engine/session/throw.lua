@@ -73,9 +73,18 @@ throw.tune = {
 	arcFitFrom = 6,       -- the plan view keeps the arc on screen from this point on
 }
 
+-- The level a thrower record names (s.level: a named player's; s.defaultLevel: the
+-- session's; throw.level otherwise). From 0.13 it changes nothing in a person's throw:
+-- every person plans and throws on one meter (throw.meterFor, plan.meters). It is kept
+-- so older callers and records still read and write it.
 throw.level = plan.tune.defaultLevel
 function throw.levelFor(s)
 	return s.level or s.defaultLevel or throw.level
+end
+-- The meter a person's throw is planned on (plan.meter): the same for every person,
+-- whatever throw.levelFor(s) says.
+function throw.meterFor(s)
+	return plan.meter()
 end
 
 -- ---------- pieces ----------
@@ -319,17 +328,25 @@ local function forwardLimit(s)
 end
 throw.forwardLimit = forwardLimit
 
+-- The default release for the throw as it is planned now: a drill's, or a baton's
+-- for the distance from the stance to the circle (plan.arcFor).
+function throw.defaultArc(s)
+	if s.projectile == "kubb" then return plan.arcFor("drill") end
+	local dx, dy = s.markerX - s.playerX, s.markerY - s.playerY
+	return plan.arcFor("baton", math.sqrt(dx * dx + dy * dy))
+end
+
 local function replan(s)
 	local kubb = s.projectile == "kubb"
 	if not s.stanceSet then
 		local o = plan.stance(s.markerX, s.markerY, s.lineY, forwardLimit(s), throw.tune.halfWidth, {})
 		s.playerX, s.playerY = o.x, o.y
 	end
-	if not s.arcSet then s.release = plan.arcFor(kubb and "drill" or s.markerKind) end
+	if not s.arcSet then s.release = throw.defaultArc(s) end
 	local q = {
 		projectile = kubb and "kubb" or "baton",
 		px = s.playerX, py = s.playerY, tx = s.markerX, ty = s.markerY,
-		release = s.release, level = throw.levelFor(s),
+		release = s.release, meter = throw.meterFor(s),
 		-- a drill runs on by the ground and less with spin (drill.slideFor)
 		surface = s.surface, spin = kubb and s.spin or 0,
 	}
@@ -353,7 +370,7 @@ local function replan(s)
 	local sol = plan.solve(q, {})
 	s.sol = sol
 	s.swivel, s.loftDeg = sol.swivel, sol.loft
-	s.planLevel, s.planDirty = q.level, false
+	s.planLevel, s.planDirty = throw.levelFor(s), false
 end
 throw.replan = replan
 
@@ -467,7 +484,7 @@ function throw.new(opts)
 		markerX = 0, markerY = 0, markerHeld = 0, markerSide = nil, markerFixed = false,
 		markerOnId = nil, markerSet = false, markerKind = "base", markerMoving = false,
 		stanceSet = false,
-		release = plan.arcFor("base"), arcSet = false, tilt = 0, spin = 0,
+		release = plan.arcFor("baton"), arcSet = false, tilt = 0, spin = 0,
 		sol = {}, planDirty = true, planLevel = nil,
 		lastBack = nil, lastStop = nil, showVerdicts = false,
 		vPower = 0, vRelease = 0, vSteady = true, restText = nil,
@@ -679,7 +696,7 @@ function throw.controls(s)
 	local kubb = s.projectile == "kubb"
 	local out = {
 		arc = { min = pt.releaseMinDeg, max = pt.releaseMaxDeg, value = s.release, set = s.arcSet and true or false,
-			default = plan.arcFor(kubb and "drill" or s.markerKind), tick = pt.arcTickDeg, step = pt.arcStepDeg,
+			default = throw.defaultArc(s), tick = pt.arcTickDeg, step = pt.arcStepDeg,
 			unit = "deg", scope = "throw" },
 	}
 	if kubb then
@@ -894,7 +911,7 @@ function throw.showAim(s, a)
 	local P = a.plan
 	s.cpuPlan, s.cpuSpeed = P, a.speed
 	if a.drill and a.drill.spin then
-		s.spin = (a.drill.spin - drill.tune.spiral) / plan.tune.spinPerStep
+		s.spin = drill.plannedSpin(a.drill.spin) / plan.tune.spinPerStep
 	end
 	s.cpuTarget = P ~= nil and P.tx ~= nil
 	-- the circle and its label move together: the label names the piece the
@@ -964,9 +981,10 @@ end
 -- fire): plan.launch against the solved plan. Returns L and how.
 function throw.playerLaunch(s, r)
 	local kubb = s.projectile == "kubb"
-	local o = { projectile = kubb and "kubb" or "baton", tilt = s.tilt, spin = s.spin, level = throw.levelFor(s) }
+	-- (no level: the solution's, the person's meter at this distance)
+	local o = { projectile = kubb and "kubb" or "baton", tilt = s.tilt, spin = s.spin }
 	o.nerves = nervesFor(s) or nil
-	if s.planDirty or s.planLevel ~= o.level then replan(s) end
+	if s.planDirty or s.planLevel ~= throw.levelFor(s) then replan(s) end
 	local L = plan.launch(s.sol, r, o, {})
 	return L, kubb and "drill" or "baton"
 end
@@ -983,6 +1001,7 @@ function throw.cpuLaunch(s, a)
 		if d.noseDown then
 			L.speed, L.loft, L.swivel, L.tilt, L.tumble, L.legal = a.speed, a.loftDeg, a.swivel, 0, 0, true
 			L.noseDown, L.rollLand, L.spin, L.wobble = d.noseDown, d.rollLand, d.spin, d.wobble
+			L.scatter = d.scatter
 		else
 			s.stanceSet, s.arcSet, s.tilt, s.spin = false, false, 0, 0
 			s.projectile, s.drill = "kubb", true
@@ -1102,7 +1121,7 @@ function throw.fire(s, L, how, info)
 	if kubb then
 		if drilling then
 			b = phys.launchDrill(w, id, s.playerX, s.playerY, L.swivel, L.loft, L.speed, L.noseDown, L.rollLand,
-				L.spin, L.wobble)
+				L.spin, L.wobble, L.scatter)
 		else
 			b = phys.launchKubb(w, id, s.playerX, s.playerY, L.swivel, L.loft, L.speed, tumble)
 		end

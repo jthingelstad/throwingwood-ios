@@ -2,8 +2,8 @@
 -- game is finished playing on a pitch I'd like the URL to allow people to come and watch
 -- a replay of the match."). Not a video: the match is set out again from its options and
 -- every committed action goes through this engine in order, the same throws with the
--- same physics. The pitch's document keeps what it needs (src/net/lobby.js): the
--- newMatch options, the hash at the start, and each action with the hash after it.
+-- same physics. What it needs is the newMatch options, the hash at the start, and each
+-- action with the hash after it: the pitch server's `meta` and log (docs/PITCH.md).
 --
 --   local r = replay.new { setup = <newMatch options>, h0 = "<hash>", log = { { a = action, h = "<hash>" }, ... } }
 --   replay.new { start = "<snapshot>", h0 = ..., log = ... } sets out from the match's first
@@ -14,7 +14,7 @@
 --   r:info()   { i, total, turn, thrown, throws, differs, done } (and since 0.7.2 the checks:
 --              forged, outOfBounds, refusedAt and the rest, below)
 --   r:finish() every action left; the info
---   r:document() the room document of the finished match (below)
+--   r:document() the pitch document of the finished match (below)
 --
 -- Checking a shared match (docs/SESSION.md "What a server can prove"), options of new:
 --   checkCpu = true     before each of the computer's throws the engine makes its own from
@@ -24,7 +24,7 @@
 --   checkThrows = true  each person's throw is held to what the dial could give
 --                       (session/check); one that is not marks `outOfBounds`, with
 --                       `outOfBoundsAt` and `outOfBoundsWhy`
---   document = true     build the room document as it goes (r:document; or { ids, host });
+--   document = true     build the pitch document as it goes (r:document; or { ids, host });
 --                       also keeps the hash after each action (r.hashes)
 -- A refused action sets `refusedAt` (the first one's index) as well as `differs`.
 --
@@ -37,9 +37,9 @@ import "version"
 import "session/json"
 import "session/session"
 import "session/check"
-import "room/lobby"
+import "pitch/lobby"
 
-local session, check, json, lobby = tw.web.session, tw.web.check, tw.web.json, tw.room.lobby
+local session, check, json, lobby = tw.web.session, tw.web.check, tw.web.json, tw.shared.lobby
 local NULL = json.null
 
 local replay = {}
@@ -209,8 +209,8 @@ function Replay:info()
 		cpuChecked = self.cpuChecked, throwsChecked = self.throwsChecked }
 end
 
--- The room document a finished match would have (docs/ROOM.md "The document"), built by
--- the room's own reducers as a pitch builds it: the teams joined, the options set, START
+-- The pitch document a finished match would have, with its full match (docs/PITCH.md
+-- "The full match"), built by the pitch's own reducers: the teams joined, the options set, START
 -- with the first snapshot, then (in step) every action committed with the snapshot and
 -- hash after it, over on the one that ends the match. new's `document` = true or { ids =
 -- { A = { ... }, B = { ... } }, host }: the members' ids in throwing order (default each

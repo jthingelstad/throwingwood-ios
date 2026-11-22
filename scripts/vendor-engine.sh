@@ -6,8 +6,9 @@
 # match keeps its own engine (docs/ENGINES.md):
 #
 #   ThrowingWoodKit/Sources/KubbEngine/Engine/   the newest (TAG): core/,
-#       room/, session/, tune/, version.lua, engine.json (the engine's
-#       manifest: its version and a sha256 for every Lua file) and LICENSE
+#       pitch/ (room/ before 0.13), session/, tune/, version.lua, engine.json
+#       (the engine's manifest: its version and a sha256 for every Lua file)
+#       and LICENSE
 #   ThrowingWoodKit/Sources/KubbEngine/Engines/<major.minor>/   each of OLDER,
 #       laid out the same way
 #   ThrowingWoodKit/Tests/KubbEngineTests/Fixtures/golden/   the newest's
@@ -40,8 +41,8 @@ set -euo pipefail
 
 # The kubb-engine release new matches play on, and the older ones carried beside it,
 # one per major.minor, newest first.
-TAG=v0.9.0
-OLDER=(v0.8.2 v0.7.4)
+TAG=v0.13.0
+OLDER=(v0.9.0 v0.8.2 v0.7.4)
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 source_dir=${KUBB_ENGINE_SOURCE:-$root/../kubb-engine}
@@ -54,7 +55,8 @@ engine_dir() { [[ $1 == "$TAG" ]] && echo "$sources/Engine" || echo "$sources/En
 golden_dir() { [[ $1 == "$TAG" ]] && echo "$fixtures/golden" || echo "$fixtures/engines/$(minor_of "$1")/golden"; }
 
 # What is copied: engine paths into the engine's folder, test paths into its golden/.
-engine_paths=(core room session tune version.lua engine.json LICENSE)
+# Each tag gives what it has of these: 0.13 has pitch/, the older ones room/.
+engine_paths=(core pitch room session tune version.lua engine.json LICENSE)
 golden_files=(drive.lua hashes.json)
 
 sha() { shasum -a 256 "$1" | cut -d' ' -f1; }

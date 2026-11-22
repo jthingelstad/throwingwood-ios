@@ -122,7 +122,7 @@ end
 function Game:context(half, except)
 	local others = {}
 	for _, k in ipairs(self:onPitch()) do
-		if k.id ~= except then others[#others + 1] = { id = k.id, pose = k.pose } end
+		if k.id ~= except then others[#others + 1] = { id = k.id, pose = k.pose, kind = k.kind } end
 	end
 	return { half = half, king = self.king.pose, others = others }
 end

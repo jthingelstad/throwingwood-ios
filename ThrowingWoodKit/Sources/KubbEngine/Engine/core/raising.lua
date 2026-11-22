@@ -17,7 +17,8 @@
 -- A context says what is around the kubb being raised:
 --   ctx.half    the defender's half ("A" or "B"): where it must be raised
 --   ctx.king    the king's pose (standing)
---   ctx.others  array of { id, pose } for every other kubb on the pitch
+--   ctx.others  array of { id, pose, kind } for every other kubb on the pitch
+--               (kind "base" or "field"; core/rules sets it, a caller may not)
 import "core/tw"
 import "core/pitch"
 import "core/rect"
@@ -33,6 +34,19 @@ raising.tune = {
 	searchStep = 0.004,      -- m, coarse step of that search before bisection
 	searchMax = 0.6,         -- m, give up beyond this
 	punishGrid = 0.1,        -- m, spacing of candidate punishment spots
+	-- raising.policies.par (raise.par, raise.across): the end that leaves the attacker's
+	-- batons the fewest kubbs one behind another. The pro computer's and a person's
+	-- (core/cpu.raising); the game's own policy, for a match that names no sides, is apart.
+	-- Two kubbs are a pair on a baton's path by how far apart they are across that path
+	-- and along it; see parPair below.
+	parAcrossFull = 0.04,    -- m across: closer than this, one is squarely behind the other
+	parAcrossReach = 0.13,   -- m across: past this, a baton or a kubb falling back misses the second
+	parDepthRamp = 0.05,     -- m along: level kubbs are side by side; full exposure from here ...
+	parDepthFlat = 0.30,     -- ... to here (a struck kubb falls back about its 15 cm height) ...
+	parDepthReach = 0.60,    -- ... and none from here on (the computer's laneDeep)
+	parSide = 0.5,           -- weight of each end of the throwing line's view, straight on being 1
+	parTie = 0.02,           -- exposures closer than this are a tie, which goes to apart
+	parSweeps = 3,           -- passes of the plan over the kubbs still lying (0: no plan)
 }
 
 local HALF_LONG, HALF_SIDE = pitch.kubbLong / 2, pitch.kubbSide / 2
@@ -237,7 +251,9 @@ function raising.lower(upper, lowerPose)
 end
 
 -- Automatic choosers for the "auto raise" setting and the computer. Each takes
--- (decision, ctx) and returns an index into decision.choices.
+-- (decision, ctx) and returns an index into decision.choices (par also returns what it
+-- weighed, for the computer's reason). Which side uses which: core/cpu.raising and
+-- core/match.raisePolicy.
 local function spread(pose, ctx)
 	local m = huge
 	for _, o in ipairs(ctx.others or {}) do
@@ -248,17 +264,222 @@ local function spread(pose, ctx)
 	return m
 end
 
-raising.policies = {
-	-- Keep kubbs apart: the end farthest from the nearest other kubb (the
-	-- defender's usual aim: no doubles). Ties go to the deeper end.
-	apart = function(dec, ctx)
-		local best, bestScore = 1, -huge
-		for i, c in ipairs(dec.choices) do
-			local s = spread(c.pose, ctx) + 1e-3 * pitch.fromBaseline(pitch.other(ctx.half), c.pose.y)
-			if s > bestScore + 1e-12 then best, bestScore = i, s end
+-- Keep kubbs apart: the end farthest from the nearest other kubb (the defender's
+-- usual aim: no doubles). Ties go to the deeper end.
+local function apart(dec, ctx)
+	local best, bestScore = 1, -huge
+	for i, c in ipairs(dec.choices) do
+		local s = spread(c.pose, ctx) + 1e-3 * pitch.fromBaseline(pitch.other(ctx.half), c.pose.y)
+		if s > bestScore + 1e-12 then best, bestScore = i, s end
+	end
+	return best
+end
+
+-- raise.par (docs/reference/plays/raise.md): stand the kubb where the attacker's batons
+-- find the fewest kubbs one behind another. Two kubbs are exposed to one baton when, on
+-- its path, one stands behind the other: close across the path (parAcrossFull to
+-- parAcrossReach) and apart along it, but not level (side by side, nothing behind) and not
+-- far (parDepthFlat to parDepthReach). Space across counts far more than space along it
+-- (raise.across): a pair 10 cm apart across and level is no double; 10 cm across and 20
+-- along is. The path is seen straight down the pitch (where the computer stands, behind
+-- its target) and, at parSide each, from the two ends of the attacker's baseline.
+--
+-- The rules ask for one kubb at a time (core/rules raises them in id order). So that an
+-- early kubb is not stood where a later one has to stand badly (raise.order, "decide them
+-- all before standing one"), par plans every lying kubb of the half: each starts on its
+-- better end against the standing kubbs, then parSweeps passes move each to its better end
+-- against the standing kubbs and the others' planned ends. The kubb asked for takes its
+-- planned end. A kubb still lying counts at its footprints that are in bounds and clear of
+-- the king and the standing kubbs (its displacement, if any, is not guessed). Ties (within
+-- parTie) go to apart. Work: at most 10 kubbs a half, so a few hundred pair tests a call.
+local function parPair(ax, ay, bx, by, dx, dy, t)
+	local rx, ry = bx - ax, by - ay
+	local along = rx * dx + ry * dy
+	if along < 0 then along = -along end
+	local across = rx * dy - ry * dx
+	if across < 0 then across = -across end
+	local reach, deep = t.parAcrossReach, t.parDepthReach
+	if across >= reach or along >= deep then return 0 end
+	local full = t.parAcrossFull
+	local wa = across > full and (reach - across) / (reach - full) or 1
+	local wd
+	if along < t.parDepthRamp and across >= pitch.kubbSide then
+		-- nearly level and clear of each other across: side by side. (Closer across, they
+		-- touch one behind the other, or in a plan overlap: as bad as a pair can be.)
+		wd = along / t.parDepthRamp
+	elseif along <= t.parDepthFlat then
+		wd = 1
+	else
+		wd = (deep - along) / (deep - t.parDepthFlat)
+	end
+	return wa * wd
+end
+
+-- The exposure of kubbs at (ax, ay) and (bx, by) to an attacker throwing from lineY
+-- toward dirY (+1 or -1 in y).
+local function parExposure(ax, ay, bx, by, dirY, lineY, t)
+	local rx, ry = bx - ax, by - ay
+	local far = t.parAcrossReach * t.parAcrossReach + t.parDepthReach * t.parDepthReach
+	if rx * rx + ry * ry >= far then return 0 end
+	local e = parPair(ax, ay, bx, by, 0, dirY, t)
+	local side = t.parSide
+	if side > 0 then
+		local mx, my = (ax + bx) / 2, (ay + by) / 2 - lineY
+		for s = -1, 1, 2 do
+			local vx = mx - s * pitch.halfWidth
+			local l = sqrt(vx * vx + my * my)
+			if l > 1e-9 then e = e + side * parPair(ax, ay, bx, by, vx / l, my / l, t) end
 		end
-		return best
-	end,
+	end
+	return e
+end
+
+local function footClear(fp, ctx, sx, sy, ns)
+	if not raising.inBounds(fp, ctx.half) then return false end
+	local r = raising.kubbRect(fp)
+	if ctx.king and rect.overlap(r, raising.kingRect(ctx.king)) then return false end
+	for i = 1, ns do
+		if rect.overlap(r, rect.new(sx[i], sy[i], 0, HALF_SIDE, HALF_SIDE)) then return false end
+	end
+	return true
+end
+
+-- The plan's numbers for a decision: the standing field kubbs of the half (sx, sy) and
+-- the lying ones with their candidate ends (cx, cy: item j's ends at 2j-1 and 2j, nc[j]
+-- of them). Item 0 is the kubb being raised, its ends the decision's choices.
+local function parScene(dec, ctx)
+	local sx, sy, ns = {}, {}, 0
+	local lying = {}
+	for _, o in ipairs(ctx.others or {}) do
+		if o.kind ~= "base" then
+			local p = o.pose
+			if p.standing then
+				if raising.inBounds(p, ctx.half) then ns = ns + 1; sx[ns], sy[ns] = p.x, p.y end
+			else
+				lying[#lying + 1] = p
+			end
+		end
+	end
+	local cx, cy, nc = {}, {}, {}
+	local items = 0
+	for _, p in ipairs(lying) do
+		local fps = raising.footprints(p)
+		local n = 0
+		for k = 1, 2 do
+			if footClear(fps[k], ctx, sx, sy, ns) then
+				n = n + 1
+				cx[2 * items + n], cy[2 * items + n] = fps[k].x, fps[k].y
+			end
+		end
+		if n > 0 then
+			items = items + 1
+			nc[items] = n
+		end
+	end
+	return sx, sy, ns, cx, cy, nc, items
+end
+
+-- The exposure of a kubb at (x, y): to every standing kubb, and to every lying item but
+-- `skip` at its planned end (pick[j]), or with sweeps 0 at each of its ends weighed by
+-- 1 / its number of ends.
+local function parAt(x, y, sc, pick, skip, dirY, lineY, t)
+	local sx, sy, ns, cx, cy, nc, items = sc[1], sc[2], sc[3], sc[4], sc[5], sc[6], sc[7]
+	local e = 0
+	for i = 1, ns do e = e + parExposure(x, y, sx[i], sy[i], dirY, lineY, t) end
+	for j = 1, items do
+		if j ~= skip then
+			if pick then
+				local k = 2 * (j - 1) + pick[j]
+				e = e + parExposure(x, y, cx[k], cy[k], dirY, lineY, t)
+			else
+				local w = 1 / nc[j]
+				for m = 1, nc[j] do
+					local k = 2 * (j - 1) + m
+					e = e + w * parExposure(x, y, cx[k], cy[k], dirY, lineY, t)
+				end
+			end
+		end
+	end
+	return e
+end
+
+local function par(dec, ctx)
+	local t = raising.tune
+	local half = ctx.half
+	local lineY = pitch.baseline[pitch.other(half)]
+	local dirY = pitch.baseline[half] > lineY and 1 or -1
+	local sx, sy, ns, cx, cy, nc, items = parScene(dec, ctx)
+	local sc = { sx, sy, ns, cx, cy, nc, items }
+	local choices = dec.choices
+	-- the kubb being raised also counts against the lying items: as item 0, at its
+	-- planned choice (cur)
+	local pick
+	local sweeps = floor(t.parSweeps + 0.5)
+	local cur = 1
+	local function better(x, y, j)
+		local e = parAt(x, y, sc, pick, j, dirY, lineY, t)
+		if pick then
+			local c = choices[cur].pose
+			e = e + parExposure(x, y, c.x, c.y, dirY, lineY, t)
+		end
+		return e
+	end
+	if sweeps > 0 and items > 0 then
+		pick = {}
+		-- start: each lying item on its better end against the standing kubbs alone
+		for j = 1, items do
+			local best, bestE = 1, huge
+			for m = 1, nc[j] do
+				local k = 2 * (j - 1) + m
+				local e = 0
+				for i = 1, ns do e = e + parExposure(cx[k], cy[k], sx[i], sy[i], dirY, lineY, t) end
+				if e < bestE - 1e-12 then best, bestE = m, e end
+			end
+			pick[j] = best
+		end
+		for _ = 1, sweeps do
+			local moved = false
+			-- the kubb being raised
+			local best, bestE = cur, huge
+			for i, c in ipairs(choices) do
+				local e = parAt(c.pose.x, c.pose.y, sc, pick, 0, dirY, lineY, t)
+				if e < bestE - 1e-12 then best, bestE = i, e end
+			end
+			if best ~= cur then cur, moved = best, true end
+			for j = 1, items do
+				if nc[j] > 1 then
+					local b, bE = pick[j], huge
+					for m = 1, nc[j] do
+						local k = 2 * (j - 1) + m
+						local e = better(cx[k], cy[k], j)
+						if e < bE - 1e-12 then b, bE = m, e end
+					end
+					if b ~= pick[j] then pick[j], moved = b, true end
+				end
+			end
+			if not moved then break end
+		end
+	end
+	-- the decision: each choice's exposure against the plan; a tie goes to apart
+	local lo, hi, loI = huge, -huge, 1
+	for i, c in ipairs(choices) do
+		local e = parAt(c.pose.x, c.pose.y, sc, pick, 0, dirY, lineY, t)
+		if e < lo - 1e-12 then lo, loI = e, i end
+		if e > hi then hi = e end
+	end
+	-- the second value is for a reason (core/cpu.raise), never for play
+	if hi - lo <= t.parTie then return apart(dec, ctx), { exposure = lo, over = hi, tie = true } end
+	return loI, { exposure = lo, over = hi, tie = false }
+end
+raising.parExposure = parExposure
+-- one view's pair weight (core/read.lineLane weighs a lane by it: field.line)
+raising.parPair = parPair
+
+raising.policies = {
+	apart = apart,
+	-- Count the attacker's batons (raise.par): the pro computer's, and a person's when
+	-- the engine raises for them (core/cpu.raising, core/match.raisePolicy; 0.12.0).
+	par = par,
 	-- Group them (for drills and tests).
 	together = function(dec, ctx)
 		local best, bestScore = 1, huge

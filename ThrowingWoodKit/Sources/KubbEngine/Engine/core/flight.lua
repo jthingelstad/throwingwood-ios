@@ -82,7 +82,7 @@ flight.tune = {
 	-- to hit a big cluster of field kubbs that close." / "And players miss when
 	-- they attempt to overpower those throws."
 	-- At nearM and over all of it is off and every number is as before. The
-	-- computer never stands nearer than autothrow.tune.minRange, which is nearM.
+	-- computer never stands nearer than autothrow.tune.minRange (0.25 m from 0.9).
 	nearM = 2.0,           -- m
 	nearHandHeight = 0.20, -- m: the hand at d = 0 before the firm bowl lowers it
 	nearReach = 0.25,      -- m: how far ahead of the feet at d = 0
@@ -91,8 +91,9 @@ flight.tune = {
 	nearAimRef = 0.203,    -- m: a kubb's aim height at nearM (plan.aimZFor("kubb")), which the
 	                       -- firm bowl's hand counts on
 	nearSpeed = 3.7,       -- m/s: the firm bowl's speed (backswing 67.4 with a full flick)
-	nearLoftDeg = 22,      -- degrees: the loft the firm bowl counts on before flattening (the
-	                       -- field arc's, plan.loftFor(60); a baton under nearM is on it)
+	nearLoftDeg = 7,       -- degrees: the loft the firm bowl counts on before flattening (the
+	                       -- default arc's at nearM, plan.loftFor(plan.arcFor("baton", nearM));
+	                       -- 22 until 0.10, when a field kubb's arc was 4 o'clock at any distance)
 	nearTip = 1.2,         -- rad the baton leaves tipped forward from upright at d = 0 (a bowl
 	                       -- lets go of it leaning toward the target, not standing in the hand)
 	nearLow = 0.03,        -- m: the baton's lower end at the release is never nearer the grass

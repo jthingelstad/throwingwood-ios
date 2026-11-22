@@ -18,9 +18,15 @@ engine and the older minors it still plays, one per major.minor, laid out as the
 
 `scripts/vendor-engine.sh sync` writes every one from its own tag; `check` verifies each
 against its own `engine.json` and corpus, and fails on an engine folder `OLDER` does not
-name. None is ever edited. Today: 0.9 (v0.9.0, corpus 0.9.0, 13 matches), 0.8
-(v0.8.2, corpus 0.8.0, 13 matches) and 0.7 (v0.7.4, corpus 0.5.0, 12 matches). 0.8 stays
-for testers on build 121 and kept 0.8 matches; 0.7 for build 113 and kept 0.7 matches.
+name. None is ever edited. Today: 0.13 (v0.13.0, corpus 0.13.0, 15 matches), 0.9
+(v0.9.0, corpus 0.9.0, 13 matches), 0.8 (v0.8.2, corpus 0.8.0, 13 matches) and 0.7
+(v0.7.4, corpus 0.5.0, 12 matches). 0.9 stays for the builds on it (0.3 to 0.6), kept
+0.9 matches and a pitch with a peer that has only 0.9 (the web until it moves to 0.13);
+0.8 for testers on build 121 and kept 0.8 matches; 0.7 for build 113 and kept 0.7
+matches. No client shipped 0.10 to 0.12, so nothing carries them. 0.13 names the shared
+pitch's module `pitch/` (its calls `pitch.<name>`, and `room.<name>` as the old spelling);
+the carried engines have `room/`, and the app calls `room.` on every engine
+(kubb-engine docs/VERSIONING.md 0.13.0, "The pitch rename").
 Each older engine is about 0.8 MB and loads only when a match on it is met. `GoldenTests` plays every carried engine's corpus.
 
 ## In the app

@@ -2,7 +2,8 @@
 -- argsJson) -> resultJson. One session per Lua state. Every call is
 -- protected: a Lua error comes back as {"error": "..."}, which src/engine
 -- throws as a JavaScript Error. snapshot returns the snapshot text itself;
--- restore takes it as its argument. "room.<name>" calls are the room's (room/api.lua).
+-- restore takes it as its argument. "pitch.<name>" calls are the pitch's (pitch/api.lua);
+-- "room.<name>" is their old spelling (before 0.13) and reaches the same calls.
 import "core/tw"
 import "version"
 import "session/json"
@@ -10,7 +11,7 @@ import "session/session"
 import "session/wide"
 import "session/replay"
 import "session/check"
-import "room/api"
+import "pitch/api"
 
 local json, session, wide, replay, check = tw.web.json, tw.web.session, tw.web.wide, tw.web.replay, tw.web.check
 
@@ -155,7 +156,7 @@ function M.replayInfo()
 end
 function M.replayEnd() R = nil; return json.object() end
 -- replayFinish: every action left (no recordings); the info. replayDocument: the finished
--- match's room document (replayLoad with document), with the hash at the start and after
+-- match's pitch document (replayLoad with document), with the hash at the start and after
 -- each action: { document, h0, hashes }.
 function M.replayFinish()
 	local r = needReplay():finish()
@@ -208,8 +209,12 @@ function M.sheet() return need():sheet() or json.object() end
 
 local function call(method, arg)
 	if method == "snapshot" then return need():snapshot() end
-	-- the room's pure calls (room/api.lua, docs/ROOM.md): "room.<name>"
-	if type(method) == "string" and method:sub(1, 5) == "room." then return tw.room.api.call(method:sub(6), arg) end
+	-- the pitch's pure calls (pitch/api.lua, docs/PITCH.md): "pitch.<name>", or
+	-- "room.<name>", the old spelling, which a bridge that also drives older engines uses
+	if type(method) == "string" then
+		if method:sub(1, 6) == "pitch." then return tw.shared.api.call(method:sub(7), arg, "pitch") end
+		if method:sub(1, 5) == "room." then return tw.shared.api.call(method:sub(6), arg, "room") end
+	end
 	local f = M[method]
 	if not f then error("unknown call " .. tostring(method), 0) end
 	local a = nil

@@ -17,7 +17,7 @@
 -- json.raw(text) puts text into the output as it is (the recording's pose
 -- arrays, already formatted).
 --
--- The room's documents (room/, docs/ROOM.md) need what a JavaScript client wrote to come
+-- The pitch's documents (pitch/, docs/PITCH.md) need what a JavaScript client wrote to come
 -- back as it was: json.decode(text, true) keeps every object an object (an empty one too,
 -- marked as json.object() marks it) and every null a null (json.null, which encodes as
 -- null), where the plain decode drops nulls and reads {} as an empty table, written [].
