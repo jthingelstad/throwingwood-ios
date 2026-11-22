@@ -151,6 +151,16 @@ struct MapPaint {
       return MapPaint(
         ink: 0x5ff0ff, paper: 0x02050a, ground: g.0, line: g.1, teamA: 0xffc94a, teamB: 0xcf8bff,
         king: 0xff5c9d, drop: (0x2be4ff, 0.35))
+    case "bw":
+      // the Playdate's map: 1-bit, Team A white circles, Team B black squares
+      return MapPaint(
+        ink: 0x000000, paper: 0xffffff, ground: 0xffffff, line: 0x000000, teamA: 0xffffff, teamB: 0x000000,
+        king: 0x000000, drop: (0x000000, 1))
+    case _ where Daylit.looks.contains(look):
+      let g = Daylit.ground(look, surface)
+      return MapPaint(
+        ink: dayInk, paper: dayPaper, ground: g.pitch, line: g.line, teamA: 0xf2b705, teamB: 0x8e44ad, king: dayInk,
+        drop: (dayInk, 1))
     default:
       return MapPaint(
         ink: dayInk, paper: dayPaper,

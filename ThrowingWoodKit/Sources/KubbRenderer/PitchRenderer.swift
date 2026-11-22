@@ -42,14 +42,26 @@ func hull(_ points: [CGPoint]) -> [CGPoint] {
 struct Painter {
   let ctx: CGContext
   let projection: PitchProjection
+  /// Black and white only (the Black & White scene, the Playdate's look): every paint is
+  /// pure black or pure white by its lightness, and a faint one (under a quarter) is left
+  /// out, so the day's own drawing of the pieces and marks comes out 1-bit.
+  var mono = false
 
+  /// `rgb` and `alpha` as this painter paints them: as given, or in `mono` black or white.
+  func paint(_ rgb: Int, _ alpha: Double) -> CGColor? {
+    guard mono else { return color(rgb, alpha) }
+    guard alpha >= 0.25 else { return nil }
+    return color(Mono.of(rgb))
+  }
   func fill(_ p: CGPath, _ paint: Int, alpha: Double = 1) {
-    ctx.setFillColor(color(paint, alpha))
+    guard let c = self.paint(paint, alpha) else { return }
+    ctx.setFillColor(c)
     ctx.addPath(p)
     ctx.fillPath()
   }
   func stroke(_ p: CGPath, _ paint: Int, _ width: Double, alpha: Double = 1) {
-    ctx.setStrokeColor(color(paint, alpha))
+    guard let c = self.paint(paint, alpha) else { return }
+    ctx.setStrokeColor(c)
     ctx.setLineWidth(width)
     ctx.addPath(p)
     ctx.strokePath()
@@ -91,6 +103,16 @@ public enum PitchRenderer {
     context.setLineCap(.round)
     let p = Painter(ctx: context, projection: scene.projection(size, camera))
     let shown = SceneID.shown(look ?? scene.look)
+    if Daylit.looks.contains(shown) {
+      p.daylit(scene, look: shown, time: reduced ? 0 : time, still: reduced)
+      return
+    }
+    if shown == "bw" {
+      var mono = p
+      mono.mono = true
+      mono.blackAndWhite(scene)
+      return
+    }
     if shown != "day" {
       p.scenic(scene, look: shown, effects: effects?.look == shown ? effects : nil, time: reduced ? 0 : time)
       return
@@ -102,8 +124,13 @@ public enum PitchRenderer {
   }
 }
 
-private struct GroundColors {
-  let pitch, stripe, rough, speck, sky, haze, line: Int
+struct GroundColors {
+  var pitch, stripe, rough, speck, sky, haze, line: Int
+  init(pitch: Int, stripe: Int, rough: Int, speck: Int, sky: Int, haze: Int, line: Int) {
+    (self.pitch, self.stripe, self.rough, self.speck, self.sky, self.haze, self.line) = (
+      pitch, stripe, rough, speck, sky, haze, line
+    )
+  }
   init(_ s: Surface) {
     switch s {
     case .grass:
@@ -157,8 +184,15 @@ let grassMarks = texture(0.42)
 let otherMarks = texture(0.36)
 
 extension Painter {
-  fileprivate func ground(_ scene: PitchScene) {
-    let g = GroundColors(scene.surface)
+  /// The ground: the sky, the rough to the horizon with its haze, the texture, the pitch,
+  /// its stripes and lines. A daylight scene passes its own colours and `sky` (drawn over
+  /// the sky's rows, between the horizon's two ends on the screen) and `beyond` (drawn on
+  /// the rough before its texture: the sea, distant ground). The day passes none.
+  func ground(
+    _ scene: PitchScene, colors: GroundColors? = nil, sky: ((CGPoint, CGPoint) -> Void)? = nil,
+    beyond: (() -> Void)? = nil, specksUpTo: Double? = nil
+  ) {
+    let g = colors ?? GroundColors(scene.surface)
     let c = projection.c
     let bounds = CGRect(origin: .zero, size: projection.size)
     let horizontal = hypot(c.fx, c.fy)
@@ -176,6 +210,7 @@ extension Painter {
       if skyHeight > 0 {
         ctx.setFillColor(color(g.sky))
         ctx.fill(CGRect(x: 0, y: 0, width: bounds.width, height: skyHeight))
+        sky?(left, right)
       }
       fill(
         path([
@@ -198,8 +233,9 @@ extension Painter {
       ctx.fill(bounds)
       fill(quad(-400, -400, 400, 400), g.rough)
     }
+    beyond?()
 
-    specks(scene.surface, g.speck)
+    specks(scene.surface, g.speck, inside: specksUpTo.map { (-400, 400, -400, $0) })
     fill(quad(-2.5, 0, 2.5, 8), g.pitch)
     for x in [-2.5, -0.5, 1.5] { fill(quad(x, 0, x + 1, 8), g.stripe) }
     func stripe(_ x: Double, _ y: Double, _ X: Double, _ Y: Double) {

@@ -215,7 +215,7 @@ struct CardScreen<Rows: View, Buttons: View>: View {
     let upright = !screen.wide
     let phone = UIDevice.current.userInterfaceIdiom == .phone
     ZStack(alignment: .top) {
-      if dim { Color(skin.dim).ignoresSafeArea().accessibilityHidden(true) }
+      if dim { SkinDim().ignoresSafeArea().accessibilityHidden(true) }
       VStack(alignment: .leading, spacing: 14) {
         if fill {
           rows().frame(maxHeight: .infinity, alignment: .top)

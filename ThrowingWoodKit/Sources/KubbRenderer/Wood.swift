@@ -251,7 +251,7 @@ extension Painter {
               fill(path([at(0.5, 0.54), at(0.72, 0.47), at(0.5, 0.4), at(0.28, 0.47)]), pp.kingMark)
             }
           } else {
-            if let team = item.team {
+            if let team = item.team, pp.teamBands {
               if let b = lit?.band, let deep = lit?.bandDeep {
                 band(0.05, 0.13, dark ? deep : b)
               } else {

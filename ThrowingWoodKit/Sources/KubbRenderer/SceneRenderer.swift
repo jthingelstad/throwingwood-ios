@@ -143,12 +143,12 @@ private let fade: [(to: Double, alpha: Double)] = [
 
 extension Painter {
   /// A direction at infinity on the screen, or nil behind the eye.
-  private func direction(_ d: V3) -> CGPoint? {
+  func direction(_ d: V3) -> CGPoint? {
     let v = V3(dot(d, projection.c.right), dot(d, projection.c.up), dot(d, projection.c.forward))
     return v.z >= 0.05 ? projection.screen(v) : nil
   }
   /// Points per metre at eye depth `z`.
-  private func unit(_ z: Double) -> Double { projection.c.f * projection.k / z }
+  func unit(_ z: Double) -> Double { projection.c.f * projection.k / z }
 
   func scenic(_ scene: PitchScene, look: String, effects: SceneEffects?, time: Double) {
     let night = look == "night"
@@ -327,7 +327,7 @@ extension Painter {
   /// one rectangle, filled whole. The same picture as shading every pixel, for a
   /// few dozen fills (CG shades a gradient pixel by pixel, the slowest part of a
   /// night frame).
-  private func rowGradient(
+  func rowGradient(
     _ box: CGRect, from y0: Double, to y1: Double, _ stops: [(t: Double, rgb: Int, a: Double)]
   ) {
     let scale = max(1, abs(ctx.userSpaceToDeviceSpaceTransform.d))

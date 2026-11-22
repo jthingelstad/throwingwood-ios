@@ -408,7 +408,7 @@ struct MatchScreen: View {
       ZStack {
         if pitch.handoff != nil {
           // the hand-off: the pitch dimmed under the header (the design's), the card at the foot
-          Color(skin.dim).ignoresSafeArea().accessibilityHidden(true)
+          SkinDim().ignoresSafeArea().accessibilityHidden(true)
         }
         // behind the winner card nothing reads through the dim (the build list's
         // accessibility: "the dimmed header behind the winner card"): the screen under
