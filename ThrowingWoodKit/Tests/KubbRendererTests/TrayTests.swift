@@ -319,11 +319,18 @@ import Testing
   /// the engine's rail; the computer's turn shows no card at all.
   @Test func theComputersTurnShowsNoCard() throws {
     let app = try PitchSession(appVersion: "test")
-    try app.startSolo(name: "You", selections: app.options.defaults, save: nil)
+    // a fixed generated name (one the game makes, so it is kept, not rolled), never one
+    // ending in s: the card's title is then known
+    let name = "Mighty Maple"
+    #expect(app.names.valid(.player, name).ok)
+    try app.startSolo(name: name, selections: app.options.defaults, save: nil)
     let c = try #require(app.handoff)
+    #expect(c.toName == name)
     #expect(HandoffWords.title(c, own: true) == "Your turn")
-    #expect(HandoffWords.title(c, own: false) == "\(c.toName)’s turn")
+    #expect(HandoffWords.title(c, own: false) == "Mighty Maple’s turn")
+    // the possessive: a name ending in s takes the apostrophe alone, any other ’s
     #expect(HandoffWords.title(name: "Golden Kubblets", own: false) == "Golden Kubblets’ turn")
+    #expect(HandoffWords.title(name: "Golden Kubblet", own: false) == "Golden Kubblet’s turn")
     #expect(HandoffWords.title(name: " ", own: false) == "Their turn")
     let batons = CountWords.sentence(CountWords.count(c.batons, "baton", "batons")) + "."
     #expect(HandoffWords.line(c, at: app.railAt).hasPrefix(c.kubbs > 0 ? "Throw " : batons))
