@@ -51,6 +51,15 @@ import Testing
 
   /// The winner card's minutes: only a stamped length that can be true (the web's
   /// cards.js, 1 to 720), never 0 or "under a minute".
+  /// The sheet leaves out a Duration that cannot be true (the web's sheet.js).
+  @Test func theSheetLeavesOutAnUntrueDuration() {
+    #expect(ScoreSheet.unknownDuration(#"[Duration "0m"]"#))
+    #expect(ScoreSheet.unknownDuration(#"[Duration "721m"]"#))
+    #expect(ScoreSheet.unknownDuration(#"[Duration "-3m"]"#))
+    #expect(!ScoreSheet.unknownDuration(#"[Duration "7m"]"#))
+    #expect(!ScoreSheet.unknownDuration(#"[Round "1"]"#))
+  }
+
   @Test func onlyAKnownLengthIsShown() {
     #expect(MatchClock.shown(nil) == nil)
     #expect(MatchClock.shown(0) == nil)
