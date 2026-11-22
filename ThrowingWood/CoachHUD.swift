@@ -70,13 +70,13 @@ extension PracticeHUD {
   }
 
   /// The coach's one style (the 1.0 design): an inverted ink chip, paper capitals in
-  /// Inter bold 15, standing on `bottom` (or hanging from it); the slow lead and the
+  /// Inter 800 15 (the web's), standing on `bottom` (or hanging from it); the slow lead and the
   /// line in the same chip, the lead on its own first line, so there are never three
   /// pills at once. `beside` is no longer used: one chip has no lead beside it.
   func coach(_ c: Coach.Line, _ p: CoachPlace, left: CGFloat, width: CGFloat, beside: CoachAlign? = nil) {
     guard width > 40 else { return }
     let size: CGFloat = 15
-    let font = Self.inter(size, .bold)
+    let font = Self.inter(size, .heavy)
     let lineHeight: CGFloat = size * 1.25
     let style = NSMutableParagraphStyle()
     style.minimumLineHeight = lineHeight

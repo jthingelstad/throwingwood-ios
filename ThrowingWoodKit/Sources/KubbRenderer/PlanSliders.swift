@@ -112,6 +112,14 @@ public enum PlanScale {
     let direction = value < 0 ? "left" : "right"
     return kubb ? "\(word) \(shown) \(direction)" : "\(word) \(shown) degrees \(direction)"
   }
+  /// A tray plate's value after its name (the web's words: "Tilt, 7 degrees right",
+  /// "Tilt, none", "Spin, 1.25 left"): the value without the name.
+  public static func sideAmountText(_ value: Double, kubb: Bool) -> String {
+    let shown = amount(value, kubb: kubb)
+    guard shown != "0" else { return "none" }
+    let direction = value < 0 ? "left" : "right"
+    return kubb ? "\(shown) \(direction)" : "\(shown) degrees \(direction)"
+  }
   /// The size of a side value as shown: "10", "2", "1.25", "0.5".
   static func amount(_ value: Double, kubb: Bool) -> String {
     let a = abs(value)
