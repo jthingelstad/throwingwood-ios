@@ -2,6 +2,7 @@ import CoreGraphics
 import Foundation
 import ImageIO
 import KubbEngine
+import KubbPitch
 import Testing
 
 @testable import KubbRenderer
@@ -57,9 +58,22 @@ struct SceneTests {
     #expect(SceneID.shown("neon") == "neon")
     #expect(SceneID.shown("sunset") == "day")
     #expect(SceneID.shown("Night") == "day")
-    // shown as Park, Camping and Techno (the owner, 2026-11-22); the ids stay
-    #expect(SceneID.row.choices.map { $0[0] } == ["day", "night", "neon"])
-    #expect(SceneID.row.choices.map { $0[1] } == ["Park", "Camping", "Techno"])
+  }
+
+  /// The app's copy of the catalogue is the vendored engine's (`scenes()`): ids, names,
+  /// surfaces, sets and flags, in its order.
+  @Test func theCatalogueIsTheEnginesOwn() throws {
+    let engine = try Engine(appVersion: "test")
+    let c = try JSONNode.parse(engine.call("scenes"))
+    let list = try #require(c["scenes"]?.items)
+    #expect(list.count == SceneID.catalogue.count)
+    for (e, mine) in zip(list, SceneID.catalogue) {
+      #expect(e["id"]?.string == mine.id && e["name"]?.string == mine.name)
+      #expect(e["surfaces"]?.items.compactMap(\.string) == mine.surfaces.map(\.rawValue), "\(mine.id)")
+      #expect(e["sets"]?.items.compactMap(\.string) == mine.sets, "\(mine.id)")
+      #expect(e["dark"]?.bool == mine.dark && e["ring"]?.bool == mine.ring && e["mono"]?.bool == mine.mono, "\(mine.id)")
+    }
+    #expect(c["default"]?.string == "day" && SceneID.entry("sunset").id == "day")
   }
 
   /// The day, an unknown scene and no scene are the same picture, byte for byte.

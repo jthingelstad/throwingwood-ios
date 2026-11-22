@@ -414,7 +414,13 @@ import UIKit
     pitch.useLook(look, reduced: reduced)
     PitchRenderer.draw(
       in: ctx, size: bounds.size, camera: backdrop ? pitch.camera : pitch.shownCamera,
-      scene: backdrop ? pitch.scene.scenery : pitch.scene, look: look,
+      // behind the options card the pitch is dressed as a match in the chosen scene
+      // would be (its ground and set)
+      scene: backdrop
+        ? (model.screen == .options
+          ? pitch.scene.scenery.dressed(look, surface: model.selections["surface"].flatMap(Surface.init(rawValue:)))
+          : pitch.scene.scenery)
+        : pitch.scene, look: look,
       effects: backdrop ? nil : pitch.effects, time: pitch.lookTime, reduced: reduced)
     #if targetEnvironment(simulator)
       if reviewMode != nil || matchReview != nil { writeReviewLayout() }

@@ -74,36 +74,64 @@ import Testing
 
   // MARK: Play the computer
 
-  /// Scene first, then Computer, Opening, Raising, Wind, and Surface as a fifth row;
-  /// no Kubbs row (the scene decides the set).
+  /// Scene first (engine 0.14's `optionRows`), Surface right under it only where the
+  /// scene leaves one (Black & White), then Computer, Opening, Raising and Wind; no
+  /// Kubbs row (the scene decides the set).
   @Test func theCardsRowsAreInTheDesignsOrder() throws {
     let app = try PitchSession(appVersion: "test")
-    #expect(app.options.cardRows.map(\.id) == ["scene", "computer", "opening", "raising", "wind", "surface"])
-    #expect(!app.options.cardRows.contains { $0.id == "set" })
+    var chosen = app.options.defaults
+    #expect(app.options.cardRows(chosen).map(\.id) == ["scene", "computer", "opening", "raising", "wind"])
+    chosen = app.options.choosing(scene: "bw", chosen)
+    #expect(app.options.cardRows(chosen).map(\.id) == ["scene", "surface", "computer", "opening", "raising", "wind"])
+    #expect(app.options.cardRows(chosen)[1].choices.map { $0[0] } == ["grass", "sand", "snow"])
+    for scene in SceneID.catalogue.map(\.id) {
+      #expect(!app.options.cardRows(app.options.choosing(scene: scene, chosen)).contains { $0.id == "set" })
+    }
     // a set kept from before is not the match's: the scene's is
     var kept = app.options.defaults
     kept["set"] = "usa"
     kept["scene"] = "neon"
     let start = app.options.starting(kept)
-    #expect(start["set"] == "classic" && start["scene"] == "neon")
+    #expect(start["set"] == "classic" && start["scene"] == "neon" && start["surface"] == "grid")
     try app.startSolo(name: "Mighty Maple", selections: start, save: nil)
     let snapshot = try JSONNode.parse(app.engine.call("snapshot"))
     #expect(snapshot["opts"]?["set"]?.string == "classic")
   }
 
+  /// Each scene's card, ground and set are the engine's: Beach brings sand, Minnesota
+  /// snow and its own set, Tournament the USA set, Techno the grid, and a match started
+  /// from the card plays them.
+  @Test func aSceneBringsItsGroundAndSet() throws {
+    let app = try PitchSession(appVersion: "test")
+    for e in SceneID.catalogue {
+      let chosen = app.options.choosing(scene: e.id, app.options.defaults)
+      #expect(chosen["surface"] == e.surface.rawValue && chosen["set"] == e.set, "\(e.id)")
+      try app.startSolo(name: "Mighty Maple", selections: chosen, save: nil)
+      #expect(app.scene.surface == e.surface && app.scene.set == e.set && app.scene.look == e.id, "\(e.id)")
+    }
+    // Black & White keeps the surface it allows
+    var bw = app.options.choosing(scene: "bw", app.options.defaults)
+    bw["surface"] = "snow"
+    #expect(app.options.starting(bw)["surface"] == "snow")
+    // and an unknown scene is Park
+    #expect(app.options.starting(["scene": "sunset"])["scene"] == "day")
+  }
+
   /// An installation that kept a non-Classic set before the Kubbs row went (Codex on
-  /// PR #41): the start path (the kept selections loaded, the match started, the
-  /// selections kept, as GameModel does) plays the scene's Classic set and keeps it,
-  /// so the old set never lingers unseen.
+  /// PR #41), or a surface the kept scene does not allow: loading goes through the scene,
+  /// so the old set and ground never linger unseen, and a kept Kid computer stays.
   @Test func aKeptSetFromBeforeIsNotPlayed() throws {
     let name = "solo-set-\(UUID().uuidString)"
     let d = try #require(UserDefaults(suiteName: name))
     defer { d.removePersistentDomain(forName: name) }
     d.set("wisconsin", forKey: "solo.option.set")
+    d.set("sand", forKey: "solo.option.surface")
     d.set("night", forKey: "solo.option.scene")
+    d.set("kid", forKey: "solo.option.computer")
     let app = try PitchSession(appVersion: "test")
     let loaded = app.options.load(d)
-    #expect(loaded["set"] == "wisconsin" && loaded["scene"] == "night")
+    #expect(loaded["set"] == "classic" && loaded["surface"] == "grass" && loaded["scene"] == "night")
+    #expect(loaded["computer"] == "kid")
     try app.startSolo(name: "Mighty Maple", selections: loaded, save: nil)
     let snapshot = try JSONNode.parse(app.engine.call("snapshot"))
     #expect(snapshot["opts"]?["set"]?.string == "classic" && snapshot["opts"]?["scene"]?.string == "night")
@@ -121,7 +149,7 @@ import Testing
     let text = try String(contentsOf: Self.app.appending(path: "MatchCards.swift"), encoding: .utf8)
     let start = try #require(text.range(of: "struct MatchOptionsCard: View"))
     let body = String(text[start.upperBound...].prefix(4000))
-    #expect(body.contains("options.cardRows") && body.contains("SceneTiles("))
+    #expect(body.contains("options.cardRows(model.selections)") && body.contains("SceneTiles("))
     let home = try #require(body.range(of: "QuietButton(\"HOME\""))
     let go = try #require(body.range(of: "\"START\""))
     #expect(home.lowerBound < go.lowerBound)
@@ -129,13 +157,16 @@ import Testing
 
   // MARK: the scenes' names
 
-  /// The names a player sees are in one table, and the Scene row reads it: Park, Camping
-  /// and Techno (the owner, 2026-11-22), the ids unchanged.
-  @Test func theScenesNamesAreOneTable() {
-    #expect(SceneID.shownNames.map(\.id) == ["day", "night", "neon"])
-    #expect(SceneID.shownNames.map(\.name) == ["Park", "Camping", "Techno"])
-    #expect(SceneID.row.choices == SceneID.shownNames.map { [$0.id, $0.name] })
-    #expect(SceneID.kubbs(of: "night") == "classic" && SceneID.kubbs(of: "sunset") == "classic")
+  /// The names a player sees are the engine's (its Scene row), and the app's catalogue
+  /// carries the same: Park, Beach, Camping, Techno, Minnesota, Tournament and Black &
+  /// White, the older ids unchanged.
+  @Test func theScenesNamesAreTheEngines() throws {
+    let app = try PitchSession(appVersion: "test")
+    let row = try #require(app.options.cardRows(app.options.defaults).first)
+    #expect(row.id == "scene" && row.label == "Scene")
+    #expect(row.choices == SceneID.shownNames.map { [$0.id, $0.name] })
+    #expect(SceneID.shownNames.map(\.name) == ["Park", "Beach", "Camping", "Techno", "Minnesota", "Tournament", "Black & White"])
+    #expect(SceneID.kubbs(of: "minnesota") == "minnesota" && SceneID.kubbs(of: "sunset") == "classic")
   }
 
   static var app: URL {

@@ -10,6 +10,19 @@ extension PitchScene {
     return background
   }
 
+  /// This scene's pieces and pitch dressed for scene `id`: its ground and set where it
+  /// decides them (a tile or the pitch behind an options card shows the scene as a match
+  /// in it would be: Beach on sand, Minnesota on snow with its set). A surface the scene
+  /// allows is kept (Black & White on any).
+  public func dressed(_ id: String?, surface: Surface? = nil) -> PitchScene {
+    var s = self
+    let e = SceneID.entry(id)
+    s.surface = e.resolve(surface ?? self.surface)
+    s.set = e.resolve(set: set)
+    s.look = id
+    return s
+  }
+
   /// The minimap's plate: the same as a tray plate's (the 1.0 design, "Minimap: one
   /// home"): a 3 pt ink line, radius 6 and a 3 pt hard shadow.
   public static let mapLine: CGFloat = 3, mapRadius: CGFloat = 6, mapShadow: CGFloat = 3

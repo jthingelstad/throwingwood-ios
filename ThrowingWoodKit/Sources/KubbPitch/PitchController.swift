@@ -189,6 +189,17 @@ import KubbEngine
     return try rows ?? JSONNode.parse("[]")
   }
 
+  /// The lobby's card for `scene` (the lobby engine's `optionRows`, since 0.14): the Scene
+  /// row first, a Surface row only where the scene leaves one, no Kubbs row while no scene
+  /// allows two sets, `{ scene, rows, defaults }`. An engine before 0.14 has no such call:
+  /// nil, and the caller walks `optionRows()`.
+  public func optionRows(scene: String) -> JSONNode? {
+    guard let card = try? Self.pitchCall(lobbyEngine(), "optionRows", [("scene", .string(scene))]),
+      card["rows"] != nil
+    else { return nil }
+    return card
+  }
+
   /// The lobby's engine takes a scene (`scene` in its OPTION_DEFAULTS, since 0.9): the
   /// host may pick one, written to the room's `settings.scene`. On 0.8 or 0.7 none is
   /// offered and the pitch is drawn as the day.

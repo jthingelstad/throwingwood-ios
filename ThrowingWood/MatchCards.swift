@@ -41,11 +41,12 @@ struct HomeCard: View {
   }
 }
 
-/// Play the computer (the 1.0 design, direction A): the name row, Scene as three
-/// picture tiles drawn by the app's own renderer, then Computer, Opening, Raising and
-/// Wind as segmented bars, and Surface as a fifth row until a scene decides the ground
-/// (`SoloOptions.cardRows`); no Kubbs row, the scene decides the set. HOME quiet at the
-/// left, START go at the right.
+/// Play the computer (the 1.0 design, direction A, scene first): the name row, Scene as
+/// seven picture tiles drawn by the app's own renderer, Surface under it only where the
+/// scene leaves one (Black & White), then Computer (Kid first), Opening, Raising and Wind
+/// as segmented bars, the rows the engine's card for the chosen scene
+/// (`SoloOptions.cardRows`, `pitch.optionRows`); no Kubbs row, the scene decides the set.
+/// HOME quiet at the left, START go at the right.
 struct MatchOptionsCard: View {
   @Bindable var model: GameModel
   var body: some View {
@@ -56,10 +57,10 @@ struct MatchOptionsCard: View {
         // game's, its Computer level the match's `computer` option
         PlayerLine(model: model)
         Rule()
-        ForEach(model.pitch?.options.cardRows ?? []) { row in
+        ForEach(model.pitch?.options.cardRows(model.selections) ?? []) { row in
           if row.id == "scene", let pitch = model.pitch {
             Text(row.label).labelStyle().accessibilityHidden(true)
-            SceneTiles(pitch: pitch, value: binding(row))
+            SceneTiles(pitch: pitch, row: row, value: binding(row))
           } else {
             FormRow(row.label) { full in
               Segmented(label: row.label, choices: row.choices.map { ($0[0], $0[1]) }, value: binding(row), full: full)
@@ -79,58 +80,106 @@ struct MatchOptionsCard: View {
   private func binding(_ row: MatchOption) -> Binding<String> {
     Binding(
       get: { model.selections[row.id] ?? row.choices.first?[0] ?? "" },
-      set: { model.selections[row.id] = $0 })
+      set: { v in
+        guard let options = model.pitch?.options else { return }
+        // a new scene brings its own ground and set (the engine's card's defaults)
+        model.selections = row.id == "scene" ? options.choosing(scene: v, model.selections) : {
+          var s = model.selections
+          s[row.id] = v
+          return options.starting(s)
+        }()
+      })
   }
 }
 
-/// The Scene row's three picture tiles (the design's `.tiles`): each scene's pitch as the
-/// app's own renderer draws it (never the mock-up's sketches), its name under it; the
-/// chosen tile's name inverted, ink with paper type, and its plate raised by the hard
-/// shadow, so the choice is told by fill and shape, not colour. VoiceOver reads the
-/// group as Scene and each tile as the bar's parts are ("Night, selected, 2 of 3").
+/// The Scene row's picture tiles (the design's `.tiles`), one per scene in the engine's
+/// row: each scene's pitch as the app's own renderer draws it (never the mock-up's
+/// sketches), on the scene's own ground and set, its name under it; the chosen tile's
+/// name inverted, ink with paper type, and its plate raised by the hard shadow, so the
+/// choice is told by fill and shape, not colour. Seven do not fit across a phone, so they
+/// run in a strip that scrolls sideways: the next tile is cut at the card's edge (the cue
+/// that there are more) and the chosen one is scrolled into view. At the accessibility
+/// text sizes each tile is a row, its picture beside its name, one under another.
+/// VoiceOver reads the group as Scene and each tile as the bar's parts are
+/// ("Camping, selected, 3 of 7"), in the row's order.
 struct SceneTiles: View {
   let pitch: PitchSession
+  let row: MatchOption
   @Binding var value: String
   @Environment(\.dynamicTypeSize) private var type
+  /// A tile's width: "TOURNAMENT" in the tiles' 14 pt capitals and the picture's 96:56.
+  static let tileWidth: CGFloat = 112
   var body: some View {
-    let names = SceneID.shownNames
-    let grid = type >= .accessibility3
-      ? [GridItem(.flexible())] : Array(repeating: GridItem(.flexible(), spacing: 8), count: names.count)
-    LazyVGrid(columns: grid, spacing: 8) {
-      ForEach(Array(names.enumerated()), id: \.offset) { i, scene in
-        let on = SceneID.shown(value) == scene.id
-        Button {
-          value = scene.id
-        } label: {
-          VStack(spacing: 0) {
-            Canvas { ctx, size in
-              ctx.withCGContext { cg in
-                PitchRenderer.draw(
-                  in: cg, size: size, camera: pitch.camera, scene: pitch.scene.scenery, look: scene.id)
+    let names = row.choices.map { (id: $0[0], name: $0[1]) }
+    Group {
+      if type.isAccessibilitySize {
+        VStack(spacing: 8) {
+          ForEach(Array(names.enumerated()), id: \.offset) { i, scene in tile(i, scene, count: names.count, wide: true) }
+        }
+      } else {
+        ScrollViewReader { reader in
+          ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 8) {
+              ForEach(Array(names.enumerated()), id: \.offset) { i, scene in
+                tile(i, scene, count: names.count, wide: false).frame(width: Self.tileWidth).id(scene.id)
               }
             }
-            .aspectRatio(96 / 56, contentMode: .fit)
-            Rectangle().fill(Color.woodInk).frame(height: TW.line)
-            Text(scene.name).font(bodyFont(14, .bold, relativeTo: .subheadline)).tracking(14 * 0.04)
-              .textCase(.uppercase).lineLimit(1).minimumScaleFactor(0.7)
-              .foregroundStyle(on ? Color.woodPaper : Color.woodInk)
-              .frame(maxWidth: .infinity, minHeight: 28)
-              .background(on ? Color.woodInk : Color.woodBaton)
+            // room for the chosen tile's hard shadow
+            .padding(.trailing, TW.controlShadow).padding(.bottom, TW.controlShadow)
           }
-          .clipShape(RoundedRectangle(cornerRadius: TW.controlRadius))
-          .overlay(RoundedRectangle(cornerRadius: TW.controlRadius).strokeBorder(Color.woodInk, lineWidth: TW.line))
-          .background(
-            RoundedRectangle(cornerRadius: TW.controlRadius).fill(on ? Color.woodDrop : .clear)
-              .offset(x: TW.controlShadow, y: TW.controlShadow))
-          .contentShape(Rectangle())
+          .scrollClipDisabled()
+          .onAppear { reader.scrollTo(value, anchor: .center) }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(scene.name)
-        .accessibilityValue(SegmentWords.value(index: i, count: names.count, selected: on))
       }
     }
     .accessibilityElement(children: .contain)
-    .accessibilityLabel(SceneID.row.label)
+    .accessibilityLabel(row.label)
+  }
+
+  private func tile(_ i: Int, _ scene: (id: String, name: String), count: Int, wide: Bool) -> some View {
+    let on = value == scene.id
+    let picture = Canvas { ctx, size in
+      ctx.withCGContext { cg in
+        PitchRenderer.draw(
+          in: cg, size: size, camera: pitch.camera, scene: pitch.scene.scenery.dressed(scene.id), look: scene.id)
+      }
+    }
+    .aspectRatio(96 / 56, contentMode: .fit)
+    let name = Text(scene.name).font(bodyFont(14, .bold, relativeTo: .subheadline)).tracking(14 * 0.04)
+      .textCase(.uppercase).lineLimit(wide ? nil : 2).multilineTextAlignment(wide ? .leading : .center)
+      .fixedSize(horizontal: false, vertical: true)
+      .foregroundStyle(on ? Color.woodPaper : Color.woodInk)
+    return Button {
+      value = scene.id
+    } label: {
+      Group {
+        if wide {
+          HStack(spacing: 0) {
+            picture.frame(width: 96)
+            Rectangle().fill(Color.woodInk).frame(width: TW.line)
+            name.padding(.horizontal, 10).frame(maxWidth: .infinity, minHeight: TW.touch, alignment: .leading)
+              .frame(maxHeight: .infinity).background(on ? Color.woodInk : Color.woodBaton)
+          }
+        } else {
+          VStack(spacing: 0) {
+            picture
+            Rectangle().fill(Color.woodInk).frame(height: TW.line)
+            name.padding(.horizontal, 4).padding(.vertical, 4)
+              .frame(maxWidth: .infinity, minHeight: 44).background(on ? Color.woodInk : Color.woodBaton)
+          }
+        }
+      }
+      .clipShape(RoundedRectangle(cornerRadius: TW.controlRadius))
+      .overlay(RoundedRectangle(cornerRadius: TW.controlRadius).strokeBorder(Color.woodInk, lineWidth: TW.line))
+      .background(
+        RoundedRectangle(cornerRadius: TW.controlRadius).fill(on ? Color.woodDrop : .clear)
+          .offset(x: TW.controlShadow, y: TW.controlShadow))
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(scene.name)
+    .accessibilityValue(SegmentWords.value(index: i, count: count, selected: on))
+    .accessibilityAddTraits(on ? .isSelected : [])
   }
 }
 
@@ -268,10 +317,11 @@ struct MenuGrid: View {
 }
 
 /// The practice pitch's menu (the web's menu on the practice pitch, its words): SETTINGS,
-/// HOW TO THROW and FEEDBACK as the menus' plain buttons, then the practice's own Surface
-/// and Scene as segmented bars (two to four choices: the 1.0 system's one control, where
-/// the native pop-ups were), BACK TO THE PITCH as go, HOME quiet, the version at the foot.
-/// A change of Scene starts a new practice in it, as on the web.
+/// HOW TO THROW and FEEDBACK as the menus' plain buttons, then the practice's own Scene
+/// (seven: a plain button that opens its list, the system's control for five or more) and
+/// Surface only where the scene leaves one (Black & White's three, a segmented bar),
+/// BACK TO THE PITCH as go, HOME quiet, the version at the foot. A change of Scene starts
+/// a new practice in it, as on the web.
 struct PracticeMenu: View {
   @Bindable var model: GameModel
   var body: some View {
@@ -286,19 +336,24 @@ struct PracticeMenu: View {
         }
         .buttonStyle(WoodButton())
         .lineLimit(1).minimumScaleFactor(0.7)
-        FormRow("Surface") { full in
-          Segmented(
-            label: "Surface", choices: Surface.allCases.map { ($0, $0.rawValue.capitalized) },
-            value: Binding(get: { model.surface }, set: { model.setPracticeSurface($0) }), full: full)
-        }
-        .disabled(model.playing)
-        if model.offline?.options.takesScene == true {
-          FormRow(SceneID.row.label) { full in
-            Segmented(
-              label: SceneID.row.label, choices: SceneID.row.choices.map { ($0[0], $0[1]) },
-              value: Binding(get: { model.practiceScene }, set: { model.practiceScene = $0 }), full: full)
+        if let options = model.offline?.options, options.takesScene,
+          let rows = options.card(model.practiceScene)?.rows
+        {
+          ForEach(rows.filter { $0.id == "scene" || $0.id == "surface" }) { row in
+            FormRow(row.label) { full in
+              if row.id == "scene" {
+                ChoiceList(
+                  label: row.label, choices: row.choices.map { ($0[0], $0[1]) },
+                  value: Binding(get: { model.practiceScene }, set: { model.practiceScene = $0 }))
+              } else {
+                Segmented(
+                  label: row.label,
+                  choices: row.choices.compactMap { c in Surface(rawValue: c[0]).map { ($0, c[1]) } },
+                  value: Binding(get: { model.surface }, set: { model.setPracticeSurface($0) }), full: full)
+              }
+            }
+            .disabled(model.playing)
           }
-          .disabled(model.playing)
         }
       }
     } buttons: {
