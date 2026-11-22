@@ -37,6 +37,9 @@ public struct SceneSkin: Equatable, Sendable {
   /// True for the day: the app keeps the system's light look and its own
   /// secondary text there.
   public var isDay: Bool { id == "day" }
+  /// Black and white only (Black & White): the dimming behind a card is the Playdate's
+  /// 50% checker, never grey.
+  public var mono: Bool { id == "bw" }
   // the plates and cards (the 1.0 system's tokens: kubb-sources design/system, the
   // day's are its values): ink draws every outline, shadow and word and fills a chosen
   // segment; paper is cards and plain buttons; accent is go (marigold in the day)
@@ -73,6 +76,8 @@ public struct SceneSkin: Equatable, Sendable {
     switch SceneID.shown(id) {
     case "night": .night
     case "neon": .neon
+    case "bw": .mono
+    // Beach, Minnesota and the Tournament are daylight: the day's controls
     default: .day
     }
   }
@@ -143,6 +148,21 @@ public struct SceneSkin: Equatable, Sendable {
     flash: SkinPaint(0xc8fdff), star: SkinPaint(0x5ff0ff), inner: SkinPaint(0x02050a), kingInner: SkinPaint(0x1a0410),
     crown: SkinPaint(0xff5c9d), word: SkinPaint(0xffffff),
     chip: [SkinPaint(0x5ff0ff), SkinPaint(0xff5c9d), SkinPaint(0xffc94a)])
+
+  /// Black & White (the Playdate's look on every control): black on white, the go
+  /// colour inverted (black with white type), Team A white with black type and Team B
+  /// black with white type, the meter's bands black (told apart by their stripes and
+  /// solid, as in every scene). Nothing grey but the dimming's checker.
+  public static let mono: SceneSkin = {
+    let k = SkinPaint(0x000000), w = SkinPaint(0xffffff)
+    return SceneSkin(
+      id: "bw", ink: k, paper: w, drop: k, accent: k, onAccent: w, muted: k, baton: w, field: w,
+      teamA: w, onTeamA: k, teamB: k, onTeamB: w, header: w, knob: w, grain: k, standRun: w, standZone: w,
+      standRing: k, warn: k, onWarn: w, dim: SkinPaint(0x000000, 0.5), face: w, faceShade: w, frame: k, ring: w,
+      tick: k, power: k, powerDeep: k, release: k, releaseDeep: k, dead: w, over: k, hand: k, handCore: k,
+      meterKnob: w, knobGrab: w, glow: SkinPaint(0x000000, 0), prompt: w, promptInk: k, endLit: k,
+      endRefused: w, flash: w, star: k, inner: w, kingInner: w, crown: k, word: k, chip: [k, k])
+  }()
 
   /// The type and the ground it is read on, for the 7:1 check: every pair a
   /// skin puts words on.

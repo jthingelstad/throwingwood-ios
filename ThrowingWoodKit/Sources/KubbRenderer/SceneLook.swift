@@ -44,7 +44,7 @@ public enum SceneID {
   ]
   /// The scenes this build draws besides the day (`SceneLook.drawn` in the engine's
   /// client guide): it grows as each is drawn; one not in it is drawn as the day.
-  public static let drawn: Set<String> = ["night", "neon"]
+  public static let drawn: Set<String> = ["beach", "night", "neon", "minnesota", "tournament", "bw"]
   /// The names a player sees, from the catalogue (the engine's `optionRows` Scene row
   /// carries the same words; a card reads them from there).
   public static var shownNames: [(id: String, name: String)] { catalogue.map { ($0.id, $0.name) } }
@@ -91,6 +91,8 @@ struct PiecePaint {
   let shadowX, shadowY: Double
   let shadowFill: Int, shadowAlpha: Double
   let litOf: (@Sendable (Piece) -> Lit)?
+  /// The teams' bands on the kubbs (the Playdate draws none: Black & White).
+  var teamBands = true
 
   static let dayWood = Tones(
     top: 0xf6e4bf, light: 0xecd2a0, shade: 0xb88a4f, end: 0xe2bf86, endShade: 0xa87a42,
@@ -135,10 +137,19 @@ struct PiecePaint {
       litOf: Neon.litOf)
   }()
 
+  /// Black & White: the day's drawing with no team bands, made 1-bit by the painter
+  /// (`Painter.mono`): white faces, black where they face away, black shadows and stakes.
+  static let mono: PiecePaint = {
+    var p = day
+    p.teamBands = false
+    return p
+  }()
+
   static func of(_ look: String) -> PiecePaint {
     switch look {
     case "night": night
     case "neon": neon
+    case "bw": mono
     default: day
     }
   }

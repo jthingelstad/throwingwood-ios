@@ -260,7 +260,7 @@ struct SceneTests {
 
 struct SceneSkinTests {
   /// Every word a scene's controls show reads at 7:1 or better (WCAG AAA).
-  @Test(arguments: ["night", "neon"])
+  @Test(arguments: ["night", "neon", "bw"])
   func textContrastIsSevenToOne(id: String) {
     let skin = SceneSkin.of(id)
     #expect(skin.id == id)
@@ -281,6 +281,19 @@ struct SceneSkinTests {
     // the web's figures (docs/SCENES.md): ink on paper
     #expect(abs(SkinPaint.contrast(SceneSkin.night.ink, SceneSkin.night.paper) - 14.98) < 0.05)
     #expect(abs(SkinPaint.contrast(SceneSkin.neon.ink, SceneSkin.neon.paper) - 18.42) < 0.05)
+    // the daylight scenes keep the day's controls
+    for id in ["beach", "minnesota", "tournament"] { #expect(SceneSkin.of(id) == .day) }
+  }
+
+  /// Black & White's controls are black and white: every paint the skin has is pure black
+  /// or pure white (the dimming's alpha aside, drawn as a checker), and the dimming is the
+  /// checker.
+  @Test func blackAndWhitesSkinIsOneBit() {
+    let m = SceneSkin.of("bw")
+    #expect(m == .mono && m.mono && !m.isDay)
+    let all = Mirror(reflecting: m).children.compactMap { $0.value as? SkinPaint } + m.chip
+    #expect(all.count > 40)
+    for p in all { #expect((p.r == 0 && p.g == 0 && p.b == 0) || (p.r == 1 && p.g == 1 && p.b == 1), "\(p)") }
   }
 }
 
