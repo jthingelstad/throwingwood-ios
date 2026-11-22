@@ -65,7 +65,7 @@ public struct PitchMember: Identifiable, Equatable {
   public let link: PitchLink
   public let teamMax: Int
   public let appVersion: String
-  public private(set) var stage = Stage.connecting
+  public internal(set) var stage = Stage.connecting
   public private(set) var members: [PitchMember] = []
   public private(set) var isHost = false
   public private(set) var canStart = false
@@ -129,7 +129,8 @@ public struct PitchMember: Identifiable, Equatable {
   private var openKey: JSONText?
   private var openAt = 0
   /// Someone else's aim, played behind the pitch's clock (`AimBuffer`).
-  private var aims = AimBuffer()
+  /// (internal for the tests, which hand it casts as the pitch would)
+  var aims = AimBuffer()
   private var shownAim: JSONText?
   public private(set) var shownAims = 0
   public private(set) var displayCorrections = 0
@@ -588,9 +589,12 @@ public struct PitchMember: Identifiable, Equatable {
   private func seat() throws {
     let current =
       stage == .match && controller.state == .match && pitch.status == .open && !suspended && !ended
+    // a watched raise is busy as a throw's playback is: the board shows the need before
+    // it, so nothing may act on it, and no banner shows, until it ends (the tick seats
+    // again then)
     let caughtUp =
       current && !writing && queue.isEmpty && !controller.starting
-      && displayedSeq == controller.sequence
+      && displayedSeq == controller.sequence && !board.raiseShowing
     let wasActing = board.acceptsInput
     board.acceptsInput = caughtUp && controller.mayAct
     if wasActing && !board.acceptsInput {
@@ -598,7 +602,7 @@ public struct PitchMember: Identifiable, Equatable {
     }
     let control = current ? controller.control : JSONText(#"{"sides":[],"cpu":false}"#)
     if board.need != nil, control != .null, control != displayControl {
-      if board.need?.cpu == true, !board.playing,
+      if board.need?.cpu == true, !boardBusy,
         (try JSONNode.parse(control))["cpu"]?.bool == true
       {
         _ = try board.engine.call("restore", json: board.engine.call("snapshot"))
@@ -753,7 +757,10 @@ public struct PitchMember: Identifiable, Equatable {
   private func showRemoteAim(now: Int) throws -> Bool {
     // a throw held for its aim (`AimBuffer.holdFor`) lets the swing play out first
     let waiting = queue.first.map { $0.2 > now } ?? true
-    guard stage == .match, !board.acceptsInput, !board.playing, waiting,
+    // nor while a raise is watched (Codex on PR #46): its engine is at the next throw
+    // already, and an aim shown then would take the raise view's camera mid-raise; the
+    // newest aim is sampled again on the first frame after it, so the watcher is not behind
+    guard stage == .match, !board.acceptsInput, !boardBusy, waiting,
       let aim = aims.sample(now: now), aim != shownAim,
       let output: AimOutput = try? board.read("showAim", aim.text)
     else { return false }

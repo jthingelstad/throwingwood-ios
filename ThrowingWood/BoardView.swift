@@ -565,7 +565,7 @@ import UIKit
     #endif
     let hud = PracticeHUD(context: ctx, size: bounds.size)
     if model.screen == .match, pitch.handoff == nil {
-      if pitch.need?.kind == "throw", !pitch.wideOn,
+      if pitch.need?.kind == "throw", !pitch.wideOn, !pitch.raiseShowing,
         let map = Self.minimapFrame(model: model, size: bounds.size, safe: insets)
       {
         // under the header's right end in every layout, still while a control is held
@@ -581,7 +581,8 @@ import UIKit
         hud.burst(burst, at: point)
       }
     }
-    if model.screen == .practice || model.screen == .match, !pitch.playing, !pitch.wideOn,
+    // the meter, its nudge and the coach: never over a watched raise
+    if model.screen == .practice || model.screen == .match, !pitch.playing, !pitch.raiseShowing, !pitch.wideOn,
       pitch.handoff == nil, pitch.need == nil || pitch.need?.kind == "throw"
     {
       let hint = model.screen == .practice
