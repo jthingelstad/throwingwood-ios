@@ -70,6 +70,23 @@ golden_files=(drive.lua hashes.json)
 
 sha() { shasum -a 256 "$1" | cut -d' ' -f1; }
 
+# The older engines as compiled code (Sources/KubbEngine/Supported.swift): the bundle's
+# Engines/ folder can outlive a change (a cached or earlier build keeps a resource folder
+# Package.swift no longer copies), but compiled code is rebuilt from source, so
+# Engine.carried takes an older engine only when this list names it.
+supported_file=$sources/Supported.swift
+supported_swift() {
+  local list="" tag
+  for tag in ${OLDER[@]+"${OLDER[@]}"}; do list+="${list:+, }\"$(minor_of "$tag")\""; done
+  cat <<SWIFT
+// Written by scripts/vendor-engine.sh sync from its OLDER (never by hand): the older
+// engines this build supports beside the newest, by major.minor (docs/ENGINES.md).
+extension Engine {
+  static let supportedOlder: [String] = [$list]
+}
+SWIFT
+}
+
 # engine.json's "files" map as "<path> <sha256>" lines (it is written one
 # entry a line by the engine's tools/manifest.mjs).
 manifest_files() {
@@ -157,6 +174,7 @@ case "${1:-}" in
     git -C "$source_dir" rev-parse --git-dir > /dev/null
     rm -rf "$sources/Engines" "$fixtures/engines"
     for tag in "$TAG" ${OLDER[@]+"${OLDER[@]}"}; do sync_one "$tag"; done
+    supported_swift > "$supported_file"
     exec "$0" check
     ;;
   check)
@@ -169,6 +187,14 @@ case "${1:-}" in
       [[ $pinned == *" $(basename "$d") "* && $(basename "$d") != "$(minor_of "$TAG")" ]] ||
         fail "unpinned: ${d#"$root"/} (not in OLDER; run sync)"
     done
+    [[ "$(supported_swift)" == "$(cat "$supported_file" 2>/dev/null)" ]] ||
+      fail "${supported_file#"$root"/} does not list OLDER; run sync"
+    # A local build that still holds an engine folder no longer vendored (SwiftPM leaves a
+    # resource folder in its bundle when Package.swift stops copying it).
+    while IFS= read -r d; do
+      [[ $pinned == *" $(basename "$d") "* && $(basename "$d") != "$(minor_of "$TAG")" ]] ||
+        fail "stale build: ${d#"$root"/} is an engine no longer vendored; remove that bundle (or the whole build folder) and build again"
+    done < <(find "$root/ThrowingWoodKit/.build" "$root/build" -type d -path '*KubbEngine*/Engines/*' -prune 2>/dev/null)
     # The package copies Engines/ exactly when OLDER names an engine (SwiftPM refuses a
     # resource folder that is not there, and an engine left out of the bundle is not carried).
     if grep -q '\.copy("Engines")' "$root/ThrowingWoodKit/Package.swift"; then

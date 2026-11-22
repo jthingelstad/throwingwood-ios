@@ -109,18 +109,27 @@ public final class Engine {
   public static var newest: String { carried.first ?? "" }
 
   /// Every older engine's folder, by major.minor: `Engines/<mm>/` whose engine.json
-  /// names that minor. Empty when the bundle has none.
+  /// names that minor, and only one `supportedOlder` names (Supported.swift, written
+  /// from `OLDER`). A folder the bundle holds beyond that is a stale build's (SwiftPM
+  /// leaves a resource folder Package.swift no longer copies) and is never carried.
   private static let older: [String: URL] = {
-    guard let root = Bundle.module.url(forResource: "Engines", withExtension: nil),
-      let names = try? FileManager.default.contentsOfDirectory(atPath: root.path)
-    else { return [:] }
     var out: [String: URL] = [:]
-    for name in names {
-      let dir = root.appending(path: name)
+    for (name, dir) in bundledOlder where supportedOlder.contains(name) {
       if let m = try? manifest(in: dir), majorMinor(m.version) == name { out[name] = dir }
     }
     return out
   }()
+
+  /// Every engine folder in the bundle's `Engines/`, supported or not (a test checks a
+  /// stale build has left none).
+  static var bundledOlder: [String: URL] {
+    guard let root = Bundle.module.url(forResource: "Engines", withExtension: nil),
+      let names = try? FileManager.default.contentsOfDirectory(atPath: root.path)
+    else { return [:] }
+    var out: [String: URL] = [:]
+    for name in names where !name.hasPrefix(".") { out[name] = root.appending(path: name) }
+    return out
+  }
 
   /// The folder of the carried engine of major.minor `minor`.
   static func bundled(minor: String) throws -> URL {
