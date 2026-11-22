@@ -145,7 +145,11 @@ extension Painter {
     var remaining = Array(shown.indices)
     while let fallback = remaining.first {
       let i = remaining.first { before[$0].isEmpty } ?? fallback
-      wood(shown[i], set: scene.set, paint: pp, baton: sceneBaton)
+      if let spin = scene.spins?[shown[i].solid.piece.id] {
+        spinning(shown[i], spin) { wood($0, set: scene.set, paint: pp, baton: sceneBaton) }
+      } else {
+        wood(shown[i], set: scene.set, paint: pp, baton: sceneBaton)
+      }
       remaining.removeAll { $0 == i }
       for j in remaining { before[j].remove(i) }
     }

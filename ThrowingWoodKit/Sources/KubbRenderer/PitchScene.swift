@@ -80,6 +80,9 @@ public struct PitchScene: Decodable, Sendable {
       size: size, camera: camera, focusX: focusX ?? 200, stillZoom: stillZoom, lift: lift)
   }
   var footprints, keepOut: [GroundMark]?
+  /// The pieces turning faster than the frames can show, by id (Spin.swift): set by the
+  /// playback each shown frame, never by the engine.
+  var spins: [String: Spin]? = nil
 }
 
 /// One map for painting and hit testing. Screen coordinates are points, y down.

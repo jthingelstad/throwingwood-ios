@@ -393,6 +393,7 @@ extension Painter {
   /// (z to -z), drawn faint with no shadow, under the pieces.
   private func reflections(_ scene: PitchScene, paint: PiecePaint, alpha: Double) {
     var mirror = scene
+    mirror.spins = nil
     mirror.items = scene.items.map { p in
       var q = p
       q.z = -p.z
