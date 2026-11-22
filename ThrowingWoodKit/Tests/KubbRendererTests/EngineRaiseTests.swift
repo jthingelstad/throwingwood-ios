@@ -132,4 +132,53 @@ import simd
     }
     #expect(seen)
   }
+
+  /// Engine 1.0.0's seat: a kubb standing plumb leans up to its surface's seat in the turf,
+  /// and each entry carries the `seat` it will stand at. A real match on grass, the
+  /// computer raising for both sides: every watched raise and punishment kubb ends on the
+  /// pose the next throw's items draw it at (its seat, resting on its lowest corner), so
+  /// nothing steps when the board moves on; the tip itself starts plumb.
+  @Test func anEngineRaiseEndsOnItsSeat() throws {
+    let app = try PitchSession(appVersion: "test")
+    try app.openMatch("new", json: #"{"mode":"match","seed":11,"cpu":"both"}"#, save: nil)
+    app.watching = true
+    var checked = 0
+    for _ in 0..<(60 * 60 * 3) where checked == 0 {
+      try app.tick(1.0 / 60)
+      guard let show = app.stoodShow else { continue }
+      let list = try #require(show.after.need.setup?.settled?.list)
+      #expect(list.contains { $0.seat != nil }, "grass seats a standing kubb")
+      for (k, kb) in show.kubbs.enumerated() {
+        let entry = try #require(list.first { $0.id == kb.id })
+        var s = show
+        s.k = k
+        s.age = s.total - 1e-9
+        let end = s.shown(reduced: false)
+        // the next throw's items are in its thrower's frame: turned half round about the
+        // pitch's centre (core/frame) when that is not the raiser's (test only)
+        var drawn = try #require(show.after.items.first { $0.id == kb.id })
+        if kb.frame != show.after.need.side {
+          let q = simd_quatd(angle: .pi, axis: V3(0, 0, 1)) * drawn.rotation
+          (drawn.x, drawn.y) = (-drawn.x, 8 - drawn.y)
+          (drawn.qw, drawn.qx, drawn.qy, drawn.qz) = (q.real, q.imag.x, q.imag.y, q.imag.z)
+        }
+        #expect(abs(end.x - drawn.x) < 1e-6 && abs(end.y - drawn.y) < 1e-6, "\(kb.id) where it stands")
+        #expect(abs(end.z - drawn.z) < 1e-4, "\(kb.id) on its lowest corner")
+        #expect(abs(abs(simd_dot(end.rotation.vector, drawn.rotation.vector)) - 1) < 1e-9, "\(kb.id) at its seat")
+        if entry.seat != nil {
+          // seated, it is off plumb by at most 3 degrees
+          let up = end.rotation.act(V3(0, 0, 1)).z
+          #expect(up < 1 && up >= cos(3 * Double.pi / 180))
+          // and the tip ends plumb before it settles
+          let top = StoodShow.tilt(kb, t: 1)
+          #expect(abs(top.rotation.act(V3(0, 0, 1)).z - 1) < 1e-9)
+        }
+        // under Reduce Motion it stands at its seat at once
+        s.age = s.lead + s.beat * 0.75
+        #expect(abs(abs(simd_dot(s.shown(reduced: true).rotation.vector, drawn.rotation.vector)) - 1) < 1e-9)
+        checked += 1
+      }
+    }
+    #expect(checked > 0)
+  }
 }
