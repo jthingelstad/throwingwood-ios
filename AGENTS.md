@@ -21,7 +21,7 @@ physics and session that the Playdate and the web version
   one in a sibling app). No analytics.
 - Shut the simulators down when done: `xcrun simctl shutdown all`.
 - **The version a player sees** is `<app version> (<engine version>)`, e.g.
-  `0.2 (0.8.1)`, built in one place, `VersionLabel` (KubbRenderer): `VERSION`
+  `0.2 (0.8.1)` or `1.0.0 (1.0.0)`, built in one place, `VersionLabel` (KubbRenderer): `VERSION`
   (the marketing version) and the newest carried engine's `engineVersion`, read
   from the engine, never typed. Nothing else goes in the parentheses: the build
   number is a detail line (`build 114`), and so would be any older engine carried

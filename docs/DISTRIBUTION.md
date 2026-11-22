@@ -31,7 +31,10 @@ that carries the newest engine alone (docs/ENGINES.md: it plays no match with a 
 before 0.7 or a web tab on 0.9), `0.9 (0.13.4)` for the first with generated names and no
 typed name anywhere, `0.10 (0.15.1)` for the first with the engine's seven scenes and Kid
 matches, `0.11 (0.16.0)` for the first with the drive and the engine's own raises watched,
-`0.12 (0.18.0)` for the first with a match's length and computer players in the lobby
+`0.12 (0.18.0)` for the first with a match's length and computer players in the lobby,
+`1.0.0 (1.0.0)` for the released game on the released engine, the build submitted to the
+App Store (the owner, 2026-11-22: "lets move all four projects to version 1.0.0 and tag
+those releases. We will use that version to submit to the App Store as well.")
 (AGENTS.md "The version a player sees").
 `scripts/asc.swift` calls the App Store Connect API for the rest (groups,
 What to Test, review submissions).
