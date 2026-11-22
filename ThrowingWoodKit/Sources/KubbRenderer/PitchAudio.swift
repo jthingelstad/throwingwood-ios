@@ -19,6 +19,8 @@
     /// The knock takes lower for the neighbours (NeighbourSounds.rate and landRate, each
     /// at three rates of the player's ± 6% spread), made once.
     private var farTakes: [AVAudioPCMBuffer] = [], landTakes: [AVAudioPCMBuffer] = []
+    /// ... and a kubb struck and left standing, a little higher (NeighbourSounds.tapRate).
+    private var tapTakes: [AVAudioPCMBuffer] = []
 
     public init() throws {
       // Render the small rate variations before the pitch opens. Every voice can
@@ -39,6 +41,8 @@
         for spread in [0.94, 1.0, 1.06] {
           farTakes.append(Self.resample(source, rate: NeighbourSounds.rate * spread, format: format))
           landTakes.append(Self.resample(source, rate: NeighbourSounds.landRate * spread, format: format))
+          tapTakes.append(
+            Self.resample(source, rate: NeighbourSounds.rate * NeighbourSounds.tapRate * spread, format: format))
         }
       }
       chord = voice([Self.kingChord(hz: hz)])
@@ -130,7 +134,7 @@
     public func play(_ sound: NeighbourSound) {
       guard engine.isRunning, !far.isEmpty else { return }
       let now = ProcessInfo.processInfo.systemUptime
-      let buffer = (sound.kind == .land ? landTakes : farTakes).randomElement()!
+      let buffer = (sound.kind == .land ? landTakes : sound.kind == .tap ? tapTakes : farTakes).randomElement()!
       let gains = far.indices.map { far[$0].busyUntil > now ? Optional(farGain[$0]) : nil }
       guard let i = NeighbourSounds.voice(gains: gains, gain: sound.gain) else { return }
       far[i].busyUntil = now + Double(buffer.frameLength) / buffer.format.sampleRate

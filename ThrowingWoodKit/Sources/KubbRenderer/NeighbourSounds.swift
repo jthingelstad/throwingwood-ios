@@ -3,11 +3,14 @@ import simd
 
 // The Tournament's other pitches heard, quiet and far (the owner, 2026-11-22: "We should
 // hear the sounds from the other pitches."). The web's src/game/neighbour-sound.js, its
-// numbers. The engine's neighbour recording carries no timeline (no touches, contacts or
-// landing: kubb-engine session/neighbours.lua keeps a far pitch's recording small), so the
-// cues come from what it does carry: each kubb's and the king's `toppleT` (the moment it
-// went over) and the thrown piece's poses (the first frame it is on the ground after it
-// flew). Played with the game's own knock takes, lower (farther); sound only, never a
+// numbers and its rule. The cues come from what engine 0.16.0 puts in each neighbour
+// recording (kubb-engine docs/SESSION.md "Neighbours"): `hits`, the first contact on each
+// body struck with its strength, and `landing`, the thrown piece's first touch of the
+// ground. Each body knocks once, at its first hit: a kubb that toppled as loud as its hit
+// was hard (0.35 + 0.65 x strength of the full knock), the king 1.5 times that, a kubb
+// struck and left standing (or a stake) a quieter, slightly higher tap at 0.45 of a
+// topple's; the landing is a softer, lower thud at `landing.t`. Nothing is read from the
+// poses. Played with the game's own knock takes, lower (farther); sound only, never a
 // haptic, and nothing under Reduce Motion (no neighbours run there), in the background,
 // while the match is paused (the field's clock stops) or within `ownGap` of the player's
 // own knock.
@@ -18,6 +21,8 @@ public struct NeighbourSound: Equatable, Sendable {
   public enum Kind: Sendable, Equatable {
     /// A kubb going over.
     case hit
+    /// A kubb struck and left standing, or a stake: quieter and a little higher.
+    case tap
     /// The king going down: louder.
     case king
     /// The thrown piece landing: softer and lower (a thud on grass, not wood on wood).
@@ -26,13 +31,21 @@ public struct NeighbourSound: Equatable, Sendable {
   public let kind: Kind
   public let gain, pan: Double
   /// The knock's playback rate before its random spread (`NeighbourSounds.rate`).
-  public var rate: Double { kind == .land ? NeighbourSounds.landRate : NeighbourSounds.rate }
+  public var rate: Double {
+    switch kind {
+    case .land: NeighbourSounds.landRate
+    case .tap: NeighbourSounds.rate * NeighbourSounds.tapRate
+    default: NeighbourSounds.rate
+    }
+  }
 }
 
-/// A cue in a neighbour's recording: when (s on the field's clock) and what.
+/// A cue in a neighbour's recording: when (s on the field's clock), what, and its share of
+/// its kind's full knock (`level`, by its hit's strength).
 struct NeighbourCue: Equatable {
   let time: Double
   let kind: NeighbourSound.Kind
+  var level = 1.0
 }
 
 public enum NeighbourSounds {
@@ -58,37 +71,51 @@ public enum NeighbourSounds {
   public static let ownGap = 0.5
   /// s: a cue this late is dropped, not played.
   static let stale = 0.3
-  /// m: the thrown piece's centre this low is on the ground, once it has been `flewZ` high.
-  static let landZ = 0.06, flewZ = 0.2
+  /// A hit's strength (0 to 1) sets its knock between `softest` and the full one: a graze
+  /// is quiet, a hard hit full.
+  static let softest = 0.35
+  /// A kubb struck and left standing, of a topple's knock at that strength, and a little
+  /// higher (a tap, not a fall).
+  static let stood = 0.45, tapRate = 1.05
 
-  /// The cues of a throw that left the hand at `at`, in time order.
+  /// A hit's share of the full knock by its strength (none given: the full knock).
+  static func share(_ strength: Double?) -> Double {
+    guard let s = strength, s.isFinite else { return 1 }
+    return softest + (1 - softest) * max(0, min(1, s))
+  }
+
+  /// The cues of a throw that left the hand at `at`, in time order (the web's cuesOf): one
+  /// for each body struck, at its first hit (a topple, the king's, or a tap for a body left
+  /// standing), one for a body that toppled with no hit listed (none should), at its
+  /// `toppleT`, and the landing.
   static func cues(_ r: NeighbourRecording, at: Double) -> [NeighbourCue] {
     var out: [NeighbourCue] = []
-    let k = r.poseScale
-    for b in r.bodies {
-      if b.id == r.projectile.id {
-        // the first frame on the ground after it flew
-        var flew = false
-        for j in 0..<b.frames where j * 7 + 2 < b.poses.count {
-          let z = Double(b.poses[j * 7 + 2]) / k
-          if z > flewZ {
-            flew = true
-          } else if flew && z <= landZ {
-            out.append(NeighbourCue(time: at + Double(b.start + j) * r.frameDt, kind: .land))
-            break
-          }
-        }
-      } else if let t = b.toppleT {
-        out.append(NeighbourCue(time: at + t, kind: b.kind == "king" ? .king : .hit))
+    let bodies = Dictionary(r.bodies.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+    var heard = Set<String>()
+    for h in r.hits ?? [] where h.t.isFinite && h.id != r.projectile.id && !heard.contains(h.id) {
+      heard.insert(h.id)
+      let level = share(h.strength)
+      if let b = bodies[h.id], b.toppleT != nil {
+        out.append(NeighbourCue(time: at + h.t, kind: b.kind == "king" ? .king : .hit, level: level))
+      } else {
+        out.append(NeighbourCue(time: at + h.t, kind: .tap, level: level * stood))
       }
+    }
+    for b in r.bodies where b.id != r.projectile.id && !heard.contains(b.id) {
+      if let t = b.toppleT { out.append(NeighbourCue(time: at + t, kind: b.kind == "king" ? .king : .hit)) }
+    }
+    if let l = r.landing, l.t.isFinite {
+      out.append(NeighbourCue(time: at + l.t, kind: .land, level: share(l.strength)))
     }
     return out.sorted { $0.time < $1.time }
   }
 
-  /// A cue's gain for a pitch whose origin is `d` m from the player's, or 0 (not played).
-  static func gain(distance d: Double, kind: NeighbourSound.Kind) -> Double {
+  /// A cue's gain for a pitch whose origin is `d` m from the player's, or 0 (not played):
+  /// the distance's, the kind's share and the cue's own `level` (the floor is the
+  /// distance's and the kind's, as the web's gainFor, before the level).
+  static func gain(distance d: Double, kind: NeighbourSound.Kind, level: Double = 1) -> Double {
     let g = near * min(1, pow(nearM / max(1, d), fall)) * (kind == .king ? king : kind == .land ? land : 1)
-    return g < floor ? 0 : g
+    return g < floor ? 0 : g * level
   }
 
   /// Left or right of a point (x, y) on the ground as the camera looks: from where it
@@ -120,7 +147,7 @@ extension TournamentNeighbours {
     let turned = session.scene.neighboursTurned
     let camera = session.shownCamera
     return due.compactMap { pitch, c in
-      let g = NeighbourSounds.gain(distance: hypot(pitch.offset.x, pitch.offset.y), kind: c.kind)
+      let g = NeighbourSounds.gain(distance: hypot(pitch.offset.x, pitch.offset.y), kind: c.kind, level: c.level)
       guard g > 0 else { return nil }
       let x = turned ? -pitch.offset.x : pitch.offset.x
       let y = (turned ? -pitch.offset.y : pitch.offset.y) + 4

@@ -36,9 +36,25 @@ struct NeighbourRecording: Decodable, Sendable {
     var toppleT: Double? = nil
   }
   struct Projectile: Decodable, Sendable { let id, kind: String }
+  /// The first contact on a body something struck (engine 0.16.0): `t` s from the release,
+  /// `strength` 0 to 1 on the session's contact scale (an impulse of 2 N s is 1).
+  struct Hit: Decodable, Sendable {
+    let t: Double
+    let id: String
+    let strength: Double?
+  }
+  /// The thrown piece's first touch of the ground (engine 0.16.0).
+  struct Landing: Decodable, Sendable {
+    let t: Double
+    let strength: Double?
+  }
   let frameDt, duration, poseScale: Double
   let projectile: Projectile
   let bodies: [Body]
+  /// The sounds (engine 0.16.0, kubb-engine docs/SESSION.md "Neighbours"): either left
+  /// out when there is none.
+  var hits: [Hit]? = nil
+  var landing: Landing? = nil
 
   /// The session's `Recording` this plays as through `Playback`: the pitch's current
   /// `items` in place of the recording's, and the thrown piece (not among them) added at
