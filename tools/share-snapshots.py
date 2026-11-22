@@ -9,10 +9,12 @@ code, making its reel; "sealed" is the winner card of a sealed pitch opened by c
 
   python3 tools/share-snapshots.py <simulator-app> [--landscape left|right] [--ipad]
 
-writes <device>[-landscape]-<state>.png to build/share-shots/ (gitignored).
+writes <device>[-landscape]-<state>.png to build/share-shots/ (gitignored);
+tools/review-set.sh share keeps them in docs/review/share.
 --sim-prefix picks simulators of your own (named "<prefix>iPhone 16e" and so on)
-when another session uses the shared ones. No baseline is compared: the share card
-has no committed review pictures yet.
+when another session uses the shared ones. No baseline is compared. "sealed" and
+"sealedold" no longer come up (2026-11-22): the solo fixture they restore through the
+engine's check from outside is refused, so the review set leaves them out.
 """
 import argparse
 import concurrent.futures
@@ -63,7 +65,7 @@ def capture(phone, args):
     try:
         sim("bootstatus", udid, "-b", stdout=subprocess.DEVNULL)
         sim("install", udid, str(args.app))
-        sim("status_bar", udid, "override", "--time", "9:41", "--batteryState", "charged",
+        sim("status_bar", udid, "override", "--time", "9:41", "--batteryState", "discharging",
             "--batteryLevel", "100", "--cellularBars", "4", "--wifiBars", "3")
         tmp = Path(sim("get_app_container", udid, APP, "data", capture_output=True,
                        text=True).stdout.strip()) / "tmp"
