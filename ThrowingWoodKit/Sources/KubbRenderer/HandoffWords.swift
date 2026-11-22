@@ -62,6 +62,20 @@ public enum HandoffWords {
     return first + " Aim for the base kubbs."
   }
 
+  /// A Kid match's kicker over the hand-off card's title (engine 0.15's `need.kid`, the
+  /// web's handoff-words.js KID_LINES): every kubb and every baton at a kubb is thrown
+  /// from the Kid line, which the pitch marks with a cone at each end, and the king shot
+  /// from the baseline. Nothing here speaks of a punishment or a loss: a Kid match has
+  /// none. nil in a match that is not a Kid match.
+  public static let kidLines = (
+    cones: "Kid match · throw from the cones", king: "Kid match · the king from your line", plain: "Kid match"
+  )
+  public static func kid(_ need: MatchNeed?) -> String? {
+    guard let need, need.kid == true else { return nil }
+    guard need.kind == "throw", let setup = need.setup else { return kidLines.plain }
+    return setup.kingShot == true ? kidLines.king : kidLines.cones
+  }
+
   /// The line for a hand-off card, from the card and the rail.
   public static func line(_ c: MatchNeed.Handoff, at: String?) -> String {
     line(batons: c.batons, kubbs: c.kubbs, at: at)

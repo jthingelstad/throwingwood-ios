@@ -864,6 +864,10 @@ struct MatchScreen: View {
   private func handoffCard(_ c: MatchNeed.Handoff) -> some View {
     let own = !(model.online != nil && !pitch.acceptsInput)
     return VStack(alignment: .leading, spacing: 8) {
+      // a Kid match says so over the title (the web's handoffKid)
+      if let kid = HandoffWords.kid(pitch.need) {
+        Text(kid).labelStyle().fixedSize(horizontal: false, vertical: true)
+      }
       Text(HandoffWords.title(c, own: own)).cardTitle(40)
         .lineLimit(1).minimumScaleFactor(0.6)
       Text(HandoffWords.line(c, at: pitch.railAt)).font(bodyFont(18, relativeTo: .body))
@@ -901,6 +905,7 @@ struct MatchScreen: View {
   private func watchBanner(_ c: MatchNeed.Handoff) -> some View {
     VStack(alignment: .leading, spacing: 4) {
       Text("TURN \(c.turn)").font(.caption.bold()).tracking(1.5)
+      if let kid = HandoffWords.kid(pitch.need) { Text(kid).font(.subheadline.bold()) }
       Text(c.toName).font(displayFont(30))
       if let took = c.took, let from = c.fromName {
         Text("\(from) took \(took.field) field and \(took.base) base kubbs.").font(.subheadline)

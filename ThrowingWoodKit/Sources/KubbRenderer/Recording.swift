@@ -12,6 +12,31 @@ public struct ThrowResult: Decodable, Equatable, Sendable {
     let power, release, steady, side: String?
   }
   let verdicts: Words?
+  /// The match's ruling on the throw (the session's `ruling`, on a match's recording): its
+  /// short words and codes.
+  struct Ruling: Decodable, Equatable, Sendable {
+    struct Part: Decodable, Equatable, Sendable { let code: String? }
+    let short, code: String?
+    let parts: [Part]?
+    var codes: [String] { (parts?.compactMap(\.code)).flatMap { $0.isEmpty ? nil : $0 } ?? (code.map { [$0] } ?? []) }
+  }
+  let ruling: Ruling?
+  /// The rulings of a Kid match (engine 0.15) that the flag must say in their own words.
+  public static let kidCodes = ["kingUp", "placed", "helicopterCounts"]
+  /// The flag over the pitch after the throw (the web's rulings.js flagFor): the
+  /// recording's `flag`, except where a Kid match's ruling says what happened better. A
+  /// Kid match has no punishments and no losing throws, so the flag never says one: a king
+  /// knocked down early is stood back up ("KING BACK UP", `kingUp`), a kubb out twice is
+  /// placed by the engine ("OUT TWICE: PLACED", `placed`), and a helicopter counts
+  /// (`helicopterCounts`): its flag is what it knocked down ("1 DOWN", "MISS"), never
+  /// "HELICOPTER", which in the standard game means a throw that does not count.
+  public var shownFlag: String? {
+    let codes = ruling?.codes ?? []
+    let short = ruling?.short.flatMap { $0.isEmpty ? nil : $0 }
+    if codes.contains("kingUp") || codes.contains("placed"), let short { return short }
+    if codes.contains("helicopterCounts") { return flag == "HELICOPTER" ? short : flag }
+    return flag
+  }
   public struct Verdict: Equatable {
     public let text: String, offTarget: Bool
   }

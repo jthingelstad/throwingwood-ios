@@ -25,6 +25,7 @@ private func segments(_ scene: PitchScene) -> [Segment] {
   }
   dashed(4, 0.24, 0.16)
   if let adv = scene.advantageY { dashed(adv, 0.1, 0.1) }
+  if let kid = scene.shownKidY { dashed(kid, KidLine.dot, KidLine.gap) }
   return segs
 }
 
@@ -183,6 +184,7 @@ extension Painter {
       ctx.restoreGState()
     }
     marks(scene, track: night ? (0xc8e1ff, 0.2) : (0x5ff0ff, 0.22))
+    kidCones(scene, KidLine.cone(look))
     if g.reflect > 0 { reflections(scene, paint: .of(look), alpha: g.reflect) }
     pieces(
       scene, paint: .of(look),

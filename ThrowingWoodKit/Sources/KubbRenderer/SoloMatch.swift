@@ -142,6 +142,8 @@ public struct MatchNeed: Decodable {
     public let n, of: Int
     public let projectile, label: String
     public let thrower: Player?
+    /// The king shot (from the baseline, even in a Kid match).
+    public let kingShot: Bool?
   }
   public struct Handoff: Decodable {
     public struct Taken: Decodable { public let base, field: Int }
@@ -163,6 +165,8 @@ public struct MatchNeed: Decodable {
   struct Bounds: Decodable { let xMin, xMax, yMin, yMax: Double }
   struct Last: Decodable { let short: String? }
   public let resignPending: String?
+  /// A Kid match (engine 0.15): the Kid rules for both sides, the Kid meter for a person.
+  public let kid: Bool?
   public let kind: String, side, team: String?, cpu: Bool?, setup: Setup?
   public let turn, n, of: Int?, teams: [String: String]?, standing: [String: Int]?
   public let card: Card?, winner: Winner?, how, short: String?

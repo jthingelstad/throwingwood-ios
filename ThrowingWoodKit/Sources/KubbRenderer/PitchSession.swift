@@ -82,6 +82,8 @@ struct Aim: Decodable {
   let controls: Controls?
   let marker, thrower: GroundMark?
   let arc: [WorldPoint]?, advY: Double?
+  /// The Kid line in a Kid match (engine 0.15), the view frame's y; nil in any other.
+  let kidY: Double?
   let lineY, forwardY, halfWidth, backMax: Double?
   let rail: Rail?
 }
@@ -371,9 +373,10 @@ public final class PitchSession {
     sideControl = a.projectile == "kubb" ? a.controls?.spin : a.controls?.tilt
     standAim = StandAim(
       projectile: a.projectile, lineY: a.lineY ?? 0, forwardY: a.forwardY,
-      halfWidth: a.halfWidth ?? 2.5, backMax: a.backMax ?? 3)
+      halfWidth: a.halfWidth ?? 2.5, backMax: a.backMax ?? 3, kidY: a.kidY)
     sideSteps = PlanScale.steps(of: sideStep ?? 0, kubb: a.projectile == "kubb")
     scene.advantageY = a.advY
+    scene.kidY = a.kidY
     scene.marker = a.marker
     let reference = PitchProjection(size: CGSize(width: 400, height: 240), camera: c)
     if let marker = a.marker, marker.shown != false, let p = reference.project(marker.point) {

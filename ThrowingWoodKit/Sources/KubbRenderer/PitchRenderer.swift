@@ -119,6 +119,7 @@ public enum PitchRenderer {
     }
     p.ground(scene)
     p.marks(scene)
+    p.kidCones(scene)
     p.pieces(scene)
     if let arc = scene.arc { p.trajectory(arc, ground: false) }
   }
@@ -250,6 +251,7 @@ extension Painter {
     }
     dashed(4, 0.24, 0.16)
     if let adv = scene.advantageY { dashed(adv, 0.1, 0.1) }
+    if let kid = scene.shownKidY { dashed(kid, KidLine.dot, KidLine.gap) }
   }
 
   /// The rough's texture: tufts on grass, grains on sand and snow; `inside`: only

@@ -251,9 +251,10 @@ extension Painter {
     case "minnesota": winterScenery()
     default:
       neighbours(Tournament.neighbours)
-      tournamentScenery()
+      tournamentScenery(scene)
     }
     marks(scene)
+    kidCones(scene)
     pieces(scene)
     effects?.draw(ctx, projection)
     if look == "minnesota" && !still { snowfall(time: time) }
@@ -504,7 +505,7 @@ extension Painter {
     fill(light, 0x56993a)
   }
 
-  private func tournamentScenery() {
+  private func tournamentScenery(_ scene: PitchScene) {
     var items: [(at: V3, draw: () -> Void)] = []
     // bunting on poles between the pitches, and across the far end
     for x in [-5.0, 5.0, -11.0, 11.0] {
@@ -512,9 +513,14 @@ extension Painter {
     }
     // across the far end its posts stand clear of the pitch's width, never behind a target
     items.append((V3(0, 10.2, 0), { self.bunting([V3(-11, 10.2, 0), V3(-5, 10.2, 0), V3(5, 10.2, 0), V3(11, 10.2, 0)]) }))
-    // the pitch's own scoreboard and the tent beyond the end
+    // the pitch's own scoreboard, the kubbs each side has standing (three a side in a Kid
+    // match, five in any other), and the tent beyond the end
+    func standing(_ team: String) -> Int {
+      scene.items.filter { $0.kind == "kubb" && $0.team == team && !Neon.lying($0) }.count
+    }
     let board = V3(-3.6, 12.6, 0)
-    items.append((board, { self.scoreboard(board, (5, 5)) }))
+    let score = (standing("A"), standing("B"))
+    items.append((board, { self.scoreboard(board, score) }))
     let tent = V3(5.5, 15.5, 0)
     items.append((tent, { self.tent(tent) }))
     let tent2 = V3(-9, 16.5, 0)
@@ -661,11 +667,71 @@ extension Painter {
     }
     dashed(4, 0.24, 0.16)
     if let adv = scene.advantageY { dashed(adv, 0.1, 0.1) }
+    if let kid = scene.shownKidY { dashed(kid, KidLine.dot, KidLine.gap) }
     ctx.setLineCap(.butt)
     stroke(lines, 0x000000, lw)
     ctx.setLineCap(.round)
     marks(scene)
+    kidCones(scene, KidLine.cone("bw"))
     pieces(scene, paint: .mono)
     if let arc = scene.arc { trajectory(arc, ground: false) }
+  }
+}
+
+/// The Kid line (a Kid match, engine 0.15): short dots across the pitch, told apart from
+/// the advantage line's dashes and the centre line's, with a traffic cone just off each
+/// sideline, so a child sees where to stand (the web's world.js `kidDot`, `kidGap`,
+/// `kidConeX`).
+enum KidLine {
+  /// m: a dot and the gap after it.
+  static let dot = 0.05, gap = 0.09
+  /// m from the middle: each cone, just off its sideline.
+  static let coneX = 2.85
+  /// m: a cone's height.
+  static let coneHeight = 0.3
+  /// A cone's body, band and line in a scene: orange with a white band; Black & White's
+  /// white with a black band; Techno's lit from within.
+  static func cone(_ look: String) -> (body: Int, band: Int, ink: Int) {
+    switch look {
+    case "bw": (0xffffff, 0x000000, 0x000000)
+    case "neon": (0x2a1204, 0xff9a4a, 0xff9a4a)
+    case "night": (0xff7a1f, 0xf4f2e8, 0x060a13)
+    default: (0xff7a1f, 0xffffff, ink)
+    }
+  }
+}
+
+extension PitchScene {
+  /// The Kid line to draw: none where it is the advantage line itself.
+  var shownKidY: Double? {
+    guard let k = kidY else { return nil }
+    if let a = advantageY, abs(a - k) < 1e-6 { return nil }
+    return k
+  }
+}
+
+extension Painter {
+  /// The Kid line's two cones, standing just off the sidelines at its ends.
+  func kidCones(_ scene: PitchScene, _ c: (body: Int, band: Int, ink: Int) = KidLine.cone("day")) {
+    guard let y = scene.kidY else { return }
+    for x in [-KidLine.coneX, KidLine.coneX] {
+      billboard(V3(x, y, 0)) { u in
+        let s = KidLine.coneHeight
+        let w = max(1, min(2.6, s * u / 12)) / u
+        let base = CGPath(ellipseIn: CGRect(x: -s * 0.42, y: -s * 0.12, width: s * 0.84, height: s * 0.24), transform: nil)
+        fill(base, c.body)
+        stroke(base, c.ink, w)
+        let body = path([
+          CGPoint(x: -s * 0.3, y: 0), CGPoint(x: -s * 0.06, y: s), CGPoint(x: s * 0.06, y: s), CGPoint(x: s * 0.3, y: 0),
+        ])
+        fill(body, c.body)
+        fill(
+          path([
+            CGPoint(x: -s * 0.21, y: s * 0.38), CGPoint(x: -s * 0.15, y: s * 0.6), CGPoint(x: s * 0.15, y: s * 0.6),
+            CGPoint(x: s * 0.21, y: s * 0.38),
+          ]), c.band)
+        stroke(body, c.ink, w)
+      }
+    }
   }
 }

@@ -20,10 +20,14 @@ import Foundation
 public struct StandAim: Equatable, Sendable {
   public var projectile: String?
   public var lineY, forwardY, halfWidth, backMax: Double
+  /// The Kid line in a Kid match (engine 0.15): kubbs and batons at kubbs are thrown from
+  /// it, so it is the forward limit (`forwardY`) for both, or the advantage line beyond it.
+  public var kidY: Double?
   public init(
     projectile: String? = "baton", lineY: Double = 0, forwardY: Double? = nil,
-    halfWidth: Double = 2.5, backMax: Double = 3
+    halfWidth: Double = 2.5, backMax: Double = 3, kidY: Double? = nil
   ) {
+    self.kidY = kidY
     self.projectile = projectile
     self.lineY = lineY
     self.forwardY = forwardY ?? lineY
@@ -50,7 +54,9 @@ public enum StandPad {
 
     public init(_ aim: StandAim) {
       let fwd = max(aim.lineY, aim.forwardY)
-      let limit = aim.projectile == "kubb" ? aim.lineY : fwd
+      // a kubb's forward limit is the baseline in a standard match; in a Kid match kubbs
+      // are thrown from the Kid line too, and forwardY says so (the web's stand-pad.js)
+      let limit = aim.projectile == "kubb" && aim.kidY == nil ? aim.lineY : fwd
       x0 = -aim.halfWidth
       x1 = aim.halfWidth
       yBack = aim.lineY - aim.backMax
@@ -85,7 +91,12 @@ public enum StandPad {
   public static func text(x: Double, y: Double, aim: StandAim) -> String {
     let along = y - aim.lineY
     let across = abs(x) < still ? "MIDDLE" : "\(metres(x)) \(x < 0 ? "LEFT" : "RIGHT")"
-    let up = abs(along) < still ? "ON THE LINE" : "\(metres(along)) \(along < 0 ? "BACK" : "UP")"
+    let kid = aim.kidY.map { $0 - aim.lineY }
+    let up =
+      abs(along) < still
+      ? "ON THE LINE"
+      : (kid.map { abs(along - $0) < still } == true
+        ? "ON THE KID LINE" : "\(metres(along)) \(along < 0 ? "BACK" : "UP")")
     return "\(across), \(up)"
   }
 
@@ -93,10 +104,15 @@ public enum StandPad {
   /// the thrower is. Upper case, as the web's caption is drawn.
   public static func caption(x: Double, y: Double, aim: StandAim) -> String {
     let span = Span(aim)
+    // in a Kid match the forward limit is the Kid line (unless the advantage line is
+    // nearer the middle): it is never called the advantage line (the web's words)
+    let kidLine = aim.kidY.map { abs(span.limit - $0) < still } == true
     let how =
-      span.limit > span.lineY + still
-      ? "Stand on your line, behind it, or up to the advantage line."
-      : "Stand on your line or behind it."
+      kidLine
+      ? "Stand anywhere from behind your line up to the Kid line."
+      : span.limit > span.lineY + still
+        ? "Stand on your line, behind it, or up to the advantage line."
+        : "Stand on your line or behind it."
     return "\(text(x: x, y: y, aim: aim)). \(how)".uppercased()
   }
 
