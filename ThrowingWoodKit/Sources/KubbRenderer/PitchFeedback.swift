@@ -27,7 +27,7 @@ public enum PitchHaptic: Equatable, Sendable {
     case .release: [Pulse(0, 0.78, 0.65)]
     case .contact(let strength): [Pulse(0, 0.15 + 0.8 * strength, 0.65)]
     case .landing(let surface, let strength):
-      [Pulse(0, 0.10 + 0.35 * strength, [.grass: 0.20, .sand: 0.10, .snow: 0.04][surface]!)]
+      [Pulse(0, 0.10 + 0.35 * strength, [.grass: 0.20, .sand: 0.10, .snow: 0.04, .grid: 0.55][surface]!)]
     case .king: [Pulse(0, 0.90, 0.32), Pulse(0.085, 0.66, 0.18)]
     case .win: [Pulse(0, 0.40, 0.45), Pulse(0.095, 0.72, 0.70)]
     case .handoff: [Pulse(0, 0.32, 0.4)]

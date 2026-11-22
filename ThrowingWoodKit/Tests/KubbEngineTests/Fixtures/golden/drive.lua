@@ -74,6 +74,45 @@ function golden.matches()
 			surface = "sand", wind = "off", first = "A", start = START, maxTurns = 6,
 		},
 	}
+	-- Since 0.14.0, the grid (the Techno scene's floor, core/world): chosen as a client
+	-- chooses it, by the scene (scene "neon" decides the surface, core/scenes; the surface
+	-- is named too, for the person's plan below). The computer both sides in light wind ...
+	out[16] = {
+		name = "m16-neon-grid-light-A",
+		opts = {
+			mode = "match", cpu = "both", seed = 1016, scene = "neon", surface = "grid",
+			wind = "light", first = "A", start = START, maxTurns = 6,
+		},
+	}
+	-- ... and a person (throwing as m13's does) against the pro computer.
+	out[17] = {
+		name = "m17-neon-grid-off-B-near-pro",
+		opts = {
+			mode = "match", cpu = "B", computer = "pro", seed = 1017, scene = "neon", surface = "grid",
+			wind = "off", first = "B", start = START, maxTurns = 10,
+		},
+		near = { 0.35, 0.75, 1.25, 1.9, 2.0 },
+	}
+	-- Since 0.15.0, the Kid rules (core/rules rules.kid): the Kid computer makes a Kid match,
+	-- chosen as a client chooses it. A person (throwing as m13's does, on the Kid meter)
+	-- against the Kid computer ...
+	out[18] = {
+		name = "m18-grass-off-A-near-kid",
+		opts = {
+			mode = "match", cpu = "B", computer = "kid", seed = 1018, surface = "grass",
+			wind = "off", first = "A", start = START, maxTurns = 10,
+		},
+		near = { 0.35, 0.75, 1.25, 1.9, 2.0 },
+	}
+	-- ... and the Kid computer both sides, played to the end (seed 1020: one of its batons
+	-- is a helicopter, which counts).
+	out[19] = {
+		name = "m19-sand-light-B-kid",
+		opts = {
+			mode = "match", cpu = "both", computer = "kid", seed = 1020, surface = "sand",
+			wind = "light", first = "B", start = START, maxTurns = 20,
+		},
+	}
 	return out
 end
 

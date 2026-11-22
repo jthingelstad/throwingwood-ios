@@ -15,13 +15,18 @@
 --   * cleanName never leaves half a character: where the JavaScript's 16-unit cut
 --     splits a character beyond U+FFFF, the whole character goes.
 --   * the engine's own options (computer, scene) live in a top-level `settings`, which an
---     older engine's lobbyOf keeps; setOptions sets them and optionsOf reads all options.
+--     older engine's lobbyOf keeps; setOptions sets them and optionsOf reads all options;
+--   * a scene decides (since 0.14, core/scenes): in a document that names a scene,
+--     setOptions, optionsOf and matchOptions hold the surface and the set to the scene's.
+--     A document that names none (every one the JavaScript or an engine before 0.14
+--     wrote) keeps its surface and set as written.
 import "core/tw"
 import "version"
 import "session/json"
 import "pitch/js"
+import "core/scenes"
 
-local json, js = tw.web.json, tw.shared.js
+local json, js, scenes = tw.web.json, tw.shared.js, tw.scenes
 local NULL, object = json.null, json.object
 local truthy, same, get, includes = js.truthy, js.same, js.get, js.includes
 
@@ -33,7 +38,8 @@ lobby.TEAM_MAX = 6
 lobby.SEATS = 2 * lobby.TEAM_MAX
 lobby.SIDES = { "A", "B" }
 lobby.NAME_MAX = 16
-lobby.LEVELS = { "beginner", "club", "pro" }
+-- (kid since 0.15.0: the Kid computer, which makes the match a Kid match; docs/notes/kid-mode.md)
+lobby.LEVELS = { "kid", "beginner", "club", "pro" }
 -- The most the document may grow to while it carries a replay's log (the pitch's limit is
 -- 256 KB): about 600 actions.
 lobby.LOG_BUDGET = 248 * 1024
@@ -54,34 +60,48 @@ lobby.OPTION_DEFAULTS = { surface = "grass", opening = "2-4-6", raising = "hand"
 -- default. Each key's test of a value:
 local OWN_KEYS = { "computer", "scene" }
 
--- A scene (Jamie, 2026-11-20: scenes and effects are new settings, a look only): the
--- pitch's light and sky, drawn by the client, never read by the physics or the rules.
--- The engine does not list the scenes: an id is lowercase letters, digits and hyphens,
--- 1 to 24 characters (OPTION_DEFAULTS.scene, "day", when absent), and a client draws one
--- it does not know as "day", the look there has always been. So a client adds a scene
--- without an engine release, and the scene is not in MATCH_OPTIONS: the client labels it.
+-- A scene (Jamie, 2026-11-20: scenes and effects are new settings; since 0.14 a scene
+-- decides the surfaces and the kubb sets a match may have, core/scenes). The engine
+-- lists the scenes (core/scenes, the Scene row of MATCH_OPTIONS); setOptions takes only
+-- those. A document keeps any well formed id (lowercase letters, digits and hyphens, 1
+-- to 24 characters), so one a newer engine wrote survives this one's writes, and reads
+-- it as "day" (Park), the look a client draws for an id it does not know.
 function lobby.isScene(v)
 	return type(v) == "string" and #v >= 1 and #v <= 24 and v:match("^[a-z0-9%-]+$") ~= nil
 end
 
+-- kept in a document
 local OWN_OK = {
 	-- the computer's level, a game setting (Jamie, 2026-11-20: "yes this should be a real
 	-- per game setting"); absent: club, as before
 	computer = function(v) return includes(lobby.LEVELS, v) end,
 	scene = lobby.isScene,
 }
+-- taken from setOptions
+local OWN_SET = {
+	computer = OWN_OK.computer,
+	scene = scenes.known,
+}
 
 -- The match options the host sets: { key, label, { { value, label }, ... } }, as on the
 -- web's solo options card. (Each player's throw level is their own; the computer's is the
 -- match's, since 0.9.)
+-- Every value each option takes; a client's card is lobby.optionRows(scene), which shows
+-- only what the scene leaves to the player. The Scene row (since 0.14) is core/scenes'
+-- list; the surface and set rows hold every value the engine takes (sweden and wisconsin
+-- are in no scene but still load), so a document written before 0.14 reads as it did.
+local sceneChoices, surfaceChoices = {}, {}
+for i, e in ipairs(scenes.list) do sceneChoices[i] = { e.id, e.name } end
+for i, k in ipairs(scenes.SURFACES) do surfaceChoices[i] = { k, scenes.surfaceName[k] } end
 lobby.MATCH_OPTIONS = {
-	{ "surface", "Surface", { { "grass", "Grass" }, { "sand", "Sand" }, { "snow", "Snow" } } },
+	{ "scene", "Scene", sceneChoices },
+	{ "surface", "Surface", surfaceChoices },
 	{ "opening", "Opening", { { "2-4-6", "2-4-6" }, { "six", "Six batons" } } },
 	{ "raising", "Raising", { { "hand", "By hand" }, { "auto", "Automatic" } } },
 	{ "wind", "Wind", { { "off", "Off" }, { "light", "Light" }, { "strong", "Strong" } } },
 	{ "set", "Kubbs", { { "classic", "Classic" }, { "usa", "USA" }, { "sweden", "Sweden" },
 		{ "minnesota", "Minnesota" }, { "wisconsin", "Wisconsin" } } },
-	{ "computer", "Computer", { { "beginner", "Beginner" }, { "club", "Club" }, { "pro", "Pro" } } },
+	{ "computer", "Computer", { { "kid", "Kid" }, { "beginner", "Beginner" }, { "club", "Club" }, { "pro", "Pro" } } },
 }
 
 local OPTION_VALUES = {}
@@ -301,15 +321,22 @@ function lobby.setOptions(doc, options)
 	for _, k in ipairs(OPTION_KEYS) do
 		local v = get(options, k)
 		if truthy(options) and includes(OPTION_VALUES[k], v) then next[k] = v else next[k] = l.options[k] end
-		if next[k] ~= l.options[k] then changed = true end
 	end
 	-- the engine's own go to `settings`, in the same call
 	local had = l.settings or {}
 	local st = object {}
 	for _, k in ipairs(OWN_KEYS) do
 		local v = get(options, k)
-		if truthy(options) and v ~= nil and OWN_OK[k](v) then st[k] = v else st[k] = had[k] end
+		if truthy(options) and v ~= nil and OWN_SET[k](v) then st[k] = v else st[k] = had[k] end
 		if st[k] ~= had[k] then changed = true end
+	end
+	-- a scene decides: the surface and the set held to the scene's (0.14)
+	if st.scene ~= nil then
+		local _, surface, set = scenes.resolve(st.scene, next.surface, next.set)
+		next.surface, next.set = surface, set
+	end
+	for _, k in ipairs(OPTION_KEYS) do
+		if next[k] ~= l.options[k] then changed = true end
 	end
 	if truthy(doc) and not changed then return nil end
 	l.options = next
@@ -328,7 +355,33 @@ function lobby.optionsOf(doc)
 	for _, k in ipairs(OWN_KEYS) do
 		if st[k] ~= nil then out[k] = st[k] else out[k] = lobby.OPTION_DEFAULTS[k] end
 	end
+	-- a scene named decides (an id this engine does not list is Park's); none, as written
+	if st.scene ~= nil then out.scene, out.surface, out.set = scenes.resolve(st.scene, out.surface, out.set) end
 	return out
+end
+
+-- The options card for a scene (since 0.14): the rows a client shows, in MATCH_OPTIONS'
+-- form, the Scene row first; a Surface row (or a Kubbs row) only where the scene allows
+-- more than one, with only the values it allows. { scene, rows, defaults = { surface,
+-- set } }: the scene as the engine reads it (an id it does not list is "day") and its
+-- defaults, for a card that changes scene.
+function lobby.optionRows(scene)
+	local e = scenes.get(scene)
+	local allowed = { surface = e.surfaces, set = e.sets }
+	local rows = {}
+	for _, row in ipairs(lobby.MATCH_OPTIONS) do
+		local key, keep = row[1], true
+		local only = allowed[key]
+		if only then keep = #only > 1 end
+		if keep then
+			local choices = {}
+			for _, c in ipairs(row[3]) do
+				if not only or includes(only, c[1]) then choices[#choices + 1] = { c[1], c[2] } end
+			end
+			rows[#rows + 1] = { key, row[2], choices }
+		end
+	end
+	return object { scene = e.id, rows = rows, defaults = object { surface = e.surface, set = e.set } }
 end
 
 -- The host's choice: open (anyone may join from the home page's list) or invite only.
@@ -427,6 +480,8 @@ function lobby.matchOptions(doc, lu, seed, start)
 	for _, k in ipairs(OPTION_KEYS) do o[k] = l.options[k] end
 	-- the engine's own: only when set, so a pitch without them starts the match it always did
 	for _, k in ipairs(OWN_KEYS) do o[k] = l.settings and l.settings[k] or nil end
+	-- a scene named decides (0.14): the match starts on the scene's surface and set
+	if o.scene ~= nil then o.scene, o.surface, o.set = scenes.resolve(o.scene, o.surface, o.set) end
 	return o
 end
 

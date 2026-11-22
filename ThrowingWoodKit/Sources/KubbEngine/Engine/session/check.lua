@@ -223,8 +223,12 @@ local function tryTilt(ctx, sol, ptilt, taps)
 			return false, 5, "the kubb's scatter is not the one the swing gives"
 		end
 	end
-	-- the flick: what the power verdict allows, the length's draw and the tumble's
+	-- the flick: what the power verdict allows, the length's draw and the tumble's. On the
+	-- Kid meter (lv.flickIn, 0.15.0) every flick below is the one that counts, a soft
+	-- flick's shortfall times flickIn (plan.launch), so its least is the swing's least so
+	-- counted
 	local lo, hi = swing.tune.minFlickFrac, 1
+	if lv.flickIn then lo = 1 - lv.flickIn * (1 - lo) end
 	local base = plan.speedFor(effBack)
 	if base <= 0 then
 		if abs(L.speed) > EPS then return false, 6, "no power, yet a speed" end
@@ -286,7 +290,7 @@ local function tryPlan(ctx, rel, tilts, taps)
 	local kubb = ctx.kubb
 	local q = {
 		projectile = kubb and "kubb" or "baton", px = ctx.px, py = ctx.py, tx = ctx.tx, ty = ctx.ty,
-		release = rel, meter = plan.meter(), surface = ctx.surface, spin = kubb and taps or 0, aimZ = ctx.aimZ,
+		release = rel, meter = ctx.meter, surface = ctx.surface, spin = kubb and taps or 0, aimZ = ctx.aimZ,
 	}
 	local sol = plan.solve(q, {})
 	local lv = sol.level
@@ -320,7 +324,7 @@ end
 local function releases(ctx)
 	local t = plan.tune
 	-- the meter's bars go by the distance alone, the same for every planned release
-	local lv = plan.meterLevel(plan.meter(), sqrt((ctx.tx - ctx.px) ^ 2 + (ctx.ty - ctx.py) ^ 2),
+	local lv = plan.meterLevel(ctx.meter, sqrt((ctx.tx - ctx.px) ^ 2 + (ctx.ty - ctx.py) ^ 2),
 		ctx.kubb and "kubb" or "baton")
 	local out, seen = {}, {}
 	local function add(r)
@@ -340,7 +344,7 @@ local function releases(ctx)
 		-- and outside the window only through the latter. Find every release whose loft
 		-- is the throw's: a scan on arcStepDeg, then bisection inside each crossing
 		local q = { projectile = "baton", px = ctx.px, py = ctx.py, tx = ctx.tx, ty = ctx.ty,
-			meter = plan.meter(), surface = ctx.surface, spin = 0, aimZ = ctx.aimZ }
+			meter = ctx.meter, surface = ctx.surface, spin = 0, aimZ = ctx.aimZ }
 		local relA = ctx.stop
 		if ctx.sky then relA = max(relA, 180) + t.skyExtraDeg end
 		if relA < 0 then relA = 0 end
@@ -458,6 +462,7 @@ local function personThrow(s, a)
 	local ctx = {
 		a = a, L = L, v = v, kubb = kubb, px = stance.x, py = stance.y, tx = target.x, ty = target.y,
 		surface = ts.surface, aimZ = aimZ, back = sw.back, stop = sw.stop, sky = sw.stop >= st.skyDeg,
+		meter = throw.meterFor(ts), -- the match's (0.15.0: the Kid meter in a Kid match)
 	}
 	-- a kubb's planned spin, from its spin
 	-- (a planned spin is any value in range since 0.9; a whole tap gives exactly the

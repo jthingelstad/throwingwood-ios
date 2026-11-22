@@ -84,6 +84,7 @@ function match.new(opts)
 			B = { name = "Team B", players = { { name = "Player B", id = "b" } } },
 		},
 		surface = opts.surface or "Grass", opening = opts.opening or "2-4-6", first = opts.first or "A",
+		rules = opts.rules,   -- "kid": the Kid rules (core/rules rules.kid); nil: the standard rules
 	}
 	return {
 		game = g,
@@ -270,6 +271,10 @@ end
 --   forwardY    how far forward the thrower may stand: the advantage line
 --               for batons at kubbs when there is one, else the baseline
 --   advY        the advantage line to draw (view frame), or nil
+--   kid         true in a Kid game (core/rules rules.kid), else nil
+--   kidY        a Kid game's Kid line (view frame: rules.kid.line), which every kubb and
+--               every baton at a kubb is thrown from unless the advantage line is
+--               nearer the middle; nil in a standard game
 --   targets     ids to frame: standing field kubbs, else base kubbs, else
 --               the king (batons); nil for a toss
 --   n, of       this throw's number and the throws of its kind this turn
@@ -313,6 +318,12 @@ function match.setup(m)
 	-- settling can move the advantage line (and so the throw request's line)
 	if m.debris.settle and match.settleStanding(m, s) > 0 then n = g:need() end
 	if g.advantageY then s.advY = frame.y(side, g.advantageY) end
+	if g.rules == "kid" then
+		-- the Kid rules: the thrower stands up to the Kid line (or the advantage line
+		-- beyond it) for kubbs and batons at kubbs; the king from the baseline
+		s.kid, s.kidY = true, frame.y(side, g:kidLineY(side))
+		if not n.kingShot then s.forwardY = frame.y(side, n.throwY) end
+	end
 	if n.kind == "toss" then
 		s.projectile, s.kubb = "kubb", n.kubb
 		s.rethrow = n.rethrow
@@ -321,7 +332,7 @@ function match.setup(m)
 	else
 		s.projectile = "baton"
 		s.kingShot = n.kingShot
-		if n.advantageY and not n.kingShot then s.forwardY = frame.y(side, n.advantageY) end
+		if n.advantageY and not n.kingShot and not s.kid then s.forwardY = frame.y(side, n.advantageY) end
 		s.targets = n.targets
 		s.n, s.of = n.n, n.of
 		s.batonId = "baton" .. n.n
@@ -451,6 +462,13 @@ local function batonText(g, token, notes, from)
 	if hasNote(notes, from, "II.B.7") then
 		parts[#parts + 1] = "pushed out: put back"; codes[#codes + 1] = { code = "pushedOut" }
 	end
+	-- the Kid rules (0.15.0): the king knocked down early is stood back up; a helicopter counts
+	if hasNote(notes, from, "king down early; stood back up") then
+		parts[#parts + 1] = "king down early: stood back up"; codes[#codes + 1] = { code = "kingUp" }
+	end
+	if hasNote(notes, from, "helicopter; counted") then
+		parts[#parts + 1] = "helicopter: counted"; codes[#codes + 1] = { code = "helicopterCounts" }
+	end
 	return table.concat(parts, "; "), codes
 end
 
@@ -488,15 +506,18 @@ function match.resolve(m, res, illegal)
 		end
 		local fouled = hasNote(sheetTurn.notes, nn + 1, "II.C.4b")
 		local j = g.judgment
+		local kingUp = hasNote(sheetTurn.notes, nn + 1, "knocked the king down; stood back up")
 		if g.phase == "over" then
 			say("king down: " .. wins(g), "kingKubb")
 		elseif not j then
+			if kingUp then say("king down: stood back up", "kingUp") end
 			-- more kubbs to throw in this round: only where it lies now
 			if fouled then say("own half hit: kubb out", "ownHalfOut")
 			elseif g:liesNow(s.kubb) == "out" then say("kubb out for now", "outForNow")
 			else say("kubb in for now", "inForNow") end
 		else
 			-- the last throw of the round: the judgment
+			if kingUp then say("king down: stood back up", "kingUp") end
 			if fouled then say("own half hit", "ownHalf") end
 			if j.rethrow == 0 and j.punish == 0 and j.rescue == 0 and not fouled then
 				say(j.thrown == 1 and "kubb in" or "all in", "in", j.thrown)
@@ -504,7 +525,11 @@ function match.resolve(m, res, illegal)
 			if j.rethrow > 0 then
 				say(j.rethrow == 1 and "kubb out: rethrown" or (j.rethrow .. " out: rethrown"), "rethrow", j.rethrow)
 			end
-			if j.punish > 0 then
+			if j.punish > 0 and g.rules == "kid" then
+				-- the Kid rules: no punishment kubb; the engine stands it at the fair spot
+				say(j.punish == 1 and "out twice: stood at the fair spot" or (j.punish .. " out twice: stood at the fair spot"),
+					"placed", j.punish)
+			elseif j.punish > 0 then
 				say(j.punish == 1 and "out twice: punishment kubb" or (j.punish .. " punishment kubbs"), "punish", j.punish)
 			end
 			if inkCount("N") > before.N then say("on a kubb: lowered", "lowered") end

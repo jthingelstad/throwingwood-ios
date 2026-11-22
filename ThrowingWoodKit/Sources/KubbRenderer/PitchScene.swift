@@ -5,8 +5,12 @@ import simd
 typealias V3 = SIMD3<Double>
 typealias V2 = SIMD2<Double>
 
+/// The ground a pitch is played on (core/world): grass, sand and snow outdoors, and
+/// since engine 0.14 `grid`, the Techno scene's flat electronic floor.
 public enum Surface: String, Codable, CaseIterable, Sendable {
-  case grass, sand, snow
+  case grass, sand, snow, grid
+  /// The words for it (core/scenes' surfaceName).
+  public var name: String { rawValue.capitalized }
 }
 
 public struct Camera: Decodable, Sendable {

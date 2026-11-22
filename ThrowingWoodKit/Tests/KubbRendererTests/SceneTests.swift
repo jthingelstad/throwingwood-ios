@@ -212,11 +212,12 @@ struct SceneTests {
   @Test func practiceTakesAScene() throws {
     let pitch = try PracticePitch(appVersion: "test")
     #expect(pitch.scene.look == "day")
+    // the scene decides the ground (engine 0.14): Camping is grass, Techno the grid
     try pitch.practice(scene: "night", surface: .sand)
     #expect(pitch.scene.look == "night")
-    #expect(pitch.scene.surface == .sand)
+    #expect(pitch.scene.surface == .grass)
     try pitch.practice(scene: "neon")
-    #expect(pitch.scene.look == "neon" && pitch.scene.surface == .grass)
+    #expect(pitch.scene.look == "neon" && pitch.scene.surface == .grid)
     try pitch.practice(scene: "sunset")
     #expect(pitch.scene.look == "day")
     try pitch.practice()

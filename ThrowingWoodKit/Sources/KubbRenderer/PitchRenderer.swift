@@ -118,6 +118,12 @@ private struct GroundColors {
       (pitch, stripe, rough, speck, sky, haze, line) = (
         0xeef3f8, 0xf7fafd, 0xd3dfec, 0xb4c6da, 0xc9d9ea, 0xdfe8f2, 0x4f86c6
       )
+    case .grid:
+      // Techno's floor seen by daylight: only a match from before scenes decided the
+      // ground could put it here (the engine keeps a recorded surface)
+      (pitch, stripe, rough, speck, sky, haze, line) = (
+        0x3a4250, 0x414a59, 0x2a313c, 0x1f252e, 0xd8e2ec, 0xb9c4d0, white
+      )
     }
   }
 }

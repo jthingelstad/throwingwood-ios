@@ -121,7 +121,7 @@ struct MapPaint {
     case "night":
       let g: (Int, Int) =
         switch surface {
-        case .grass: (0x284a3b, 0xe6f8ff)
+        case .grass, .grid: (0x284a3b, 0xe6f8ff)
         case .sand: (0x6e6452, 0xfff3dc)
         case .snow: (0x9fb4d3, 0x1f5fd0)
         }
@@ -131,7 +131,7 @@ struct MapPaint {
     case "neon":
       let g: (Int, Int) =
         switch surface {
-        case .grass: (0x0a2a33, 0xc8fdff)
+        case .grass, .grid: (0x0a2a33, 0xc8fdff)
         case .sand: (0x30200a, 0xfff0c8)
         case .snow: (0x1c2a48, 0xffffff)
         }

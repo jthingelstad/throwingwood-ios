@@ -195,22 +195,23 @@ import Testing
   }
 
   /// A scene this build does not draw is carried untouched and drawn as the day: a
-  /// match started in one keeps it through a restore. The set-up offers the three.
+  /// match recorded in one (a newer engine's id) keeps it through a restore. Since engine
+  /// 0.14 `new` turns an id the catalogue lacks into Park, so the match is made in a known
+  /// scene and its record renamed, as a newer engine's would read.
   @Test func aMatchsSceneIsCarriedUntouched() throws {
     let start = try Engine(appVersion: "test")
     _ = try start.call(
       "new",
       json:
-        #"{"mode":"match","cpu":"B","seed":5,"scene":"dusk","computer":"pro","teams":{"A":{"name":"You","players":[{"name":"You"}]},"B":{"name":"Computer","players":[{"name":"Computer"}]}},"start":{"year":2026,"month":11,"day":17,"hour":12,"min":0}}"#
+        #"{"mode":"match","cpu":"B","seed":5,"scene":"neon","computer":"pro","teams":{"A":{"name":"You","players":[{"name":"You"}]},"B":{"name":"Computer","players":[{"name":"Computer"}]}},"start":{"year":2026,"month":11,"day":17,"hour":12,"min":0}}"#
     )
-    let snapshot = try start.call("snapshot")
+    let snapshot = try start.call("snapshot").replacingOccurrences(of: #""scene":"neon""#, with: #""scene":"dusk""#)
     #expect(snapshot.contains(#""scene":"dusk""#))
     let app = try PitchSession(appVersion: "test")
     try app.restore(snapshot, save: nil)
     #expect(try app.engine.call("snapshot") == snapshot)
     #expect(try JSONNode.parse(app.engine.call("view"))["scene"]?.string == "dusk")
     #expect(app.scene.look == "dusk" && SceneID.shown(app.scene.look) == "day")
-    #expect(app.options.takesScene && app.options.rows.last?.id == "scene")
     #expect(app.options.defaults["scene"] == "day")
   }
 
@@ -237,6 +238,8 @@ import Testing
     #expect(
       app.options.rows.map(\.id) == ["computer", "surface", "opening", "raising", "wind", "set", "scene"])
     var choices = app.options.defaults
+    // a surface stands only where the scene allows it (engine 0.14): Black & White's
+    choices["scene"] = "bw"
     choices["surface"] = "sand"
     try app.startSolo(name: "You", selections: choices, save: nil)
     #expect(app.scene.surface == .sand && app.handoff != nil)

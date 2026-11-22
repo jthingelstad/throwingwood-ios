@@ -110,7 +110,7 @@ function cards.handoff(m, setup)
 	-- the ten base slots: standing, or empty (down) once that base kubb is
 	-- knocked; then every field kubb on the pitch
 	for _, side in ipairs { "A", "B" } do
-		for i, bx in ipairs(pitch.baseX) do
+		for i, bx in ipairs(tw.rules.baseXFor(g.rules)) do
 			local k = g.kubbs[side:lower() .. i]
 			local x, y = frame.point(to, bx, pitch.baseline[side])
 			pieces[#pieces + 1] = { id = k.id, x = x, y = y, kind = "base",

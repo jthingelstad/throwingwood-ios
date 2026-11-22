@@ -176,7 +176,8 @@ wide.aim = aim
 
 -- A recording's bursts' anchors (what the client draws from a recording), and since 0.7.2
 -- its facts in world terms too: the result's landing and rest spots (landX, landY, restX,
--- restY), the landing, and the timeline's first contact and first hit.
+-- restY), the landing, and the timeline's first contact and first hit (and since 0.14
+-- its ground impacts).
 local function recording(side, rec)
 	if not rec or side ~= "B" or not rec.timeline then return rec end
 	local o = {}
@@ -193,6 +194,11 @@ local function recording(side, rec)
 	for k, v in pairs(rec.timeline) do tl[k] = v end
 	tl.firstContact = point(side, rec.timeline.firstContact)
 	tl.firstHit = point(side, rec.timeline.firstHit)
+	-- the ground impacts (setImpacts, since 0.14)
+	if rec.timeline.impacts then
+		tl.impacts = {}
+		for i, e in ipairs(rec.timeline.impacts) do tl.impacts[i] = point(side, e) end
+	end
 	if rec.timeline.bursts then
 		tl.bursts = {}
 		for i, b in ipairs(rec.timeline.bursts) do

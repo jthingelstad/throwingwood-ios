@@ -78,8 +78,9 @@ import Testing
     #expect(p.pitch.isHost && p.pitch.document == .null)
     #expect(try await p.prepareLobby(options: kept))
     let o = try p.roomOptions(p.pitch.document)
-    #expect(o["surface"] == "snow" && o["opening"] == "six" && o["raising"] == "auto")
-    #expect(o["wind"] == "light" && o["set"] == "sweden" && o["computer"] == "pro" && o["scene"] == "night")
+    // the scene decides the surface and the set (engine 0.14): Camping's grass and Classic
+    #expect(o["surface"] == "grass" && o["opening"] == "six" && o["raising"] == "auto")
+    #expect(o["wind"] == "light" && o["set"] == "classic" && o["computer"] == "pro" && o["scene"] == "night")
     #expect(o["first"] == nil)
     #expect(try await p.prepareLobby(options: ["scene": "neon"]) == false)
 

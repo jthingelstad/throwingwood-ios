@@ -70,6 +70,34 @@ local function wideOut(method, r)
 	return wide.out(r, wideCam, S.frameSide, S.recSide)
 end
 
+-- ---------- scenes (core/scenes, since 0.14) ----------
+-- scenes: the catalogue, no session needed: { default, scenes = [{ id, name, surfaces,
+-- surface, sets, set, dark, ring, mono, choices }], surfaces = [{ id, name }], sets =
+-- [{ id, name }] } (every surface the engine plays and every set it takes, in order).
+function M.scenes()
+	local out = {}
+	for i, e in ipairs(tw.scenes.list) do
+		local sf, st = {}, {}
+		for j, k in ipairs(e.surfaces) do sf[j] = k end
+		for j, k in ipairs(e.sets) do st[j] = k end
+		out[i] = { id = e.id, name = e.name, surfaces = sf, surface = e.surface, sets = st, set = e.set,
+			dark = e.dark, ring = e.ring, mono = e.mono, choices = tw.scenes.choices(e.id) }
+	end
+	local surfaces, sets = {}, {}
+	for i, k in ipairs(tw.scenes.SURFACES) do surfaces[i] = { id = k, name = tw.scenes.surfaceName[k] } end
+	for i, k in ipairs(tw.scenes.SETS) do sets[i] = { id = k, name = tw.scenes.setName[k] } end
+	return { default = tw.scenes.DEFAULT, scenes = out, surfaces = surfaces, sets = sets }
+end
+
+-- setImpacts { on }: while on, each recording's timeline carries `impacts`, where the
+-- pieces met the ground hard (session/throw, docs/SESSION.md "Ground impacts"). It
+-- belongs to this Lua state, like the wide view; off (the default), nothing is gathered.
+-- Returns { on }.
+function M.setImpacts(a)
+	tw.web.throw.impacts = (a and a.on) and true or false
+	return { on = tw.web.throw.impacts }
+end
+
 -- ---------- the host, at start-up ----------
 -- engineVersion: { version } (version.lua). useTune { name }: the host's tune
 -- (tune/<name>.lua), once per Lua state, before the first new or restore; returns
@@ -86,7 +114,9 @@ function M.setClient(a)
 	return out
 end
 
-function M.new(a) R = nil; S = session.new(a or {}); return S:view() end
+-- new: a match or practice as a client sets it up; a scene named decides the surface
+-- and the set (session.sceneOptions, since 0.14)
+function M.new(a) R = nil; S = session.new(session.sceneOptions(a or {})); return S:view() end
 -- restore's argument is the snapshot text itself, or since 0.13.4 { snap, names } with
 -- names = "check": the snapshot refused (nothing changes) when a name in it is not one
 -- the engine allows (session/namecheck). A snapshot has `v`, the wrapper does not.
