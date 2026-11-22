@@ -690,7 +690,11 @@ public final class PitchSession {
     let own = need?.cpu != true
     let text = try engine.call("frame", json: args)
     let a = try decoder.decode(AimOutput.self, from: Data(text.utf8))
+    let railBefore = railAt
     aim(a.aim, camera: a.camera)
+    // the release's aim already counts what the throw will fell: the header keeps the
+    // count it had until the throw has played (the web's does)
+    if a.recording != nil { railAt = railBefore }
     if let d = a.dial { dial = d }
     if inputFrame, let onFeedback {
       for cue in input.feedback(crossings: a.dial?.crossings ?? [], released: a.event == "release") {
