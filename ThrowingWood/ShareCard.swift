@@ -175,7 +175,8 @@ struct ShareCard: View {
     VStack(alignment: .leading, spacing: 10) {
       Text(ShareWords.about).fixedSize(horizontal: false, vertical: true)
       VStack(alignment: .leading, spacing: 4) {
-        Text(ShareWords.label).font(.subheadline.bold())
+        // a row's label in the 1.0 system's face: Inter bold 14 capitals
+        Text(ShareWords.label).labelStyle()
         NameRowView(row: share.row, size: 24)
       }
       Text(ShareWords.sides).fixedSize(horizontal: false, vertical: true)
