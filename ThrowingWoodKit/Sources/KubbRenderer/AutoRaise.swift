@@ -115,6 +115,8 @@ enum RaisePace {
 /// arriving online).
 struct RaiseShow {
   let i: Int?
+  /// This device's own automatic raise (else another member's, arriving online).
+  let own: Bool
   var pending: String?
   var age = 0.0
   let lead, beat: Double
@@ -122,8 +124,9 @@ struct RaiseShow {
   let final: MatchNeed.Pose?
   var total: Double { lead + beat }
 
-  init(i: Int?, pending: String?, lead: Double, beat: Double, final: MatchNeed.Pose? = nil) {
+  init(i: Int?, pending: String?, lead: Double, beat: Double, final: MatchNeed.Pose? = nil, own: Bool? = nil) {
     self.i = i
+    self.own = own ?? (pending != nil)
     self.pending = pending
     self.lead = lead
     self.beat = beat

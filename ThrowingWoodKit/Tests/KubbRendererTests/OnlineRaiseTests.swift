@@ -161,4 +161,21 @@ import Testing
     try online.tick(1.0 / 60)
     #expect(online.shownAims == shown + 1)
   }
+
+  /// The app going to the background during this device's own lead-in: the unsent raise is
+  /// dropped before it is applied (nothing reaches the pitch, the engine untouched), so no
+  /// refused submit stops the board.
+  @Test func theBackgroundDropsAnUnsentRaise() throws {
+    let (online, _, _) = try setUp()
+    defer { online.close() }
+    let hash = online.displayedHash
+    online.board.acceptsInput = true
+    online.board.raiseRest()
+    try online.board.tick(0.02)
+    #expect(online.board.raiseWatch == .ownLeadIn)
+    online.background()
+    #expect(online.board.raiseWatch == .none && !online.board.acceptsInput)
+    for _ in 0..<60 { try online.tick(1.0 / 60) }
+    #expect(online.displayedHash == hash)
+  }
 }
