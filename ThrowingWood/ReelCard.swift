@@ -162,11 +162,14 @@ struct ReelCard: View {
   }
 
   /// The video's box: as large as the window leaves room for beside the card's words
-  /// and buttons, in the reel's own shape (9:16 tall, 16:9 wide).
+  /// and buttons, in the reel's own shape (9:16 tall, 16:9 wide). The room left is the
+  /// 1.0 card's: its top edge (64 upright, 10 on its side), padding, title, link and the
+  /// button row with its shadow (the 2026-11-22 review pictures: at 250 and 190 the
+  /// buttons fell under the card's foot and scrolled).
   private var videoSize: CGSize {
     let safe = screen.safe
     let height = screen.size.height - safe.top - safe.bottom
-    let room = max(120, height - (wide ? 190 : 250))
+    let room = max(120, height - (wide ? 240 : 310))
     if wide {
       let w = min(room * 16 / 9, (ipad ? 640 : screen.size.width - safe.left - safe.right - 64) - 32)
       return CGSize(width: w, height: w * 9 / 16)
