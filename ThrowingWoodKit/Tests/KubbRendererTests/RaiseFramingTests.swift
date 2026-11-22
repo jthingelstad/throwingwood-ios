@@ -80,6 +80,11 @@ import simd
       needs.append((name, app))
     }
     for (name, app) in needs {
+      // the invented raises kept for review (SCENE_LOOKS_OUT; the pitch alone, no panel)
+      if name == "crowded" || name == "sideline" {
+        SceneLooksTests.keep(SceneLooksTests.draw(app, SceneLooksTests.upright), "raise-\(name)")
+        SceneLooksTests.keep(SceneLooksTests.draw(app, SceneLooksTests.side), "raise-\(name)-landscape")
+      }
       for s in Self.screens {
         let tag = "\(name), \(s.name)"
         let g = try #require(app.raiseGeometry(in: s.size), "\(tag)")

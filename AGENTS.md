@@ -152,8 +152,17 @@ Where the thrower stands is STAND, a plate in the plan (`StandPad.swift`, the
 web's stand-pad.js numbers and words); WALK, the Playdate's held A, is gone.
 A raise is a touch on the kubb (`RaiseTouch.swift`, the web's raise-touch.js
 numbers), and Raising (by hand or automatic) is the match's choice, never a
-device setting. SEND FEEDBACK sends a throw report (`kind: "throw"`) or
-anything else (`kind: "feedback"`), the web's wire.
+device setting. Every automatic raise is watched (the owner, 2026-11-22: "When you hit
+auto to raise kubbs you should watch the computer raise them."): AUTO, AUTO ALL, REST OF
+GAME, the computer's raises and a match raising automatically tip each kubb up in the
+raise scene one after another (`RaiseShow`, `StoodShow` in AutoRaise.swift; `Pacing.raiseBeat`),
+a tap skips to the end, and the engine's actions and their order never change. The raise
+camera stands twice as far back as it did (`RaiseCamera`, the web's numbers). The last
+throw's verdict never stops a player aiming: it takes no touches, goes at the first press
+of the aim or after `Pacing.verdictShown`, and stands clear of the target
+(`WideLayout.verdictBand`, `verdictClear`); a tall screen puts the far baseline at 41% of
+its height (`PitchProjection.anchorAt`). docs/MATCH.md, docs/RENDER.md.
+SEND FEEDBACK sends a throw report (`kind: "throw"`) or anything else (`kind: "feedback"`), the web's wire.
 The six option lists come from the pinned engine (Computer among them on 0.9). Store the raw snapshot after
 each action, including a release before the throw has finished playing.
 The solo host uses the pointer dial. The simulator-only card and HUD tests
@@ -434,9 +443,12 @@ black world on a grid of light, no film names), Minnesota, Tournament and Black 
   in the background, never under Reduce Motion (the four fixed pitches then, and no second
   engine). `advance` once a frame on the match clock with `budgetMs: 2`; a failure leaves
   them standing. Recordings play through `Playback`; the field turns with Team B's view. No
-  names, sound or haptics, and the pitches in line with the player's play without their
-  people. The web is the reference for numbers and behaviour. docs/RENDER.md "The
-  Tournament's neighbours" has the rules and the cost; `NeighbourTests`.
+  people anywhere in the Tournament (the owner, 2026-11-22: "Tournament mode should not have
+  people. Just pitches with live play."): a thrown piece shows once it is in the air and
+  kubbs a beat stands up rise one after another (`Calm`). No names and no haptics; their
+  sounds are quiet and far (`NeighbourSounds`, docs/FEEL.md "The other pitches"). The web
+  is the reference for numbers and behaviour. docs/RENDER.md "The Tournament's neighbours"
+  has the rules and the cost; `NeighbourTests`.
 - **Ground impacts** are on (`setImpacts`): Techno rings at each `timeline.impacts`
   entry (and taps lightly), Beach puffs sand and Minnesota sprays snow.
 - **Black & White is one bit**: every pixel black or white (`Painter.mono`, no
@@ -522,4 +534,7 @@ Read [docs/FEEL.md](docs/FEEL.md) for engine events, sample provenance,
 pattern values and the simulator timing probe. Keep input cues on ThrowInput,
 recording cues on the shown-time clock and match cues on the presented need.
 Keep SOUND and HAPTICS independent. Measure warm mixer onset on the simulator
-after changing the audio graph. Actual haptic feel requires a physical phone.
+after changing the audio graph. Actual haptic feel requires a physical phone. The
+Tournament's other pitches are heard, never felt: the web's cues and levels (the pitch
+beside about 10 dB under the player's knock), voices of their own, three at most, dropped
+faintest first, and quiet round the player's own knock (`NeighbourSounds`).
