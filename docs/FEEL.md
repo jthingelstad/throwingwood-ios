@@ -37,6 +37,40 @@ normal impulse. Its strength is the largest point impulse in that step divided
 by 2 N·s, capped at 1. The baton landing uses the same curve at its own first
 ground contact.
 
+## The other pitches
+
+The Tournament's neighbouring pitches are heard, quiet and far (the owner, 2026-11-22:
+"We should hear the sounds from the other pitches."; `NeighbourSounds.swift`, the web's
+src/game/neighbour-sound.js and its numbers). The engine's neighbour recording has no
+timeline (kubb-engine session/neighbours.lua keeps a far pitch's recording small: only
+the bodies that moved, 25 poses a second), so the cues come from what it carries, on the
+field's own clock (`TournamentNeighbours.clock`, which stops while the match is paused):
+
+| Cue | From the recording | Gain at the pitch beside | Played as |
+| --- | --- | --- | --- |
+| Hit | A kubb's `toppleT`: it went over | 0.22 | A knock take at rate 0.9 (± 6%) |
+| King | The king's `toppleT` | 0.33 (1.5 times) | The same, louder |
+| Land | The thrown piece's first pose at or under 0.06 m after it was over 0.2 m | 0.12 (0.55 times) | A knock take at rate 0.72 (± 6%): a thud on grass, not wood on wood |
+
+The gain is `0.22 x min(1, (8 / d)^1.5)` times the cue's weight, d being the metres
+between the neighbour's origin and the player's: the pitch beside (8 m) about 10 dB under
+the player's own knock (0.72 at full strength), the row ahead and behind (14.4 m) 0.09,
+under 0.02 not played. Pan is where the pitch's middle lies across the camera's view, at
+most 0.8 either way (`AVAudioPlayerNode.pan` into the stereo mixer). At most three sound at
+once, on three voices of their own, so a neighbour never takes a voice from the player's
+throw: a new one takes a free voice, else the faintest sounding when it is louder, else
+it is not played. A cue more than 0.3 s behind the clock is dropped, and none is played
+within 0.25 s either side of the player's own knock (`PitchSession.ownKnockNear`). They
+obey SOUND only, never HAPTICS, and stop with the pitch: none in the background, while
+paused or under Reduce Motion, where no neighbours run.
+
+What the engine should add: the neighbour recording's bodies carry `toppleT` but not the
+moment a kubb is struck, how hard, or when the thrown piece first touches the ground (the
+session's `timeline.contacts` and `batonLanding`). A kubb struck that stays standing makes
+no sound, every topple weighs the same, and the landing is read from 25-a-second poses (up
+to 40 ms late). A `hits` list of `{ t, id, strength }` and a `landing { t, strength }` on
+each neighbour recording would give each sound its real time and weight for a few bytes.
+
 ## Core Haptics transients
 
 Times are milliseconds after the engine event. Each tuple gives time,
@@ -61,7 +95,9 @@ background transition can stop a second pulse already scheduled.
 
 On an iPhone 17 simulator running iOS 26.2, nine warm knocks reached their
 first non-silent mixer sample in **12.6–22.5 ms**, median **17.5 ms**. The
-simulator I/O buffer was 2.67 ms. This fits two 60 Hz display frames (33.3 ms).
+simulator I/O buffer was 2.67 ms. With the neighbours' three voices and their lower takes
+added (2026-11-22, same simulator) nine warm knocks took **12.5–22.3 ms**, median **18.4 ms**,
+and eight neighbour sounds (hits and landings, panned) **12.9–22.5 ms**, median **15.7 ms**. This fits two 60 Hz display frames (33.3 ms).
 The timing test compares the cue's host time to the timestamp of the first
 PCM sample exceeding 0.001. Speaker, Bluetooth and physical display latency
 still need measurement on an iPhone.

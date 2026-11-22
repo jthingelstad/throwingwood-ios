@@ -31,10 +31,12 @@ MODES = {
     "neighbours": "aim", "neighbourswide": "aim", "neighboursflight": "aim",
     # a watched automatic raise frozen RAISE_AT s in (SIMCTL_CHILD_RAISE_AT; 0.3 by default)
     "raisetip": "raise-many",
+    # the last throw's verdict still up over the next aim, untouched
+    "verdictaim": "aim",
 }
 # Shots taken only when asked for (--only): they need a scene or show one thing.
 ON_REQUEST = {"kidhandoff", "kidaim", "kidplan", "kidstand", "ring", "spin", "neighbours", "neighbourswide", "neighboursflight",
-              "raisetip"}
+              "raisetip", "verdictaim"}
 # The engine's catalogue (core/scenes): each scene's ground and set, so a fixture shown
 # in a scene is the match a scene would have started (engine 0.14: the scene decides).
 SCENES = {

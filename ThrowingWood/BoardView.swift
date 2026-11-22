@@ -201,6 +201,11 @@ import UIKit
               for _ in 0..<3 { try pitch.tick(1.0 / 60) }
             }
             if mode == "verdict" { try prepareReview("rest") }
+            if mode == "verdictaim" {
+              // the verdict still up over the next aim, untouched: where it stands there
+              try prepareReview("rest")
+              for _ in 0..<2000 where pitch.playing { try pitch.tick(1.0 / 60) }
+            }
             if mode == "plan" {
               try pitch.togglePlan()
               for _ in 0..<90 { try pitch.tick(1.0 / 60) }
@@ -529,6 +534,7 @@ import UIKit
           case "aim", "nudge", "coach", "coachslow": model.screen == .match && pitch.canAim
           case "menu": model.screen == .menu
           case "verdict": pitch.result != nil
+          case "verdictaim": reviewReady && pitch.result != nil && pitch.canAim
           case "plan": pitch.plan
           case "arc": pitch.held == .arc
           case "tilt": pitch.held == .side
