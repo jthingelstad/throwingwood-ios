@@ -124,6 +124,8 @@ public final class PitchSession {
   public let newestVersion: String
   /// One Lua state per major.minor this session has run, made the first time.
   private var engines: [String: Engine] = [:]
+  /// The engine's `names.*` door, on the newest engine (names are the newest's words).
+  public private(set) lazy var names = Names(engine: engines[Engine.newest] ?? engine)
   private let decoder = JSONDecoder()
   var input: any ThrowInput
   private(set) var playback: Playback?

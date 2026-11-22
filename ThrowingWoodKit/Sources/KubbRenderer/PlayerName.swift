@@ -1,39 +1,38 @@
 import Foundation
+import KubbPitch
 
-/// The player's name: one value on the device, typed once and set in Settings (the
-/// owner's scopes, 2026-11-20: "Your name", a device setting). A match against the
-/// computer and an online pitch both use it; nothing asks for it per game.
+/// The player's name: one value on the device (the owner's scopes, 2026-11-20: "Your
+/// name", a device setting), and a generated one (kubb-engine docs/NAMES.md; the owner,
+/// 2026-11-21: no typed name anywhere). The first run rolls one, with a seed from the
+/// system's random source, and keeps its text; the name row (`NameRowModel`) in
+/// Settings, the solo card, the lobby and the share card changes it. The web's
+/// src/game/player-name.js.
 ///
-/// Before 0.5 the solo set-up kept its own (`solo.name`, "You" until changed) and
-/// the lobby its own (`pitch.name`). The lobby's key is the device's now; the
-/// solo set-up's is read into it once when the lobby never had one.
+/// A name kept from before is typed text. It is never shown: on load, a kept text that
+/// is not a generated player name (`names.valid`'s `ok`; a default such as "Player 1"
+/// is not one) is replaced by a rolled name, kept at once. The solo card's old
+/// `solo.name` is dropped unread.
 public enum PlayerName {
   public static let key = "pitch.name"
   static let soloKey = "solo.name"
-  /// What a match against the computer calls a player with no name.
-  public static let fallback = "You"
 
-  /// The stored name, moved once from the solo set-up's when there is none yet
-  /// (its "You" is the fallback, not a name, and is not moved). "" for none. The
-  /// solo set-up's key is dropped as it is read, so a name cleared later stays cleared.
-  public static func load(_ d: UserDefaults) -> String {
-    if let v = d.string(forKey: key), !v.trimmingCharacters(in: .whitespaces).isEmpty { return v }
-    let solo = d.string(forKey: soloKey)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+  /// The device's name: the kept one while it is a generated player name, else a new
+  /// one rolled and kept (the first run, or a typed name from before, none of whose
+  /// words are kept: it is typed text, and none of it is shown).
+  @MainActor public static func load(_ d: UserDefaults, names: Names) -> String {
     d.removeObject(forKey: soloKey)
-    let v = solo == fallback ? "" : solo
-    if !v.isEmpty { d.set(v, forKey: key) }
-    return v
+    if let kept = d.string(forKey: key), names.valid(.player, kept).ok { return kept }
+    let text = (try? names.roll(.player))?.text ?? Names.playerDefault(1)
+    d.set(text, forKey: key)
+    return text
   }
 
-  /// The name as set (or cleared) on this device: nothing older is read after it.
-  public static func store(_ name: String, in d: UserDefaults) {
+  /// Keeps a generated name on the device; anything else is refused (the kept name
+  /// stays). Returns the name kept.
+  @MainActor @discardableResult public static func store(_ name: String, in d: UserDefaults, names: Names) -> String {
+    guard names.valid(.player, name).ok else { return load(d, names: names) }
     d.set(name, forKey: key)
     d.removeObject(forKey: soloKey)
-  }
-
-  /// What a set-up screen shows beside the level ("Ada"), or nil with no name.
-  public static func shown(_ name: String) -> String? {
-    let t = name.trimmingCharacters(in: .whitespacesAndNewlines)
-    return t.isEmpty ? nil : t
+    return name
   }
 }

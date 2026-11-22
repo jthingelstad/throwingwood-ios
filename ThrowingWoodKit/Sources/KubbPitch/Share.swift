@@ -21,8 +21,6 @@ public enum ShareLimits {
   public static let bytes = 256 * 1024
   public static let actions = 1000
   public static let startBytes = 16 * 1024
-  /// Characters (code points) of the name on the reel.
-  public static let nameMax = 16
   /// The server plays the match before answering: up to 20 s, and 30 s after the last part.
   public static let wait: Duration = .seconds(45)
 }
@@ -34,7 +32,6 @@ public enum ShareWords {
   public static let about =
     "To make a reel, this match goes to throwingwood.com and gets its own link. Anyone with the link can watch the replay and the reel, for a year."
   public static let label = "Name on the reel"
-  public static let placeholder = "Your team's name"
   public static let sides =
     "Your side is shown by this name. The other side is Computer. Nothing else about you is sent."
   public static let when = "The score sheet shows the day and time the match was played."
@@ -48,18 +45,16 @@ public enum ShareWords {
   public static let offline = "No connection."
   public static let tryAgain = "TRY AGAIN"
   public static let back = "BACK"
-  /// Why the name will not do (`ShareName.Problem`).
+  /// Why the name will not do (`ShareName.Problem`): the web's SHARE_WORDS.name.
   public static func name(_ p: ShareName.Problem) -> String {
     switch p {
-    case .empty: "Type a name for your side."
-    case .you: #"A reel needs a name, not "You"."#
-    case .long: "Up to 16 characters."
-    case .spaces: "No spaces at the start or end."
+    case .pick: "Pick a name for your side."
     }
   }
   /// The line for each why the server (or this side) refuses with.
   public static func why(_ w: ShareWhy) -> String {
     switch w {
+    case .name: "Pick a name for your side."
     case .engine: "This match was played on another version of the game, so it cannot be shared."
     case .doesNotReplay: "This match did not pass the check, so it cannot be shared."
     case .busy: "Sharing is busy right now. Try again later."
@@ -75,6 +70,8 @@ public enum ShareWords {
 /// A refusal: the server's `why` codes, and the error `too-many`. Anything this build
 /// does not know is `unavailable` (the web's `known`).
 public enum ShareWhy: String, Equatable, Sendable, CaseIterable {
+  /// The server's names check refused the name on the reel (a name the game did not make).
+  case name
   case engine
   case doesNotReplay = "does-not-replay"
   case busy
@@ -89,49 +86,23 @@ public enum ShareWhy: String, Equatable, Sendable, CaseIterable {
   public var final: Bool { self == .engine || self == .doesNotReplay || self == .tooLong }
 }
 
-/// The name on the reel, as the server's check takes it (the web's nameProblem,
-/// nameFromMatch and clipName; backend/reels/check.mjs nameAllowed).
+/// The name on the reel, as the server's check takes it (the web's nameProblem and
+/// nameFromMatch; backend/reels/check.mjs sidesOf): a generated player name, or one of
+/// the engine's defaults. The card offers only the name row, so an honest phone never
+/// sends another.
 public enum ShareName {
-  public enum Problem: String, Equatable, Sendable { case empty, spaces, long, you }
+  public enum Problem: String, Equatable, Sendable { case pick }
 
-  /// JavaScript's String.prototype.trim: white space and line terminators.
-  public static func jsTrimmed(_ s: String) -> String {
-    let ws: (Unicode.Scalar) -> Bool = { c in
-      (c.properties.isWhitespace && c != "\u{85}") || c == "\u{FEFF}"
-    }
-    let scalars = Array(s.unicodeScalars)
-    guard let a = scalars.firstIndex(where: { !ws($0) }), let b = scalars.lastIndex(where: { !ws($0) })
-    else { return "" }
-    var out = String.UnicodeScalarView()
-    out.append(contentsOf: scalars[a...b])
-    return String(out)
+  /// Nil when it may go on the reel, else why not.
+  @MainActor public static func problem(_ name: String, names: Names) -> Problem? {
+    names.passes(.player, name) ? nil : .pick
   }
 
-  /// Nil when it may go on the reel, else why not: 1 to 16 characters (code points), no
-  /// spaces around it, not "You" in any case. The card trims before asking.
-  public static func problem(_ name: String) -> Problem? {
-    let trimmed = jsTrimmed(name)
-    if trimmed.isEmpty { return .empty }
-    if name != trimmed { return .spaces }
-    if name.unicodeScalars.count > ShareLimits.nameMax { return .long }
-    if name.lowercased() == "you" { return .you }
-    return nil
-  }
-
-  /// What the field starts with: the name typed for the match, unless it was the game's
-  /// stand-in "You" (or nothing, or one the reel cannot take).
-  public static func fromMatch(start: String) -> String {
-    guard let n = (try? JSONNode.parse(start))?["opts"]?["teams"]?["A"]?["name"]?.string
-    else { return "" }
-    let t = jsTrimmed(n)
-    return problem(t) == nil ? t : ""
-  }
-
-  /// A typed name cut to 16 characters (code points, as the server counts them).
-  public static func clip(_ text: String) -> String {
-    var out = String.UnicodeScalarView()
-    out.append(contentsOf: text.unicodeScalars.prefix(ShareLimits.nameMax))
-    return String(out)
+  /// What the name row starts with: the name the match was played under when it is a
+  /// generated name, else `fallback` (the device's name now).
+  @MainActor public static func fromMatch(start: String, names: Names, fallback: String) -> String {
+    let n = (try? JSONNode.parse(start))?["opts"]?["teams"]?["A"]?["name"]?.string
+    return names.valid(.player, n).ok ? n! : fallback
   }
 }
 

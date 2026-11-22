@@ -23,7 +23,7 @@ public struct ShareableMatch: Sendable {
   /// The hash of the finished match (the hash after its last action).
   public let key: String
   public let source: ShareSource
-  /// What the name field starts with (the web's nameFromMatch).
+  /// What the name row starts with (the web's nameFromMatch).
   public let name: String
 }
 
@@ -32,14 +32,18 @@ extension PitchSession {
   /// computer (not online, not practice) whose whole trail is kept on disk and ends on
   /// the match shown. A finished save restored by a build from before the trail, or a
   /// match resumed from one, has none.
-  public func shareableMatch(save: MatchSave) -> ShareableMatch? {
+  /// `deviceName` is the device's name, what the row starts with when the match's own
+  /// side A name is not a generated name.
+  public func shareableMatch(save: MatchSave, deviceName: String? = nil) -> ShareableMatch? {
     guard onlineAction == nil, need?.kind == "over", let finished = save.finishedMatch(),
       finished.complete, Engine.majorMinor(finished.engine) == engine.minor,
       let key = finished.finalHash, (try? engine.hash()) == key
     else { return nil }
     let source = finished.shareSource(now: try? engine.call("snapshot"))
     guard source.shareable else { return nil }
-    return ShareableMatch(key: key, source: source, name: ShareName.fromMatch(start: source.start))
+    return ShareableMatch(
+      key: key, source: source, name: ShareName.fromMatch(start: source.start, names: names,
+        fallback: names.valid(.player, deviceName).ok ? deviceName! : ((try? names.roll(.player))?.text ?? "")))
   }
 
   /// The `share` message for that match under the name on the card, renamed by this
@@ -70,12 +74,10 @@ extension PitchSession {
   /// The finished match this is for.
   public let key: String
   public private(set) var state = ShareState()
-  /// The field's text, as typed (cut to 16 characters).
+  /// The name on the reel, as the name row has it (a generated name).
   public private(set) var name: String
-  /// SHARE was pressed with a name the reel cannot take: say why even when empty.
+  /// SHARE was pressed with a name the reel cannot take: say why.
   public private(set) var tried = false
-  /// The last thing typed was cut to 16 characters: say so.
-  public private(set) var clipped = false
   /// Messages sent, for tests.
   public private(set) var sent = 0
   /// A code came back: the reel card takes over (called once).
@@ -84,48 +86,56 @@ extension PitchSession {
   private let make: @MainActor (String) throws -> ShareMade
   private let hooks: Hooks
   private var message: JSONText?
+  /// The engine's names door: what the reel can take.
+  public let names: Names
 
   public init(
-    key: String, name: String, make: @escaping @MainActor (String) throws -> ShareMade, hooks: Hooks
+    key: String, name: String, names: Names, make: @escaping @MainActor (String) throws -> ShareMade,
+    hooks: Hooks
   ) {
     self.key = key
     self.name = name
+    self.names = names
     self.make = make
     self.hooks = hooks
   }
 
   public var view: ShareState.View { state.view }
-  /// The name as it would go, trimmed.
-  public var trimmed: String { ShareName.jsTrimmed(name) }
   /// Why the name will not do (SHARE faded while there is one).
-  public var problem: ShareName.Problem? { ShareName.problem(trimmed) }
-  /// The line under the field: why the name will not do, once there is something to
-  /// say (a name typed, or SHARE pressed), or that it was cut.
+  public var problem: ShareName.Problem? { ShareName.problem(name, names: names) }
+  /// The line under the row: why the name will not do, once SHARE was pressed.
   public var say: String? {
-    if clipped { return ShareWords.name(.long) }
-    guard let problem, tried || !trimmed.isEmpty else { return nil }
+    guard let problem, tried else { return nil }
     return ShareWords.name(problem)
   }
 
-  /// The field changed: cut to 16 characters, said when it was.
-  public func type(_ text: String) {
-    let cut = ShareName.clip(text)
-    clipped = cut != text
-    name = cut
+  /// The name row changed.
+  public func set(_ text: String) {
+    name = text
   }
+
+  /// The card's name row ("Name on the reel"), starting from `name`.
+  public var row: NameRowModel {
+    if let r = rowMade { return r }
+    let r = NameRowModel(names: names, kind: .player, text: name, label: ShareWords.label)
+    if !names.valid(.player, name).ok { name = r.text }
+    r.onChange = { [weak self] in self?.set($0) }
+    rowMade = r
+    return r
+  }
+  @ObservationIgnored private var rowMade: NameRowModel?
 
   /// The card opened again: a refusal that may pass later starts over.
   public func open() {
     tried = false
-    clipped = false
     state = state.step(.open)
   }
 
   /// SHARE AND MAKE THE REEL, and TRY AGAIN.
   public func send() {
     if state.phase == .idle {
-      let name = trimmed
-      if ShareName.problem(name) != nil {
+      let name = self.name
+      if ShareName.problem(name, names: names) != nil {
         tried = true
         return
       }

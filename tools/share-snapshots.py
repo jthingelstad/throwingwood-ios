@@ -28,7 +28,7 @@ sys.dont_write_bytecode = True  # no __pycache__ in tools/
 from review_turn import is_ipad, turn as turn_device
 
 ROOT = Path(__file__).resolve().parents[1]
-STATES = ("winner sharedwinner card cardempty cardyou cardlong cardtried checking shared "
+STATES = ("winner sharedwinner card cardlong checking shared "
           "toolong engine doesnotreplay busy unavailable toomany failed notthistime offline "
           "sealed sealedloading sealedfailed sealedold").split()
 # The ones whose shape changes with the window, also turned and on iPads.

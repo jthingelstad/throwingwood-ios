@@ -16,56 +16,6 @@ import Testing
     return d
   }
 
-  // MARK: the name, one value on the device
-
-  @Test func aFirstRunHasNoName() {
-    let d = defaults([:])
-    #expect(PlayerName.load(d) == "")
-    #expect(d.string(forKey: PlayerName.key) == nil)
-    #expect(PlayerName.shown("") == nil && PlayerName.shown("  ") == nil)
-  }
-
-  @Test func theLobbysNameIsTheDevices() {
-    #expect(PlayerName.load(defaults([PlayerName.key: "Birch", "solo.name": "Ada"])) == "Birch")
-  }
-
-  /// A player who only ever played the computer keeps the name typed there, moved
-  /// once; its "You" was the fallback, not a name.
-  @Test func theSoloNameIsMovedOnce() {
-    let d = defaults(["solo.name": "Ada"])
-    #expect(PlayerName.load(d) == "Ada")
-    #expect(d.string(forKey: PlayerName.key) == "Ada")
-    #expect(d.string(forKey: "solo.name") == nil)  // read once, then gone
-    #expect(PlayerName.load(defaults(["solo.name": "You"])) == "")
-    #expect(PlayerName.load(defaults([PlayerName.key: "", "solo.name": "Ada"])) == "Ada")
-  }
-
-  /// A name cleared in Settings stays cleared: the solo set-up's old name does not
-  /// come back at the next launch.
-  @Test func aClearedNameStaysCleared() {
-    let d = defaults(["solo.name": "Ada"])
-    #expect(PlayerName.load(d) == "Ada")
-    PlayerName.store("", in: d)
-    #expect(PlayerName.load(d) == "")
-    let never = defaults(["solo.name": "Ada"])
-    PlayerName.store("", in: never)  // cleared before it was ever read
-    #expect(PlayerName.load(never) == "")
-  }
-
-  @Test func aStoredNameWins() {
-    let d = defaults(["solo.name": "Ada"])
-    PlayerName.store("Cedar", in: d)
-    #expect(PlayerName.load(d) == "Cedar")
-    #expect(PlayerName.shown(" Cedar ") == "Cedar")
-  }
-
-  /// A match against the computer started with no name is "You", as before.
-  @Test func noNameIsYouAgainstTheComputer() throws {
-    let app = try PitchSession(appVersion: "test")
-    try app.startSolo(name: "", selections: app.options.defaults, save: nil)
-    #expect(try app.engine.call("snapshot").contains(#""name":"You""#))
-  }
-
   // MARK: where each setting is presented (the app's screens)
 
   private var app: URL {
@@ -83,18 +33,37 @@ import Testing
     return String(rest[..<end])
   }
 
-  /// The device's controls are made in one file only, and Settings has them all.
+  /// The device's controls are made in one file only, and Settings has them all. The
+  /// name is the device's too, picked in its name row in Settings and in the You row of a
+  /// set-up screen (the solo card, the lobby), as on the web; nothing types it.
   @Test func theDevicesSettingsAreTogetherInSettings() throws {
-    let controls = ["FeedbackSettings(", "MeterSettings(", "NameField("]
+    let controls = ["FeedbackSettings(", "MeterSettings("]
     let files = try FileManager.default.contentsOfDirectory(atPath: app.path).filter { $0.hasSuffix(".swift") }
     for name in files where name != "Settings.swift" {
       let text = try file(name)
       for c in controls { #expect(!text.contains(c), "\(name) presents \(c) outside Settings") }
       #expect(!text.contains("$model.name"), "\(name) binds the name")
-      #expect(!text.contains(#"TextField("Your name""#), "\(name) asks the name")
+      #expect(!text.contains("model.nameRow"), "\(name) makes the device's name row outside Settings.swift")
     }
     let settings = try body("Settings.swift", "SettingsCard")
-    for c in controls { #expect(settings.contains(c), "Settings has \(c)") }
+    for c in controls + ["NameRowView(row: row)", "model.nameRow"] { #expect(settings.contains(c), "Settings has \(c)") }
+    #expect(try body("Settings.swift", "PlayerLine").contains("NameRowView(row: row)"))
+    #expect(try body("MatchCards.swift", "MatchOptionsCard").contains("PlayerLine(model: model)"))
+    #expect(try body("OnlineCards.swift", "LobbyCard").contains("PlayerLine(model: model)"))
+  }
+
+  /// No name is typed anywhere (the owner, 2026-11-21): the only text fields left are the
+  /// pitch code to join and Send feedback's answers, which go privately to the developer.
+  @Test func noNameIsTyped() throws {
+    let files = try FileManager.default.contentsOfDirectory(atPath: app.path).filter { $0.hasSuffix(".swift") }
+    var fields: [String] = []
+    for name in files {
+      let text = try file(name)
+      for m in text.matches(of: /TextField\("([^"]*)"/) { fields.append(String(m.1)) }
+      #expect(!text.contains("NameField"), "\(name) keeps a name field")
+    }
+    #expect(fields.sorted() == ["", "Pitch link or code"])
+    #expect(try file("ThrowReport.swift").contains(#"TextField("", text: value"#))
   }
 
   /// Settings is reached from home and from inside a match: the match and pitch

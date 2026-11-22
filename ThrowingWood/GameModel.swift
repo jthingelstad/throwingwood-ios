@@ -122,24 +122,19 @@ import Observation
     settingsReturn = screen
     screen = .settings
   }
-  /// The player's name, the device's one value (PlayerName), set in Settings. A
-  /// change is kept and, on a pitch, told to the room.
+  /// The player's name, the device's one value (PlayerName): a generated name, picked
+  /// in the name row (Settings, the solo card, the lobby). A change is kept and, on a
+  /// pitch, told to the room. Never typed.
   var name = "" {
     didSet {
-      guard name != oldValue else { return }
-      PlayerName.store(name, in: .standard)
+      guard name != oldValue, let names = offline?.names else { return }
+      name = PlayerName.store(name, in: .standard, names: names)
+      nameRow?.set(name)
       if let online { perform { try online.profile(name: name) } }
     }
   }
-  /// The name being typed in a `NameField`, before the field is let go. A start
-  /// takes it first (`commitName`), so a name typed and followed at once by START
-  /// or JOIN is the name the match gets.
-  @ObservationIgnored var nameDraft: String?
-  func commitName() {
-    guard let typed = nameDraft?.trimmingCharacters(in: .whitespacesAndNewlines) else { return }
-    nameDraft = nil
-    if typed != name { name = typed }
-  }
+  /// The device's name row (NameRowModel), one for every screen that picks the name.
+  private(set) var nameRow: NameRowModel?
   /// The menu's Raising (Jamie, 2026-11-19): every kubb of this device's raised by the
   /// engine's choice for the rest of this match (AutoRaise). Not kept on the device.
   var raiseAutomatically: Bool {
@@ -177,7 +172,10 @@ import Observation
         selections[row.id] = saved
       }
     }
-    name = PlayerName.load(defaults)
+    name = PlayerName.load(defaults, names: pitch.names)
+    let row = NameRowModel(names: pitch.names, kind: .player, text: name, label: "Your name")
+    row.onChange = { [weak self] in self?.name = $0 }
+    nameRow = row
     perform {
       #if targetEnvironment(simulator)
         if let mode = ProcessInfo.processInfo.environment["ONLINE_REVIEW"] {
@@ -206,7 +204,7 @@ import Observation
           selections = pitch.options.defaults
           // the solo options' Scene row picked (the review tools' --scene)
           if let look = ProcessInfo.processInfo.environment["REVIEW_SCENE"] { selections["scene"] = look }
-          name = ""  // the solo pictures' "You"
+          name = "Brave Birch"  // a generated name for the pictures (the fixtures' own say "You")
           if mode == "home" { return }
           if mode == "options" {
             screen = .options
@@ -243,11 +241,17 @@ import Observation
   /// the player told in one sentence; the caller starts afresh. True when restored.
   private func resumeKept(_ snapshot: String, on pitch: PitchSession) throws -> Bool {
     do {
+      try pitch.checkNames(snapshot)
       try pitch.restore(snapshot, save: save)
       return true
     } catch let old as OldMatch {
       save.dropOld(engine: old.engine)
       notice = VersionWords.oldMatch
+      return false
+    } catch is BadNamesMatch {
+      // a match kept with a typed name from before generated names: never shown
+      try? save.clear()
+      notice = NameWords.badMatch
       return false
     }
   }
@@ -371,7 +375,6 @@ import Observation
   }
   func start() {
     share = nil
-    commitName()
     perform {
       try pitch?.startSolo(name: name, selections: selections, save: save)
       for (key, value) in selections {

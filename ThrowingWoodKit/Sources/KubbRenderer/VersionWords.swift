@@ -81,3 +81,25 @@ public enum VersionWords {
 public struct OldMatch: Error, Equatable {
   public let engine: String
 }
+
+/// A kept match or a shared replay holding a name the game did not make (a typed name
+/// from before generated names, or a forged one): it is not shown, since its snapshot is
+/// hashed and the name cannot be put right; the screen says `NameWords.badMatch`.
+public struct BadNamesMatch: Error, Equatable {
+  public init() {}
+}
+
+/// The words about names (the web's, kubb-engine docs/NAMES.md).
+public enum NameWords {
+  /// The title of a match whose names the game did not make (the web's notice).
+  public static let badMatchTitle = "Cannot show this match"
+  /// The web's NAMES_REPLAY.
+  public static let badMatch = "This match has a name the game did not make, so it cannot be shown."
+  /// The share card's refusal of a name (the server's `why: "name"`, and a name that
+  /// does not pass on the card).
+  public static let pick = "Pick a name for your side."
+  /// What a lobby or pitch write refused as `bad-name` says (the web's plain error).
+  public static let refused = "The pitch did not take that. Try again."
+  /// A side of several players' team name heading in the lobby.
+  public static let playsAs = "PLAYS AS"
+}

@@ -3,7 +3,7 @@
 // code (src/net/share.js and tools/reel/solo.mjs in a kubb.thingelstad.xyz checkout,
 // which this only reads): a short seeded match a person played against the computer,
 // the web's `share` message for it under a few names, what the name rules say of many
-// names, the field's first value, the clipped name, the card's words, and the card's
+// names, the name row's first value, the card's words, and the card's
 // states for walks of events (the web's pure reducer).
 //
 //   node tools/share-vectors.mjs [--web ../kubb.thingelstad.xyz]
@@ -31,6 +31,7 @@ const { useRoomEngine, LOG_BUDGET } = await fromWeb("src/net/lobby.js");
 const { bundleLua, engineVersion } = await fromWeb("tools/lua-bundle.mjs");
 const { playSolo, soloSetup } = await fromWeb("tools/reel/solo.mjs");
 const { asciiJson } = await fromWeb("src/net/pitch-client.js");
+const { namesOf } = await fromWeb("src/game/names.js");
 let webCommit = "unknown";
 try {
   webCommit = execFileSync("git", ["-C", web, "rev-parse", "HEAD"], {
@@ -52,31 +53,30 @@ const trail = {
 };
 const need = { kind: "over", winner: { winner: played.end.winner } };
 
-const messages = ["Lakeside", "Ünïcödé 🪵"].map((name) => {
+const names = namesOf(engine);
+// generated names only (the engine's docs/NAMES.md), the widest player name among them
+const messages = ["Mighty Maple", "Zealous Mahogany"].map((name) => {
   const made = share.shareMessage({ engine, trail, need, name });
   if (!made.message) throw new Error(`no message for ${name}: ${made.why}`);
   return { name, g: made.message.g, bytes: made.bytes };
 });
 
-const names = [
-  "Ann", "Riverside", "a".repeat(16), "Ünïcödé 🪵", "", "   ", " Ann", "Ann ", "You",
-  "YOU", "yOu", " you", "a".repeat(17), "🪵".repeat(16), "🪵".repeat(17), "é".repeat(8),
-  "é".repeat(9), "\tAnn", "Ann\n", "Y o u", "Yous",
-].map((name) => ({ name, problem: share.nameProblem(name) }));
+const nameChecks = [
+  "Mighty Maple", "Zealous Mahogany", "Brave Birch", "Computer", "Player 1", "Team A",
+  "Ann", "Riverside", "", "   ", " Mighty Maple", "Mighty Maple ", "mighty maple",
+  "Mighty  Maple", "You", "Salty Walnut", "Birch Batons",
+].map((name) => ({ name, problem: share.nameProblem(names, name) }));
 
 const withName = (n) => {
   const s = JSON.parse(played.start);
   s.opts.teams.A.name = n;
   return JSON.stringify(s);
 };
+const fallback = "Brave Birch";
 const fromMatch = [
-  played.start, withName("You"), withName("you"), withName(" Pine "), withName(""),
-  withName("a".repeat(20)), "not json",
-].map((start) => ({ start, name: share.nameFromMatch(start) }));
-
-const clips = ["🪵".repeat(20), "abcdefghijklmnopqrs", "Ann", "é".repeat(10)].map(
-  (text) => ({ text, clipped: share.clipName(text) }),
-);
+  played.start, withName("Mighty Maple"), withName("You"), withName(" Mighty Maple "),
+  withName(""), withName("Player 1"), "not json",
+].map((start) => ({ start, fallback, name: share.nameFromMatch(names, start, fallback) }));
 
 // Walks of the card's states, with what the card shows after each event.
 const send = { type: "send" };
@@ -123,9 +123,8 @@ const out = {
     throws: played.end.throws,
   },
   messages,
-  names,
+  names: nameChecks,
   fromMatch,
-  clips,
   walks,
   asciiCheck: asciiJson({ t: "share", id: 1, g: messages[1].g }).length,
 };

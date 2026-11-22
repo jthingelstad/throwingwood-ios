@@ -1,52 +1,92 @@
 import KubbRenderer
 import SwiftUI
 
-/// A set-up screen's name and the way to Settings, no picker. A device with no
-/// name yet is asked for one here, once (`NameField`); after that the name is
-/// changed in Settings. There is no level for the player to set: from engine 0.13
-/// every person throws on one meter and a level is the computer's alone (kubb-engine
-/// docs/notes/throw.md "The person's meter"), so none is kept or sent.
-struct PlayerLine: View {
-  let model: GameModel
-  /// Whether this screen asks for the name: decided when it appears, so the field
-  /// stays while the first letters go in.
-  @State private var asks: Bool?
+/// The name row (`NameRowModel`; the web's src/ui/name-row.js): the name and SHUFFLE,
+/// then each word's picker and its KEEP, in that order for VoiceOver too. Native
+/// controls: a menu picker per word listing every word the slot can take. Each word and
+/// the name fit the widest name the engine can make (`NameFitTests`); at the largest
+/// text sizes the words go under each other.
+struct NameRowView: View {
+  @Bindable var row: NameRowModel
+  /// At the accessibility text sizes the name goes over SHUFFLE and each picker over
+  /// its KEEP, so no word is broken.
+  @Environment(\.dynamicTypeSize) private var type
   var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      if asks ?? (PlayerName.shown(model.name) == nil) { NameField(model: model) }
-      if asks != true, let name = PlayerName.shown(model.name) {
-        HStack(spacing: 4) {
-          Text(name)
-          Button(action: model.openSettings) { Text("Change in Settings").underline() }
-            .accessibilityHint("Your name is set in Settings")
-        }.font(.subheadline)
+    VStack(alignment: .leading, spacing: 6) {
+      if type.isAccessibilitySize {
+        VStack(alignment: .leading, spacing: 6) { name; shuffle }
+        VStack(alignment: .leading, spacing: 8) { words }
+      } else {
+        HStack(spacing: 8) {
+          name
+          Spacer(minLength: 4)
+          shuffle
+        }
+        ViewThatFits(in: .horizontal) {
+          HStack(spacing: 10) { words }
+          VStack(alignment: .leading, spacing: 6) { words }
+        }
       }
-    }.onAppear { if asks == nil { asks = PlayerName.shown(model.name) == nil } }
+    }
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel(row.label)
+    .onChange(of: row.announcement) { _, said in
+      if let said { AccessibilityNotification.Announcement(said).post() }
+    }
+  }
+
+  private var name: some View {
+    Text(row.text).font(.headline).fixedSize(horizontal: false, vertical: true)
+  }
+
+  private var shuffle: some View {
+    Button("SHUFFLE") { row.shuffle() }.buttonStyle(WoodButton())
+      .lineLimit(1).minimumScaleFactor(0.5)
+      .accessibilityLabel(row.shuffleLabel)
+  }
+
+  @ViewBuilder private var words: some View {
+    if let prefix = row.prefix { Text(prefix).font(.body.weight(.semibold)) }
+    ForEach(Array(row.parts.words.enumerated()), id: \.offset) { slot, word in
+      // a menu of every word the slot can take, the word shown ticked; VoiceOver reads
+      // "Your name, first word" and the word as its value
+      let picker = Menu {
+        Picker(row.pickerLabel(slot), selection: Binding(get: { word }, set: { row.pick(slot, $0) })) {
+          ForEach(row.choices(slot), id: \.self) { Text($0).tag($0) }
+        }
+      } label: {
+        HStack(spacing: 4) {
+          Text(word)
+          Image(systemName: "chevron.up.chevron.down").font(.caption)
+        }
+      }
+      .accessibilityLabel(row.pickerLabel(slot))
+      .accessibilityValue(word)
+      let keep = Button(row.lockTitle(slot)) { row.toggleLock(slot) }
+        .font(.caption.weight(.bold)).lineLimit(1).minimumScaleFactor(0.5)
+        .buttonStyle(.bordered)
+        .accessibilityLabel(row.lockLabel(slot))
+        .accessibilityAddTraits(row.locks[slot] ? .isSelected : [])
+      if type.isAccessibilitySize {
+        VStack(alignment: .leading, spacing: 4) { picker; keep }
+      } else {
+        HStack(spacing: 4) { picker.fixedSize(); keep }
+      }
+    }
   }
 }
 
-/// The player's name as it is typed, kept on the device when the field is let go or
-/// sent (a pitch hears it then, not at each letter).
-struct NameField: View {
+/// The You row of a set-up screen (the solo card, the lobby): the device's name in a
+/// name row, picked right here (the web's youRow). A change is the device's name, kept
+/// and, on a pitch, told to the room. There is no level for the player to set: from
+/// engine 0.13 every person throws on one meter and a level is the computer's alone.
+struct PlayerLine: View {
   let model: GameModel
-  @State private var draft = ""
-  @FocusState private var editing: Bool
   var body: some View {
-    TextField("Your name", text: $draft).textFieldStyle(.roundedBorder).focused($editing)
-      .accessibilityLabel("Your name").submitLabel(.done)
-      .onAppear { draft = model.name }
-      .onChange(of: draft) { _, value in
-        let limit = model.offline?.options.nameLimit ?? value.count
-        if value.count > limit { draft = String(value.prefix(limit)) }
-        model.nameDraft = String(value.prefix(limit))
-      }
-      .onSubmit(commit)
-      .onChange(of: editing) { _, focused in if !focused { commit() } }
-      .onDisappear(perform: commit)
-  }
-  private func commit() {
-    model.nameDraft = draft
-    model.commitName()
+    VStack(alignment: .leading, spacing: 4) {
+      Text("You").font(.subheadline.weight(.semibold))
+      if let row = model.nameRow { NameRowView(row: row) }
+    }
   }
 }
 
@@ -59,7 +99,12 @@ struct SettingsCard: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       Text("Settings").font(displayFont(37))
-      MenuRow("Your name") { NameField(model: model) }
+      if let row = model.nameRow {
+        VStack(alignment: .leading, spacing: 4) {
+          Text("Your name").font(.subheadline.weight(.semibold))
+          NameRowView(row: row)
+        }
+      }
       FeedbackSettings(feedback: model.feedback)
       MeterSettings(meter: model.meter)
       Button("BACK") { model.screen = model.settingsReturn }

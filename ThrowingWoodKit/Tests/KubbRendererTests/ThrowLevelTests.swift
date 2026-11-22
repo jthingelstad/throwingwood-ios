@@ -18,11 +18,11 @@ import Testing
     let app = try PitchSession(appVersion: "test")
     var choices = app.options.defaults
     choices["computer"] = "beginner"
-    try app.startSolo(name: "Ada", selections: choices, save: nil)
+    try app.startSolo(name: "Mighty Maple", selections: choices, save: nil)
     let snapshot = try JSONNode.parse(app.engine.call("snapshot"))
     #expect(snapshot["opts"]?["computer"]?.string == "beginner")
     let ada = try #require(snapshot["opts"]?["teams"]?["A"]?["players"]?.items.first)
-    #expect(ada["name"]?.string == "Ada" && ada["level"] == nil)
+    #expect(ada["name"]?.string == "Mighty Maple" && ada["level"] == nil)
   }
 
   /// The bars of a person's practice throw at each level (the engine's setLevel),

@@ -376,7 +376,7 @@ extension HighlightReel {
     switch stage {
     case .connecting, .reconnecting, .lobby: true
     case .match: finished != nil && (match == nil || finished == match)
-    case .notFound, .full, .unreachable, .replaced, .sealed, .noGame: false
+    case .notFound, .full, .unreachable, .replaced, .sealed, .noGame, .namesRefused: false
     }
   }
 }

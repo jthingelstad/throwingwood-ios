@@ -44,7 +44,7 @@ let carriesVectors = Engine.carried.contains(shareVectorMinor())
     #expect(w["title"] as? String == ShareWords.title)
     #expect(w["about"] as? String == ShareWords.about)
     #expect(w["label"] as? String == ShareWords.label)
-    #expect(w["placeholder"] as? String == ShareWords.placeholder)
+    #expect(w["placeholder"] == nil)  // no text field: the name row
     #expect(w["sides"] as? String == ShareWords.sides)
     #expect(w["when"] as? String == ShareWords.when)
     #expect(w["share"] as? String == ShareWords.share)
@@ -56,10 +56,8 @@ let carriesVectors = Engine.carried.contains(shareVectorMinor())
     #expect(w["notThisTime"] as? String == ShareWords.notThisTime)
     #expect(w["offline"] as? String == ShareWords.offline)
     let names = w["name"] as! [String: String]
-    for p in [ShareName.Problem.empty, .you, .long, .spaces] {
-      #expect(names[p.rawValue] == ShareWords.name(p))
-    }
-    #expect(names.count == 4)
+    #expect(names == ["pick": ShareWords.name(.pick)])
+    #expect(ShareWords.name(.pick) == "Pick a name for your side.")
     let whys = w["why"] as! [String: String]
     for why in ShareWhy.allCases { #expect(whys[why.rawValue] == ShareWords.why(why)) }
     #expect(whys.count == ShareWhy.allCases.count)
@@ -71,27 +69,28 @@ let carriesVectors = Engine.carried.contains(shareVectorMinor())
     #expect(l["bytes"] == ShareLimits.bytes)
     #expect(l["actions"] == ShareLimits.actions)
     #expect(l["startBytes"] == ShareLimits.startBytes)
-    #expect(l["nameMax"] == ShareLimits.nameMax)
+    #expect(l["nameMax"] == nil)
     #expect(l["waitMs"] == 45000 && ShareLimits.wait == .seconds(45))
   }
 
   // ---------- the name ----------
 
-  @Test func theNameRulesAreTheWebs() {
+  /// Only a generated player name or a default goes on the reel, as the web's
+  /// nameProblem says (and the server's check): every case the web's vectors hold.
+  @Test func theNameRulesAreTheWebs() throws {
+    let names = Names(engine: try Engine(appVersion: "0.0-test"))
     for case let n as [String: Any] in v["names"] as! [Any] {
       let name = n["name"] as! String
-      #expect(ShareName.problem(name)?.rawValue == n["problem"] as? String, "\(name.debugDescription)")
+      #expect(ShareName.problem(name, names: names)?.rawValue == n["problem"] as? String, "\(name.debugDescription)")
     }
-    #expect(ShareName.problem("Ann\u{85}") == nil)  // JavaScript keeps U+0085
-    #expect(ShareName.problem("\u{FEFF}Ann") == .spaces)
   }
 
-  @Test func theFieldStartsFromTheMatchAndIsCut() {
+  @Test func theRowStartsFromTheMatchsGeneratedName() throws {
+    let names = Names(engine: try Engine(appVersion: "0.0-test"))
     for case let f as [String: Any] in v["fromMatch"] as! [Any] {
-      #expect(ShareName.fromMatch(start: f["start"] as! String) == f["name"] as! String)
-    }
-    for case let c as [String: Any] in v["clips"] as! [Any] {
-      #expect(ShareName.clip(c["text"] as! String) == c["clipped"] as! String)
+      #expect(
+        ShareName.fromMatch(start: f["start"] as! String, names: names, fallback: f["fallback"] as! String)
+          == f["name"] as! String)
     }
   }
 
