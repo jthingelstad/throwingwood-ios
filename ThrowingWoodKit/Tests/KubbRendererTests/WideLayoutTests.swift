@@ -245,11 +245,21 @@ import Testing
             #expect(f[open]!.maxY <= plan.block.maxY && f[open]!.minY >= plan.tray.ceiling, "\(what) \(open)")
             #expect(f[open]!.minY >= rail.maxY + 8 || !f[open]!.intersects(rail))
           }
-          // the minimap hangs under the header's right end (the 1.0 design: one home)
-          #expect(plan.minimap.maxX == rail.maxX && plan.minimap.minY == rail.maxY + 8, "\(what): \(plan.minimap)")
+          // the minimap hangs under the header's right end (the 1.0 design: one home), or,
+          // where that end is over the throwing line (beside a linear meter at the left),
+          // under the header short of the line, so it does not cover the pitch's middle;
+          // on the narrowest phones (SE, the minis, 11 Pro) that place meets the meter's
+          // tab and the map stays under the header's right end
+          let centre = p.size.width / 2, line = centre - WideLayout.planClear
+          let narrowest = p.size.width < 820
+          #expect(
+            (plan.minimap.maxX == rail.maxX || (rail.maxX > line && plan.minimap.maxX == line))
+              && plan.minimap.minY == rail.maxY + 8, "\(what): \(plan.minimap)")
+          if !narrowest {
+            #expect(plan.minimap.maxX <= line, "\(what): minimap \(plan.minimap) on the throwing line")
+          }
           // nothing on the throwing line: the tray and an open plate stop 24 short of
           // the screen's centre, the meter is on the other half
-          let centre = p.size.width / 2
           for f in [plan.block, plan.reach] {
             #expect(side == .right ? f.maxX <= centre - 24 : f.minX >= centre + 24, "\(what): \(f)")
           }
