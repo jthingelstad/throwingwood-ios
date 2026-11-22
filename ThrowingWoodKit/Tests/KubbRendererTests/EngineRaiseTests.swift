@@ -181,4 +181,30 @@ import simd
     }
     #expect(checked > 0)
   }
+
+  /// Engine 1.0.0's seat in the pieces the board draws while nothing plays: the view's
+  /// standing kubbs already lean as the throw's world builds them, so the first frame of
+  /// a throw (the player's or the other side's) draws each where the aim drew it.
+  @Test func standingKubbsLeanAndDoNotStepAtAThrowsFirstFrame() throws {
+    let board = try PitchSession(appVersion: "test")
+    let before: ViewOutput = try board.read("view")
+    let url = try #require(Bundle.module.url(forResource: "clean", withExtension: "json", subdirectory: "Fixtures/feel"))
+    let object = try #require(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+    let action = try JSONSerialization.data(withJSONObject: #require(object["action"]))
+    struct Applied: Decodable { let recording: Recording }
+    let applied: Applied = try board.read("apply", String(decoding: action, as: UTF8.self))
+    let first = Playback(applied.recording).pieces(at: 0)
+    var leaning = 0
+    for k in before.items where k.kind == "kubb" {
+      let up = k.rotation.act(V3(0, 0, 1)).z
+      guard up > 0.9 else { continue }  // standing
+      if up < 1 - 1e-9 { leaning += 1 }
+      // grass seats a kubb up to 2 degrees
+      #expect(up >= cos(2 * Double.pi / 180) - 1e-9, "\(k.id)")
+      let f = try #require(first.first { $0.id == k.id })
+      #expect(simd_length(f.center - k.center) < 1e-3, "\(k.id) where the aim drew it")
+      #expect(abs(abs(simd_dot(f.rotation.vector, k.rotation.vector)) - 1) < 1e-5, "\(k.id) at the aim's lean")
+    }
+    #expect(leaning > 0)
+  }
 }
