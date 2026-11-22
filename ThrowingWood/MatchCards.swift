@@ -974,21 +974,36 @@ struct MatchScreen: View {
   /// WATCH tab and the faded meter (BoardView).
   private func handoffCard(_ c: MatchNeed.Handoff) -> some View {
     let own = !(model.online != nil && !pitch.acceptsInput)
-    return VStack(alignment: .leading, spacing: 8) {
+    let words = VStack(alignment: .leading, spacing: 8) {
       // a Kid match says so over the title (the web's handoffKid)
       if let kid = HandoffWords.kid(pitch.need) {
         Text(kid).labelStyle().fixedSize(horizontal: false, vertical: true)
       }
-      Text(HandoffWords.title(c, own: own)).cardTitle(40)
+      Text(HandoffWords.title(c, own: own)).cardTitle(screen.wide ? 32 : 40)
         .lineLimit(1).minimumScaleFactor(0.6)
       Text(HandoffWords.line(c, at: pitch.railAt)).font(bodyFont(18, relativeTo: .body))
         .fixedSize(horizontal: false, vertical: true)
-      Button {
-        model.perform { pitch.dismissHandoff() }
-      } label: {
-        Text(own ? "THROW" : "WATCH").font(displayFont(28, relativeTo: .title)).frame(maxWidth: .infinity, minHeight: 52)
+    }
+    let go = Button {
+      model.perform { pitch.dismissHandoff() }
+    } label: {
+      Text(own ? "THROW" : "WATCH").font(displayFont(28, relativeTo: .title)).frame(maxWidth: .infinity, minHeight: 52)
+    }
+    .buttonStyle(WoodButton(accent: true))
+    // on a phone on its side the card is a short strip at the foot, its words beside
+    // THROW (stacked it stood 190 of the 390 pt, over the middle of the pitch)
+    return Group {
+      if screen.wide {
+        HStack(alignment: .center, spacing: 16) {
+          words.frame(maxWidth: .infinity, alignment: .leading)
+          go.frame(width: 170)
+        }
+      } else {
+        VStack(alignment: .leading, spacing: 8) {
+          words
+          go.padding(.top, 8)
+        }
       }
-      .buttonStyle(WoodButton(accent: true)).padding(.top, 8)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(18)
@@ -997,7 +1012,7 @@ struct MatchScreen: View {
     .background(
       RoundedRectangle(cornerRadius: TW.cardRadius).fill(Color.woodDrop)
         .offset(x: TW.cardShadow, y: TW.cardShadow))
-    .frame(maxWidth: 420)
+    .frame(maxWidth: screen.wide ? 600 : 420)
     .padding(.horizontal, TW.cardSide)
     .padding(.bottom, screen.wide ? 12 : max(8, 48 - screen.safe.bottom))
     .modifier(FitOrScroll())
