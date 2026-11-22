@@ -37,12 +37,14 @@ import QuartzCore
     let thrown = try #require(n.field.pitches.first { $0.playing != nil })
     let (pb, at) = try #require(thrown.playing)
     #expect(pb.recording.duration > 0.2)
-    // mid-flight the thrown piece moves
+    // mid-flight the thrown piece moves; as it leaves no hand holds it, so it is drawn
+    // only once it is in the air (Calm.airborne from where it left)
     let mid = n.field.drawn(at: at + pb.recording.duration / 2, turned: false)
     let start = n.field.drawn(at: at, turned: false)
     let id = pb.recording.projectile.id
     let i = try #require(n.field.pitches.firstIndex { $0.id == thrown.id })
-    let p0 = try #require(start[i].pieces.first { $0.id == id })
+    #expect(start[i].pieces.first { $0.id == id } == nil)
+    let p0 = try #require(pb.pieces(at: 0).first { $0.id == id })
     let p1 = try #require(mid[i].pieces.first { $0.id == id })
     #expect(simd_distance(p0.center, p1.center) > 0.3)
     // played to its end: the items are the engine's, to the millimetre
@@ -168,6 +170,133 @@ import QuartzCore
     #expect(abs(try #require(end.first { $0.id == "b3" }).y - 8.1) < 1e-9)
     #expect(try #require(end.first { $0.id == "king" }).y == 4)
     #expect(pb.feedback.isEmpty)
+  }
+
+  /// Kubbs a beat stands up rise one after another rather than pop: from where they lay
+  /// (a raise) or from lying where they stand (a fresh pitch set out); batons just go.
+  @Test func kubbsRiseRatherThanPop() {
+    func kubb(_ id: String, _ x: Double, _ y: Double, lying: Bool) -> Piece {
+      lying
+        ? Piece(id: id, kind: "kubb", team: "B", x: x, y: y, z: 0.035, qw: 0.7071, qx: 0.7071, qy: 0, qz: 0)
+        : Piece(id: id, kind: "kubb", team: "B", x: x, y: y, z: 0.075, qw: 1, qx: 0, qy: 0, qz: 0)
+    }
+    let before = [kubb("b1", 0, 6, lying: true), kubb("b2", 1, 6, lying: true), kubb("b3", -2, 8, lying: false)]
+    let after = [kubb("b1", 0.1, 6, lying: false), kubb("b2", 1, 6.1, lying: false), kubb("b3", -2, 8, lying: false)]
+    let rises = Calm.rises(from: before, to: after, at: 10)
+    #expect(Set(rises.keys) == ["b1", "b2"])  // the one already standing stays
+    let starts = rises.values.map(\.at).sorted()
+    #expect(starts == [10, 10 + Calm.stagger])
+    var f = NeighbourField()
+    f.pitches = [.init(id: 1, offset: NeighbourPoint(x: 8, y: 0), items: before, teams: [:], phase: "rest", at: 0)]
+    f.apply([NeighbourEvent(
+      id: 1, phase: "raise", at: 10, side: "B", kind: nil, from: nil, recording: nil, items: after, teams: nil, winner: nil)])
+    #expect(f.moving(10.2))
+    func b1(_ t: Double) -> Piece { f.drawn(at: t, turned: false)[0].pieces.first { $0.id == "b1" }! }
+    #expect(Neon.lying(b1(10)))
+    let half = b1(10 + Calm.rise / 2)
+    #expect(half.z > 0.035 && half.z < 0.075)
+    #expect(!Neon.lying(b1(10 + Calm.rise)) && abs(b1(11).z - 0.075) < 1e-9)
+    f.settle(12)
+    #expect(!f.moving(12) && f.pitches[0].rises.isEmpty)
+    // a fresh pitch: a kubb new to it rises from lying where it stands
+    let fresh = Calm.rises(from: [], to: [kubb("a1", 0, 0, lying: false)], at: 0)
+    #expect(fresh["a1"].map { Neon.lying($0.from) && abs($0.from.x) < 1e-9 } == true)
+    // many: the last starts at most riseSpan after the first
+    let many = (0..<20).map { kubb("k\($0)", Double($0) * 0.2, 6, lying: false) }
+    let spread = Calm.rises(from: [], to: many, at: 0).values.map(\.at)
+    #expect(spread.max()! <= Calm.riseSpan + 1e-9)
+  }
+
+  /// No person is drawn at the Tournament, live or fixed, in any phase of a neighbour's
+  /// match: the picture has no pixel of the people's skin or trousers (the colours the
+  /// figures were drawn in, the web's palette.js TOURNAMENT.person).
+  @Test func noPersonIsDrawnAtTheTournament() throws {
+    let app = try SceneLooksTests.match("tournament")
+    let n = TournamentNeighbours()
+    n.want(.init(seed: 5))
+    let skin: (UInt8, UInt8, UInt8) = (0xe9, 0xc3, 0x9b), trousers: (UInt8, UInt8, UInt8) = (0x2f, 0x3a, 0x4a)
+    var phases = Set<String>()
+    func count(_ size: CGSize, _ live: LiveNeighbours?, reduced: Bool = false) -> Int {
+      let px = SceneLooksTests.pixels(SceneLooksTests.picture(size) { ctx in
+        PitchRenderer.draw(
+          in: ctx, size: size, camera: app.shownCamera, scene: app.scene, look: "tournament", reduced: reduced,
+          neighbours: live)
+      })
+      var hits = 0
+      for i in stride(from: 0, to: px.count - 3, by: 4) {
+        let c = (px[i], px[i + 1], px[i + 2])
+        if c == skin || c == trousers { hits += 1 }
+      }
+      return hits
+    }
+    for _ in 0..<12 {
+      NeighbourTests.run(n, seconds: 20)
+      phases.formUnion(n.field.pitches.map(\.phase))
+      #expect(count(SceneLooksTests.upright, n.drawn(turned: false)) == 0)
+      #expect(count(SceneLooksTests.side, n.drawn(turned: false)) == 0)
+    }
+    #expect(phases.count >= 3, "\(phases)")
+    // the fixed pitches (Reduce Motion, before the field answers) and the wide view
+    #expect(count(SceneLooksTests.upright, nil, reduced: true) == 0)
+    #expect(try app.watchWide(size: SceneLooksTests.side, safe: ScreenInsets()))
+    #expect(count(SceneLooksTests.side, n.drawn(turned: false)) == 0)
+    n.close()
+  }
+
+  /// The neighbours' sounds: a knock where a kubb was struck and where it went over, a
+  /// thud where the thrown piece comes down; quieter with distance (the pitch beside well
+  /// under the player's faintest knock, the far row fainter), panned by the camera,
+  /// capped at `voices` a frame, and none when the field is not live.
+  @Test func neighbourSoundsAreQuietFarAndCapped() throws {
+    let json = #"""
+      {"frameDt":0.04,"frames":5,"duration":0.2,"poseScale":1000,
+       "projectile":{"id":"baton1","kind":"baton"},
+       "bodies":[
+        {"id":"baton1","kind":"baton","start":0,"frames":5,"poses":[0,0,1200,1000,0,0,0, 0,2000,900,1000,0,0,0, 0,4000,400,1000,0,0,0, 0,6000,30,1000,0,0,0, 0,6200,22,1000,0,0,0]},
+        {"id":"b3","kind":"kubb","team":"B","start":3,"frames":2,"poses":[0,8000,75,1000,0,0,0, 0,8100,35,707,707,0,0],"toppleT":0.4},
+        {"id":"king","kind":"king","start":4,"frames":1,"poses":[0,4000,150,1000,0,0,0]}]}
+      """#
+    let r = try JSONDecoder().decode(NeighbourRecording.self, from: Data(json.utf8))
+    let cues = NeighbourSounds.cues(r, at: 100)
+    let thud = try #require(cues.first { $0.kind == .thud })
+    #expect(abs(thud.time - 100.12) < 1e-9 && abs(thud.y - 6) < 1e-9)  // the frame it comes down
+    let knocks = cues.filter { $0.kind == .knock }
+    #expect(knocks.map(\.time) == [100.12, 100.16, 100.4].map { $0 })  // b3 struck, king struck, b3 over
+    let king = try #require(knocks.first { abs($0.time - 100.16) < 1e-9 })
+    #expect(king.weight > 1)
+    #expect(knocks.last!.weight < 1)  // the topple, softer than the strike
+    // levels: beside, well under the player's faintest knock (0.8 x 0.9 x 0.25)
+    let faintest = 0.8 * 0.9 * 0.25
+    let beside = NeighbourSounds.gain(at: V3(8, 4, 0), weight: 1)
+    let far = NeighbourSounds.gain(at: V3(8, 16, 0), weight: 1)
+    let kingBeside = NeighbourSounds.gain(at: V3(8, 4, 0), weight: NeighbourSounds.king)
+    #expect(beside <= NeighbourSounds.most && beside < faintest)
+    #expect(kingBeside > beside && kingBeside < faintest)
+    #expect(far < beside / 2)
+    // left and right as the camera looks
+    let app = try SceneLooksTests.match("tournament")
+    #expect(NeighbourSounds.pan(at: V3(-8, 6, 0), camera: app.camera) < -0.3)
+    #expect(NeighbourSounds.pan(at: V3(8, 6, 0), camera: app.camera) > 0.3)
+    // at most `voices` a frame, the loudest kept
+    let many = (0..<6).map { NeighbourSound(kind: .knock, gain: Double($0) * 0.02, pan: 0) }
+    let kept = NeighbourSounds.loudest(many)
+    #expect(kept.count == NeighbourSounds.voices && kept.map(\.gain) == [0.1, 0.08, 0.06].map { $0 })
+    // a live field: its cues come due on its clock, each once; none once closed
+    let n = TournamentNeighbours()
+    n.want(.init(seed: 5))
+    var heard: [NeighbourSound] = []
+    for _ in 0..<(60 * 40) {
+      n.tick(1.0 / 60)
+      n.drain()
+      heard += n.sounds(session: app)
+    }
+    #expect(!heard.isEmpty)
+    #expect(heard.allSatisfy { $0.gain <= NeighbourSounds.most * NeighbourSounds.king && $0.gain < faintest })
+    n.close()
+    n.tick(1.0 / 60)
+    #expect(n.sounds(session: app).isEmpty)
+    // Reduce Motion and other scenes: no field, so no sound
+    #expect(TournamentNeighbours.want(look: "tournament", inMatch: true, reduced: true, seed: 5) == nil)
   }
 
   /// Team B's view turns the whole field half round about the player's pitch centre.
