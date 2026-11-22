@@ -63,9 +63,10 @@ extension PitchSession {
   /// A match named on an engine this build does not carry is never guessed at: it throws
   /// `OldMatch`, changing nothing, and the caller says it can no longer be replayed
   /// (VersionWords.oldMatch; docs/ENGINES.md). A save nothing names (written
-  /// before the trail) plays on the newest, as it always did. A caller putting back a
-  /// match someone could see (a kept solo match, a shared replay) checks its names first
-  /// (`checkNames`).
+  /// before the trail) plays on the newest, as it always did. This is the plain door, for
+  /// the device's own kept match (which may hold typed names from before generated names,
+  /// seen only by its owner) and fixtures; a match someone else sent goes through
+  /// `restoreFromOutside`.
   public func restore(_ snapshot: String, save: MatchSave?, engine: String? = nil) throws {
     let named = engine ?? save?.engineNamed(for: snapshot)
     let mm = Engine.majorMinor(named)
@@ -74,12 +75,23 @@ extension PitchSession {
     try openMatch("restore", json: snapshot, save: save)
   }
 
-  /// A kept match or a shared replay is shown only when every name in it is a generated
-  /// name or a default (`Names.badNames` of the snapshot's options): one holding a typed
-  /// name from before generated names, or a forged one, throws `BadNamesMatch`. Its
-  /// snapshot is hashed, so the name cannot be put right.
-  public func checkNames(_ snapshot: String) throws {
-    if !names.badNames(snapshot: snapshot).isEmpty { throw BadNamesMatch() }
+  /// A match someone else sent (a sealed pitch's kept replay) put on the pitch, on its own
+  /// engine, only when the engine allows every name and sentence in it: the whole kept
+  /// replay through `names.check({ replay })` when it is at hand, and the snapshot through
+  /// `restore`'s strict door either way, refused before anything changes. Throws
+  /// `OldMatch` for an engine this build lacks and `BadNamesMatch` for a name the game did
+  /// not make (NameWords.badMatch). The device's own kept match uses `restore`.
+  public func restoreFromOutside(_ snapshot: String, replay: JSONText?, engine: String?) throws {
+    let mm = Engine.majorMinor(engine)
+    if let mm, !Engine.carried.contains(mm) { throw OldMatch(engine: mm) }
+    if let replay, !names.check(replay: replay).allowed { throw BadNamesMatch() }
+    guard names.check(snap: snapshot).allowed else { throw BadNamesMatch() }
+    try useEngine(minor: mm)
+    do {
+      try openMatch("restore", json: Names.checkedRestore(snapshot), save: nil)
+    } catch EngineError.call(_, let message) where message.contains("names not allowed") {
+      throw BadNamesMatch()
+    }
   }
 
   func openMatch(_ method: String, json: String, save: MatchSave?) throws {

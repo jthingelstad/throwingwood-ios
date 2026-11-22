@@ -452,12 +452,26 @@ import KubbEngine
     return Self.replacing(opts, [("teams", .object(out))])
   }
 
-  /// Every member's name as shown, by id: its presence name when it passes, else
-  /// "Player n" (n its place on its side; a watcher, its place on the pitch); a player of
-  /// the match who has left, the match's own name for them, checked. `apart` adds "II"
-  /// to the second of two members with one name, for the lobby.
+  /// The engine's judgement of the lobby (`names.check` of the document and members:
+  /// the host's `teamNames`, the match header's players, every member's name), kept
+  /// while both are the same.
+  private func lobbyCheck() -> Names.MatchCheck {
+    let members = pitch.membersJSON.json
+    if let c = checked, c.doc == pitch.document, c.members == members { return c.check }
+    let check = names.check(document: pitch.document, members: members)
+    checked = (pitch.document, members, check)
+    return check
+  }
+  private var checked: (doc: JSONText, members: JSONText, check: Names.MatchCheck)?
+
+  /// Every member's name as shown, by id: its presence name unless the engine refuses it
+  /// (`names.check` of the lobby), else "Player n" (n its place on its side; a watcher,
+  /// its place on the pitch); a player of the match who has left, the match's own name for
+  /// them, checked. `apart` adds "II" to the second of two members with one name, for
+  /// the lobby.
   public func shownNames() -> (plain: [String: String], apart: [String: String]) {
     let lobby = try? pitchCall("lobbyOf", [("doc", .raw(pitch.document))])
+    let refused = lobbyCheck().refusedFrom
     func place(_ id: String, _ i: Int) -> Int {
       for side in ["A", "B"] {
         if let k = lobby?["teams"]?[side]?.items.firstIndex(where: { $0.string == id }) { return k + 1 }
@@ -468,7 +482,8 @@ import KubbEngine
     for (i, m) in pitch.members.enumerated() {
       guard let id = m["id"]?.string else { continue }
       let n = m["me"]?["name"]?.string
-      order.append((id, n?.isEmpty == false && names.passes(.player, n) ? n! : Names.playerDefault(place(id, i))))
+      let shown = n?.isEmpty == false && !refused.contains("members[\(i)].me.name")
+      order.append((id, shown ? n! : Names.playerDefault(place(id, i))))
     }
     for side in ["A", "B"] {
       for (k, p) in (match?["players"]?[side]?.items ?? []).enumerated() {
@@ -485,10 +500,14 @@ import KubbEngine
     return shownNames().plain[id] ?? "Someone"
   }
 
-  /// A side's team name as the lobby shows it: the document's when it is a generated team
-  /// name, else "Team A" / "Team B".
+  /// A side's team name as the lobby shows it: the document's unless the engine refuses
+  /// it, else "Team A" / "Team B".
   public func teamNameOf(_ side: String) -> String {
-    names.shown(.team, (try? JSONNode.parse(pitch.document))?["teamNames"]?[side]?.string, fallback: Names.teamDefault(side))
+    let t = (try? JSONNode.parse(pitch.document))?["teamNames"]?[side]?.string
+    guard let t, !t.isEmpty, !lobbyCheck().refusedFrom.contains("teamNames.\(side)") else {
+      return Names.teamDefault(side)
+    }
+    return t
   }
 
   /// The host picks a side's team name (a generated team name only), written into the
@@ -780,20 +799,26 @@ import KubbEngine
       if show, let probe { try present?(.restore(probe)) }
       return
     }
-    // a match whose names are not all generated names or defaults (a forged start: an
-    // honest host checks them, and so does the pitch server) is not shown or played: its
-    // snapshot is hashed, so its names cannot be put right here
-    guard names.badNames(snapshot: snap).isEmpty else {
+    // A match holding a name or a line the game did not make (a forged start: the pitch
+    // server cannot see inside the snapshot) is not shown or played. The engine judges
+    // the whole snapshot (`names.check`), and it is adopted only through `restore`'s
+    // strict door, which refuses it before anything changes. Its snapshot is hashed, so
+    // its names cannot be put right here.
+    func refuse() {
       state = .namesRefused
       mismatch = nil
       mayAct = false
       match = probe
-      return
+    }
+    guard names.check(snap: snap).allowed else { return refuse() }
+    do {
+      _ = try on.call("restore", json: Names.checkedRestore(snap))
+    } catch EngineError.call(_, let message) where message.contains("names not allowed") {
+      return refuse()
     }
     engine = on
     state = .match
     mismatch = nil
-    _ = try engine.call("restore", json: snap)
     match = probe
     try refreshSeat()
     if show, let probe { try present?(.restore(probe)) }

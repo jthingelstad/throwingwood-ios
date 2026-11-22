@@ -356,12 +356,20 @@ reference: keep its words, order and behaviour.
   change announced as "Your name: Mighty Maple" (`NameRowTests`). It is in Settings, the
   solo card's and the lobby's You row, under a lobby side of several as PLAYS AS (the
   host's row; others read the name) and on the share card.
-- **Checks at display** (`Names.passes`: `ok` or `default`): a member's name that fails
-  is "Player n" by its place on its side, a team's "Team A" / "Team B", two alike in a
-  lobby "Mighty Maple II" (`PitchController.shownNames`). A match or replay whose names
-  fail is not shown ("Cannot show this match", `NameWords`). The host checks every name
-  before START and writes team names to the document's top-level `teamNames`; the app
-  never sends a typed name, and a `bad-name` refusal reads as any refused write.
+- **What comes from someone else is judged by the engine, whole** (engine 0.13.4,
+  `names.check`; never read a snapshot's or a replay's fields to judge its names): a
+  pitch's snapshot through `restore`'s strict door (`{ snap, names: "check" }`, in
+  `PitchController.begin` and `OnlinePitch.restore`), a shared replay through
+  `names.check({ replay })` and the strict door (`PitchSession.restoreFromOutside`), the
+  lobby through `names.check({ document, members })`, a share's start through
+  `renameStart` and `names.check({ replay })`. A refused member is "Player n", a team
+  "Team A" / "Team B", two alike in a lobby "Mighty Maple II"; a refused match is not
+  shown ("Cannot show this match", `NameWords`). The device's own kept match resumes
+  with the plain `restore` (typed names from before stay, seen only by its player).
+  `names.valid` stays for a single name. Never show a refusal's `from` or `text`. The
+  host checks every name before START and writes team names to the document's top-level
+  `teamNames`; the app never sends a typed name, and a `bad-name` refusal reads as any
+  refused write.
 - **Fit**: every name from `names.all` is measured in the app's fonts (`NameFitTests`).
 
 docs/ONLINE.md "Names", docs/MATCH.md.

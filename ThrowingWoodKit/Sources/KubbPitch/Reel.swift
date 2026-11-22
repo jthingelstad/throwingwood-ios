@@ -126,9 +126,14 @@ public struct KeptReplay: Equatable, Sendable {
   public let engine: String?
   /// A shared match against the computer: the pitch never plays again (API.md "replay").
   public let sealed: Bool
+  /// The kept replay as the API sent it (its start or setup, snap, players, log), for the
+  /// engine's `names.check({ replay })`: nil only for a stand-in made here.
+  public let raw: JSONText?
   public init(
-    v: Int, n: Int?, hash: String?, snap: String? = nil, engine: String? = nil, sealed: Bool = false
+    v: Int, n: Int?, hash: String?, snap: String? = nil, engine: String? = nil, sealed: Bool = false,
+    raw: JSONText? = nil
   ) {
+    self.raw = raw
     self.sealed = sealed
     self.v = v
     self.n = n
@@ -159,7 +164,7 @@ public struct KeptReplay: Equatable, Sendable {
     guard reply["pitch"]?.string == code else { throw PitchError("unexpected-reply") }
     guard let v = reply["v"]?.int, v > 0, let r = reply["replay"], !r.isNull else { return nil }
     return KeptReplay(v: v, n: r["n"]?.int, hash: hashText(r["hash"]), snap: r["snap"]?.string,
-      engine: r["engine"]?.string, sealed: reply["sealed"]?.bool == true)
+      engine: r["engine"]?.string, sealed: reply["sealed"]?.bool == true, raw: r.raw)
   }
 }
 

@@ -241,17 +241,13 @@ import Observation
   /// the player told in one sentence; the caller starts afresh. True when restored.
   private func resumeKept(_ snapshot: String, on pitch: PitchSession) throws -> Bool {
     do {
-      try pitch.checkNames(snapshot)
+      // the device's own match: the plain restore (typed names from before generated
+      // names stay, seen only by this device's player; a share checks the whole match)
       try pitch.restore(snapshot, save: save)
       return true
     } catch let old as OldMatch {
       save.dropOld(engine: old.engine)
       notice = VersionWords.oldMatch
-      return false
-    } catch is BadNamesMatch {
-      // a match kept with a typed name from before generated names: never shown
-      try? save.clear()
-      notice = NameWords.badMatch
       return false
     }
   }

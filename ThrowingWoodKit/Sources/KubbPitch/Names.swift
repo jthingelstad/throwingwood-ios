@@ -150,27 +150,49 @@ public enum NameKind: String, Sendable { case player, team }
     return prefixes?[kind.rawValue + "/" + shape] ?? nil
   }
 
-  /// The names in a match's options (`{ teams: { A: { name, players: [{ name }] } } }`,
-  /// a snapshot's `opts` or a replay's `setup`) that do not pass: empty when every one
-  /// does. A match whose names do not pass is not shown (its snapshot is hashed, so its
-  /// names cannot be put right here).
-  public func badNames(setup: JSONNode?) -> [String] {
-    var out: [String] = []
-    for side in ["A", "B"] {
-      guard let t = setup?["teams"]?[side], t.kind == .object else { continue }
-      let players = t["players"]?.items ?? []
-      let name = t["name"]?.string
-      if !teamPasses(name, players: players.count) { out.append(name ?? "") }
-      for p in players where !passes(.player, p["name"]?.string) { out.append(p["name"]?.string ?? "") }
-    }
-    return out
+  /// What the engine's `names.check` says of a whole snapshot, replay or pitch document
+  /// (kubb-engine docs/SESSION.md "A match from outside"): `allowed` when every name and
+  /// sentence it could ever show passes and its copies agree. `refusedFrom` holds the raw
+  /// paths of what is refused, to match against this client's own paths (a lobby's
+  /// `members[i].me.name`, `teamNames.A`), never to show: a forged path can carry
+  /// submitted text. `places` are the safe paths, for a log line.
+  public struct MatchCheck: Sendable {
+    public let allowed: Bool
+    public let refusedFrom: Set<String>
+    public let places: [String]
   }
 
-  /// The same for a snapshot's text (its `opts`), read only.
-  public func badNames(snapshot: String?) -> [String] {
-    guard let snapshot, let d = try? JSONNode.parse(snapshot) else { return [] }
-    return badNames(setup: d["opts"])
+  private func check(_ args: [(String, JS)]) -> MatchCheck {
+    guard let r = try? call("check", args) else {
+      return MatchCheck(allowed: false, refusedFrom: [], places: [])
+    }
+    let refused = (r["refused"]?.items ?? []) + (r["mismatches"]?.items ?? [])
+    return MatchCheck(
+      allowed: r["allowed"]?.bool == true,
+      refusedFrom: Set(refused.compactMap { $0["from"]?.string }),
+      places: refused.compactMap { $0["place"]?.string })
   }
+
+  /// `restore`'s strict door for a snapshot someone else sent (kubb-engine docs/SESSION.md
+  /// "A match from outside"): `{ snap, names: "check" }`, refused by the engine before
+  /// anything changes when `names.check` does not allow it. The device's own kept match
+  /// uses the plain `restore`.
+  nonisolated public static func checkedRestore(_ snap: String) -> String {
+    JS.object([("snap", .string(snap)), ("names", .string("check"))]).ascii
+  }
+
+  /// A snapshot from outside (a pitch's), its text: the engine walks it whole.
+  public func check(snap: String) -> MatchCheck { check([("snap", .string(snap))]) }
+  /// A replay or kept match from outside (a sealed pitch's kept replay, a share's start
+  /// and log), as raw JSON: its `start` or `setup`, and `snap`, `players`, `log` when it
+  /// has them.
+  public func check(replay: JSONText) -> MatchCheck { check([("replay", .raw(replay))]) }
+  /// A pitch's document and members (`[{ id, me }]`): the host's `teamNames`, the match
+  /// header's players and every member's name.
+  public func check(document: JSONText, members: JSONText) -> MatchCheck {
+    check([("document", .raw(document)), ("members", .raw(members))])
+  }
+
 
   /// Two members with one name told apart in a lobby: the second shows "II", the third
   /// "III", by the order given (the web's apartNames). Never changes a name.

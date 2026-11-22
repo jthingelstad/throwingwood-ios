@@ -101,27 +101,86 @@ import Testing
     let names = meta["players"]?["A"]?.items.compactMap { $0["name"]?.string }
     #expect(names == ["Mighty Maple", "Player 2"])
     #expect(meta["setup"]?["teams"]?["A"]?["name"]?.string == "Birch Batons")
-    #expect(p.names.badNames(snapshot: fake.match!.snap).isEmpty)
-    #expect(p.names.badNames(setup: meta["setup"]).isEmpty)
+    #expect(p.names.check(snap: fake.match!.snap).allowed)
   }
 
-  /// A match whose snapshot names a name the game did not make (a forged start) is never
-  /// shown or played here.
-  @Test func aMatchWithATypedNameIsRefused() async throws {
+  /// The forgery the engine's `names.check` closes: an honest snapshot with only
+  /// `save.game.teams.A.name` changed to typed text, its `opts.teams` untouched. `restore`
+  /// builds the match from `save`, so a check of `opts` alone would show the typed text.
+  static func forged(_ snap: String, name: String = "Typed Team") throws -> String {
+    var d = try JSONSerialization.jsonObject(with: Data(snap.utf8)) as! [String: Any]
+    var save = d["save"] as! [String: Any], game = save["game"] as! [String: Any]
+    var teams = game["teams"] as! [String: Any], a = teams["A"] as! [String: Any]
+    a["name"] = name
+    teams["A"] = a
+    game["teams"] = teams
+    save["game"] = game
+    d["save"] = save
+    return String(decoding: try JSONSerialization.data(withJSONObject: d), as: UTF8.self)
+  }
+
+  /// Entering a pitch whose match is that forgery: refused, never shown or played.
+  @Test func enteringAForgedMatchIsRefused() async throws {
     let fake = FakePitch()
     let p = try await player(fake, "Native_Member")
     defer { p.close() }
     try await p.joinTeam("A")
     #expect(try await p.start(seed: 5, at: startAt))
-    let forged = try Engine(appVersion: "0.0-test")
-    _ = try forged.call(
-      "new",
-      json:
-        #"{"mode":"match","seed":3,"first":"A","teams":{"A":{"name":"Ada","players":[{"name":"Ada"}]},"B":{"name":"Computer","players":[{"name":"Computer"}]}},"cpu":"B"}"#)
+    let forgery = try Self.forged(fake.match!.snap)
+    #expect(!p.names.check(snap: forgery).allowed && p.names.check(snap: fake.match!.snap).allowed)
+    let before = try p.engine.hash()
     var presented = 0
     p.present = { _ in presented += 1 }
-    fake.startAs("Member_X1", meta: fake.match!.meta, h: try forged.hash(), snap: try forged.call("snapshot"))
+    fake.startAs("Member_X1", meta: fake.match!.meta, h: fake.match!.h, snap: forgery)
     try await eventually { p.state == .namesRefused }
     #expect(!p.mayAct && presented == 0)
+    #expect(try p.engine.hash() == before)  // the engine took nothing of it
+    // and the strict door refuses it by itself, naming places, never the text
+    let e = try Engine(appVersion: "0.0-test")
+    #expect {
+      _ = try e.call("restore", json: Names.checkedRestore(forgery))
+    } throws: { error in
+      guard case EngineError.call(_, let m) = error else { return false }
+      return m.contains("names not allowed") && !m.contains("Typed Team")
+    }
+  }
+
+  /// A resync that brings the whole match back as that forgery: refused the same way.
+  @Test func aResyncToAForgedMatchIsRefused() async throws {
+    let fake = FakePitch()
+    let p = try await player(fake, "Native_Member")
+    let w = try await player(fake, "Member_W1")
+    defer {
+      p.close()
+      w.close()
+    }
+    try await p.joinTeam("A")
+    #expect(try await p.start(seed: 1001, at: startAt))
+    try await eventually { w.state == .match }
+    let peer = try peerAction(fake, JSONText(#"{"type":"resign","side":"A"}"#))
+    // a hash this watcher cannot agree with, and the pitch's head a forgery
+    fake.store(from: "Member_P1", id: "peer-act-1", seq: 1, a: JSONText(#"{"type":"resign","side":"A"}"#),
+      h: "00000000", snap: try Self.forged(peer.snap), over: true)
+    try await eventually { w.corrections == 1 && w.state == .namesRefused }
+    #expect(!w.mayAct && fake.links(of: "Member_W1").last!.sent("resync").count == 1)
+  }
+
+  /// The lobby asks the engine (`names.check` of the document and members): a team name or
+  /// a member's name it refuses shows as its default.
+  @Test func theLobbyShowsTheDefaultForARefusedName() async throws {
+    let fake = FakePitch()
+    let p = try await player(fake, "Native_Member")
+    defer { p.close() }
+    try p.setMe(name: "Mighty Maple")
+    try await p.joinTeam("A")
+    let guest = try await member(p, fake, "Guest_Typed", me: [("name", .string("Ada"))], side: "B")
+    defer { guest.close() }
+    // a document written by someone else, with a team name the game did not make
+    _ = try await p.pitch.update { doc in
+      PitchController.replacing(try JSONNode.parse(doc.text), [("teamNames", .object([("B", .string("Ada's Team"))]))]).json
+    }
+    try await eventually { p.pitch.members.count == 2 }
+    #expect(p.teamNameOf("B") == "Team B" && p.nameOf("Guest_Typed") == "Player 1")
+    #expect(p.nameOf("Native_Member") == "Mighty Maple")
   }
 }
