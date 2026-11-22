@@ -210,6 +210,8 @@ import Testing
     #expect(PitchScene.mapShape(try piece("A")) == .circle)
     #expect(PitchScene.mapShape(try piece("B")) == .square)
     #expect(PitchScene.mapShape(try piece(nil, "king")) == .crown)
+    // a baton left lying has no team: it is a bar, never a second king
+    #expect(PitchScene.mapShape(try piece(nil, "baton")) == .baton)
     #expect(
       MeterWords.mapSummary(standing: ["A": 5, "B": 4], teams: ["A": "Mighty Maple", "B": "Computer"], metres: 7.8)
         == "Map of the pitch: Mighty Maple 5 kubbs standing, Computer 4. The target is 8 metres out.")
