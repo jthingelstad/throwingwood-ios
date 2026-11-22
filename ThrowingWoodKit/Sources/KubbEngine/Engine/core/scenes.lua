@@ -57,9 +57,9 @@ scenes.list = {
 	-- "so there is a place for Snow", with the Minnesota set
 	{ id = "minnesota", name = "Minnesota", surfaces = { "snow" }, surface = "snow", sets = { "minnesota" },
 		set = "minnesota", dark = false, ring = false, mono = false },
-	-- a kubb tournament: a grid of pitches all live (the neighbouring pitches are not
-	-- built: docs/notes/tournament.md), the one scene with the USA set's colouring. No
-	-- championship's name or logo anywhere
+	-- a kubb tournament: a grid of pitches all live (the neighbouring pitches are the
+	-- session's neighbours.* calls, 0.15.1: docs/notes/tournament.md), the one scene with
+	-- the USA set's colouring. No championship's name or logo anywhere
 	{ id = "tournament", name = "Tournament", surfaces = { "grass" }, surface = "grass", sets = { "usa" },
 		set = "usa", dark = false, ring = false, mono = false },
 	-- "This IS the Playdate": the plain black and white view of any pitch, for every game

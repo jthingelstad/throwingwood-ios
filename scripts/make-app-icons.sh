@@ -2,7 +2,7 @@
 # The app's icons, drawn from the game's own king by the pitch renderer
 # (KubbRenderer's AppIconArt) and written into ThrowingWood/Assets.xcassets:
 # AppIcon (Park, with its dark and tinted looks) and an icon set per other
-# scene (AppIcon-Camping, AppIcon-Techno). Needs Xcode and nothing else.
+# scene (AppIcon-Camping, AppIcon-Techno and the rest). Needs Xcode and nothing else.
 #
 #   scripts/make-app-icons.sh
 #

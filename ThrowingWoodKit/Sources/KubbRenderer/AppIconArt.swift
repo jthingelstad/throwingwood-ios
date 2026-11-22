@@ -24,8 +24,12 @@ public enum AppIconArt {
   /// the table against both and against the asset catalogue.
   public static let icons: [Icon] = [
     Icon(scene: "day", asset: primary),
+    Icon(scene: "beach", asset: "AppIcon-Beach"),
     Icon(scene: "night", asset: "AppIcon-Camping"),
     Icon(scene: "neon", asset: "AppIcon-Techno"),
+    Icon(scene: "minnesota", asset: "AppIcon-Minnesota"),
+    Icon(scene: "tournament", asset: "AppIcon-Tournament"),
+    Icon(scene: "bw", asset: "AppIcon-BlackWhite"),
   ]
 
   /// The primary icon's set, the one the store shows.
@@ -105,7 +109,10 @@ public enum AppIconArt {
     let size = CGSize(width: layout, height: layout)
     // a stake of its own far under the ground keeps the pitch's stakes out of the frame
     let hidden = Piece(id: "stake", kind: "stake", team: nil, x: 0, y: -50, z: -50, qw: 1, qx: 0, qy: 0, qz: 0)
-    let scene = PitchScene(surface: .grass, set: "classic", items: [king, hidden], look: icon.scene)
+    // the scene's own ground and kubb set (the engine's catalogue): Minnesota's king on
+    // snow, the Tournament's in the USA colours, Techno's on the grid
+    let entry = SceneID.entry(icon.scene)
+    let scene = PitchScene(surface: entry.surface, set: entry.set, items: [king, hidden], look: icon.scene)
     let camera = camera(icon)
     PitchRenderer.draw(in: ctx, size: size, camera: camera, scene: scene)
     guard variant == .dark else { return }

@@ -65,7 +65,7 @@ agrees. So:
   needed) verifies every file against the engine's own `engine.json`, and
   the version against the tag (v0.4.1 explicitly retains the 0.2.0
   golden corpus, v0.5.1 and v0.7.1 to v0.7.4 the 0.5.0 one, v0.8.1 and v0.8.2 the 0.8.0 one, v0.13.1 to v0.13.4 the 0.13.0 one;
-  v0.15.0 carries its own, 19 matches;
+  v0.15.0 carries its own, 19 matches, and v0.15.1 keeps it;
   arbitrary older corpora are not accepted). Never edit the
   vendored files; a fix belongs
   in kubb-engine, then here by moving to its next tag. Never write in the
@@ -436,8 +436,8 @@ black world on a grid of light, no film names), Minnesota, Tournament and Black 
 - Review pictures take `--scene <id>` on the solo and online tools
   (`<phone>-<scene>-<shot>.png`). docs/RENDER.md "Scenes".
 - **The app icon** is each scene's own king, drawn by the renderer (`AppIconArt`, the
-  owner's direction of 2026-11-22): Park the primary with dark and tinted looks, Camping
-  and Techno alternates picked in Settings' App icon row. Never edit the PNGs: change
+  owner's direction of 2026-11-22): Park the primary with dark and tinted looks, the other six
+  scenes alternates picked in Settings' App icon row (three a row), each on its scene's own ground and kubb set. Never edit the PNGs: change
   `AppIconArt` and run `scripts/make-app-icons.sh`. A new scene's icon is one line in
   `AppIconArt.icons` (`AppIconTests`). docs/RENDER.md "The app icon".
 

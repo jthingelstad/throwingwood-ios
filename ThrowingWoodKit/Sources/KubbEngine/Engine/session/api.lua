@@ -5,6 +5,8 @@
 -- restore takes it as its argument. "pitch.<name>" calls are the pitch's (pitch/api.lua);
 -- "room.<name>" is their old spelling (before 0.13) and reaches the same calls.
 -- "names.<name>" are generated names' (session/names.lua, docs/SESSION.md "Names").
+-- "neighbours.<name>" are the Tournament's neighbouring pitches (session/neighbours.lua,
+-- docs/SESSION.md "Neighbours", since 0.15.1): no session needed, and none touched.
 import "core/tw"
 import "version"
 import "session/json"
@@ -13,6 +15,7 @@ import "session/wide"
 import "session/replay"
 import "session/check"
 import "session/names"
+import "session/neighbours"
 import "pitch/api"
 
 local json, session, wide, replay, check = tw.web.json, tw.web.session, tw.web.wide, tw.web.replay, tw.web.check
@@ -264,6 +267,8 @@ local function call(method, arg)
 		if method:sub(1, 5) == "room." then return tw.shared.api.call(method:sub(6), arg, "room") end
 		-- generated names (session/names.lua, docs/SESSION.md "Names"): no session needed
 		if method:sub(1, 6) == "names." then return tw.web.names.call(method:sub(7), arg) end
+		-- the neighbouring pitches (session/neighbours.lua): their own state, no session
+		if method:sub(1, 11) == "neighbours." then return tw.web.neighbours.call(method:sub(12), arg) end
 	end
 	local f = M[method]
 	if not f then error("unknown call " .. tostring(method), 0) end

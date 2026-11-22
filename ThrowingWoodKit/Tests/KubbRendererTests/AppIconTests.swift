@@ -21,8 +21,11 @@ struct AppIconTests {
     #expect(AppIconArt.icons.first?.scene == "day")
     #expect(AppIconArt.icons.first?.asset == AppIconArt.primary)
     #expect(Set(AppIconArt.icons.map(\.asset)).count == AppIconArt.icons.count)
-    #expect(AppIconArt.icons.map(AppIconArt.name) == ["Park", "Camping", "Techno"])
-    #expect(AppIconArt.icons.map(AppIconArt.spokenName) == ["Park icon", "Camping icon", "Techno icon"])
+    #expect(
+      AppIconArt.icons.map(AppIconArt.name)
+        == ["Park", "Beach", "Camping", "Techno", "Minnesota", "Tournament", "Black & White"])
+    #expect(AppIconArt.spokenName(AppIconArt.icons[0]) == "Park icon")
+    #expect(AppIconArt.spokenName(AppIconArt.icons[6]) == "Black & White icon")
   }
 
   /// The name given to `setAlternateIconName` is the icon's set (nil for the primary),
@@ -32,8 +35,12 @@ struct AppIconTests {
     for icon in AppIconArt.icons {
       #expect(AppIconArt.icon(alternateName: AppIconArt.alternateName(icon)) == icon)
     }
-    #expect(AppIconArt.alternateName(AppIconArt.icons[1]) == "AppIcon-Camping")
-    #expect(AppIconArt.alternateName(AppIconArt.icons[2]) == "AppIcon-Techno")
+    #expect(
+      AppIconArt.icons.dropFirst().map(AppIconArt.alternateName)
+        == [
+          "AppIcon-Beach", "AppIcon-Camping", "AppIcon-Techno", "AppIcon-Minnesota", "AppIcon-Tournament",
+          "AppIcon-BlackWhite",
+        ])
     #expect(AppIconArt.icon(alternateName: nil).scene == "day")
     #expect(AppIconArt.icon(alternateName: "AppIcon-Gone").scene == "day")
     #expect(AppIconArt.icon(alternateName: "AppIcon").scene == "day")

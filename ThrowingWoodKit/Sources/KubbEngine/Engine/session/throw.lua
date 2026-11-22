@@ -525,6 +525,7 @@ function throw.prepare(s, setup)
 	throw.setPieces(s, setup.pieces, setup.debris)
 	s.lineY, s.forwardY, s.advY = setup.lineY, setup.forwardY or setup.lineY, setup.advY
 	s.kidY = setup.kidY
+	s.kid = setup.kid or nil -- a Kid match: a helicopter counts, so the flag says what it did
 	s.projectile, s.projectileId = setup.projectile, setup.kubb or setup.batonId
 	s.targetIds = setup.targets
 	s.auto = false
@@ -1242,7 +1243,7 @@ function throw.fire(s, L, how, info)
 		s.items[#s.items + 1] = newItem(resting)
 	end
 	local flag
-	if not legal then flag = "HELICOPTER"
+	if not legal and not s.kid then flag = "HELICOPTER"
 	elseif drilling then flag = nil
 	elseif down > 0 then flag = down .. " DOWN"
 	else flag = "MISS" end

@@ -209,7 +209,12 @@ function raising.options(p, ctx)
 		return { mode = "forced", ends = ends, choices = { { which = clear[1], pose = fps[clear[1]] } } }
 	end
 	local choices = {}
+	-- raising.probe, when a host sets it, is called before each spot is tried: the search
+	-- of a crowded corner is the one long thing in a set-up, and a host that slices its
+	-- work (session/neighbours, 0.15.1) yields there. Nil by default; it changes nothing.
+	local probe = raising.probe
 	local ok = function(q)
+		if probe then probe() end
 		return raising.inBounds(q, ctx.half) and not raising.obstruction(q, ctx)
 	end
 	for i = 1, 2 do

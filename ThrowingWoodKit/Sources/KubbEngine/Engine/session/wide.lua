@@ -167,7 +167,7 @@ local function aim(side, a)
 		o.arc = {}
 		for i, p in ipairs(a.arc) do o.arc[i] = point(side, p) end
 	end
-	for _, k in ipairs { "lineY", "forwardY", "advY" } do
+	for _, k in ipairs { "lineY", "forwardY", "advY", "kidY" } do
 		if a[k] then o[k] = frame.y(side, a[k]) end
 	end
 	return o
@@ -233,6 +233,7 @@ local function minimap(side, m)
 	end
 	if m.advY then o.advY = frame.y(side, m.advY) end
 	if m.lineY then o.lineY = frame.y(side, m.lineY) end
+	if m.kidY then o.kidY = frame.y(side, m.kidY) end -- the Kid line (0.15.1: it was left unturned)
 	return o
 end
 
