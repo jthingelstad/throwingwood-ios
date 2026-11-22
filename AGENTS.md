@@ -65,7 +65,8 @@ agrees. So:
   needed) verifies every file against the engine's own `engine.json`, and
   the version against the tag (v0.4.1 explicitly retains the 0.2.0
   golden corpus, v0.5.1 and v0.7.1 to v0.7.4 the 0.5.0 one, v0.8.1 and v0.8.2 the 0.8.0 one, v0.13.1 to v0.13.4 the 0.13.0 one;
-  v0.15.0 carries its own, 19 matches, and v0.15.1 keeps it;
+  v0.15.0 carries its own, 19 matches, and v0.15.1 keeps it; v0.16.0 its own, 19
+  matches and 724 actions;
   arbitrary older corpora are not accepted). Never edit the
   vendored files; a fix belongs
   in kubb-engine, then here by moving to its next tag. Never write in the
@@ -158,8 +159,12 @@ GAME, the menu's Raising: Automatic and another member's raises online tip each 
 the raise scene one after another from the need's own poses (`RaiseShow` in AutoRaise.swift;
 `Pacing.raiseBeat`), a tap skips to the end, and the engine's actions and their order never
 change. The raises the engine makes itself (the computer's, a match started with Raising:
-Automatic) wait for engine 0.16.0 to hand them out (`StoodShow.engineRaised`, the view's
-`raised`): never turn a pose between frames in Swift to find them. The raise
+Automatic) and the punishment kubbs it places are watched too, from engine 0.16.0's list on
+the next throw need, `need.setup.settled` (`StoodShow.engineRaised`): in its order, with the
+watched raise's tip and pace, in the frame it gives (the raiser's view frame; the world frame
+in the wide view), the king alone round them in the thrower's view until the engine gives each
+entry its `others` and `king` (its next release). Never compare pieces before and after or turn
+a pose between frames in Swift to find them. The raise
 camera stands twice as far back as it did (`RaiseCamera`, the web's numbers). The last
 throw's verdict never stops a player aiming: it takes no touches, goes at the first press
 of the aim or after `Pacing.verdictShown`, and stands clear of the target
@@ -477,6 +482,37 @@ the Kid line (`aim.kidY`) in every renderer and the minimap, words STAND for it,
 (`ThrowResult.shownFlag`). Nothing may tell a child they were punished or lost when they
 were not (`KidTests`). docs/MATCH.md.
 
+## The drive
+
+Engine 0.16 lets a baton be thrown flat or down and hard into a group (the owner, 2026-11-22:
+"We need a way to throw low and hard into a group." and "When throwing at a close Kubb players
+do not even have the baton flip."; kubb-engine docs/notes/throw.md "The drive"). The web
+(src/game/plan-sliders.js, tray.js, coach.js; its docs/SYSTEM.md "The drive") is the reference
+for numbers and words.
+
+- **ARC's range is the engine's** (`aim.controls.arc`) whenever it is drawn: its `min` is the
+  throw's floor (0 at a kubb a metre away, about 12 at 4 m, the knee from about 5 m) and moves
+  with the circle and the stance (`PitchSession.replan` draws again when it does); `knee` (15)
+  is where the drive begins. Never a fixed 15 to 165.
+- **The track** (`PlanControl.fraction`, `value(at:)`, `driveFraction`): two straight scales
+  joined at the knee, the drive part 30% of the track at a floor of 0, scaled by
+  (15 − floor) / 15, none once the floor is the knee; hatched in wood under the knee's heavy
+  ink line, named DRIVE up the lane of marks where it is 54 pt or taller (the web's 44 px at
+  10 px; the app's words are never under 14 pt), no marks under the knee (`ArcSlider`).
+- **The words**: a plan under the knee reads `DRIVE −5°` on the plate and the open slider
+  (`PlanScale.arcLabel`, a true minus), VoiceOver "Arc, 5 degrees down, drive"
+  (`arcValueText`), the closed plate's picture falls into a kubb (the web's 70 by 32 picture,
+  scaled), the held caption "A DRIVE GOES IN LOW AND HARD, WITH NO FLIP." and a baton's "A
+  HIGHER ARC DROPS IN STEEPER. A LOWER ARC DRIVES IN HARDER." (a kubb keeps its own words), and
+  after a drive the engine called SHORT the coach leads with "A DRIVE NEEDS MORE POWER."
+  (`Coach.driveShortLine`; SLOW wins).
+- **The side view** draws `aim.arc` point by point, down as well as up; a close drive does not
+  turn, so `Spin.swift` draws no spin; the meter's power band at a drive (125 to 147) stays clear
+  of the overpowered zone, which never starts under the band (`overStart`). A thrown kubb has no
+  drive. `DriveTests` stand on the web's advantage position (`Fixtures/solo/advantage.json`, its
+  tests/fixtures/snap-advantage.json) at 1.5, 4 and 8 m; the review tool's `--drive` takes the
+  pictures (docs/RENDER.md "The drive").
+
 ## The 1.0 design
 
 The Throwing Wood 1.0 system (the owner's design review, 2026-11-21; its build list is
@@ -539,5 +575,7 @@ recording cues on the shown-time clock and match cues on the presented need.
 Keep SOUND and HAPTICS independent. Measure warm mixer onset on the simulator
 after changing the audio graph. Actual haptic feel requires a physical phone. The
 Tournament's other pitches are heard, never felt: the web's cues and levels (the pitch
-beside about 10 dB under the player's knock), voices of their own, three at most, dropped
-faintest first, and quiet round the player's own knock (`NeighbourSounds`).
+beside about 10 dB under the player's knock), from each recording's `hits` and `landing`
+(engine 0.16.0: each body knocks once at its first hit, a topple at 0.35 + 0.65 x strength,
+the king 1.5 times, a kubb left standing a tap at 0.45 of that), voices of their own, three
+at most, dropped faintest first, and quiet round the player's own knock (`NeighbourSounds`).

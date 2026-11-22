@@ -30,7 +30,8 @@ with scenes, `0.7 (0.13.1)` for the first on engine 0.13, `0.8 (0.13.3)` for the
 that carries the newest engine alone (docs/ENGINES.md: it plays no match with a build
 before 0.7 or a web tab on 0.9), `0.9 (0.13.4)` for the first with generated names and no
 typed name anywhere, `0.10 (0.15.1)` for the first with the engine's seven scenes and Kid
-matches (AGENTS.md "The version a player sees").
+matches, `0.11 (0.16.0)` for the first with the drive and the engine's own raises watched
+(AGENTS.md "The version a player sees").
 `scripts/asc.swift` calls the App Store Connect API for the rest (groups,
 What to Test, review submissions).
 
@@ -136,7 +137,7 @@ The six portrait PNGs under `docs/store/` come from the Release simulator app on
 
 ## First signed iPhone checklist
 
-- Run the KubbEngineTests golden suite from Xcode against the connected iPhone. Match every action hash in every reference match (engine 0.15: 729 in 19). Record device model, OS and commit with the result.
+- Run the KubbEngineTests golden suite from Xcode against the connected iPhone. Match every action hash in every reference match (engine 0.16: 724 in 19). Record device model, OS and commit with the result.
 - On a ProMotion phone, enable the full refresh rate and profile an optimized build in Instruments. Measure frame intervals and update/draw time through aim, release, flight, impact and rest. Record median, p95, p99 and longest frame against the 8.33 ms budget at 120 Hz. Check input-to-knock timing through the speaker and Bluetooth.
 - Feel band entry and exit, release, light and heavy contact, the three surface landings, king-down, win and hand-off. Check spectator cues, slow motion, SKIP and the HAPTICS switch. Use the provisional values in [FEEL.md](FEEL.md) as the comparison.
 - Test the silent switch, other music, audio interruption and route changes. Check independent SOUND and HAPTICS settings after relaunch, and that leaving a pitch stops both.

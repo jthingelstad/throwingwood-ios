@@ -181,7 +181,11 @@ KubbRenderer; `RaiseWatchTests` and `OnlineRaiseTests` hold every row with an ou
   again after the write lands.
 - **Another member's, arriving** (`arriving`): already applied from the queue, tipping at
   the sender's pace, faster for each action waiting behind it.
-- **The engine's own** (`engine`): engine 0.16.0's `raised`; none today.
+- **The engine's own** (`engine`): the raises the engine made itself and the punishment
+  kubbs it placed (a lobby's Raising: Automatic), from engine 0.16.0's
+  `need.setup.settled`, played after the throw before them on every member's and
+  observer's board, each in the frame the list gives (`OnlineRaiseTests` holds its queue
+  and skip).
 
 | | Own, lead-in | Own, tipping | Arriving | Engine |
 | --- | --- | --- | --- | --- |
