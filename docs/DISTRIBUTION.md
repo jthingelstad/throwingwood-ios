@@ -18,6 +18,18 @@ submit it to Beta App Review for the Beta group whenever Jamie asks for one.
   `scripts/testflight.sh`).
 - **App icon.** The final icon is Jamie's call. His direction (2026-11-22): the top third of a king in profile, the crown framed, with an alternate per scene. It is built (the Park king as the primary with dark and tinted looks, the other six scenes as alternates picked in Settings, drawn by the game's renderer: docs/RENDER.md "The app icon") and awaits his look before it goes in an upload.
 
+## The web plays with the builds people have
+
+The web carries the engines of the current App Store release and the current TestFlight
+Dev (internal) and Beta builds, and its own, and no others (the owner, 2026-11-22: "Web
+will support the CURRENT App Store release and the CURRENT Test Flight Dev and Beta
+releases. At most the web will support those three versions and whatever version it is
+running natively."). It cannot see App Store Connect, so its record is a table in the web
+repository's docs/ENGINES.md, "The iPhone builds people have". After every upload to a
+tester group and every App Store release, change that group's row there (app version,
+engine, date) in a pull request the same day: the web drops an engine only when no row
+names it.
+
 ## Internal testers
 
 `scripts/testflight.sh` archives a clean commit on main and uploads it,
