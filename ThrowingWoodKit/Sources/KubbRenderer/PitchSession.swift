@@ -693,7 +693,10 @@ public final class PitchSession {
     bursts = []
     playback = nil
     effects?.clear()
-    try adopt(read("view"))
+    // the engine's own raises before the next throw are still watched (the web's skip
+    // runs on to its endPlayback)
+    let view: ViewOutput = try read("view")
+    if !beginStoodShow(view: view) { try adopt(view) }
   }
 
   /// Show the scene `id` (SceneID.shown: an unknown one is the day): its effects
@@ -762,9 +765,9 @@ public final class PitchSession {
     p.realTime += dt
     if p.rest >= Pacing.restAfterThrow && bursts.isEmpty {
       playback = nil
-      // kubbs the engine stood up with this throw (the computer's raises, or a match
-      // raising automatically) are watched first, from the engine's own list (AutoRaise.swift;
-      // none until engine 0.16.0)
+      // kubbs the engine stood up and placed after this throw (the computer's raises, a
+      // match raising automatically, a punishment kubb) are watched first, from the
+      // engine's own list (AutoRaise.swift, engine 0.16.0's `setup.settled`)
       let view: ViewOutput = try read("view")
       if !beginStoodShow(view: view) { try adopt(view) }
     } else {

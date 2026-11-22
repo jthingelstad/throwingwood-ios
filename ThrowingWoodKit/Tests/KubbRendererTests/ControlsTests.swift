@@ -503,65 +503,94 @@ import simd
     #expect(app.raiseNews?.text.contains("automatically") == true)
   }
 
-  /// The raises the engine makes itself (the computer's, here both sides') wait for the
-  /// engine to hand them out (engine 0.16.0's `raised`): the app never turns poses between
-  /// frames to find them, so today they show as before, the kubbs standing in the next view,
-  /// and the board goes straight on.
-  @Test func theEnginesOwnRaisesWaitForTheEngine() throws {
+  /// The raises the engine makes itself (the computer's, here both sides') are watched from
+  /// the engine's own list (engine 0.16.0's `need.setup.settled`): every throw need that
+  /// carries one plays it, kubb by kubb in the list's order, each tipped up in the raise
+  /// scene from the poses it gives and drawn in the raiser's frame, before the board takes
+  /// the view; nothing is found by comparing the pitch before and after.
+  @Test func theEnginesOwnRaisesAreWatchedFromItsList() throws {
     let app = try PitchSession(appVersion: "test")
     try app.openMatch("new", json: #"{"mode":"match","seed":11,"cpu":"both"}"#, save: nil)
-    var raisedByEngine = 0
-    var lyingBefore = Set<String>()
+    var shows = 0, kubbsWatched = 0, punished = 0
+    var order: [String] = []
+    var seenFrames = Set<String>()
     for _ in 0..<(60 * 60 * 3) {
       if app.need?.kind == "over" { break }
-      let wasPlaying = app.playing
-      if wasPlaying {
-        lyingBefore = Set(app.scene.items.filter { $0.kind == "kubb" && Neon.lying($0) }.map(\.id))
-      }
+      let was = app.stoodShow
       try app.tick(1.0 / 60)
-      #expect(app.stoodShow == nil)
-      if wasPlaying && !app.playing {
-        let v: ViewOutput = try app.read("view")
-        #expect(StoodShow.engineRaised(v) == nil)
-        raisedByEngine += app.scene.items.filter { $0.kind == "kubb" && !Neon.lying($0) && lyingBefore.contains($0.id) }.count
+      guard let s = app.stoodShow else { continue }
+      if was == nil {
+        shows += 1
+        let list = try #require(s.after.need.setup?.settled?.list)
+        // the show is the list, in its order, nothing added or left out
+        #expect(s.kubbs.map(\.id) == list.map(\.id))
+        #expect(s.after.need.kind == "throw")
+        kubbsWatched += s.kubbs.count
+        punished += s.kubbs.filter(\.placed).count
+        order = []
+        // the king alone round them in the thrower's view
+        #expect(s.before.allSatisfy { $0.id == "king" })
+      }
+      let k = s.kubbs[s.k]
+      if order.last != k.id { order.append(k.id) }
+      #expect(app.scene.stillZoom == RaiseCamera.zoom)
+      #expect(app.scene.frameSide == k.frame)
+      if let f = k.frame { seenFrames.insert(f) }
+      #expect(app.raiseWatch == .engine && !app.canAim)
+      // a punishment kubb is not on the pitch before its turn
+      for (j, o) in s.kubbs.enumerated() where j > s.k && o.placed {
+        #expect(!app.scene.items.contains { $0.id == o.id })
       }
     }
-    // the match had raises the engine made, and none was held up
-    #expect(raisedByEngine > 0)
+    #expect(shows > 0 && kubbsWatched > 0)
+    // both sides raise, each in its own frame
+    #expect(seenFrames == ["A", "B"])
+    _ = punished
   }
 
-  /// When the engine hands out a raise it made, it plays from the poses it gives, in that
-  /// one frame: lying, tipped part way onto its end with the hand drag's tip, standing; a
-  /// tap skips it. (Built here from a raise need's own poses, standing in for the list.)
+  /// A kubb of the list tips from its lying pose onto the end it names (end 1 the +axis
+  /// end, end 2 the -axis end, as core/raising has them) with the hand drag's tip, stands,
+  /// and ends where the engine stood it; under Reduce Motion it lies, then stands. A tap
+  /// skips the rest.
   @Test func anEngineRaisedClipPlaysFromItsOwnPoses() throws {
+    let app = try PitchSession(appVersion: "test")
+    try app.openMatch("new", json: #"{"mode":"match","seed":11,"cpu":"both"}"#, save: nil)
+    var view: ViewOutput?
+    for _ in 0..<(60 * 60 * 3) where view == nil {
+      try app.tick(1.0 / 60)
+      if let s = app.stoodShow { view = s.after }
+    }
+    let after = try #require(view)
+    let raised = try #require(StoodShow.engineRaised(after))
+    let list = try #require(after.need.setup?.settled?.list)
+    for (kb, e) in zip(raised.kubbs, list) where e.kind == "raise" {
+      let l = try #require(e.lying), st = try #require(e.standing)
+      #expect(kb.lying.x == l.x && kb.lying.y == l.y && Neon.lying(kb.lying))
+      #expect(kb.standing.x == st.x && kb.standing.y == st.y && !Neon.lying(kb.standing))
+      let a = l.angle ?? 0, sign = e.which == 2 ? -1.0 : 1.0
+      #expect(abs(kb.toward.x - cos(a) * sign) < 1e-12 && abs(kb.toward.y - sin(a) * sign) < 1e-12)
+      #expect(kb.frame == e.side)
+    }
     for reduced in [false, true] {
-      let app = try PitchSession(appVersion: "test")
-      try app.restore(fixture("raise"), save: nil)
-      let n = try #require(app.need)
-      let id = try #require(n.kubb), pose = try #require(n.pose), end = try #require(n.ends?.first)
-      let lying = pose.piece(id: id)
-      let standing = MatchNeed.Pose(x: end.pose.x, y: end.pose.y, angle: end.pose.angle, standing: true).piece(id: id)
-      let toward = simd_normalize(V2(end.pose.x - pose.x, end.pose.y - pose.y))
-      let clip = StoodShow.Kubb(
-        id: id, lying: lying, standing: standing, toward: toward,
-        ends: [V2(end.pose.x, end.pose.y), V2(2 * pose.x - end.pose.x, 2 * pose.y - end.pose.y)])
-      let view: ViewOutput = try app.read("view")
       app.reduceMotion = reduced
-      app.stoodShow = StoodShow(kubbs: [clip], before: (n.others ?? []).map { $0.pose.piece(id: $0.id) }, after: view)
+      app.stoodShow = StoodShow(kubbs: raised.kubbs, before: raised.others, after: after)
+      let id = raised.kubbs[0].id
       var tipped = false, stood = false
-      for _ in 0..<120 where app.stoodShow != nil {
+      for _ in 0..<600 where app.stoodShow != nil {
         try app.tick(1.0 / 60)
-        guard app.stoodShow != nil, let k = app.scene.items.first(where: { $0.id == id }) else { continue }
-        #expect(app.scene.stillZoom == RaiseCamera.zoom)
+        guard let s = app.stoodShow, s.k == 0, let k = app.scene.items.first(where: { $0.id == id }) else { continue }
         if k.z > 0.04 && k.z < 0.07 { tipped = true }
         if !Neon.lying(k) { stood = true }
       }
       #expect(app.stoodShow == nil && stood)
       #expect(tipped != reduced, "reduced \(reduced)")
-      app.stoodShow = StoodShow(kubbs: [clip], before: [], after: view)
+      app.stoodShow = StoodShow(kubbs: raised.kubbs, before: [], after: after)
       try app.skipRaise()
       #expect(app.stoodShow == nil)
     }
+    #expect(StoodShow.news(stood: 3, placed: 0) == "3 kubbs stood up.")
+    #expect(StoodShow.news(stood: 1, placed: 1) == "A kubb stood up and a punishment kubb placed.")
+    #expect(StoodShow.news(stood: 0, placed: 1) == "A punishment kubb placed.")
   }
 
   /// RESIGN while an automatic raise is watched: the engine holds a resignation until the

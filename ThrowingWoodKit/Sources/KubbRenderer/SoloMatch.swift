@@ -143,6 +143,32 @@ public struct MatchNeed: Decodable {
     public let thrower: Player?
     /// The king shot (from the baseline, even in a Kid match).
     public let kingShot: Bool?
+    /// What the engine raised and placed itself just before this throw (engine 0.16.0,
+    /// kubb-engine docs/SESSION.md "need"): on the first throw need after it, else nil.
+    let settled: Settled?
+  }
+  /// The engine's own raises and the punishment kubbs it placed, in the order done
+  /// (`setup.settled`). Every pose is in the raiser's view frame (raiseInfo's frame and
+  /// shape), or, in the wide view, the world frame (`frame: "world"`): drawn as given,
+  /// never compared with the pitch or turned.
+  struct Settled: Decodable {
+    struct Entry: Decodable {
+      /// "raise" or "punish".
+      let kind: String
+      let id: String
+      /// The side that raised or placed it (the defender).
+      let side: String?
+      /// The end it stands on, as a raise action names it: 1 the +axis end, 2 the -axis.
+      let which: Int?
+      let lying, standing, pose: Pose?
+      /// "world" in the wide view.
+      let frame: String?
+      /// The pitch round it in the same frame (the engine's next release; 0.16.0 gives
+      /// none, and the board draws the king alone round the kubbs meanwhile).
+      let others: [Other]?
+      let king: Pose?
+    }
+    let list: [Entry]?
   }
   public struct Handoff: Decodable {
     public struct Taken: Decodable { public let base, field: Int }
@@ -155,7 +181,12 @@ public struct MatchNeed: Decodable {
   public struct Winner: Decodable {
     public let winner, winnerName: String, turns: Int, hits, thrown, minutes: Int?
   }
-  public struct Pose: Decodable { let x, y: Double, angle: Double?, standing: Bool? }
+  public struct Pose: Decodable {
+    let x, y: Double, angle: Double?, standing: Bool?
+    init(x: Double, y: Double, angle: Double?, standing: Bool?) {
+      (self.x, self.y, self.angle, self.standing) = (x, y, angle, standing)
+    }
+  }
   public struct End: Decodable {
     let pose: Pose
     public let which: Int, ok: Bool?, why: String?
