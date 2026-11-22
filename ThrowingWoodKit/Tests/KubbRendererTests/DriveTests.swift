@@ -188,6 +188,23 @@ import simd
     }
   }
 
+  /// The coach judges the throw that was made, not the one the engine has ready behind it:
+  /// the release's answer already carries the next throw's aim, whose default at 4 m is a
+  /// drive again.
+  @Test func theCoachReadsTheThrowThatWasMadeNotTheNextOne() throws {
+    let app = try at(4)
+    #expect(app.isDrive)
+    app.slide(.arc, to: 0.6, phase: .up)
+    try app.tapPlate(nil)
+    for _ in 0..<120 { try app.tick(1.0 / 60) }
+    #expect(!app.isDrive)
+    let lo = try #require(app.dial.powerLo)
+    try swing(app, back: lo - 30)
+    for _ in 0..<2000 where app.result == nil { try app.tick(1.0 / 60) }
+    #expect(app.result?.verdicts?.power == "SHORT")
+    #expect(!app.coachShort)
+  }
+
   /// The meter at a drive: the power band far round, short of the overpowered zone, so the
   /// red starts at the engine's mark, never over the band (the web's drive.test.mjs).
   @Test func theMeterAtADriveKeepsItsBandClearOfTheOverpoweredZone() throws {
