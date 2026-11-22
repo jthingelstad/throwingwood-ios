@@ -57,8 +57,9 @@ struct SceneTests {
     #expect(SceneID.shown("neon") == "neon")
     #expect(SceneID.shown("sunset") == "day")
     #expect(SceneID.shown("Night") == "day")
+    // shown as Park, Camping and Techno (the owner, 2026-11-22); the ids stay
     #expect(SceneID.row.choices.map { $0[0] } == ["day", "night", "neon"])
-    #expect(SceneID.row.choices.map { $0[1] } == ["Day", "Night", "Neon"])
+    #expect(SceneID.row.choices.map { $0[1] } == ["Park", "Camping", "Techno"])
   }
 
   /// The day, an unknown scene and no scene are the same picture, byte for byte.
@@ -258,8 +259,9 @@ struct SceneSkinTests {
     #expect(SceneSkin.of(nil) == .day)
     #expect(SceneSkin.of("sunset") == .day)
     #expect(SceneSkin.day.isDay && !SceneSkin.night.isDay)
-    // the day's plates as they were before scenes
-    #expect(SceneSkin.day.paper == SkinPaint(r: 251 / 255, g: 246 / 255, b: 234 / 255))
+    // the day's plates' insides as they were before scenes (the 1.0 system's baton;
+    // its paper, for cards and plain buttons, is DesignTests')
+    #expect(SceneSkin.day.baton == SkinPaint(r: 251 / 255, g: 246 / 255, b: 234 / 255))
     #expect(SkinPaint.contrast(SceneSkin.day.ink, SceneSkin.day.paper) >= 7)
     // the web's figures (docs/SCENES.md): ink on paper
     #expect(abs(SkinPaint.contrast(SceneSkin.night.ink, SceneSkin.night.paper) - 14.98) < 0.05)

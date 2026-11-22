@@ -51,54 +51,78 @@ import Testing
 
   // MARK: the row
 
-  /// The words VoiceOver reads are the web's.
-  @Test func theRowSpeaksTheWebsWords() throws {
+  /// The words VoiceOver reads: the row, SHUFFLE, and each word's stepper with its two
+  /// buttons (the design's "Previous first word"). There is no KEEP any more.
+  @Test func theRowSpeaksItsWords() throws {
     let row = NameRowModel(names: try names(), kind: .player, text: "Mighty Maple", label: "Your name")
     #expect(row.text == "Mighty Maple" && row.parts.words == ["Mighty", "Maple"] && row.prefix == nil)
     #expect(row.shuffleLabel == "Shuffle your name")
-    #expect(row.pickerLabel(0) == "Your name, first word" && row.pickerLabel(1) == "Your name, second word")
-    #expect(row.lockLabel(0) == "Keep Mighty when shuffling" && row.lockTitle(0) == "KEEP")
-    row.toggleLock(0)
-    #expect(row.lockTitle(0) == "KEPT")
+    #expect(row.wordLabel(0) == "Your name, first word" && row.wordLabel(1) == "Your name, second word")
+    #expect(row.stepLabel(0, -1) == "Previous first word" && row.stepLabel(1, 1) == "Next second word")
+    #expect(row.groupLabel(0) == "First word" && row.groupLabel(1) == "Second word")
     let reel = NameRowModel(names: try names(), kind: .player, text: "Mighty Maple", label: "Name on the reel")
     #expect(reel.shuffleLabel == "Shuffle name on the reel")
     let team = NameRowModel(names: try names(), kind: .team, text: "The Lumberjacks", label: "Team A's name")
     #expect(team.shuffleLabel == "Shuffle Team A's name")
     #expect(team.prefix == "The" && team.parts.words == ["Lumberjacks"])
-    #expect(team.pickerLabel(0) == "Team A's name, second word")  // "The" is the first
+    #expect(team.wordLabel(0) == "Team A's name, second word")  // "The" is the first
+    #expect(team.stepLabel(0, 1) == "Next second word")
   }
 
-  /// A word picked is a new name, said and passed on; SHUFFLE keeps the kept words.
-  @Test func pickAndShuffleKeepTheKeptWords() throws {
-    let row = NameRowModel(names: try names(), kind: .player, text: "Mighty Maple", label: "Your name")
+  /// No KEEP: the model has no locks, and the app's row draws none (the owner,
+  /// 2026-11-21: "KEEP goes from the name row").
+  @Test func theRowHasNoKeep() throws {
+    let source = try String(
+      contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        .appending(path: "../../Sources/KubbRenderer/NameRow.swift").standardized, encoding: .utf8)
+    for gone in ["locks", "toggleLock", "lockTitle", "KEPT"] { #expect(!source.contains(gone), "\(gone)") }
+    let app = try String(
+      contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        .appending(path: "../../../ThrowingWood/Settings.swift").standardized, encoding: .utf8)
+    for gone in ["KEEP", "KEPT", "Picker(", "Menu {"] { #expect(!app.contains(gone), "Settings.swift keeps \(gone)") }
+  }
+
+  /// A word stepped is the engine's next (or previous) word for that slot, the other
+  /// word kept, said and passed on; stepping forward then back comes home.
+  @Test func aStepMovesOneWordAndKeepsTheOther() throws {
+    let n = try names()
+    let row = NameRowModel(names: n, kind: .player, text: "Mighty Maple", label: "Your name")
     var changes: [String] = []
     row.onChange = { changes.append($0) }
-    let words = row.choices(1)
-    #expect(words.contains("Maple") && words.count > 1)
-    let other = try #require(words.first { $0 != "Maple" })
-    row.pick(1, other)
-    #expect(row.text == "Mighty \(other)" && changes == ["Mighty \(other)"])
-    #expect(row.announcement == "Your name: Mighty \(other)")
-    row.pick(1, "Nonsense")  // not a word of the slot: nothing changes
-    #expect(row.text == "Mighty \(other)" && changes.count == 1)
-    row.toggleLock(0)
-    for _ in 0..<20 {
-      row.shuffle()
-      #expect(row.parts.words[0] == "Mighty" && row.locks[0] && !row.locks[1])
-    }
-    #expect(changes.count == 21)
+    let next = try #require(try n.step(.player, row.parts, slot: 1, dir: 1))
+    row.step(1, 1)
+    #expect(row.text == next.text && row.parts.words[0] == "Mighty" && row.parts.words[1] != "Maple")
+    #expect(changes == [next.text] && row.announcement == "Your name: \(next.text)")
+    row.step(1, -1)
+    #expect(row.text == "Mighty Maple" && changes.count == 2)
+    row.step(0, -1)
+    #expect(row.parts.words[1] == "Maple" && row.parts.words[0] != "Mighty" && n.valid(.player, row.text).ok)
+    row.step(5, 1)  // no such slot: nothing changes
+    #expect(changes.count == 3)
   }
 
-  /// A name set from elsewhere is shown without being passed on, and a lock stays only
-  /// where its word is still in place.
-  @Test func aNameFromElsewhereKeepsLocksInPlace() throws {
+  /// SHUFFLE rolls a whole new generated name, each time passed on.
+  @Test func shuffleRollsAWholeName() throws {
+    let n = try names()
+    let row = NameRowModel(names: n, kind: .player, text: "Mighty Maple", label: "Your name")
+    var changes: [String] = []
+    row.onChange = { changes.append($0) }
+    var firsts = Set<String>()
+    for _ in 0..<20 {
+      row.shuffle()
+      #expect(n.valid(.player, row.text).ok)
+      firsts.insert(row.parts.words[0])
+    }
+    #expect(changes.count == 20 && firsts.count > 1)  // no word is held
+  }
+
+  /// A name set from elsewhere is shown without being passed on.
+  @Test func aNameFromElsewhereIsShownNotPassedOn() throws {
     let row = NameRowModel(names: try names(), kind: .player, text: "Mighty Maple", label: "Your name")
     var changes = 0
     row.onChange = { _ in changes += 1 }
-    row.toggleLock(0)
-    row.toggleLock(1)
     row.set("Mighty Myrtle")
-    #expect(row.text == "Mighty Myrtle" && row.locks == [true, false] && changes == 0)
+    #expect(row.text == "Mighty Myrtle" && row.parts.words == ["Mighty", "Myrtle"] && changes == 0)
     row.set("Ada")  // not a name: ignored
     #expect(row.text == "Mighty Myrtle")
   }

@@ -13,19 +13,25 @@ import SwiftUI
   static var woodDrop: Color { Color(skin.drop) }
 }
 
+/// A control's plate (the 1.0 system's control shape): a 3 pt ink line, radius 6 and a
+/// 3 pt hard ink shadow. `fill` nil: the paper; `accent`: go, its type the skin's
+/// on-accent.
 struct Plate: ViewModifier {
-  /// nil: the paper. `accent`: the gold, its type the skin's on-accent.
   var fill: Color? = nil
   var accent = false
   var inset: CGFloat = 16
   func body(content: Content) -> some View {
     content.foregroundStyle(accent ? Color.woodOnGold : Color.woodInk).padding(inset)
-      .background(fill ?? (accent ? .woodGold : .woodPaper), in: RoundedRectangle(cornerRadius: 5))
-      .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color.woodInk, lineWidth: 2))
-      .background(RoundedRectangle(cornerRadius: 5).fill(Color.woodDrop).offset(x: 3, y: 4))
+      .background(fill ?? (accent ? .woodGold : .woodPaper), in: RoundedRectangle(cornerRadius: TW.controlRadius))
+      .overlay(RoundedRectangle(cornerRadius: TW.controlRadius).strokeBorder(Color.woodInk, lineWidth: TW.line))
+      .background(
+        RoundedRectangle(cornerRadius: TW.controlRadius).fill(Color.woodDrop)
+          .offset(x: TW.controlShadow, y: TW.controlShadow))
   }
 }
 
+/// The plain button (paper) and, `accent`, the go button (marigold in the day, one per
+/// screen, last in its row): display capitals at 20, 48 pt tall.
 struct WoodButton: ButtonStyle {
   var accent = false
   func makeBody(configuration: Configuration) -> some View {
@@ -38,9 +44,9 @@ struct WoodButton: ButtonStyle {
     let accent: Bool
     @Environment(\.isEnabled) private var enabled
     var body: some View {
-      configuration.label.font(.custom("LondrinaSolid-Black", size: 21, relativeTo: .headline))
-        .frame(minHeight: 26).padding(.horizontal, 6)
-        .modifier(Plate(accent: accent, inset: 8))
+      configuration.label.font(.custom("LondrinaSolid-Black", size: 20, relativeTo: .headline))
+        .frame(minHeight: TW.touch - 8).padding(.horizontal, 14)
+        .modifier(Plate(accent: accent, inset: 4))
         .offset(y: configuration.isPressed && enabled ? 2 : 0)
         .opacity(enabled ? 1 : 0.55)
     }
@@ -81,6 +87,7 @@ struct GameView: View {
             case .home: HomeCard(model: model)
             case .options: MatchOptionsCard(model: model)
             case .settings: SettingsCard(model: model)
+            case .howTo: HowToCard(model: model)
             case .practice: practice(wide: WideLayout.isWide(screen(geometry).size), room: meterRoom(geometry))
             case .match:
               MatchScreen(

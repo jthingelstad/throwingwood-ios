@@ -21,7 +21,7 @@ kubb-engine docs/ROOM.md difference 9), or `lobbyOf`'s `options` on an older eng
 which has no such call. So on 0.9 the host sets Computer (the computer's level,
 Beginner, Club or Pro) for the match; once a tester on 0.8 takes a seat, the row goes,
 since a 0.8 match would not take it, and a 0.8 client's own writes keep the host's
-setting. Scene (Day, Night, Neon, `SceneID.row`, last) is the host's too, written to
+setting. Scene (shown as Park, Camping and Techno, ids day, night and neon, `SceneID.row`, last) is the host's too, written to
 the document's `settings.scene` through the same `option` call the web makes; every
 seat sees the lobby and the match in it, and the match's start carries it. It is
 offered only while the next match's engine takes a scene, like Computer: on 0.8 or

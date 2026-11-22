@@ -53,6 +53,23 @@ public struct SoloOptions {
       .merging(["computer": "club"]) { old, _ in old }
     nameLimit = c.NAME_MAX
   }
+
+  /// The order of the rows on the Play the computer card (the 1.0 design, direction
+  /// A): Scene first (its picture tiles), then Computer, Opening, Raising and Wind.
+  /// Surface stays as a fifth row until a scene decides the ground; there is no Kubbs
+  /// row: the scene decides the set (`SceneID.kubbs`).
+  public static let cardOrder = ["scene", "computer", "opening", "raising", "wind", "surface"]
+  /// The card's rows, in `cardOrder`, those this engine offers.
+  public var cardRows: [MatchOption] {
+    Self.cardOrder.compactMap { id in rows.first { $0.id == id } }
+  }
+  /// The selections a solo match starts with from the card: the set is the scene's
+  /// (no row picks it), whatever was kept for it before.
+  public func starting(_ selections: [String: String]) -> [String: String] {
+    var s = selections
+    if rows.contains(where: { $0.id == "set" }) { s["set"] = SceneID.kubbs(of: s["scene"]) }
+    return s
+  }
 }
 
 public struct MatchNeed: Decodable {

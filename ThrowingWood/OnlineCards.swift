@@ -34,10 +34,11 @@ extension GameModel {
 struct OnlineCards: View {
   @Bindable var model: GameModel
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
+    CardScreen(width: 400) {
+     VStack(alignment: .leading, spacing: 12) {
       switch model.screen {
       case .onlineEntry:
-        Text("Play online").font(displayFont(42))
+        Text("Play online").cardTitle()
         Button("START A PITCH") { model.enter(.fresh(), create: true) }.buttonStyle(
           WoodButton(accent: true))
         Button("JOIN A PITCH") {
@@ -46,7 +47,7 @@ struct OnlineCards: View {
         }.buttonStyle(WoodButton())
         OpenGamesSection(model: model)
       case .join:
-        Text("Join a pitch").font(displayFont(42))
+        Text("Join a pitch").cardTitle()
         TextField("Pitch link or code", text: $model.joinInput)
           .textFieldStyle(.roundedBorder).textInputAutocapitalization(.never)
           .autocorrectionDisabled().submitLabel(.go).onSubmit { model.join(model.joinInput) }
@@ -64,30 +65,39 @@ struct OnlineCards: View {
           }
         }
       }
-      Button("HOME", action: model.home).font(.headline).padding(.vertical, 5)
-    }.frame(maxWidth: 400, alignment: .leading).modifier(Plate()).padding(16)
-      // centred when it fits; a lobby on a phone on its side scrolls from its title
-      .frame(maxWidth: .infinity, maxHeight: .infinity).modifier(FitOrScroll())
+     }
+    } buttons: {
+      // HOME quiet at the left; the lobby's START, go, at the right for the host
+      ButtonRow {
+        QuietButton("HOME", action: model.home)
+      } trailing: {
+        if model.screen == .pitch, let online = model.online, online.stage == .lobby, !online.observing,
+          online.isHost
+        {
+          LobbyStart(model: model, online: online)
+        }
+      }
+    }
   }
   @ViewBuilder private func connection(_ stage: OnlinePitch.Stage) -> some View {
     switch stage {
     case .notFound:
-      Text("Pitch not found").font(displayFont(38))
+      Text("Pitch not found").cardTitle()
       Text("Check the link or code and try again.")
     case .full:
-      Text("This pitch is full").font(displayFont(38))
+      Text("This pitch is full").cardTitle()
       Text("This pitch has as many people on it as it takes, every one of them connected. Try again when someone leaves.")
     case .unreachable:
-      Text("Cannot reach the server").font(displayFont(38))
+      Text("Cannot reach the server").cardTitle()
       Text("Check your connection. The pitch will rejoin when it can.")
     case .replaced:
-      Text("Open somewhere else").font(displayFont(38))
+      Text("Open somewhere else").cardTitle()
       Text("Your place has been opened on another connection.")
     case .noGame:
       // an observer's join made the pitch: it has left at once (the web's words, but
       // for where the open games are listed here)
-      if let online = model.online { Text("PITCH \(online.link.code)").font(.caption.bold()).tracking(1.5) }
-      Text("No game here").font(displayFont(38))
+      if let online = model.online { Text("PITCH \(online.link.code)").labelStyle() }
+      Text("No game here").cardTitle()
       Text("Nobody is playing on this pitch. Open games are listed on the Play online screen.")
       if let online = model.online {
         Button("JOIN THIS PITCH") { model.enter(online.link.observing(false), create: false) }
@@ -95,25 +105,28 @@ struct OnlineCards: View {
       }
     case .namesRefused:
       // a match holding a name the game did not make (a forged start): not shown
-      if let online = model.online { Text("PITCH \(online.link.code)").font(.caption.bold()).tracking(1.5) }
-      Text(NameWords.badMatchTitle).font(displayFont(38))
+      if let online = model.online { Text("PITCH \(online.link.code)").labelStyle() }
+      Text(NameWords.badMatchTitle).cardTitle()
       Text(NameWords.badMatch).fixedSize(horizontal: false, vertical: true)
     case .reconnecting:
-      Text("Reconnecting").font(displayFont(38))
+      Text("Reconnecting").cardTitle()
       Text("Rejoining your place on the pitch…")
     default:
-      Text("Connecting").font(displayFont(38))
+      Text("Connecting").cardTitle()
       Text("Joining the pitch…")
     }
   }
 }
 
+/// The lobby (the 1.0 design: the one-line name row; every two to four way option a
+/// segmented bar, five or more a plain button that opens its list). START is the host's,
+/// go, in the card's pinned button row (`LobbyStart`).
 struct LobbyCard: View {
   let model: GameModel, online: OnlinePitch
   @State private var copied = false
   var body: some View {
-    Text("Pitch lobby").font(displayFont(38))
-    Text(online.link.url.absoluteString).font(.footnote.monospaced()).textSelection(.enabled)
+    Text("Pitch lobby").cardTitle()
+    Text(online.link.url.absoluteString).font(.system(size: 14, design: .monospaced)).textSelection(.enabled)
     HStack {
       ShareLink(item: online.link.url) { Label("SHARE", systemImage: "square.and.arrow.up") }
       Button(copied ? "COPIED" : "COPY") {
@@ -127,14 +140,15 @@ struct LobbyCard: View {
       let players = online.members.filter { $0.side == side }
       VStack(alignment: .leading, spacing: 3) {
         HStack {
-          Text("Team \(side)").font(displayFont(25))
+          Text("Team \(side)").font(displayFont(25, relativeTo: .title2))
           Spacer()
-          Text("\(players.count) / \(online.teamMax)").font(.caption)
+          Text("\(players.count) / \(online.teamMax)").font(bodyFont(14, .bold, relativeTo: .subheadline))
           if !players.contains(where: \.you) {
             Button("JOIN \(side)") {
               profile()
               model.runOnline { try await online.team(side) }
             }
+            .buttonStyle(WoodButton())
             .disabled(players.count >= online.teamMax)
           }
         }
@@ -142,11 +156,11 @@ struct LobbyCard: View {
           // a side of several plays under a team name, the host's to pick (a side of one
           // plays under its player's name)
           VStack(alignment: .leading, spacing: 2) {
-            Text(NameWords.playsAs).font(.caption.bold()).tracking(1.2)
+            Text(NameWords.playsAs).labelStyle()
             if let row = online.teamRow(side) {
-              NameRowView(row: row)
+              NameRowView(row: row, size: 22)
             } else {
-              Text(online.teamNames[side] ?? "Team \(side)").font(displayFont(22))
+              Text(online.teamNames[side] ?? "Team \(side)").font(displayFont(22, relativeTo: .title3))
             }
           }
         }
@@ -154,86 +168,62 @@ struct LobbyCard: View {
           Text(
             online.members.contains { $0.side != nil }
               ? "The computer plays this side." : "Nobody yet."
-          ).font(.subheadline)
+          ).font(bodyFont(15))
         }
         ForEach(players) { row($0) }
       }
     }
     let watching = online.members.filter { $0.side == nil }
     HStack {
-      Text("Watching").font(.headline)
+      Text("Watching").labelStyle()
       Spacer()
       if online.members.contains(where: { $0.you && $0.side != nil }) {
-        Button("SIT OUT") { model.runOnline { try await online.team(nil) } }
+        Button("SIT OUT") { model.runOnline { try await online.team(nil) } }.buttonStyle(WoodButton())
       }
     }
     ForEach(watching) { row($0) }
-    Divider()
-    HStack {
-      Text("Who can join")
-      Spacer()
+    Rule()
+    FormRow("Who can join") { full in
       if online.isHost {
-        Picker(
-          "Access",
-          selection: Binding(
+        Segmented(
+          label: "Who can join", choices: [(false, "Invite only"), (true, "Open")],
+          value: Binding(
             get: { online.isOpen },
-            set: { on in model.runOnline { try await online.access(open: on) } })
-        ) {
-          Text("Invite only").tag(false)
-          Text("Open").tag(true)
-        }.labelsHidden()
+            set: { on in model.runOnline { try await online.access(open: on) } }),
+          full: full)
       } else {
-        Text(online.isOpen ? "Open" : "Invite only")
+        Text(online.isOpen ? "Open" : "Invite only").font(bodyFont(15, .bold))
       }
     }
     ForEach(online.optionRows) { option in
       // a scene this build does not draw shows as the day it is drawn as, and is
       // kept in the room until the host picks another
       let value = option.id == "scene" ? SceneID.shown(online.options["scene"]) : online.options[option.id] ?? ""
-      HStack {
-        Text(option.label)
-        Spacer()
-        if online.isHost {
-          Picker(
-            option.label,
-            selection: Binding(
-              get: { value },
-              set: { v in model.runOnline { try await online.option(option.id, v) } })
-          ) {
-            ForEach(option.choices, id: \.self) { c in Text(c[1]).tag(c[0]) }
-          }.labelsHidden()
+      let pick = Binding(get: { value }, set: { v in model.runOnline { try await online.option(option.id, v) } })
+      FormRow(option.label) { full in
+        if !online.isHost {
+          Text(option.choices.first { $0[0] == value }?.last ?? "").font(bodyFont(15, .bold))
+        } else if option.choices.count <= 4 {
+          Segmented(label: option.label, choices: option.choices.map { ($0[0], $0[1]) }, value: pick, full: full)
         } else {
-          Text(option.choices.first { $0[0] == value }?.last ?? "")
+          ChoiceList(label: option.label, choices: option.choices.map { ($0[0], $0[1]) }, value: pick)
         }
-      }.font(.subheadline)
+      }
     }
-    if let line = online.engineLine, line != online.note { Text(line).font(.callout.bold()) }
-    if !online.note.isEmpty { Text(online.note).font(.callout.bold()) }
-    if online.isHost {
-      Button("START") {
-        profile()
-        model.runOnline {
-          let c = Calendar(identifier: .gregorian).dateComponents(in: .current, from: Date())
-          let date = JS.object([
-            ("year", .int(c.year!)), ("month", .int(c.month!)), ("day", .int(c.day!)),
-            ("hour", .int(c.hour!)), ("min", .int(c.minute!)),
-          ])
-          try await online.start(seed: Int.random(in: 0..<2_147_483_648), at: date.json)
-        }
-      }.buttonStyle(WoodButton(accent: true)).disabled(!online.canStart)
-    } else {
-      Text("Waiting for \(online.members.first(where: \.host)?.name ?? "the host") to start.").font(
-        .subheadline)
+    if let line = online.engineLine, line != online.note { Text(line).font(bodyFont(16, .bold)) }
+    if !online.note.isEmpty { Text(online.note).font(bodyFont(16, .bold)) }
+    if !online.isHost {
+      Text("Waiting for \(online.members.first(where: \.host)?.name ?? "the host") to start.").font(bodyFont(15))
     }
   }
   private func row(_ m: PitchMember) -> some View {
     HStack(spacing: 6) {
       Image(systemName: m.connected ? "circle.fill" : "circle").font(.caption2)
         .accessibilityLabel(m.connected ? "Connected" : "Away")
-      Text(m.name)
-      if m.you { Text("YOU").font(.caption.bold()) }
-      if m.host { Text("HOST").font(.caption.bold()) }
-      if !m.connected { Text("Away").font(.caption) }
+      Text(m.name).font(bodyFont(16, .semibold))
+      if m.you { Text("YOU").modifier(Chip(fill: .woodInk, ink: .woodPaper)) }
+      if m.host { Text("HOST").modifier(Chip()) }
+      if !m.connected { Text("Away").font(bodyFont(14)) }
     }
   }
   /// The device's name (Settings), as the room knows it.
@@ -242,32 +232,111 @@ struct LobbyCard: View {
   }
 }
 
+/// The host's START, go, in the lobby card's pinned button row.
+struct LobbyStart: View {
+  let model: GameModel, online: OnlinePitch
+  var body: some View {
+    Button {
+      model.perform { try online.profile(name: model.name) }
+      model.runOnline {
+        let c = Calendar(identifier: .gregorian).dateComponents(in: .current, from: Date())
+        let date = JS.object([
+          ("year", .int(c.year!)), ("month", .int(c.month!)), ("day", .int(c.day!)),
+          ("hour", .int(c.hour!)), ("min", .int(c.minute!)),
+        ])
+        try await online.start(seed: Int.random(in: 0..<2_147_483_648), at: date.json)
+      }
+    } label: {
+      Text("START").frame(minWidth: 110)
+    }
+    .buttonStyle(WoodButton(accent: true)).disabled(!online.canStart)
+  }
+}
+
+/// Five or more choices (the system's "Picker": the lobby's Kubbs): a plain button
+/// showing the value, which opens the list on a card; the chosen row inverted.
+struct ChoiceList: View {
+  let label: String
+  let choices: [(value: String, text: String)]
+  @Binding var value: String
+  @State private var open = false
+  var body: some View {
+    Button {
+      open = true
+    } label: {
+      HStack(spacing: 6) {
+        Text(choices.first { $0.value == value }?.text ?? value)
+        Image(systemName: "chevron.down").font(.system(size: 14, weight: .bold))
+      }
+    }
+    .buttonStyle(WoodButton())
+    .accessibilityLabel(label)
+    .accessibilityValue(choices.first { $0.value == value }?.text ?? value)
+    .sheet(isPresented: $open) {
+      VStack(alignment: .leading, spacing: 8) {
+        Text(label).cardTitle(28)
+        ForEach(Array(choices.enumerated()), id: \.offset) { i, c in
+          let on = c.value == value
+          Button {
+            value = c.value
+            open = false
+          } label: {
+            Text(c.text).font(bodyFont(17, .bold)).foregroundStyle(on ? Color.woodPaper : Color.woodInk)
+              .frame(maxWidth: .infinity, minHeight: TW.touch, alignment: .leading).padding(.horizontal, 14)
+              .background(on ? Color.woodInk : Color.woodField, in: RoundedRectangle(cornerRadius: TW.controlRadius))
+              .overlay(RoundedRectangle(cornerRadius: TW.controlRadius).strokeBorder(Color.woodInk, lineWidth: TW.chipLine))
+              .contentShape(Rectangle())
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(c.text)
+          .accessibilityValue(SegmentWords.value(index: i, count: choices.count, selected: on))
+        }
+      }
+      .padding(TW.cardPadding)
+      .frame(maxHeight: .infinity, alignment: .top)
+      .presentationDetents([.medium, .large])
+      .presentationBackground(Color.woodPaper)
+    }
+  }
+}
+
 struct VersionNotice: View {
   let version: OnlinePitch.VersionCard, watch: () -> Void
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text(VersionWords.cardTitle(newer: version == .newer)).font(displayFont(36))
+      Text(VersionWords.cardTitle(newer: version == .newer)).cardTitle()
       Text(VersionWords.cardText(newer: version == .newer)).fixedSize(horizontal: false, vertical: true)
       Button("WATCH", action: watch).buttonStyle(WoodButton(accent: true))
-    }.frame(maxWidth: 340).modifier(Plate()).padding(20)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    }.frame(maxWidth: 340).padding(TW.cardPadding).modifier(CardFace()).padding(20)
   }
 }
 
+/// The pitch menu (the 1.0 design, as the match menu): the two by two grid of plain
+/// buttons, this match's Raising, BACK TO THE MATCH as go and HOME quiet (no RESIGN
+/// online), the version at the foot.
 struct OnlineMenu: View {
   let model: GameModel, online: OnlinePitch
+  @Environment(\.dynamicTypeSize) private var type
+  @Environment(\.screenGeometry) private var screen
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text("Pitch menu").font(displayFont(36))
-      // this match's own (the menu's Raising); the device's are in Settings
-      RaisingSetting(model: model).frame(maxWidth: 300)
-      SettingsButton(model: model)
-      Button("SCORE SHEET", action: model.showSheet)
-      ReportButton(model: model)
-      Button("BACK TO MATCH") { model.screen = .match }
-      Button("HOME", action: model.home)
-      VersionFooter(label: online.board.versionLabel)
-    }.buttonStyle(WoodButton()).modifier(Plate()).padding(18)
-      .frame(maxWidth: .infinity, maxHeight: .infinity).modifier(FitOrScroll())
+    let footInRows = FootInRows.at(type, wide: screen.wide)
+    CardScreen(width: 400) {
+      VStack(alignment: .leading, spacing: TW.rowGap) {
+        Text("Pitch menu").cardTitle()
+        MenuGrid(model: model)
+        // this match's own (the menu's Raising); the device's are in Settings
+        RaisingSetting(model: model)
+        if footInRows { VersionFooter(label: online.board.versionLabel) }
+      }
+    } buttons: {
+      VStack(alignment: .leading, spacing: 8) {
+        Button { model.screen = .match } label: { Text("BACK TO THE MATCH").frame(maxWidth: .infinity) }
+          .buttonStyle(WoodButton(accent: true))
+        QuietButton("HOME", action: model.home)
+        if !footInRows { VersionFooter(label: online.board.versionLabel) }
+      }
+    }
   }
 }
 
@@ -280,8 +349,8 @@ struct WatchCard: View {
   var body: some View {
     let players = online.members.filter { $0.side != nil }
     let host = online.members.first(where: \.host)
-    Text("PITCH \(online.link.code)").font(.caption.bold()).tracking(1.5)
-    Text("Watching").font(displayFont(38))
+    Text("PITCH \(online.link.code)").labelStyle()
+    Text("Watching").cardTitle()
     Text(
       players.isEmpty
         ? "Nobody has picked a side yet."

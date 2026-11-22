@@ -46,8 +46,14 @@ import Testing
       #expect(!text.contains("model.nameRow"), "\(name) makes the device's name row outside Settings.swift")
     }
     let settings = try body("Settings.swift", "SettingsCard")
-    for c in controls + ["NameRowView(row: row)", "model.nameRow"] { #expect(settings.contains(c), "Settings has \(c)") }
-    #expect(try body("Settings.swift", "PlayerLine").contains("NameRowView(row: row)"))
+    // the name row (the name and SHUFFLE) and, in Settings alone, a stepper per word
+    for c in controls + ["NameRowView(row: row", "NameSteppers(row: row)", "model.nameRow"] {
+      #expect(settings.contains(c), "Settings has \(c)")
+    }
+    #expect(try body("Settings.swift", "PlayerLine").contains("NameRowView(row: row"))
+    for name in files where name != "Settings.swift" {
+      #expect(!(try file(name)).contains("NameSteppers("), "\(name) steps a name's words outside Settings")
+    }
     #expect(try body("MatchCards.swift", "MatchOptionsCard").contains("PlayerLine(model: model)"))
     #expect(try body("OnlineCards.swift", "LobbyCard").contains("PlayerLine(model: model)"))
   }
@@ -70,8 +76,10 @@ import Testing
   /// menus and the practice menu.
   @Test func settingsIsReachedFromHomeAndEveryMatch() throws {
     #expect(try body("MatchCards.swift", "HomeCard").contains("model.openSettings"))
-    #expect(try body("MatchCards.swift", "MatchMenu").contains("SettingsButton(model: model)"))
-    #expect(try body("OnlineCards.swift", "OnlineMenu").contains("SettingsButton(model: model)"))
+    // the menus' two by two grid (the 1.0 design) holds SETTINGS
+    #expect(try body("MatchCards.swift", "MenuGrid").contains("SettingsButton(model: model)"))
+    #expect(try body("MatchCards.swift", "MatchMenu").contains("MenuGrid(model: model)"))
+    #expect(try body("OnlineCards.swift", "OnlineMenu").contains("MenuGrid(model: model)"))
     #expect(try file("GameView.swift").contains("action: model.openSettings"))
   }
 

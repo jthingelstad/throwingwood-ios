@@ -37,8 +37,18 @@ public struct SceneSkin: Equatable, Sendable {
   /// True for the day: the app keeps the system's light look and its own
   /// secondary text there.
   public var isDay: Bool { id == "day" }
-  // the plates and cards
+  // the plates and cards (the 1.0 system's tokens: kubb-sources design/system, the
+  // day's are its values): ink draws every outline, shadow and word and fills a chosen
+  // segment; paper is cards and plain buttons; accent is go (marigold in the day)
   public let ink, paper, drop, accent, onAccent, muted: SkinPaint
+  /// The insides of things: the header plate, chips, instrument faces (the system's
+  /// `baton`).
+  public let baton: SkinPaint
+  /// A segmented bar's parts not chosen (the system's `field`).
+  public let field: SkinPaint
+  /// The teams' colours on the header's numbers and their type: Team A marigold,
+  /// Team B violet in the day (the system's `marigold` and `violet`).
+  public let teamA, onTeamA, teamB, onTeamB: SkinPaint
   /// A slider plate's header, its knob's face and grain.
   public let header, knob, grain: SkinPaint
   /// STAND's ground: where the thrower may stand (run) and the shaded rest (zone).
@@ -67,19 +77,25 @@ public struct SceneSkin: Equatable, Sendable {
     }
   }
 
-  private static let dayInk = SkinPaint(r: 23 / 255, g: 20 / 255, b: 15 / 255)
+  /// The system's ink (the canvas's #17140f went with 1.0).
+  private static let dayInk = SkinPaint(0x16130f)
   private static let hudInk = SkinPaint(r: 0.09, g: 0.078, b: 0.059)
   private static let dayPaper = SkinPaint(r: 251 / 255, g: 246 / 255, b: 234 / 255)
   private static let hudPaper = SkinPaint(r: 0.984, g: 0.965, b: 0.918)
   private static let dayKnob = SkinPaint(r: 0.95, g: 0.89, b: 0.75)
 
-  /// The day: the app's colours before scenes, each where it was.
+  /// The day: the 1.0 system's tokens (ink, paper, baton, field, wood for the
+  /// header bands, marigold for go, muted, the dim of ink at 50%); the meters, the
+  /// bursts and STAND keep the app's colours from before scenes.
   public static let day = SceneSkin(
-    id: "day", ink: dayInk, paper: dayPaper, drop: dayInk, accent: SkinPaint(r: 0.96, g: 0.73, b: 0.13),
-    onAccent: dayInk, muted: SkinPaint(0x5b4a2c), header: SkinPaint(r: 0.93, g: 0.85, b: 0.68), knob: dayKnob,
+    id: "day", ink: dayInk, paper: SkinPaint(0xf7f0de), drop: dayInk, accent: SkinPaint(0xf2b705),
+    onAccent: dayInk, muted: SkinPaint(0x5b4a2c), baton: dayPaper, field: SkinPaint(0xffffff),
+    teamA: SkinPaint(0xf2b705), onTeamA: dayInk, teamB: SkinPaint(0x8e44ad), onTeamB: SkinPaint(0xffffff),
+    header: SkinPaint(0xecd09a), knob: dayKnob,
     grain: SkinPaint(r: 0.62, g: 0.42, b: 0.22), standRun: SkinPaint(r: 0.718, g: 0.78, b: 0.604),
     standZone: SkinPaint(r: 0.914, g: 0.941, b: 0.839), standRing: SkinPaint(0xffffff),
-    warn: SkinPaint(r: 0.86, g: 0.25, b: 0.22), onWarn: SkinPaint(0xffffff), dim: SkinPaint(0x000000, 0.26),
+    // the refused reason's chip: white at 5:1 (it was 0.86, 0.25, 0.22, 4.4:1)
+    warn: SkinPaint(0xcc3a30), onWarn: SkinPaint(0xffffff), dim: SkinPaint(0x16130f, 0.5),
     face: hudPaper, faceShade: SkinPaint(0xeadfc8), frame: hudInk, ring: SkinPaint(r: 0.94, g: 0.91, b: 0.82),
     tick: hudInk, power: SkinPaint(r: 1, g: 0.478, b: 0.239), powerDeep: SkinPaint(0xc4521f),
     release: SkinPaint(r: 0.2, g: 0.714, b: 0.91), releaseDeep: SkinPaint(0x1f7fa8),
@@ -94,10 +110,13 @@ public struct SceneSkin: Equatable, Sendable {
   /// The night (the web's NIGHT.skin): moonlit blue plates, pale blue type.
   public static let night = SceneSkin(
     id: "night", ink: SkinPaint(0xdbe9ff), paper: SkinPaint(0x0d1424), drop: SkinPaint(0x000000, 0.55),
-    accent: SkinPaint(0x9cc8ff), onAccent: SkinPaint(0x0d1424), muted: SkinPaint(0xa9bcdc), header: SkinPaint(0x1c2a45),
+    accent: SkinPaint(0x9cc8ff), onAccent: SkinPaint(0x0d1424), muted: SkinPaint(0xa9bcdc),
+    baton: SkinPaint(0x0d1424), field: SkinPaint(0x0d1424),
+    teamA: SkinPaint(0xf2b705), onTeamA: SkinPaint(0x0d1424), teamB: SkinPaint(0x5e2a78), onTeamB: SkinPaint(0xffffff),
+    header: SkinPaint(0x1c2a45),
     knob: SkinPaint(0xc9dcff), grain: SkinPaint(0x8fb4e8), standRun: SkinPaint(0x24452f), standZone: SkinPaint(0x17263a),
     standRing: SkinPaint(0x0a101d), warn: SkinPaint(0xffb3b0), onWarn: SkinPaint(0x0d1424),
-    dim: SkinPaint(0x000000, 0.4), face: SkinPaint(0x0d1424), faceShade: SkinPaint(0x152038), frame: SkinPaint(0xdbe9ff),
+    dim: SkinPaint(0x000000, 0.5), face: SkinPaint(0x0d1424), faceShade: SkinPaint(0x152038), frame: SkinPaint(0xdbe9ff),
     ring: SkinPaint(0x1a2540), tick: SkinPaint(0xdbe9ff), power: SkinPaint(0xff7a3d), powerDeep: SkinPaint(0xc4521f),
     release: SkinPaint(0x33b6e8), releaseDeep: SkinPaint(0x1f7fa8), dead: SkinPaint(0x2c3754), over: SkinPaint(0xe5484d),
     hand: SkinPaint(0xb9d3ff), handCore: SkinPaint(0x8fb4e8), meterKnob: SkinPaint(0xe3edff), knobGrab: SkinPaint(0xffffff),
@@ -109,10 +128,13 @@ public struct SceneSkin: Equatable, Sendable {
   /// The neon (the web's NEON.skin): thin light on black, the meter's bands coloured light.
   public static let neon = SceneSkin(
     id: "neon", ink: SkinPaint(0xc8fdff), paper: SkinPaint(0x02050a), drop: SkinPaint(r: 43 / 255, g: 228 / 255, b: 1, a: 0.35),
-    accent: SkinPaint(0x5ff0ff), onAccent: SkinPaint(0x02050a), muted: SkinPaint(0x86c4cf), header: SkinPaint(0x06141c),
+    accent: SkinPaint(0x5ff0ff), onAccent: SkinPaint(0x02050a), muted: SkinPaint(0x86c4cf),
+    baton: SkinPaint(0x02050a), field: SkinPaint(0x02050a),
+    teamA: SkinPaint(0xf2b705), onTeamA: SkinPaint(0x02050a), teamB: SkinPaint(0x5e2a78), onTeamB: SkinPaint(0xffffff),
+    header: SkinPaint(0x06141c),
     knob: SkinPaint(0xc8fdff), grain: SkinPaint(0x5ff0ff), standRun: SkinPaint(0x06303a), standZone: SkinPaint(0x041821),
     standRing: SkinPaint(0x000000), warn: SkinPaint(0xff5c9d), onWarn: SkinPaint(0x02050a),
-    dim: SkinPaint(0x000000, 0.45), face: SkinPaint(0x02050a), faceShade: SkinPaint(0x061019), frame: SkinPaint(0x5ff0ff),
+    dim: SkinPaint(0x000000, 0.5), face: SkinPaint(0x02050a), faceShade: SkinPaint(0x061019), frame: SkinPaint(0x5ff0ff),
     ring: SkinPaint(0x04121a), tick: SkinPaint(0x8ff4ff), power: SkinPaint(0xff9a4a), powerDeep: SkinPaint(0xff7a1f),
     release: SkinPaint(0x3fe0ff), releaseDeep: SkinPaint(0x16b8e6), dead: SkinPaint(0x10222c), over: SkinPaint(0xff4d6a),
     hand: SkinPaint(0xc8fdff), handCore: SkinPaint(0x5ff0ff), meterKnob: SkinPaint(0xe9feff), knobGrab: SkinPaint(0xffffff),
@@ -131,7 +153,8 @@ public struct SceneSkin: Equatable, Sendable {
       ("prompt", promptInk, prompt), ("paper on ink", paper, ink),
       ("the meter's lines on its face", frame, face), ("its face on its lines", face, frame),
       ("on-accent on a lit end", onAccent, endLit), ("ink on a refused end", ink, endRefused),
-      ("on-warn on warn", onWarn, warn),
+      ("on-warn on warn", onWarn, warn), ("ink on baton", ink, baton), ("ink on field", ink, field),
+      ("muted on baton", muted, baton), ("team A's number", onTeamA, teamA), ("team B's number", onTeamB, teamB),
     ]
   }
 }

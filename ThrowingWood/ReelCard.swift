@@ -102,7 +102,7 @@ struct ReelCard: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text(ReelWords.title).font(displayFont(38))
+      Text(ReelWords.title).cardTitle()
       switch reel.phase {
       case .idle, .checking, .asking, .making: making
       case .fetching:
@@ -123,8 +123,8 @@ struct ReelCard: View {
       }
       // a match just shared: "The link: https://throwingwood.com/p/<code>" (the web's)
       Text(reel.linked ? "\(ShareWords.link) \(reel.link.absoluteString)" : reel.link.absoluteString)
-        .font(.footnote.monospaced()).textSelection(.enabled)
-      if copied { Text(ReelWords.copied).font(.footnote) }
+        .font(.system(size: 14, design: .monospaced)).textSelection(.enabled)
+      if copied { Text(ReelWords.copied).font(bodyFont(14, relativeTo: .footnote)) }
       HStack {
         if reel.phase == .ready, let tall = reel.file(.tall) {
           ShareLink(item: tall) { Label(ReelWords.share, systemImage: "square.and.arrow.up") }
@@ -139,9 +139,7 @@ struct ReelCard: View {
         Button(ReelWords.back) { model.closeReel() }.buttonStyle(WoodButton())
       }
     }
-    .frame(maxWidth: cardWidth, alignment: .leading)
-    .modifier(Plate()).padding(16)
-    .frame(maxWidth: .infinity, maxHeight: .infinity).modifier(FitOrScroll())
+    .cardScreen(width: cardWidth)
     .sensoryFeedback(.success, trigger: reel.phase == .ready) { _, ready in
       ready && model.feedback.haptics
     }

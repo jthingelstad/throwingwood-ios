@@ -5,11 +5,11 @@ import Observation
 @MainActor @Observable final class GameModel {
   enum Screen {
     case home, options, practice, match, menu, sheet, onlineEntry, join, pitch, report, invalidLink,
-      reel, share, sealed, settings
+      reel, share, sealed, settings, howTo
 
     var usesFeedback: Bool {
       switch self {
-      case .options, .practice, .match, .pitch, .menu: true
+      case .options, .practice, .match, .pitch, .menu, .howTo: true
       default: false
       }
     }
@@ -116,6 +116,8 @@ import Observation
     default: return SceneID.shown(pitch?.scene.look)
     }
   }
+  /// How to throw, from a menu's grid; DONE goes back to the menu.
+  func openHowTo() { screen = .howTo }
   /// Where Settings goes back to.
   var settingsReturn = Screen.home
   func openSettings() {

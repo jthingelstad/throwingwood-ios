@@ -1,30 +1,27 @@
 import KubbRenderer
 import SwiftUI
 
-/// The name row (`NameRowModel`; the web's src/ui/name-row.js): the name and SHUFFLE,
-/// then each word's picker and its KEEP, in that order for VoiceOver too. Native
-/// controls: a menu picker per word listing every word the slot can take. Each word and
-/// the name fit the widest name the engine can make (`NameFitTests`); at the largest
-/// text sizes the words go under each other.
+/// The name row (`NameRowModel`; the 1.0 design's "The name row"): the name and
+/// SHUFFLE on one line, on the solo card, the lobby (the You row and a side's team name)
+/// and the share card. No word is held: SHUFFLE rolls a whole new name. Stepping word by word is
+/// in Settings alone (`NameSteppers`). The name fits the widest the engine can make
+/// (`NameFitTests`); from the largest three text sizes SHUFFLE goes under the name, so no
+/// word is broken.
 struct NameRowView: View {
   @Bindable var row: NameRowModel
-  /// At the accessibility text sizes the name goes over SHUFFLE and each picker over
-  /// its KEEP, so no word is broken.
+  /// The name's size at the default text size (the design: 30 in Settings, 26 on the
+  /// solo card, 24 in the lobby).
+  var size: CGFloat = 26
   @Environment(\.dynamicTypeSize) private var type
   var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      if type.isAccessibilitySize {
-        VStack(alignment: .leading, spacing: 6) { name; shuffle }
-        VStack(alignment: .leading, spacing: 8) { words }
+    Group {
+      if type >= .accessibility3 {
+        VStack(alignment: .leading, spacing: 8) { name; shuffle }
       } else {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
           name
           Spacer(minLength: 4)
           shuffle
-        }
-        ViewThatFits(in: .horizontal) {
-          HStack(spacing: 10) { words }
-          VStack(alignment: .leading, spacing: 6) { words }
         }
       }
     }
@@ -36,43 +33,75 @@ struct NameRowView: View {
   }
 
   private var name: some View {
-    Text(row.text).font(.headline).fixedSize(horizontal: false, vertical: true)
+    Text(row.text).font(displayFont(size, relativeTo: .title2)).foregroundStyle(Color.woodInk)
+      .lineLimit(type >= .accessibility3 ? nil : 1).minimumScaleFactor(0.6)
+      .fixedSize(horizontal: false, vertical: true)
   }
 
   private var shuffle: some View {
     Button("SHUFFLE") { row.shuffle() }.buttonStyle(WoodButton())
-      .lineLimit(1).minimumScaleFactor(0.5)
+      .lineLimit(1).fixedSize()
       .accessibilityLabel(row.shuffleLabel)
   }
+}
 
-  @ViewBuilder private var words: some View {
-    if let prefix = row.prefix { Text(prefix).font(.body.weight(.semibold)) }
-    ForEach(Array(row.parts.words.enumerated()), id: \.offset) { slot, word in
-      // a menu of every word the slot can take, the word shown ticked; VoiceOver reads
-      // "Your name, first word" and the word as its value
-      let picker = Menu {
-        Picker(row.pickerLabel(slot), selection: Binding(get: { word }, set: { row.pick(slot, $0) })) {
-          ForEach(row.choices(slot), id: \.self) { Text($0).tag($0) }
-        }
-      } label: {
-        HStack(spacing: 4) {
-          Text(word)
-          Image(systemName: "chevron.up.chevron.down").font(.caption)
-        }
-      }
-      .accessibilityLabel(row.pickerLabel(slot))
-      .accessibilityValue(word)
-      let keep = Button(row.lockTitle(slot)) { row.toggleLock(slot) }
-        .font(.caption.weight(.bold)).lineLimit(1).minimumScaleFactor(0.5)
-        .buttonStyle(.bordered)
-        .accessibilityLabel(row.lockLabel(slot))
-        .accessibilityAddTraits(row.locks[slot] ? .isSelected : [])
-      if type.isAccessibilitySize {
-        VStack(alignment: .leading, spacing: 4) { picker; keep }
+/// Settings' word steppers (the design: "Open: only in Settings"): for each word,
+/// previous, the word, next, as one joined bar (the engine's `names.step`, the Playdate's
+/// crank made a control). VoiceOver reads each word as "Your name, first word" with the
+/// word as its value, adjustable, and its buttons "Previous first word", "Next first
+/// word". Two side by side; under each other where they do not fit.
+struct NameSteppers: View {
+  @Bindable var row: NameRowModel
+  @Environment(\.dynamicTypeSize) private var type
+  var body: some View {
+    let slots = Array(row.parts.words.indices)
+    Group {
+      if type >= .accessibility3 || slots.count != 2 {
+        VStack(spacing: 10) { ForEach(slots, id: \.self) { stepper($0) } }
       } else {
-        HStack(spacing: 4) { picker.fixedSize(); keep }
+        ViewThatFits(in: .horizontal) {
+          HStack(spacing: 10) { ForEach(slots, id: \.self) { stepper($0) } }
+          VStack(spacing: 10) { ForEach(slots, id: \.self) { stepper($0) } }
+        }
       }
     }
+  }
+
+  private func stepper(_ slot: Int) -> some View {
+    HStack(spacing: 2) {
+      arrow(slot, -1)
+      Text(row.parts.words[slot]).font(bodyFont(15, .bold, relativeTo: .subheadline))
+        .foregroundStyle(Color.woodPaper).lineLimit(1).minimumScaleFactor(0.6)
+        .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity, minHeight: TW.touch)
+        .background(Color.woodInk)
+        .accessibilityLabel(row.wordLabel(slot))
+        .accessibilityValue(row.parts.words[slot])
+        .accessibilityAdjustableAction { direction in
+          row.step(slot, direction == .increment ? 1 : -1)
+        }
+      arrow(slot, 1)
+    }
+    .padding(.horizontal, TW.line - 1)
+    .background(Color.woodInk)
+    .clipShape(RoundedRectangle(cornerRadius: TW.controlRadius))
+    .overlay(RoundedRectangle(cornerRadius: TW.controlRadius).strokeBorder(Color.woodInk, lineWidth: TW.line))
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel(row.groupLabel(slot))
+  }
+
+  private func arrow(_ slot: Int, _ dir: Int) -> some View {
+    Button {
+      row.step(slot, dir)
+    } label: {
+      Image(systemName: dir < 0 ? "chevron.left" : "chevron.right")
+        .font(.system(size: 17, weight: .bold)).foregroundStyle(Color.woodInk)
+        .frame(width: TW.touch, height: TW.touch)
+        .background(Color.woodField)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(row.stepLabel(slot, dir))
   }
 }
 
@@ -82,35 +111,52 @@ struct NameRowView: View {
 /// engine 0.13 every person throws on one meter and a level is the computer's alone.
 struct PlayerLine: View {
   let model: GameModel
+  var size: CGFloat = 26
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      Text("You").font(.subheadline.weight(.semibold))
-      if let row = model.nameRow { NameRowView(row: row) }
-    }
+    if let row = model.nameRow { NameRowView(row: row, size: size) }
   }
 }
 
 /// Settings: the device's own choices in one place (the owner's scopes: name,
 /// sound, haptics, meter and its side), reached from home, a set-up screen's line, the
 /// match and pitch menus and the practice menu. Nothing about one game is here: those
-/// are the game's options (the solo options, the practice menu, the lobby).
+/// are the game's options (the solo options, the practice menu, the lobby). The 1.0
+/// design: the name with SHUFFLE and two word steppers, Sound, Haptics, Meter, Meter
+/// side, one muted line, the version at the foot and DONE, go, at the bottom right.
 struct SettingsCard: View {
   @Bindable var model: GameModel
+  @Environment(\.dynamicTypeSize) private var type
+  @Environment(\.screenGeometry) private var screen
   var body: some View {
-    VStack(alignment: .leading, spacing: 14) {
-      Text("Settings").font(displayFont(37))
-      if let row = model.nameRow {
-        VStack(alignment: .leading, spacing: 4) {
-          Text("Your name").font(.subheadline.weight(.semibold))
-          NameRowView(row: row)
+    let footInRows = FootInRows.at(type, wide: screen.wide)
+    CardScreen(width: 400) {
+      VStack(alignment: .leading, spacing: 10) {
+        Text("Settings").cardTitle()
+        // the web's one muted line (its src/ui/settings.js)
+        Text("Kept on this device. The match options are on each match's card.").helperText()
+        if let row = model.nameRow {
+          Text("Your name").labelStyle().accessibilityHidden(true)
+          NameRowView(row: row, size: 30)
+          NameSteppers(row: row)
         }
+        Rule().padding(.top, 4)
+        FeedbackSettings(feedback: model.feedback)
+        Rule()
+        MeterSettings(meter: model.meter)
+        if footInRows, let label = model.pitch?.versionLabel { VersionFooter(label: label) }
       }
-      FeedbackSettings(feedback: model.feedback)
-      MeterSettings(meter: model.meter)
-      Button("BACK") { model.screen = model.settingsReturn }
+    } buttons: {
+      ButtonRow {
+        if !footInRows, let label = model.pitch?.versionLabel { VersionFooter(label: label) }
+      } trailing: {
+        Button {
+          model.screen = model.settingsReturn
+        } label: {
+          Text("DONE").frame(minWidth: 96)
+        }
         .buttonStyle(WoodButton(accent: true))
-    }.frame(maxWidth: 360, alignment: .leading).modifier(Plate(inset: 20)).padding(20)
-      .frame(maxWidth: .infinity, maxHeight: .infinity).modifier(FitOrScroll())
+      }
+    }
   }
 }
 
@@ -118,7 +164,9 @@ struct SettingsCard: View {
 struct SettingsButton: View {
   let model: GameModel
   var body: some View {
-    Button("SETTINGS", action: model.openSettings)
-      .accessibilityHint("Your name, sound, haptics and meter")
+    Button(action: model.openSettings) {
+      Text("SETTINGS").frame(maxWidth: .infinity)
+    }
+    .accessibilityHint("Your name, sound, haptics and meter")
   }
 }

@@ -32,23 +32,20 @@ struct MeterSettings: View {
   @Bindable var meter: MeterChoice
   @Environment(\.screenGeometry) private var screen
   var body: some View {
-    // labelled as the menu's Raising is, the labels one width so the pickers line up
-    VStack(alignment: .leading, spacing: 6) {
-      MenuRow("Meter") {
-        Picker("Meter", selection: $meter.kind) {
-          Text("Clock").tag(MeterKind.clock)
-          Text("Linear").tag(MeterKind.linear)
-        }.pickerStyle(.segmented).accessibilityLabel("Meter")
+    VStack(alignment: .leading, spacing: 4) {
+      FormRow("Meter") { full in
+        Segmented(
+          label: "Meter", choices: [(MeterKind.clock, "Clock"), (MeterKind.linear, "Linear")],
+          value: $meter.kind, full: full)
       }
       if meter.kind == .linear && !shown(.linear) {
         note("This screen is too short for the linear meter, so the clock is shown.")
       }
       // Jamie, 2026-11-19: "Left and right handed folks may want it on one side or the other"
-      MenuRow("Meter side") {
-        Picker("Meter side", selection: $meter.side) {
-          Text("Left").tag(MeterSide.left)
-          Text("Right").tag(MeterSide.right)
-        }.pickerStyle(.segmented).accessibilityLabel("Meter side")
+      FormRow("Meter side") { full in
+        Segmented(
+          label: "Meter side", choices: [(MeterSide.left, "Left"), (MeterSide.right, "Right")],
+          value: $meter.side, full: full)
       }
       // a tall screen's clock is in the middle: the side is the linear meter's there
       if !screen.wide && !shown(.linear) {
@@ -68,7 +65,7 @@ struct MeterSettings: View {
   }
 
   private func note(_ words: String) -> some View {
-    Text(words).font(.caption).mutedText().fixedSize(horizontal: false, vertical: true)
+    Text(words).helperText()
   }
 }
 

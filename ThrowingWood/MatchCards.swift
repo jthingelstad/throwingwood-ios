@@ -41,50 +41,96 @@ struct HomeCard: View {
   }
 }
 
+/// Play the computer (the 1.0 design, direction A): the name row, Scene as three
+/// picture tiles drawn by the app's own renderer, then Computer, Opening, Raising and
+/// Wind as segmented bars, and Surface as a fifth row until a scene decides the ground
+/// (`SoloOptions.cardRows`); no Kubbs row, the scene decides the set. HOME quiet at the
+/// left, START go at the right.
 struct MatchOptionsCard: View {
   @Bindable var model: GameModel
   var body: some View {
-    VStack(alignment: .leading, spacing: 14) {
-      Text("Play the computer").font(displayFont(37))
-      // the player's name is the device's (Settings); this card's rows are the
-      // game's, its Computer level the match's `computer` option
-      PlayerLine(model: model)
-      ForEach(model.pitch?.options.rows ?? []) { row in
-        let label = row.id == "computer" ? "Computer level" : row.label
-        HStack {
-          Text(label).font(.subheadline.weight(.semibold))
-          Spacer()
-          Menu {
-            ForEach(row.choices, id: \.self) { choice in
-              Button {
-                model.selections[row.id] = choice[0]
-              } label: {
-                if model.selections[row.id] == choice[0] {
-                  Label(choice[1], systemImage: "checkmark")
-                } else {
-                  Text(choice[1])
-                }
+    CardScreen(width: 440) {
+      VStack(alignment: .leading, spacing: 10) {
+        Text("Play the computer").cardTitle()
+        // the player's name is the device's (Settings); this card's rows are the
+        // game's, its Computer level the match's `computer` option
+        PlayerLine(model: model)
+        Rule()
+        ForEach(model.pitch?.options.cardRows ?? []) { row in
+          if row.id == "scene", let pitch = model.pitch {
+            Text(row.label).labelStyle().accessibilityHidden(true)
+            SceneTiles(pitch: pitch, value: binding(row))
+          } else {
+            FormRow(row.label) { full in
+              Segmented(label: row.label, choices: row.choices.map { ($0[0], $0[1]) }, value: binding(row), full: full)
+            }
+          }
+        }
+      }
+    } buttons: {
+      ButtonRow {
+        QuietButton("HOME", action: model.home)
+      } trailing: {
+        Button(action: model.start) { Text("START").frame(minWidth: 110) }
+          .buttonStyle(WoodButton(accent: true))
+      }
+    }
+  }
+  private func binding(_ row: MatchOption) -> Binding<String> {
+    Binding(
+      get: { model.selections[row.id] ?? row.choices.first?[0] ?? "" },
+      set: { model.selections[row.id] = $0 })
+  }
+}
+
+/// The Scene row's three picture tiles (the design's `.tiles`): each scene's pitch as the
+/// app's own renderer draws it (never the mock-up's sketches), its name under it; the
+/// chosen tile's name inverted, ink with paper type, and its plate raised by the hard
+/// shadow, so the choice is told by fill and shape, not colour. VoiceOver reads the
+/// group as Scene and each tile as the bar's parts are ("Night, selected, 2 of 3").
+struct SceneTiles: View {
+  let pitch: PitchSession
+  @Binding var value: String
+  @Environment(\.dynamicTypeSize) private var type
+  var body: some View {
+    let names = SceneID.shownNames
+    let grid = type >= .accessibility3
+      ? [GridItem(.flexible())] : Array(repeating: GridItem(.flexible(), spacing: 8), count: names.count)
+    LazyVGrid(columns: grid, spacing: 8) {
+      ForEach(Array(names.enumerated()), id: \.offset) { i, scene in
+        let on = SceneID.shown(value) == scene.id
+        Button {
+          value = scene.id
+        } label: {
+          VStack(spacing: 0) {
+            Canvas { ctx, size in
+              ctx.withCGContext { cg in
+                PitchRenderer.draw(
+                  in: cg, size: size, camera: pitch.camera, scene: pitch.scene.scenery, look: scene.id)
               }
             }
-          } label: {
-            let value = row.choices.first { $0[0] == model.selections[row.id] }?.last ?? ""
-            HStack {
-              Text(value)
-              Image(systemName: "chevron.up.chevron.down").font(.caption)
-            }
-            .frame(minWidth: 100, minHeight: 32, alignment: .trailing)
-          }.accessibilityLabel(label)
+            .aspectRatio(96 / 56, contentMode: .fit)
+            Rectangle().fill(Color.woodInk).frame(height: TW.line)
+            Text(scene.name).font(bodyFont(14, .bold, relativeTo: .subheadline)).tracking(14 * 0.04)
+              .textCase(.uppercase).lineLimit(1).minimumScaleFactor(0.7)
+              .foregroundStyle(on ? Color.woodPaper : Color.woodInk)
+              .frame(maxWidth: .infinity, minHeight: 28)
+              .background(on ? Color.woodInk : Color.woodBaton)
+          }
+          .clipShape(RoundedRectangle(cornerRadius: TW.controlRadius))
+          .overlay(RoundedRectangle(cornerRadius: TW.controlRadius).strokeBorder(Color.woodInk, lineWidth: TW.line))
+          .background(
+            RoundedRectangle(cornerRadius: TW.controlRadius).fill(on ? Color.woodDrop : .clear)
+              .offset(x: TW.controlShadow, y: TW.controlShadow))
+          .contentShape(Rectangle())
         }
-        Divider()
+        .buttonStyle(.plain)
+        .accessibilityLabel(scene.name)
+        .accessibilityValue(SegmentWords.value(index: i, count: names.count, selected: on))
       }
-      HStack {
-        Button("HOME", action: model.home).buttonStyle(WoodButton())
-        Spacer()
-        Button("START", action: model.start).buttonStyle(WoodButton(accent: true))
-      }
-    }.modifier(Plate(inset: 20)).frame(maxWidth: 560).padding(18)
-      // centred when it fits; on a phone on its side it scrolls from its title
-      .frame(maxWidth: .infinity, maxHeight: .infinity).modifier(FitOrScroll())
+    }
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel(SceneID.row.label)
   }
 }
 
@@ -110,13 +156,15 @@ struct SheetCard: View {
   @State private var exporting = false
   @State private var exportError: String?
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Text("Score sheet").font(displayFont(38))
-      Text("Planet Kubb Notation").font(.subheadline.weight(.semibold))
+    // an iPad's: the web's .sheet, min(640px, 100%); a phone keeps its whole width
+    CardScreen(width: UIDevice.current.userInterfaceIdiom == .pad ? 640 : 760, fill: true) {
+     VStack(alignment: .leading, spacing: 12) {
+      Text("Score sheet").cardTitle()
+      Text("Planet Kubb Notation").labelStyle()
       GeometryReader { box in
         ScrollView([.vertical, .horizontal]) {
           Text(verbatim: positions ? sheet.text : sheet.shown.joined(separator: "\n"))
-            .font(.system(size: 13, design: .monospaced))
+            .font(.system(size: 14, design: .monospaced))
             .fixedSize(horizontal: true, vertical: true).textSelection(.enabled).padding(10)
             // a sheet shorter than its box (an iPad's tall window) starts at the
             // top, as it does where it overflows, not in the box's middle
@@ -124,20 +172,22 @@ struct SheetCard: View {
         }
       }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(skin.isDay ? Color.white : Color.woodPaper).border(Color.woodInk)
-      Toggle("Show positions", isOn: $positions)
-      HStack {
+      // the switch went: a segmented bar, as every two-way choice is
+      FormRow("Show positions") { full in
+        Segmented(onOff: "Show positions", value: $positions, full: full)
+      }
+     }
+    } buttons: {
+      HStack(spacing: 12) {
         Button(copied ? "COPIED" : "COPY") {
           UIPasteboard.general.string = sheet.text
           copied = true
         }.buttonStyle(WoodButton())
-        Spacer()
         Button("SAVE") { exporting = true }.buttonStyle(WoodButton())
+        Spacer(minLength: 0)
         Button("BACK", action: done).buttonStyle(WoodButton(accent: true))
       }
-    }.modifier(Plate())
-      // an iPad's: the web's .sheet, min(640px, 100%); a phone keeps its whole
-      // width, upright and on its side, as before
-      .frame(maxWidth: UIDevice.current.userInterfaceIdiom == .pad ? 640 : .infinity).padding(16)
+    }
       .fileExporter(
         isPresented: $exporting, document: NotationFile(sheet.text),
         contentType: .plainText, defaultFilename: sheet.name
@@ -157,37 +207,89 @@ struct SheetCard: View {
   }
 }
 
+/// The match menu (the 1.0 design): a two by two grid of plain buttons (Settings,
+/// Score sheet, How to throw, Feedback), this match's Raising, BACK TO THE MATCH as go,
+/// RESIGN and HOME quiet, the version at the foot.
 struct MatchMenu: View {
   @Bindable var model: GameModel
   let pitch: PitchSession
+  @Environment(\.dynamicTypeSize) private var type
+  @Environment(\.screenGeometry) private var screen
   var body: some View {
-    VStack(alignment: .leading, spacing: 14) {
-      Text("Match menu").font(displayFont(36))
-      Text(
-        model.meter.kind == .linear
-          ? "Tap the pitch to aim, or drag anywhere to move the circle. Draw the knob back toward you, fling it up through the middle and let go on the blue."
-          : "Tap the pitch to aim, or drag anywhere to move the circle. Wind back on the left of the dial, flick through six and lift on the right."
-      )
-      .font(.subheadline)
-      // this match's own (the menu's Raising); the device's are in Settings
-      RaisingSetting(model: model)
-      SettingsButton(model: model).buttonStyle(WoodButton())
-      ReportButton(model: model).buttonStyle(WoodButton())
-      Button("SCORE SHEET", action: model.showSheet).buttonStyle(WoodButton())
-      HStack {
-        Button("HOME", action: model.home)
-        Spacer()
-        Button(pitch.need?.resignPending == nil ? "RESIGN" : "RESIGNING…") {
-          model.perform {
-            try pitch.resign()
-            model.screen = .match
-          }
-        }.disabled(pitch.need?.resignPending != nil)
-      }.buttonStyle(WoodButton())
-      Button("BACK TO MATCH") { model.screen = .match }.buttonStyle(WoodButton(accent: true))
-      VersionFooter(label: pitch.versionLabel)
-    }.frame(maxWidth: 330, alignment: .leading).modifier(Plate(inset: 20)).padding(20)
-      .modifier(FitOrScroll())
+    let footInRows = FootInRows.at(type, wide: screen.wide)
+    CardScreen(width: 400) {
+      VStack(alignment: .leading, spacing: TW.rowGap) {
+        Text("Match menu").cardTitle()
+        MenuGrid(model: model)
+        // this match's own (the menu's Raising); the device's are in Settings
+        RaisingSetting(model: model)
+        if footInRows { VersionFooter(label: pitch.versionLabel) }
+      }
+    } buttons: {
+      VStack(alignment: .leading, spacing: 8) {
+        Button {
+          model.screen = .match
+        } label: {
+          Text("BACK TO THE MATCH").frame(maxWidth: .infinity)
+        }.buttonStyle(WoodButton(accent: true))
+        HStack {
+          QuietButton(pitch.need?.resignPending == nil ? "RESIGN" : "RESIGNING…") {
+            model.perform {
+              try pitch.resign()
+              model.screen = .match
+            }
+          }.disabled(pitch.need?.resignPending != nil)
+          Spacer()
+          QuietButton("HOME", action: model.home)
+        }
+        if !footInRows { VersionFooter(label: pitch.versionLabel) }
+      }
+    }
+  }
+}
+
+/// The menus' two by two grid of plain buttons: SETTINGS, SCORE SHEET, HOW TO THROW and
+/// FEEDBACK (the 1.0 design). At the largest text sizes, one under another.
+struct MenuGrid: View {
+  let model: GameModel
+  @Environment(\.dynamicTypeSize) private var type
+  var body: some View {
+    let columns = Array(
+      repeating: GridItem(.flexible(), spacing: 12), count: type >= .accessibility3 ? 1 : 2)
+    LazyVGrid(columns: columns, spacing: 12) {
+      SettingsButton(model: model)
+      Button(action: model.showSheet) { Text("SCORE SHEET").frame(maxWidth: .infinity) }
+      Button(action: model.openHowTo) { Text("HOW TO THROW").frame(maxWidth: .infinity) }
+      ReportButton(model: model, title: "FEEDBACK")
+    }
+    .buttonStyle(WoodButton())
+    .lineLimit(1).minimumScaleFactor(0.7)
+  }
+}
+
+/// How to throw, from a menu's grid: the words the match menu said before 1.0, for the
+/// meter this device shows, on a card of their own. DONE goes back to the menu.
+struct HowToCard: View {
+  let model: GameModel
+  var body: some View {
+    CardScreen(width: 400) {
+      VStack(alignment: .leading, spacing: TW.rowGap) {
+        Text("How to throw").cardTitle()
+        Text(
+          model.meter.kind == .linear
+            ? "Tap the pitch to aim, or drag anywhere to move the circle. Draw the knob back toward you, fling it up through the middle and let go on the blue."
+            : "Tap the pitch to aim, or drag anywhere to move the circle. Wind back on the left of the dial, flick through six and lift on the right."
+        )
+        .font(bodyFont(17)).fixedSize(horizontal: false, vertical: true)
+      }
+    } buttons: {
+      ButtonRow {
+        EmptyView()
+      } trailing: {
+        Button { model.screen = .menu } label: { Text("DONE").frame(minWidth: 96) }
+          .buttonStyle(WoodButton(accent: true))
+      }
+    }
   }
 }
 
@@ -198,10 +300,15 @@ struct MatchScreen: View {
   var body: some View {
     if let n = pitch.need {
       ZStack {
-        if screen.wide {
-          wide(n)
-        } else {
-          tall(n)
+        // behind the winner card nothing reads through the dim (the build list's
+        // accessibility: "the dimmed header behind the winner card"): the screen under
+        // it is the pitch alone
+        if n.winner == nil || pitch.handoff != nil {
+          if screen.wide {
+            wide(n)
+          } else {
+            tall(n)
+          }
         }
         if pitch.freeOn && pitch.handoff == nil && n.winner == nil {
           FreeViewControls(model: model, pitch: pitch, revision: revision)
@@ -209,7 +316,7 @@ struct MatchScreen: View {
         if let c = pitch.handoff {
           modal { handoff(c) }
         } else if let w = n.winner {
-          modal { winner(n, w) }
+          winner(n, w)
         } else if let banner = model.online?.watchHandoff {
           watchBanner(banner.handoff)
         }
@@ -217,13 +324,10 @@ struct MatchScreen: View {
     }
   }
 
-  /// A phone held upright: the rail across the top, the plan along the bottom.
+  /// A phone held upright: the header across the top, the plan along the bottom.
   private func tall(_ n: MatchNeed) -> some View {
     VStack(spacing: 8) {
-      HStack {
-        rail(n)
-        menuButton
-      }.modifier(Plate(inset: 9))
+      header(n, nameSize: 24)
       captions(n)
       Spacer()
       if let online = model.online {
@@ -237,8 +341,8 @@ struct MatchScreen: View {
     }.padding(.horizontal, 12)
   }
 
-  /// A phone on its side (WideLayout, the web's wide screen): the rail top
-  /// left, SHOUT and MENU top right (moved in beside a linear meter at that
+  /// A phone on its side (WideLayout, the web's wide screen): the header top
+  /// left with MENU inside it, SHOUT top right (moved in beside a linear meter at that
   /// edge), the captions between them, the plan in one
   /// block at the screen's edge away from the clock (WideLayout.plan), the
   /// panels and SKIP in the clock's corner.
@@ -248,9 +352,9 @@ struct MatchScreen: View {
     let meter = model.meter.layout(
       bounds: CGRect(origin: .zero, size: size),
       safe: UIEdgeInsets(top: safe.top, left: safe.left, bottom: safe.bottom, right: safe.right))
-    // the linear meter takes its edge's whole height: the rail or MENU moves in beside it
+    // the linear meter takes its edge's whole height: the header or SHOUT moves in beside it
     let railBox = WideLayout.rail(size: size, safe: safe, meter: meter)
-    let menuBox = WideLayout.menu(size: size, safe: safe, meter: meter)
+    let shoutBox = WideLayout.shout(size: size, safe: safe, meter: meter)
     let tray: CGFloat = model.online == nil ? 0 : WideLayout.trayWidth
     // under the floor beside SHOUT (a narrow window), a line of their own under
     // the header row; the stack may grow down to the first frame under it
@@ -262,24 +366,21 @@ struct MatchScreen: View {
     let edge: Edge.Set = side == .left ? .leading : .trailing
     return ZStack(alignment: .topLeading) {
       Color.clear
-      HStack { rail(n) }.modifier(Plate(inset: 9))
-        .frame(width: railBox.width, alignment: .leading)
+      header(n, nameSize: 22, fills: true)
+        .frame(width: railBox.width, height: railBox.height)
         .offset(x: railBox.minX, y: railBox.minY)
-      menuButton.modifier(Plate(inset: 4))
-        .frame(width: menuBox.width, height: menuBox.height)
-        .offset(x: menuBox.minX, y: menuBox.minY)
       captions(n, held: from, room: captionBox.size)
         .frame(width: captionBox.width, height: captionBox.height, alignment: .top)
         .clipShape(Rectangle().inset(by: -4))  // the plates' shadows, inside captionGap
         .offset(x: captionBox.minX, y: captionBox.minY)
       if let online = model.online {
-        // the tray beside MENU, the shouts under it
+        // SHOUT top right, the shouts under it
         VStack(alignment: .trailing, spacing: 6) {
           shoutButton(online)
           shouts(online)
         }
         .frame(width: 220, alignment: .trailing)
-        .offset(x: menuBox.minX - WideLayout.shoutGap - 220, y: menuBox.minY)
+        .offset(x: shoutBox.maxX - 220, y: shoutBox.minY)
       }
       if (n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput && WideLayout.isShort(size) {
         // a bar along the bottom (WideLayout.bar); its measured height keeps the
@@ -325,50 +426,65 @@ struct MatchScreen: View {
     .ignoresSafeArea()
   }
 
-  private func rail(_ n: MatchNeed) -> some View {
-    Group {
-      VStack(alignment: .leading, spacing: 1) {
+  /// The header (the 1.0 design's shared header, the rail): "Turn 4 · baton 2 of 6" over
+  /// the thrower's name in sentence case, the base kubbs standing for each side as two
+  /// numbers on the team colours (Team A marigold, Team B violet; spoken as the web
+  /// says them, "Kubbs standing: Mighty Maple 5, Computer 5"), and MENU as a word inside the plate, upright and on
+  /// its side. VoiceOver reads it in that order: the turn, the name, the counts, Menu.
+  /// `fills`: on its side the plate fills the header's frame (WideLayout.rail).
+  private func header(_ n: MatchNeed, nameSize: CGFloat, fills: Bool = false) -> some View {
+    let online = model.online != nil
+    let watching = n.cpu == true || (online && !pitch.acceptsInput)
+    return HStack(spacing: 10) {
+      VStack(alignment: .leading, spacing: 0) {
         Text(
-          n.cpu == true || (model.online != nil && !pitch.acceptsInput)
-            ? "WATCH  ·  TURN \(n.turn ?? 1)" : "TURN \(n.turn ?? 1)"
+          HeaderWords.line(
+            turn: n.turn ?? 1, n: n.setup?.n, of: n.setup?.of, projectile: n.setup?.projectile, watching: watching)
         )
-        .font(.caption2.bold()).tracking(1.4)
+        .labelStyle().foregroundStyle(Color.woodMuted).lineLimit(1).minimumScaleFactor(0.7)
         Text(
-          (model.online != nil && !playing && model.online?.turnLabel.isEmpty == false)
+          (online && !playing && model.online?.turnLabel.isEmpty == false)
             ? model.online!.turnLabel : (n.setup?.thrower?.name ?? n.team ?? "Match")
-        ).font(displayFont(27)).lineLimit(1).minimumScaleFactor(0.6)  // the widest name fits (NameFitTests)
+        )
+        .font(displayFont(nameSize, relativeTo: .title2)).foregroundStyle(Color.woodInk)
+        .lineLimit(1).minimumScaleFactor(0.6)  // the widest name fits (NameFitTests)
       }
-      Spacer()
-      VStack(alignment: .trailing) {
-        if let s = n.setup {
-          let left = s.of - s.n + (playing ? 0 : 1)
-          Text(
-            s.projectile == "baton"
-              ? "\(left) \(left == 1 ? "baton" : "batons") left" : "Kubb \(s.n) of \(s.of)"
-          )
-          .font(.subheadline.bold())
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .accessibilityElement(children: .combine)
+      if let counts = n.standing {
+        let a = counts["A"] ?? 0, b = counts["B"] ?? 0
+        HStack(spacing: 4) {
+          teamNumber(a, fill: Color(skin.teamA), ink: Color(skin.onTeamA))
+          teamNumber(b, fill: Color(skin.teamB), ink: Color(skin.onTeamB))
         }
-        if let counts = n.standing {
-          Text(
-            model.online == nil
-              ? "You \(counts["A"] ?? 0)  ·  CPU \(counts["B"] ?? 0)"
-              : "A \(counts["A"] ?? 0)  ·  B \(counts["B"] ?? 0)"
-          )
-          .font(.caption).accessibilityLabel(
-            model.online != nil
-              ? "Kubbs standing, team A \(counts["A"] ?? 0), team B \(counts["B"] ?? 0)"
-              : "Kubbs standing, you \(counts["A"] ?? 0), computer \(counts["B"] ?? 0)")
-        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(HeaderWords.counts(a: a, b: b, teamA: n.teams?["A"], teamB: n.teams?["B"]))
       }
+      Button {
+        model.screen = .menu
+      } label: {
+        Text(HeaderWords.menu).font(displayFont(17, relativeTo: .headline)).foregroundStyle(Color.woodInk)
+          .lineLimit(1).fixedSize()
+          .padding(.horizontal, 12).frame(minHeight: TW.touch)
+          .background(Color.woodPaper, in: RoundedRectangle(cornerRadius: TW.controlRadius))
+          .overlay(RoundedRectangle(cornerRadius: TW.controlRadius).strokeBorder(Color.woodInk, lineWidth: 2))
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel(HeaderWords.menuLabel)
     }
+    .padding(.leading, 8)
+    .frame(maxHeight: fills ? .infinity : nil)
+    .modifier(Plate(fill: .woodBaton, inset: 5))
   }
 
-  private var menuButton: some View {
-    Button {
-      model.screen = .menu
-    } label: {
-      Image(systemName: "ellipsis.circle").font(.title2).frame(width: 35, height: 38)
-    }.accessibilityLabel("Match menu")
+  /// A side's base kubbs standing: a chip on the team's colour.
+  private func teamNumber(_ count: Int, fill: Color, ink: Color) -> some View {
+    Text("\(count)").font(bodyFont(16, .bold, relativeTo: .headline)).monospacedDigit()
+      .foregroundStyle(ink).frame(minWidth: 30)
+      .padding(.horizontal, 4).padding(.vertical, 3)
+      .background(fill, in: RoundedRectangle(cornerRadius: TW.controlRadius))
+      .overlay(RoundedRectangle(cornerRadius: TW.controlRadius).strokeBorder(Color.woodInk, lineWidth: TW.chipLine))
   }
 
   /// `held`: on a phone on its side, where the held slider's or STAND's caption
@@ -407,13 +523,13 @@ struct MatchScreen: View {
     VStack(spacing: 8) {
       if !top {
       } else if model.slow {
-        Text("SLOW MOTION").font(.caption.bold()).modifier(Plate(inset: 5))
+        Text("SLOW MOTION").font(bodyFont(14, .bold, relativeTo: .footnote)).modifier(Plate(inset: 5))
       } else if let stand = pitch.standCaption, n.kind == "throw" {
         SliderCaption(text: stand, maxWidth: wide).aligned(from)
       } else if let held = pitch.held, n.kind == "throw" {
         SliderCaption(text: PlanScale.caption(held, kubb: pitch.throwsKubb), maxWidth: wide).aligned(from)
       } else if let wind = pitch.windText, n.kind == "throw" {
-        Text(wind).font(.caption.bold()).modifier(Plate(inset: 5))
+        Text(wind).font(bodyFont(14, .bold, relativeTo: .footnote)).modifier(Plate(inset: 5))
       }
       if let cut, let result = model.result, n.kind == "throw" { Verdict(result: result, cut: cut, row: row) }
     }
@@ -477,7 +593,7 @@ struct MatchScreen: View {
       } else {
         placementWords(n)
         placementButtons(n)
-        if !raisingAuto, let why = pitch.placement?.label { Text(why).font(.caption.bold()) }
+        if !raisingAuto, let why = pitch.placement?.label { Text(why).font(bodyFont(14, .bold, relativeTo: .footnote)) }
       }
     }.frame(maxWidth: .infinity, alignment: .leading).modifier(Plate())
   }
@@ -490,8 +606,7 @@ struct MatchScreen: View {
     HStack(alignment: .center, spacing: 12) {
       VStack(alignment: .leading, spacing: 2) {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-          Text(placementTitle(n).uppercased()).font(.caption.bold()).tracking(1.4)
-            .lineLimit(1)
+          Text(placementTitle(n)).labelStyle().lineLimit(1)
           Spacer(minLength: 0)
           if let why = barWhy(n) {
             Text(why).font(displayFont(15)).foregroundStyle(Color(skin.onWarn)).lineLimit(1)
@@ -505,7 +620,7 @@ struct MatchScreen: View {
           placementWords(n)
         }
       }
-      placementButtons(n, gap: 8).fixedSize()
+      placementButtons(n, gap: 8, spread: false).fixedSize()
     }
     .padding(.horizontal, 12).padding(.top, 5).padding(.bottom, 6)
     .frame(maxWidth: .infinity, alignment: .leading)
@@ -548,31 +663,49 @@ struct MatchScreen: View {
     }
   }
 
-  /// `gap`: 6 pt on the panel, 8 in the bar (the web's .panel .row).
-  @ViewBuilder private func placementButtons(_ n: MatchNeed, gap: CGFloat = 6) -> some View {
+  /// The raise and punishment panel's buttons (the 1.0 design's two-slot rule): the
+  /// automatic choices plain at the left (AUTO and AUTO ALL; BY HAND and REST OF GAME),
+  /// the one confirming action go at the right (PLACE IT), in every state. A state with
+  /// nothing for a slot leaves it empty. `gap`: 6 pt on the panel, 8 in the bar (the
+  /// web's .panel .row); `spread`: the panel's row spans its width, the slots at its
+  /// ends.
+  @ViewBuilder private func placementButtons(_ n: MatchNeed, gap: CGFloat = 6, spread: Bool = true) -> some View {
+    HStack(spacing: gap) {
+      HStack(spacing: gap) { automatic(n) }.buttonStyle(WoodButton())
+      if spread { Spacer(minLength: 0) }
+      confirming(n)
+    }
+  }
+
+  /// The left slot: the automatic choices, plain.
+  @ViewBuilder private func automatic(_ n: MatchNeed) -> some View {
+    if n.kind == "punish" {
+      EmptyView()
+    } else if raisingAuto {
+      Button("BY HAND") { model.raiseByHand() }
+        .accessibilityHint("Choose the end for each kubb again")
+      if !pitch.raiseAutomatically {
+        Button("REST OF GAME") { model.raiseAutomatically = true }
+          .accessibilityHint("Raise every kubb automatically for the rest of this match")
+      }
+    } else {
+      Button("AUTO") { model.perform { try pitch.raise() } }
+        .accessibilityHint("Stand this kubb on the end the game chooses")
+      if (n.n ?? 1) < (n.of ?? 1) {
+        Button { model.perform { pitch.raiseRest() } } label: {
+          Text("AUTO ALL").lineLimit(1).fixedSize()
+        }
+        .accessibilityHint("Stand this kubb and the rest of this turn's on the ends the game chooses")
+      }
+    }
+  }
+
+  /// The right slot: the one confirming action, go. A raise by hand is confirmed on the
+  /// kubb itself (RaiseTouch), so it has none.
+  @ViewBuilder private func confirming(_ n: MatchNeed) -> some View {
     if n.kind == "punish" {
       Button("PLACE IT") { model.perform { try pitch.placePunishment() } }
         .buttonStyle(WoodButton(accent: true)).disabled(pitch.placement?.ok != true)
-    } else if raisingAuto {
-      HStack(spacing: gap) {
-        Button("BY HAND") { model.raiseByHand() }
-          .accessibilityHint("Choose the end for each kubb again")
-        if !pitch.raiseAutomatically {
-          Button("REST OF GAME") { model.raiseAutomatically = true }
-            .accessibilityHint("Raise every kubb automatically for the rest of this match")
-        }
-      }.buttonStyle(WoodButton())
-    } else {
-      HStack(spacing: gap) {
-        Button("AUTO") { model.perform { try pitch.raise() } }
-          .accessibilityHint("Stand this kubb on the end the game chooses")
-        if (n.n ?? 1) < (n.of ?? 1) {
-          Button { model.perform { pitch.raiseRest() } } label: {
-            Text("AUTO ALL").lineLimit(1).fixedSize()
-          }
-          .accessibilityHint("Stand this kubb and the rest of this turn's on the ends the game chooses")
-        }
-      }.buttonStyle(WoodButton())
     }
   }
 
@@ -639,69 +772,84 @@ struct MatchScreen: View {
     .accessibilityElement(children: .combine)
   }
 
+  /// The winner card (the 1.0 design): REMATCH as go; SCORE SHEET plain (the app has
+  /// no replay viewer, so no WATCH REPLAY); one SHARE button, which opens the share card
+  /// and then the reel; HOME quiet.
   private func winner(_ n: MatchNeed, _ w: MatchNeed.Winner) -> some View {
-    VStack(alignment: .leading, spacing: 10) {
-      Text(n.short ?? "GAME").font(.caption.bold()).tracking(1.2)
-      Text("\(w.winnerName) wins").font(displayFont(40))
-      if let how = n.how { Text(how) }
-      Text("\(w.turns) turns  ·  \(w.hits ?? 0) of \(w.thrown ?? 0) batons hit").font(
-        .subheadline.bold())
-      if let minutes = w.minutes {
-        Text(minutes == 0 ? "Under a minute" : "\(minutes) min").font(.caption)
+    CardScreen(width: 400) {
+      VStack(alignment: .leading, spacing: 10) {
+        Text(n.short ?? "GAME").labelStyle().foregroundStyle(Color.woodMuted)
+        Text("\(w.winnerName) wins").cardTitle(40)
+        if let how = n.how { Text(how).font(bodyFont(17)).fixedSize(horizontal: false, vertical: true) }
+        // the match's figures as chips, on two lines where one does not hold them
+        ViewThatFits(in: .horizontal) {
+          HStack(spacing: 8) { turns(w); hits(w); minutes(w) }
+          VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) { turns(w); minutes(w) }
+            hits(w)
+          }
+          VStack(alignment: .leading, spacing: 8) { turns(w); hits(w); minutes(w) }
+        }
+        .accessibilityElement(children: .combine)
       }
-      HStack {
+    } buttons: {
+      VStack(alignment: .leading, spacing: 10) {
         if let online = model.online {
           if online.isHost {
-            Button("REMATCH") { model.runOnline { try await online.rematch() } }.buttonStyle(
-              WoodButton(accent: true))
+            Button { model.runOnline { try await online.rematch() } } label: {
+              Text("REMATCH").frame(maxWidth: .infinity)
+            }.buttonStyle(WoodButton(accent: true))
           }
         } else if model.sealed == nil {
-          Button("REMATCH") { model.screen = .options }.buttonStyle(WoodButton(accent: true))
+          Button { model.screen = .options } label: { Text("REMATCH").frame(maxWidth: .infinity) }
+            .buttonStyle(WoodButton(accent: true))
         }
-        Button("SCORE SHEET", action: model.showSheet).buttonStyle(WoodButton())
+        HStack(spacing: 12) {
+          Button(action: model.showSheet) { Text("SCORE SHEET").frame(maxWidth: .infinity) }
+          shareButton
+        }
+        .buttonStyle(WoodButton()).lineLimit(1).minimumScaleFactor(0.7)
+        QuietButton("HOME", action: model.home)
       }
-      // a finished pitch with its replay (the web's docs/REEL.md); a match against the
-      // computer once shared (the share card first, ShareCard.swift); a shared match
-      // opened by its code, whose reel is of its kept match
-      if let sealed = model.sealed {
-        let code = sealed.code
-        let shown = model.reel?.code == code && model.reel?.match == sealed.match
-        Button {
-          model.openReel(code: code, match: sealed.match)
-        } label: {
-          Text(ReelWords.button(shown ? model.reel?.phase : nil)).lineLimit(1).minimumScaleFactor(0.8)
-        }.buttonStyle(WoodButton())
-      } else if model.online == nil, model.share != nil {
-        Button(action: model.openShare) {
-          Text(model.shareButton).lineLimit(1).minimumScaleFactor(0.8)
-        }.buttonStyle(WoodButton())
-      } else if let code = model.onlineReelCode {
-        let match = model.online?.controller.finishedReplay
-        let shown = model.reel?.code == code && model.reel?.match == match
-        Button {
-          model.openReel(code: code, match: match)
-        } label: {
-          Text(ReelWords.button(shown ? model.reel?.phase : nil)).lineLimit(1).minimumScaleFactor(0.8)
-        }.buttonStyle(WoodButton())
-      }
-      Button("HOME", action: model.home).font(.caption.bold()).padding(.vertical, 8)
-    }.frame(maxWidth: .infinity, alignment: .leading)
-      .onAppear { model.prepareShare() }
+    }
+    .onAppear { model.prepareShare() }
   }
+
+  private func turns(_ w: MatchNeed.Winner) -> some View { Text("\(w.turns) turns").modifier(Chip()) }
+  private func hits(_ w: MatchNeed.Winner) -> some View {
+    Text("\(w.hits ?? 0) of \(w.thrown ?? 0) batons hit").modifier(Chip())
+  }
+  @ViewBuilder private func minutes(_ w: MatchNeed.Winner) -> some View {
+    if let minutes = w.minutes { Text(minutes == 0 ? "Under a minute" : "\(minutes) min").modifier(Chip()) }
+  }
+
+  /// The winner card's one SHARE (the web's word, its src/ui/cards.js): a finished pitch
+  /// with its replay (the web's docs/REEL.md); a match against the computer (the share
+  /// card first, ShareCard.swift); a shared match opened by its code, whose reel is of
+  /// its kept match. The card it opens says how the reel stands.
+  @ViewBuilder private var shareButton: some View {
+    if let sealed = model.sealed {
+      Button { model.openReel(code: sealed.code, match: sealed.match) } label: { share }
+    } else if model.online == nil, model.share != nil {
+      Button(action: model.openShare) { share }
+    } else if let code = model.onlineReelCode {
+      Button { model.openReel(code: code, match: model.online?.controller.finishedReplay) } label: { share }
+    }
+  }
+  private var share: some View { Text("SHARE").frame(maxWidth: .infinity) }
 }
 
-/// The menu's Raising: By hand or Automatic, for the rest of this match. Shown once this
-/// device has been asked to raise in the match (the web's menu-raise): a match whose own
-/// Raising option is Automatic never asks.
+/// The menu's Raising: By hand or Automatic, for the rest of this match, a segmented
+/// bar. Shown once this device has been asked to raise in the match (the web's
+/// menu-raise): a match whose own Raising option is Automatic never asks.
 struct RaisingSetting: View {
   @Bindable var model: GameModel
   var body: some View {
     if model.pitch?.raiseSeen == true {
-      MenuRow("Raising") {
-        Picker("Raising", selection: $model.raiseAutomatically) {
-          Text("By hand").tag(false)
-          Text("Automatic").tag(true)
-        }.pickerStyle(.segmented)
+      FormRow("Raising") { full in
+        Segmented(
+          label: "Raising", choices: [(false, "By hand"), (true, "Automatic")],
+          value: $model.raiseAutomatically, full: full)
       }
     }
   }
@@ -802,7 +950,7 @@ struct VersionFooter: View {
       Text("Throwing Wood \(label.text)")
       ForEach(label.detail, id: \.self) { Text($0) }
     }
-    .font(.caption2).mutedText()
+    .font(bodyFont(14, relativeTo: .footnote)).foregroundStyle(Color.woodMuted)
     .accessibilityElement(children: .combine)
   }
 }
@@ -820,7 +968,7 @@ private struct FreeViewControls: View {
       Color.clear
       if !hintOver && !pitch.freeCamera.touched {
         Text("Drag to look around. Pinch to zoom.")
-          .font(.caption.bold()).modifier(Plate(inset: 6))
+          .font(bodyFont(14, .bold, relativeTo: .footnote)).modifier(Plate(inset: 6))
           .frame(maxWidth: .infinity)
           .padding(.bottom, safe.bottom + 64)
           .allowsHitTesting(false)

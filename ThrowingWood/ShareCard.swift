@@ -85,13 +85,6 @@ extension GameModel {
     screen = .reel
   }
 
-  /// The winner card's button words: the reel's once shared, MAKING YOUR REEL while the
-  /// match is checked.
-  var shareButton: String {
-    guard let share else { return ReelWords.make }
-    if let code = share.state.code { return ReelWords.button(reel?.code == code ? reel?.phase : nil) }
-    return share.state.phase == .sending ? ReelWords.making : ReelWords.make
-  }
 
   func reelHooksFor(_ code: String) -> HighlightReel.Hooks {
     reelHooksOverride?(code) ?? Self.reelHooks(code)
@@ -159,7 +152,7 @@ struct ShareCard: View {
   var body: some View {
     let v = share.view
     VStack(alignment: .leading, spacing: 12) {
-      Text(ShareWords.title).font(displayFont(38))
+      Text(ShareWords.title).cardTitle()
       if v.form {
         form
       } else {
@@ -175,9 +168,7 @@ struct ShareCard: View {
         }
       }
     }
-    .frame(maxWidth: ipad ? 520 : 400, alignment: .leading)
-    .modifier(Plate()).padding(16)
-    .frame(maxWidth: .infinity, maxHeight: .infinity).modifier(FitOrScroll())
+    .cardScreen(width: ipad ? 520 : 400)
   }
 
   private var form: some View {
@@ -185,10 +176,10 @@ struct ShareCard: View {
       Text(ShareWords.about).fixedSize(horizontal: false, vertical: true)
       VStack(alignment: .leading, spacing: 4) {
         Text(ShareWords.label).font(.subheadline.bold())
-        NameRowView(row: share.row)
+        NameRowView(row: share.row, size: 24)
       }
       Text(ShareWords.sides).fixedSize(horizontal: false, vertical: true)
-      Text(ShareWords.when).font(.footnote).fixedSize(horizontal: false, vertical: true)
+      Text(ShareWords.when).font(bodyFont(14, relativeTo: .footnote)).fixedSize(horizontal: false, vertical: true)
       if let say = share.say {
         Text(say).font(.subheadline.bold()).accessibilityAddTraits(.updatesFrequently)
       }
@@ -199,16 +190,18 @@ struct ShareCard: View {
     }
   }
 
+  /// NOT NOW quiet at the left (leaving), SHARE AND MAKE THE REEL go, last.
   @ViewBuilder private var buttons: some View {
+    QuietButton(ShareWords.notNow) {
+      model.closeShare()
+    }
+    Spacer(minLength: 0)
     Button(ShareWords.share) {
       since = Date()
       share.send()
     }
     .buttonStyle(WoodButton(accent: true)).disabled(share.problem != nil)
     .lineLimit(1)
-    Button(ShareWords.notNow) {
-      model.closeShare()
-    }.buttonStyle(WoodButton()).lineLimit(1)
   }
 }
 
@@ -220,17 +213,17 @@ struct SealedCard: View {
     VStack(alignment: .leading, spacing: 12) {
       switch pitch.phase {
       case .failed:
-        Text("PITCH \(pitch.code)").font(.caption.bold()).tracking(1.2)
+        Text("PITCH \(pitch.code)").labelStyle()
         Text("Could not show the match").font(displayFont(38))
         Text(
           "This pitch is a shared match, and it could not be loaded just now. Try again in a moment."
         ).fixedSize(horizontal: false, vertical: true)
         Button(ShareWords.tryAgain) { model.loadSealed(pitch) }.buttonStyle(WoodButton(accent: true))
       case .old:
-        Text("PITCH \(pitch.code)").font(.caption.bold()).tracking(1.2)
+        Text("PITCH \(pitch.code)").labelStyle()
         Text(VersionWords.oldMatch).font(displayFont(30)).fixedSize(horizontal: false, vertical: true)
       case .badNames:
-        Text("PITCH \(pitch.code)").font(.caption.bold()).tracking(1.2)
+        Text("PITCH \(pitch.code)").labelStyle()
         Text(NameWords.badMatchTitle).font(displayFont(38))
         Text(NameWords.badMatch).fixedSize(horizontal: false, vertical: true)
       default:
@@ -239,8 +232,7 @@ struct SealedCard: View {
         Text("Joining the pitch…")
       }
       Button("HOME", action: model.home).font(.headline).padding(.vertical, 5)
-    }.frame(maxWidth: 400, alignment: .leading).modifier(Plate()).padding(16)
-      .frame(maxWidth: .infinity, maxHeight: .infinity).modifier(FitOrScroll())
+    }.cardScreen(width: 400)
   }
 }
 

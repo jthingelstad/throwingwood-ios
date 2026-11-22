@@ -60,4 +60,4 @@ The app is MIT (`LICENSE`). Lua is MIT (`ThrowingWoodKit/Sources/CLua/LICENSE`)
 and musl is MIT (`ThrowingWoodKit/Sources/CMusl/COPYRIGHT`); each has a
 `NOTICE.md` saying what was taken and how it was changed.
 
-The display face is Londrina Solid Black, distributed under the [SIL Open Font License](ThrowingWood/Fonts/OFL-LondrinaSolid.txt).
+The display face is Londrina Solid Black, distributed under the [SIL Open Font License](ThrowingWood/Fonts/OFL-LondrinaSolid.txt). The text face is Inter (its variable Latin subset, as the website serves it, made a TrueType file), under the [SIL Open Font License](ThrowingWood/Fonts/OFL-Inter.txt).
