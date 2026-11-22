@@ -154,12 +154,17 @@ waiting for the last one's `ok` (docs/ROOMS-CLIENT.md). A remote action is verif
 the controller and queued for presentation. A peer's throw waits for its aim to play
 out first (`AimBuffer.holdFor`: at most 250 ms, none when the last aim is more than
 1.5 s older than the throw), so a watcher sees the swing let go and then the throw.
-The board applies it, checks the hash, and plays its recording using showAt. A gap or
-disagreement restores the head snapshot. After a win the host can put everyone back in
+The board applies it, checks the hash, and plays its recording using showAt; a `raise`
+of the kubb on the screen is watched tipping up at the sender's pace (docs/MATCH.md),
+faster for each action waiting behind it. The queue waits while the board plays a throw
+or watches a raise, and drains on the first frame the board is free, judged from the
+state rather than from the moment it ended, so a playback or raise ended anywhere else (a
+tap's skip, `OnlinePitch.skip` and `skipRaise`, or a resync) never leaves an action
+unapplied (Codex on PR #46). A gap or disagreement restores the head snapshot. After a win the host can put everyone back in
 the lobby with the same teams.
 
 The pace between actions is one tune, `Pacing` (KubbRenderer), the web's
-src/game/pacing.js: 0.8 s rest after a throw, 0.7 s per automatic raise. Every screen
+src/game/pacing.js: 0.8 s rest after a throw, 0.4 s before the first kubb of a turn's automatic raise and a beat of at most 0.5 s a kubb after it (4 s a whole raise at most). Every screen
 and every client waits the same, so a watcher keeps up with the thrower.
 
 ## The highlight reel
