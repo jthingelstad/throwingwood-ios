@@ -298,6 +298,23 @@ public final class PitchSession {
     dial = (try read("view") as DialView).dial
     revision += 1
   }
+  /// The seed the Tournament's neighbours open with (TournamentNeighbours): the match's
+  /// own (its snapshot's `opts.seed`, so two phones in one match can show the same
+  /// tournament), or for a practice one of this session's, kept while it lasts.
+  public var neighbourSeed: Int {
+    guard need != nil, let start = trail.start else { return practiceSeed }
+    if let c = seedCache, c.start == start { return c.seed }
+    struct Snap: Decodable {
+      struct Opts: Decodable { let seed: Int? }
+      let opts: Opts?
+    }
+    let seed = (try? decoder.decode(Snap.self, from: Data(start.utf8)))?.opts?.seed ?? 1
+    seedCache = (start, seed)
+    return seed
+  }
+  private var seedCache: (start: String, seed: Int)?
+  private let practiceSeed = Int.random(in: 1..<2_147_483_648)
+
   /// The Kid line's distance in front of the thrower's own line (m), in a Kid match.
   public var kidLineOut: Double? { scene.kidY.map { $0 - standAim.lineY } }
   /// The live rings' ages (s), for the review tools' ring picture.
@@ -416,8 +433,12 @@ public final class PitchSession {
   }
   func adopt(_ v: ViewOutput) throws {
     let wide = scene.wide
+    let frame = scene.frameSide
     scene = PitchScene(surface: v.surface, set: v.set, items: v.items, look: v.scene)
     scene.wide = wide
+    // the view's frame is its need's side (the session's frameSide); a finished match
+    // keeps the last throw's, and a practice is Team A's
+    scene.frameSide = v.need.kind == "over" ? frame : (v.need.side ?? (need == nil ? nil : frame))
     dial = v.dial
     aim(v.aim, camera: v.camera)
     if need != nil {

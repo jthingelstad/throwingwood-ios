@@ -425,6 +425,18 @@ black world on a grid of light, no film names), Minnesota, Tournament and Black 
   `SkinStore`; each pair of words and ground is 7:1 or better (`SceneSkinTests`).
   The day is the 1.0 system's tokens ("The 1.0 design" below, `DesignTests`); the
   pitch's own day picture (`PitchRenderer`, its five snapshots) does not move.
+- **The Tournament's neighbours are live** (engine 0.15.1; `TournamentNeighbours`,
+  Neighbours.swift): a second engine of their own (`Engine.neighbours()`: its own Lua
+  state, the host's clock `__kubbClock` as a C function of the Swift target, no `useTune`)
+  on a queue of its own, never the player's engine's and never waited on by the main
+  thread. Open (`neighbours.open`, the match's seed, `layout: "row"` on a wide board) only
+  for a match, practice or watched match in the Tournament scene, closed on leaving it or
+  in the background, never under Reduce Motion (the four fixed pitches then, and no second
+  engine). `advance` once a frame on the match clock with `budgetMs: 2`; a failure leaves
+  them standing. Recordings play through `Playback`; the field turns with Team B's view. No
+  names, sound or haptics, and the pitches in line with the player's play without their
+  people. The web is the reference for numbers and behaviour. docs/RENDER.md "The
+  Tournament's neighbours" has the rules and the cost; `NeighbourTests`.
 - **Ground impacts** are on (`setImpacts`): Techno rings at each `timeline.impacts`
   entry (and taps lightly), Beach puffs sand and Minnesota sprays snow.
 - **Black & White is one bit**: every pixel black or white (`Painter.mono`, no

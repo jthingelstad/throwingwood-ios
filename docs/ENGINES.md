@@ -69,6 +69,17 @@ no older engine is carried. The bridge says `pitch.`, which only 0.13 on answer,
 older engine carried again would need its old spelling, `room.` (kubb-engine
 docs/VERSIONING.md 0.13.0, "The pitch rename").
 
+## The neighbours' engine
+
+The Tournament scene's live neighbouring pitches (engine 0.15.1) run on a second Lua state
+of the newest engine, `Engine.neighbours()` (`Engine.Role.neighbours`): the same bundle,
+the host's clock `__kubbClock` set before the boot chunk, and none of the session's host
+calls (no `useTune`, no `setClient`), so no match can start on it. Only `neighbours.*`
+calls go to it, on a queue of its own (`TournamentNeighbours`, docs/RENDER.md "The
+Tournament's neighbours"). It is made the first time a Tournament match opens the field
+and never under Reduce Motion, and it follows the newest engine: it is scenery and belongs
+to no match.
+
 ## Looking back at a match
 
 A match made on an engine this build does not carry cannot be replayed here. Every place

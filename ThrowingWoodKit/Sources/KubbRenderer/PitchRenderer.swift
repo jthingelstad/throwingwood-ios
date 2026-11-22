@@ -91,10 +91,12 @@ public enum PitchRenderer {
   /// Draws in a top-left-origin context. The caller supplies the backing scale.
   /// `look`: the scene to draw (nil: the scene's own, `scene.look`); an unknown one
   /// is the day. `effects`: its stardust or sparks; `time` (s) moves the night's
-  /// twinkling stars, still under Reduce Motion (`reduced`).
+  /// twinkling stars, still under Reduce Motion (`reduced`). `neighbours`: the
+  /// Tournament's live field (TournamentNeighbours), never drawn under Reduce Motion or in
+  /// another scene; nil draws its fixed pitches.
   public static func draw(
     in context: CGContext, size: CGSize, camera: Camera, scene: PitchScene, look: String? = nil,
-    effects: SceneEffects? = nil, time: Double = 0, reduced: Bool = false
+    effects: SceneEffects? = nil, time: Double = 0, reduced: Bool = false, neighbours: LiveNeighbours? = nil
   ) {
     guard size.width > 0, size.height > 0 else { return }
     context.saveGState()
@@ -104,7 +106,9 @@ public enum PitchRenderer {
     let p = Painter(ctx: context, projection: scene.projection(size, camera))
     let shown = SceneID.shown(look ?? scene.look)
     if Daylit.looks.contains(shown) {
-      p.daylit(scene, look: shown, effects: effects?.look == shown ? effects : nil, time: reduced ? 0 : time, still: reduced)
+      p.daylit(
+        scene, look: shown, effects: effects?.look == shown ? effects : nil, time: reduced ? 0 : time, still: reduced,
+        live: shown == "tournament" && !reduced ? neighbours : nil)
       return
     }
     if shown == "bw" {

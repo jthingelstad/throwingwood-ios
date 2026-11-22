@@ -90,3 +90,37 @@ import Testing
     }
   }
 }
+
+/// The Tournament's neighbours (engine 0.15.1) run in a Lua state of their own, with the
+/// host's clock and none of the session's host calls.
+@Suite struct NeighboursEngineTests {
+  /// The neighbours' state has the clock (`budgetMs` works) and no tune: a match will not
+  /// start on it, and the player's engine is untouched by it.
+  @Test func theNeighboursHaveAStateAndAClockOfTheirOwn() throws {
+    let field = try Engine.neighbours()
+    #expect(field.role == .neighbours)
+    #expect(field.engineVersion == field.manifest.version)
+    let open = try field.call("neighbours.open", json: #"{"seed":5,"scene":"tournament"}"#)
+    #expect(open.contains(#""count":8"#))
+    // a clock budget is refused without __kubbClock, so this answer proves the clock is there
+    let advance = try field.call("neighbours.advance", json: #"{"now":0.5,"budgetMs":2}"#)
+    #expect(advance.contains(#""ms":"#))
+    // the clock is monotonic milliseconds
+    try field.run("__clockA = __kubbClock()", name: "=probe")
+    try field.run("for i = 1, 200000 do end __clockB = __kubbClock()", name: "=probe")
+    try field.run("assert(__clockB >= __clockA and __clockB - __clockA < 5000)", name: "=probe")
+    // no tune on this state: a match cannot start on it
+    #expect(throws: (any Error).self) {
+      _ = try field.call("new", json: #"{"mode":"match","seed":7,"cpu":"both"}"#)
+    }
+    // the player's engine has no clock and no neighbours
+    let player = try Engine(appVersion: testAppVersion)
+    #expect(player.role == .session)
+    try player.run("assert(__kubbClock == nil)", name: "=probe")
+    _ = try player.call("neighbours.open", json: "{}")
+    #expect(throws: (any Error).self) {
+      _ = try player.call("neighbours.advance", json: #"{"now":1,"budgetMs":2}"#)
+    }
+    _ = try field.call("neighbours.close", json: "{}")
+  }
+}
