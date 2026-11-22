@@ -612,7 +612,7 @@ struct MatchScreen: View {
         // the header's plate has a fixed height
         .labelStyle().foregroundStyle(Color.woodMuted).lineLimit(fills ? 1 : 3).minimumScaleFactor(0.7)
         Text(
-          (online && !playing && model.online?.turnLabel.isEmpty == false)
+          (online && !playing && !pitch.raiseShowing && model.online?.turnLabel.isEmpty == false)
             ? model.online!.turnLabel : (n.setup?.thrower?.name ?? n.team ?? "Match")
         )
         .font(displayFont(nameSize, relativeTo: .title2)).foregroundStyle(Color.woodInk)

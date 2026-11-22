@@ -160,7 +160,12 @@ faster for each action waiting behind it. The queue waits while the board plays 
 or watches a raise, and drains on the first frame the board is free, judged from the
 state rather than from the moment it ended, so a playback or raise ended anywhere else (a
 tap's skip, `OnlinePitch.skip` and `skipRaise`, or a resync) never leaves an action
-unapplied (Codex on PR #46). A gap or disagreement restores the head snapshot. After a win the host can put everyone back in
+unapplied (Codex on PR #46). A watched raise is busy as a throw's playback is, for
+everything that waits on one: no remote aim is drawn over it (the newest is sampled again
+on the first frame after, so the watcher is not behind), nothing may act on the need it
+shows and no hand-off banner comes up until it ends, the header keeps the raise's words,
+and the meter, nudge, coach, minimap and their readers stay away (Codex on PR #46 again).
+A gap or disagreement restores the head snapshot. After a win the host can put everyone back in
 the lobby with the same teams.
 
 The pace between actions is one tune, `Pacing` (KubbRenderer), the web's

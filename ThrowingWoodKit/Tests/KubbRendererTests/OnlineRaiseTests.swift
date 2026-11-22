@@ -127,4 +127,38 @@ import Testing
       #expect(online.displayedHash == actions[1].1["hash"]?.string, "\(ending)")
     }
   }
+
+  /// Codex on PR #46: a member stands the last kubb and at once aims. While this board
+  /// watches that raise (its engine already at the throw), the incoming aim is held: the
+  /// raise view keeps its camera, and the newest aim shows on the first frame after it.
+  @Test func aRemoteAimWaitsForAWatchedRaise() throws {
+    let (online, actions, _) = try setUp()
+    defer { online.close() }
+    online.stage = .match
+    // the aim at the throw after the raises, as the thrower would cast it
+    let second = try Engine(appVersion: "test")
+    _ = try second.call("restore", json: try fixture("raise-many"))
+    for _ in 0..<2 { _ = try second.call("apply", json: #"{"type":"raise"}"#) }
+    let aim = try JSONNode.parse(second.call("aimState"))
+    try deliver(online, Array(actions[0..<2]))
+    for _ in 0..<600 where online.displayedSeqForProbe < 2 { try online.tick(1.0 / 60) }
+    #expect(online.displayedSeqForProbe == 2 && online.board.raiseShowing)
+    online.aims.add(aim, from: "Thrower", ts: OnlinePitch.now() - 1000, k: 1, now: OnlinePitch.now())
+    let shown = online.shownAims
+    var frames = 0
+    while online.board.raiseShowing && frames < 120 {
+      try online.tick(1.0 / 60)
+      frames += 1
+      if online.board.raiseShowing {
+        // the raise view, its camera and no aim over it
+        #expect(online.shownAims == shown)
+        #expect(online.board.scene.stillZoom != nil)
+        #expect(online.board.scene.marker == nil)
+      }
+    }
+    #expect(!online.board.raiseShowing)
+    // the frame after: the held aim is shown, so the watcher is not behind
+    try online.tick(1.0 / 60)
+    #expect(online.shownAims == shown + 1)
+  }
 }

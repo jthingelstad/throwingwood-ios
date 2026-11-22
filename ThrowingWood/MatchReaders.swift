@@ -11,7 +11,7 @@ struct MeterReader: View {
   @Environment(\.screenGeometry) private var screen
 
   var body: some View {
-    let shown = !playing && need.kind == "throw" && pitch.handoff == nil && !pitch.wideOn && need.winner == nil
+    let shown = !playing && !pitch.raiseShowing && need.kind == "throw" && pitch.handoff == nil && !pitch.wideOn && need.winner == nil
     ZStack(alignment: .topLeading) {
       Color.clear
       if shown {
@@ -66,7 +66,7 @@ struct MapReader: View {
   var body: some View {
     ZStack(alignment: .topLeading) {
       Color.clear
-      if need.kind == "throw", pitch.handoff == nil, !pitch.wideOn, need.winner == nil,
+      if need.kind == "throw", pitch.handoff == nil, !pitch.wideOn, need.winner == nil, !pitch.raiseShowing,
         let f = BoardView.minimapFrame(model: model, size: screen.size, safe: screen.safe)
       {
         Color.clear.frame(width: f.width, height: f.height)
