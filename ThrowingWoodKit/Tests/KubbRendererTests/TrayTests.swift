@@ -68,37 +68,60 @@ import Testing
     }
   }
 
-  /// An open plate grows upward in the column (upright), its foot staying put, the
-  /// other two plates still closed under or over it; inside the safe area, under the
-  /// minimap's top line.
+  /// An open plate grows upward in its place (the column's foot staying put), TILT
+  /// and STAND also in toward the middle where the meter leaves room; the other two
+  /// stay closed over or under it; under the header and the minimap.
   @Test func uprightAnOpenPlateGrowsUpwardInTheColumn() {
     for p in Self.upright {
-      let m = meter(.clock, .right, p.size, p.safe)
-      let closed = Tray.uprightPlates(size: p.size, safe: p.safe, meter: m, side: .right)
-      for open in TrayPlate.allCases {
-        let f = Tray.uprightPlates(size: p.size, safe: p.safe, meter: m, side: .right, open: open)
-        #expect(f[open]!.height == Tray.openHeight(open, wide: false) && f[open]!.width == 86)
-        #expect(f[.stand]!.maxY == closed[.stand]!.maxY, "the foot stays")
-        for other in TrayPlate.allCases where other != open { #expect(f[other]!.size == Tray.phonePlate) }
-        #expect(f[.arc]!.minY >= p.safe.top + 75, "\(p.name) \(open): \(f[.arc]!)")
+      for kind in MeterKind.allCases {
+        for side in MeterSide.allCases {
+          let m = meter(kind, side, p.size, p.safe)
+          let tray = Tray.uprightFrames(size: p.size, safe: p.safe, meter: m, side: side)
+          let closed = tray.plates(open: nil)
+          for open in TrayPlate.allCases {
+            let f = tray.plates(open: open)
+            let what = "\(p.name) \(kind) \(side) \(open)"
+            #expect(f[open]!.height == Tray.openHeight(open, wide: false), "\(what)")
+            #expect(f.count == 3, "\(what): room for all three")
+            #expect(f[.stand]!.maxY == closed[.stand]!.maxY, "the foot stays")
+            for other in TrayPlate.allCases where other != open { #expect(f[other]!.size == Tray.phonePlate) }
+            #expect(f.values.allSatisfy { $0.minY >= tray.ceiling }, "\(what)")
+            // never over the meter: the clock's face and shadow, the linear meter and its tabs
+            switch m {
+            case .clock(let k):
+              let face = CGRect(
+                x: k.center.x - k.radius * 1.12, y: k.center.y - k.radius * 1.12, width: k.radius * 2.24,
+                height: k.radius * 2.24)
+              #expect(f.values.allSatisfy { !$0.intersects(face) }, "\(what)")
+            case .linear(let l):
+              #expect(f.values.allSatisfy { !$0.intersects(l.cover) && !$0.intersects(l.tab) }, "\(what)")
+            }
+            let map = WideLayout.uprightMinimap(size: p.size, safe: p.safe)
+            #expect(f.values.allSatisfy { !$0.intersects(map) }, "\(what)")
+          }
+        }
       }
     }
   }
 
-  /// On a wide screen the open plate stands beside the column, its foot level with the
-  /// column's; each plate opens to its own height in that room.
-  @Test func wideAnOpenPlateStandsBesideTheColumn() {
+  /// On a phone on its side an open plate grows up from its place with the other two
+  /// showing, as far as the room under the header row leaves (the web's rule: ARC to
+  /// 300 where there is the room, never under 100 with the others showing, else it
+  /// covers them); TILT and STAND also open in toward the middle.
+  @Test func wideAnOpenPlateGrowsInPlaceOrCoversTheColumn() {
     for p in WideLayoutTests.phones {
       for side in MeterSide.allCases {
         let m = meter(.clock, side, p.size, p.safe)
         let plan = WideLayout.plan(meter: m, size: p.size, safe: p.safe, side: side)
-        let stack = Tray.stack(x: plan.block.minX, foot: plan.block.maxY, wide: true)
+        let stack = plan.tray.plates(open: nil)
         #expect(stack.values.allSatisfy { $0.size == Tray.widePlate && plan.block.contains($0) })
-        for open in TrayPlate.allCases {
-          let f = Tray.openFrame(open, in: plan)
-          #expect(f.maxY == plan.block.maxY && plan.open.contains(f))
-          #expect(f.height == min(Tray.openHeight(open, wide: true), plan.open.height))
-          #expect(!f.intersects(plan.block))
+        let arc = plan.tray.plates(open: .arc)
+        #expect(arc.count == 3 && arc[.stand]!.maxY == plan.block.maxY && arc[.arc]!.minY == plan.tray.ceiling)
+        #expect(arc[.arc]!.height >= Tray.openMin, "\(p.name) \(side)")
+        for open in [TrayPlate.tilt, .stand] {
+          let f = plan.tray.plates(open: open)
+          #expect(f.count == 3 && f[open]!.width > Tray.widePlate.width, "\(p.name) \(side) \(open)")
+          #expect(side == .right ? f[open]!.minX == plan.block.minX : f[open]!.maxX == plan.block.maxX)
         }
       }
     }
@@ -161,13 +184,13 @@ import Testing
       #expect(map == CGRect(x: p.size.width - 12 - w, y: p.safe.top + 75, width: w, height: w * 1.65))
       // a taller header (a larger text size) pushes it down, never sideways
       let tall = WideLayout.uprightMinimap(size: p.size, safe: p.safe, headerBottom: p.safe.top + 140)
-      #expect(tall.minX == map.minX && tall.minY == p.safe.top + 150)
+      #expect(tall.minX == map.minX && tall.minY == p.safe.top + 148)
       // clear of the tray and the meter
       for kind in MeterKind.allCases {
         for side in MeterSide.allCases {
           let m = meter(kind, side, p.size, p.safe)
-          let open = Tray.uprightPlates(size: p.size, safe: p.safe, meter: m, side: side, open: .arc)
-          for f in open.values { #expect(!f.intersects(map), "\(p.name) \(kind) \(side)") }
+          let open = Tray.uprightFrames(size: p.size, safe: p.safe, meter: m, side: side).reach
+          #expect(!open.intersects(map), "\(p.name) \(kind) \(side)")
           if let l = m.linear { #expect(l.cover.minY >= map.maxY + 10 - 0.001) }
         }
       }
@@ -276,7 +299,9 @@ import Testing
     try app.startSolo(name: "You", selections: app.options.defaults, save: nil)
     let c = try #require(app.handoff)
     #expect(HandoffWords.title(c, own: true) == "Your turn")
-    #expect(HandoffWords.title(c, own: false) == "\(c.toName)'s turn")
+    #expect(HandoffWords.title(c, own: false) == "\(c.toName)’s turn")
+    #expect(HandoffWords.title(name: "Golden Kubblets", own: false) == "Golden Kubblets’ turn")
+    #expect(HandoffWords.title(name: " ", own: false) == "Their turn")
     let batons = CountWords.sentence(CountWords.count(c.batons, "baton", "batons")) + "."
     #expect(HandoffWords.line(c, at: app.railAt).hasPrefix(c.kubbs > 0 ? "Throw " : batons))
     // a match where the computer is throwing

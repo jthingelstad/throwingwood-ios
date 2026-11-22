@@ -640,21 +640,23 @@ struct MatchScreen: View {
       bounds: CGRect(origin: .zero, size: size),
       safe: UIEdgeInsets(top: safe.top, left: safe.left, bottom: safe.bottom, right: safe.right))
     let f = TrayView.frames(
-      size: size, safe: safe, meter: meter, side: model.meter.side, open: pitch.openPlate,
-      online: model.online != nil)
-    return TrayView(model: model, pitch: pitch, revision: revision, slots: f.slots, open: f.open, wide: screen.wide)
+      size: size, safe: safe, meter: meter, side: model.meter.side, online: model.online != nil,
+      headerBottom: model.headerBottom)
+    return TrayView(model: model, pitch: pitch, revision: revision, tray: f)
       .ignoresSafeArea()
   }
 
+  /// SKIP (the 1.0 design): a plain button of normal size, 48 pt tall.
   private func tool(
-    _ text: String, label: String, on: Bool = false, _ action: @escaping () throws -> Void
+    _ text: String, label: String, _ action: @escaping () throws -> Void
   ) -> some View {
     Button {
       model.perform(action)
     } label: {
-      Text(text).font(displayFont(16)).frame(minWidth: 43, minHeight: 31)
-        .modifier(Plate(accent: on, inset: 4))
-    }.accessibilityLabel(label)
+      Text(text).frame(minWidth: 72)
+    }
+    .buttonStyle(WoodButton())
+    .accessibilityLabel(label)
   }
 
   private func placement(_ n: MatchNeed) -> some View {
@@ -811,7 +813,7 @@ struct MatchScreen: View {
         .offset(x: TW.cardShadow, y: TW.cardShadow))
     .frame(maxWidth: 420)
     .padding(.horizontal, TW.cardSide)
-    .padding(.bottom, screen.wide ? 12 : 48 - min(screen.safe.bottom, 34) + 8)
+    .padding(.bottom, screen.wide ? 12 : max(8, 48 - screen.safe.bottom))
     .modifier(FitOrScroll())
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     .accessibilityElement(children: .contain)

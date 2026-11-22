@@ -29,9 +29,16 @@ public enum HandoffWords {
   }
 
   /// The hand-off card's title: "Your turn" for this device's own turn, else the
-  /// team's ("Mighty Maple's turn").
+  /// team's, the web's words (its handoff-words.js handoffTitle): "Lucky Larch’s
+  /// turn", "Golden Kubblets’ turn", "Their turn" with no name.
   public static func title(_ c: MatchNeed.Handoff, own: Bool) -> String {
-    own ? "Your turn" : "\(c.toName)'s turn"
+    title(name: c.toName, own: own)
+  }
+  public static func title(name: String, own: Bool) -> String {
+    if own { return "Your turn" }
+    let n = name.trimmingCharacters(in: .whitespaces)
+    if n.isEmpty { return "Their turn" }
+    return n + (n.lowercased().hasSuffix("s") ? "’" : "’s") + " turn"
   }
 
   /// The hand-off card's one line (the owner's decision, 2026-11-22): what the thrower
