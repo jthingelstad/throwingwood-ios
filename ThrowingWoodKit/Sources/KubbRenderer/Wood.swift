@@ -111,8 +111,8 @@ extension Painter {
   /// after the shadows and under the pieces (a scene's halos), `baton`: a scene's
   /// own baton.
   func pieces(
-    _ scene: PitchScene, paint pp: PiecePaint = .day, before: (([Projected]) -> Void)? = nil,
-    baton sceneBaton: ((Solid, Double) -> Void)? = nil
+    _ scene: PitchScene, paint pp: PiecePaint = .day, shadows drawShadows: Bool = true,
+    before: (([Projected]) -> Void)? = nil, baton sceneBaton: ((Solid, Double) -> Void)? = nil
   ) {
     let all = scene.items.contains { $0.kind == "stake" } ? scene.items : scene.items + stakes
     var shown: [Projected] = []
@@ -120,7 +120,7 @@ extension Painter {
     let shadows = CGMutablePath()
     for item in all {
       let s = Solid(item, projection.c)
-      if item.kind != "stake" {
+      if item.kind != "stake" && drawShadows {
         let shadow = s.corners.map { v in
           CGPoint(x: v.x + pp.shadowX * max(v.z, 0), y: v.y + pp.shadowY * max(v.z, 0))
         }
@@ -129,7 +129,7 @@ extension Painter {
       }
       if let p = Projected(s, projection) { shown.append(p) }
     }
-    if !pp.isDay { fill(shadows, pp.shadowFill, alpha: pp.shadowAlpha) }
+    if !pp.isDay && drawShadows { fill(shadows, pp.shadowFill, alpha: pp.shadowAlpha) }
     before?(shown)
     shown.sort { $0.solid.depth > $1.solid.depth }
     var before = Array(repeating: Set<Int>(), count: shown.count)

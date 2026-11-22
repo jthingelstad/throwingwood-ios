@@ -191,6 +191,71 @@ struct SceneTests {
     #expect(night.settled && neon.settled && calm.settled)
   }
 
+  /// Techno's rings: impacts are on, a throw's recording lists them, and a ring starts at
+  /// each as the playback reaches its time, grows as it ages and fades; under Reduce
+  /// Motion it holds its size. The pieces come to rest as anywhere (a look only).
+  @Test(arguments: [false, true])
+  func technoRingsAtEachImpact(reduced: Bool) throws {
+    let pitch = try PracticePitch(appVersion: "test")
+    try pitch.practice(scene: "neon")
+    #expect(pitch.scene.surface == .grid)
+    pitch.useLook("neon", reduced: reduced)
+    #expect(pitch.effects?.rings == true)
+    for p in try armPoints(pitch.dial) {
+      pitch.sample(p)
+      try pitch.tick(dt)
+    }
+    pitch.sample(nil)
+    try pitch.tick(dt)
+    let impacts = try #require(pitch.playback?.recording.timeline.impacts)
+    #expect(!impacts.isEmpty)
+    // a light tap with each ring of any strength, in Techno only
+    func taps(_ p: Playback) -> Int { p.feedback.filter { if case .impact = $0.cue.haptic { true } else { false } }.count }
+    let rec = try #require(pitch.playback?.recording)
+    #expect(taps(try #require(pitch.playback)) > 0)
+    #expect(taps(Playback(rec)) == 0)
+    var seen = Set<Double>()
+    var radii: [Double: [Double]] = [:]
+    var frames = 0
+    var kept = false
+    while pitch.playing && frames < 2000 {
+      try pitch.tick(dt)
+      frames += 1
+      for l in pitch.effects?.impacts?.live ?? [] {
+        seen.insert(l.impact.t)
+        radii[l.impact.t, default: []].append(pitch.effects!.impacts!.ring(l).r)
+      }
+      if !reduced, !kept, let l = pitch.effects?.impacts?.live.first, l.age > 0.25 {
+        kept = true
+        let ctx = bitmap(390, 844)
+        PitchRenderer.draw(
+          in: ctx, size: CGSize(width: 390, height: 844), camera: pitch.camera, scene: pitch.scene, look: "neon",
+          effects: pitch.effects, time: pitch.lookTime)
+        keep(ctx, "throw-neon-rings")
+      }
+    }
+    // every impact the throw showed rang
+    #expect(seen.count == impacts.filter { $0.t <= pitch.playback?.recording.duration ?? .infinity }.count || seen.count == impacts.count)
+    for (_, r) in radii where r.count > 2 {
+      if reduced { #expect(r.min() == r.max()) } else { #expect(r.last! > r.first!) }
+    }
+  }
+
+  /// A ring's size follows how hard the piece came down; it fades over its life.
+  @Test func aRingIsSizedByItsStrike() {
+    let fx = Impacts(style: .ring, reduced: false, colors: (1, 2, 3, 4))
+    func ring(_ speed: Double, age: Double) -> (r: Double, alpha: Double) {
+      fx.ring(.init(impact: .init(t: 0, x: 0, y: 0, id: "b1", with: "kubb", thrown: false, speed: speed, strength: 0.2), age: age))
+    }
+    #expect(ring(3.8, age: 0.74).r > ring(1.0, age: 0.74).r)
+    #expect(ring(1, age: 0).r == Impacts.Tune.ringFrom)
+    #expect(ring(9, age: 0.75).r == Impacts.Tune.ringMax)
+    #expect(ring(1, age: 0.6).alpha < ring(1, age: 0.1).alpha)
+    #expect(fx.color(of: .init(t: 0, x: 0, y: 0, id: "a3", with: "kubb", thrown: false, speed: 1, strength: 0)) == 1)
+    #expect(fx.color(of: .init(t: 0, x: 0, y: 0, id: "baton1", with: "baton", thrown: true, speed: 1, strength: 0)) == 4)
+    #expect(fx.color(of: .init(t: 0, x: 0, y: 0, id: "king", with: "king", thrown: false, speed: 1, strength: 0)) == 3)
+  }
+
   /// PITCH_SCENE_TIMING=1: each scene's draw of a practice throw at 3x, every
   /// frame into a phone-sized bitmap, timed (not in CI: it only prints).
   @Test func sceneDrawTiming() throws {

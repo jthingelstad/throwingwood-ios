@@ -164,6 +164,10 @@ struct SceneGround {
   var gridEvery = 1.0
   /// Night snow's bloom is painted, not added (it would wash out the snow).
   var additiveGlow = true
+  /// Techno's grid floor: its own near-black under the horizon, a sheen where it meets
+  /// the haze, the grid's strength, and how strongly it mirrors what stands on it.
+  var floor: Int? = nil, sheen = 0
+  var gridAlpha = 1.0, reflect = 0.0
 }
 
 enum Night {
@@ -197,7 +201,16 @@ enum Neon {
   ]
   static func ground(_ s: Surface) -> SceneGround {
     switch s {
-    case .grass, .grid:
+    case .grid:
+      // the Techno scene's own floor (engine 0.14's `grid`): flat, glossy and electronic,
+      // nothing organic: a faint grid a metre apart on a near-black floor that mirrors
+      // what stands on it, the pitch a pane a shade lighter, the lines cyan light (the
+      // web's palette.js NEON grid)
+      SceneGround(
+        pitch: 0x0a3c50, stripe: 0, rough: 0, speck: 0, sky: 0, line: 0xd8feff, glow: 0x2be4ff,
+        pitchAlpha: 0.34, grid: 0x1fd7ee, gridEvery: 1, floor: 0x02060c, sheen: 0x0d3a4c, gridAlpha: 0.55,
+        reflect: 0.26)
+    case .grass:
       SceneGround(
         pitch: 0x04242e, stripe: 0, rough: 0, speck: 0, sky: 0, line: 0xc8fdff, glow: 0x2be4ff,
         pitchAlpha: 0.4, grid: 0x11a3b4, gridEvery: 1)

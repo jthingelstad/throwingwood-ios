@@ -183,6 +183,7 @@ extension Painter {
       ctx.restoreGState()
     }
     marks(scene, track: night ? (0xc8e1ff, 0.2) : (0x5ff0ff, 0.22))
+    if g.reflect > 0 { reflections(scene, paint: .of(look), alpha: g.reflect) }
     pieces(
       scene, paint: .of(look),
       before: { halos($0, neon: !night) },
@@ -386,9 +387,37 @@ extension Painter {
 
   // ---------- the neon ----------
 
+  /// What stands on a glossy floor, mirrored in it: each piece turned over the ground
+  /// (z to -z), drawn faint with no shadow, under the pieces.
+  private func reflections(_ scene: PitchScene, paint: PiecePaint, alpha: Double) {
+    var mirror = scene
+    mirror.items = scene.items.map { p in
+      var q = p
+      q.z = -p.z
+      // the rotation mirrored in the ground plane: (w, x, y, z) to (w, -x, -y, z)
+      q.qx = -p.qx
+      q.qy = -p.qy
+      return q
+    }
+    if !mirror.items.contains(where: { $0.kind == "stake" }) {
+      mirror.items += [0.0, 4, 8].flatMap { y in
+        [-2.5, 2.5].map { x in
+          Piece(id: "stake", kind: "stake", team: nil, x: x, y: y, z: -0.075, qw: 1, qx: 0, qy: 0, qz: 0)
+        }
+      }
+    }
+    ctx.saveGState()
+    ctx.setAlpha(alpha)
+    ctx.beginTransparencyLayer(auxiliaryInfo: nil)
+    pieces(mirror, paint: paint, shadows: false, baton: { s, _ in self.neonBaton(s) })
+    ctx.endTransparencyLayer()
+    ctx.restoreGState()
+  }
+
   private func neonFloor(_ g: SceneGround) {
     let c = projection.c
     let size = projection.size
+    if let floor = g.floor { glossy(floor, g.sheen) }
     // the horizon's glow: a soft band of the surface's light where floor meets black
     let hl = hypot(c.fx, c.fy)
     if hl >= 0.05 {
@@ -416,9 +445,31 @@ extension Painter {
     let grid = gridCache.of(g.gridEvery)
     ctx.saveGState()
     ctx.setLineCap(.butt)
-    strokeGrid(grid.minor, g.grid, alpha: 0.55, width: 0.8, minor: true)
-    strokeGrid(grid.major, g.grid, alpha: 1, width: 1.1, minor: false)
+    strokeGrid(grid.minor, g.grid, alpha: 0.55 * g.gridAlpha, width: 0.8, minor: true)
+    strokeGrid(grid.major, g.grid, alpha: g.gridAlpha, width: 1.1, minor: false)
     ctx.restoreGState()
+  }
+
+  /// The grid floor's own near-black under the horizon, and a sheen where it meets the
+  /// haze (a glossy floor catches the far light), 22% of the screen's height deep.
+  private func glossy(_ floor: Int, _ sheen: Int) {
+    let c = projection.c
+    let size = projection.size
+    let hl = hypot(c.fx, c.fy)
+    var y = -2.0
+    if hl >= 0.05 {
+      let hx = c.fx / hl, hy = c.fy / hl
+      let df = hx * c.fx + hy * c.fy
+      if df > 0.01 { y = projection.principal.y - projection.k * c.f * (hx * c.ux + hy * c.uy) / df }
+    }
+    guard y <= size.height else { return }
+    let top = max(-2, y)
+    ctx.setFillColor(color(floor))
+    ctx.fill(CGRect(x: -2, y: top, width: size.width + 4, height: size.height - top + 2))
+    let deep = size.height * 0.22
+    guard y + deep > 0 else { return }
+    let box = CGRect(x: -2, y: top, width: size.width + 4, height: min(size.height + 2, y + deep) - top)
+    if box.height > 0 { rowGradient(box, from: y, to: y + deep, [(0, sheen, 1), (1, floor, 1)]) }
   }
 
   private func strokeGrid(_ segs: [Segment], _ rgb: Int, alpha: Double, width: Double, minor: Bool) {
@@ -600,7 +651,7 @@ extension Painter {
   }
 
   /// A dark body, its outline in white light and a faint core of light along it.
-  private func neonBaton(_ s: Solid) {
+  func neonBaton(_ s: Solid) {
     guard let b = batonShape(s) else { return }
     let tall = projection.c.f * 0.3 / b.depth * projection.k
     let ow = min(2.6, max(0.9, tall / 26))
