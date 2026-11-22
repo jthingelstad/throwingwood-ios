@@ -1,6 +1,7 @@
 import Foundation
 import KubbRenderer
 import Observation
+import UIKit
 
 @MainActor @Observable final class GameModel {
   enum Screen {
@@ -43,7 +44,45 @@ import Observation
     Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
 
   var screen = Screen.home {
-    didSet { feedback.onPitch = screen.usesFeedback }
+    didSet {
+      feedback.onPitch = screen.usesFeedback
+      syncNeighbours()
+    }
+  }
+  /// The Tournament's live neighbouring pitches (TournamentNeighbours): their own engine,
+  /// open while a match, practice or watched match in the Tournament scene is on the
+  /// screen or paused under its menu, closed when it is left or the app goes to the
+  /// background, never started under Reduce Motion.
+  @ObservationIgnored let neighbours = TournamentNeighbours()
+  /// The app is in the background (the neighbours close; they open again, from the start
+  /// of the same seed's tournament, on return).
+  @ObservationIgnored var inBackground = false {
+    didSet { syncNeighbours() }
+  }
+  /// The board is a wide window (a phone on its side): the neighbours stand in a row.
+  @ObservationIgnored var boardWide = false {
+    didSet { if boardWide != oldValue { syncNeighbours() } }
+  }
+  /// The screens a match, practice or watched match stays open under (its menu, its sheet,
+  /// how to throw, settings from inside it, a throw report).
+  private var inMatch: Bool {
+    switch screen {
+    case .practice, .match, .menu, .practiceMenu, .howTo, .sheet, .report: true
+    case .settings: settingsReturn != .home && settingsReturn != .settings
+    default: false
+    }
+  }
+  /// Opens, reopens or closes the neighbours to what the screen shows now: cheap enough to
+  /// ask every frame (a new match's seed, the scene, the layout).
+  func syncNeighbours() {
+    guard let pitch, !inBackground else {
+      neighbours.want(nil)
+      return
+    }
+    neighbours.want(
+      TournamentNeighbours.want(
+        look: pitch.scene.look, inMatch: inMatch && sealed == nil,
+        reduced: UIAccessibility.isReduceMotionEnabled, seed: pitch.neighbourSeed, row: boardWide))
   }
   var error: String?
   /// One sentence for the player, shown over the screen until closed: a kept match made

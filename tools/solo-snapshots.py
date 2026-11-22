@@ -26,9 +26,12 @@ MODES = {
     # line); Techno's ring part way grown (--scene neon); a kubb drilled at SPIN's most
     "kidhandoff": None, "kidaim": None, "kidplan": None, "kidstand": None,
     "ring": "aim", "spin": None,
+    # engine 0.15.1: the Tournament's live neighbours (--scene tournament), run on until a
+    # neighbour's throw is half way and in view, in the thrower's view and the wide view
+    "neighbours": "aim", "neighbourswide": "aim", "neighboursflight": "aim",
 }
 # Shots taken only when asked for (--only): they need a scene or show one thing.
-ON_REQUEST = {"kidhandoff", "kidaim", "kidplan", "kidstand", "ring", "spin"}
+ON_REQUEST = {"kidhandoff", "kidaim", "kidplan", "kidstand", "ring", "spin", "neighbours", "neighbourswide", "neighboursflight"}
 # The engine's catalogue (core/scenes): each scene's ground and set, so a fixture shown
 # in a scene is the match a scene would have started (engine 0.14: the scene decides).
 SCENES = {

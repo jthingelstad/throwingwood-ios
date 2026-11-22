@@ -47,15 +47,18 @@ enum Daylit {
 }
 
 /// A neighbouring pitch at a tournament: where it is (its own frame's origin in this
-/// pitch's frame) and its pieces in its own frame, as data. Today's are fixed positions
-/// (`Tournament.neighbours`); a later engine release makes them live, and only the data
-/// changes (`Painter.neighbours`).
+/// pitch's frame) and its pieces in its own frame, as data. Fixed (`Tournament.neighbours`)
+/// under Reduce Motion and until the live field answers; live from engine 0.15.1
+/// (`TournamentNeighbours`, Neighbours.swift), when only the data changes
+/// (`Painter.neighbours`).
 struct NeighbourPitch {
   let dx, dy: Double
   /// The pieces in the neighbour's own frame (x across, y along, as this pitch's).
   let pieces: [Piece]
   /// Its scoreboard: base kubbs standing a side.
   let score: (a: Int, b: Int)
+  /// Its people, in its own frame (none on the fixed pitches).
+  var people: [NeighbourFigure] = []
 }
 
 enum Tournament {
@@ -226,7 +229,9 @@ extension Painter {
 
   // ---------- the daylight scenes ----------
 
-  func daylit(_ scene: PitchScene, look: String, effects: SceneEffects?, time: Double, still: Bool) {
+  func daylit(
+    _ scene: PitchScene, look: String, effects: SceneEffects?, time: Double, still: Bool, live: LiveNeighbours? = nil
+  ) {
     let g = Daylit.ground(look, scene.surface)
     ground(
       scene, colors: g,
@@ -255,8 +260,8 @@ extension Painter {
     case "beach": beachScenery()
     case "minnesota": winterScenery()
     default:
-      neighbours(Tournament.neighbours)
-      tournamentScenery(scene)
+      neighbours(live?.pitches ?? Tournament.neighbours, live: live != nil)
+      tournamentScenery(scene, live: live?.pitches)
     }
     marks(scene)
     kidCones(scene)
@@ -474,10 +479,23 @@ extension Painter {
 
   // ---------- the tournament ----------
 
-  /// The neighbouring pitches, each from its data: its lines, its stakes and its pieces in
-  /// the day's light and the USA set's colouring, then its scoreboard behind its far end.
-  func neighbours(_ list: [NeighbourPitch]) {
-    for n in list {
+  /// The neighbouring pitches, each from its data, the farthest first: its lines, its
+  /// stakes and its pieces in the day's light and the USA set's colouring at a far pitch's
+  /// detail (no shadows), its people, then its scoreboard behind its far end. A pitch
+  /// wholly off the screen is left out.
+  func neighbours(_ list: [NeighbourPitch], live: Bool = false) {
+    let eye = projection.c.eye, f = projection.c.forward
+    func depth(_ n: NeighbourPitch) -> Double { dot(V3(n.dx, n.dy + 4, 0) - eye, f) }
+    let screen = CGRect(origin: .zero, size: projection.size).insetBy(dx: -24, dy: -24)
+    for n in list.sorted(by: { depth($0) > depth($1) }) {
+
+      // its footprint and the height of its people and board: nothing of it on the screen,
+      // nothing drawn
+      let box = path(projection.polygon([
+        V3(n.dx - 3.5, n.dy - 2, 0), V3(n.dx + 3.5, n.dy - 2, 0), V3(n.dx + 3.5, n.dy + 10, 0),
+        V3(n.dx - 3.5, n.dy + 10, 0), V3(n.dx - 3.5, n.dy + 10, 2), V3(n.dx + 3.5, n.dy - 2, 2),
+      ]))
+      guard !box.isEmpty, box.boundingBoxOfPath.intersects(screen) else { continue }
       let o = V3(n.dx, n.dy, 0)
       // its ground: a mown pitch and white lines
       fill(quad(n.dx - 2.5, n.dy, n.dx + 2.5, n.dy + 8), 0x579a35)
@@ -492,9 +510,53 @@ extension Painter {
         return q
       })
       s.look = "tournament"
-      pieces(s)
+      // its people behind the pieces, then the pieces, then its people in front of them
+      let middle = depth(n)
+      // the pitches in line with the player's (straight ahead and behind) play on without
+      // their people: a person a few metres past the far kubbs stands taller on the screen
+      // than anything the player aims at, and one behind stands over the near end
+      let inLine = live && abs(n.dx) < 1
+      let people = (inLine ? [] : n.people).map { (at: o + V3($0.x, $0.y, 0), figure: $0) }
+        .sorted { dot($0.at - eye, f) > dot($1.at - eye, f) }
+      for p in people where dot(p.at - eye, f) >= middle { person(p.at, p.figure) }
+      pieces(s, shadows: n.people.isEmpty && !live)
+      for p in people where dot(p.at - eye, f) < middle { person(p.at, p.figure) }
       let board = o + V3(3.4, 9.6, 0)
       scoreboard(board, n.score)
+    }
+  }
+
+  /// A person at a neighbouring pitch (the web's scenery.js person): legs, a shirt, a head
+  /// and an arm, 1.75 m tall, raised `arm` (0 to 1) and off the ground by `hop`.
+  private func person(_ at: V3, _ f: NeighbourFigure) {
+    billboard(at) { u in
+      let s = 1.75
+      guard s * u >= 4 else { return }
+      let w = max(0.8, min(1.6, s * u / 22))
+      let y0 = f.hop
+      let leg = s * 0.06
+      for x in [-leg * 1.6, leg * 0.6] {
+        cutout([CGPoint(x: x, y: y0), CGPoint(x: x + leg, y: y0), CGPoint(x: x + leg, y: y0 + s * 0.46), CGPoint(x: x, y: y0 + s * 0.46)],
+          TournamentPeople.trousers, u, w: w)
+      }
+      if f.arm > 0 {
+        let shoulder = CGPoint(x: s * 0.12, y: y0 + s * 0.74)
+        let hand = CGPoint(x: s * 0.28, y: y0 + s * (0.74 + f.arm * 0.22))
+        stroke(path([shoulder, hand], closed: false), ink, max(w, s * 0.05 * u) / u)
+      }
+      let bw = s * 0.15
+      let body = CGMutablePath()
+      body.move(to: CGPoint(x: -bw, y: y0 + s * 0.44))
+      body.addLine(to: CGPoint(x: -bw * 1.05, y: y0 + s * 0.78))
+      body.addQuadCurve(to: CGPoint(x: bw * 1.05, y: y0 + s * 0.78), control: CGPoint(x: 0, y: y0 + s * 0.85))
+      body.addLine(to: CGPoint(x: bw, y: y0 + s * 0.44))
+      body.closeSubpath()
+      fill(body, TournamentPeople.shirts[f.shirt % TournamentPeople.shirts.count])
+      stroke(body, ink, w / u)
+      let r = s * 0.085
+      let head = CGPath(ellipseIn: CGRect(x: -r, y: y0 + s * 0.9 - r, width: 2 * r, height: 2 * r), transform: nil)
+      fill(head, TournamentPeople.skin)
+      stroke(head, ink, w / u)
     }
   }
 
@@ -510,7 +572,9 @@ extension Painter {
     fill(light, 0x56993a)
   }
 
-  private func tournamentScenery(_ scene: PitchScene) {
+  /// `live`: the live field's pitches stand ahead as well as beside (the grid), so the
+  /// tents stand back beyond its far row.
+  private func tournamentScenery(_ scene: PitchScene, live: [NeighbourPitch]? = nil) {
     var items: [(at: V3, draw: () -> Void)] = []
     // bunting on poles between the pitches, and across the far end
     for x in [-5.0, 5.0, -11.0, 11.0] {
@@ -526,9 +590,10 @@ extension Painter {
     let board = V3(-3.6, 12.6, 0)
     let score = (standing("A"), standing("B"))
     items.append((board, { self.scoreboard(board, score) }))
-    let tent = V3(5.5, 15.5, 0)
+    let ahead = live?.contains { $0.dy > 0 } == true
+    let tent = ahead ? V3(4.2, 23.5, 0) : V3(5.5, 15.5, 0)
     items.append((tent, { self.tent(tent) }))
-    let tent2 = V3(-9, 16.5, 0)
+    let tent2 = ahead ? V3(-12, 24.5, 0) : V3(-9, 16.5, 0)
     items.append((tent2, { self.tent(tent2, stripe: 0x2a5fb0) }))
     scenery(items)
   }

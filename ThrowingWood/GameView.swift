@@ -140,6 +140,7 @@ struct GameView: View {
     }
     .onChange(of: phase, initial: true) { _, phase in
       model.feedback.setActive(phase == .active)
+      model.inBackground = phase == .background
       if phase == .background {
         model.online?.background()
         model.reel?.hide()  // no asking in the background
@@ -150,6 +151,9 @@ struct GameView: View {
         if model.screen == .reel { model.reel?.show() }  // asks once and goes on
       }
     }
+    .onReceive(
+      NotificationCenter.default.publisher(for: UIAccessibility.reduceMotionStatusDidChangeNotification).receive(on: RunLoop.main)
+    ) { _ in model.syncNeighbours() }
     .onReceive(NotificationCenter.default.publisher(for: NetworkPath.online).receive(on: RunLoop.main)) { _ in
       model.online?.pitch.retryNow()
     }

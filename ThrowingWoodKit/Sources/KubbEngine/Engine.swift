@@ -162,22 +162,65 @@ public final class Engine {
     } catch {
       throw EngineError.missingSources("engine.json: \(error)")
     }
-    var sources = extra
+    let sources = extra.merging(try Self.sources(in: directory, manifest: manifest)) { _, file in file }
+    try self.init(sources: sources, manifest: manifest, appVersion: appVersion)
+  }
+
+  // MARK: - The neighbours' engine
+
+  /// What a Lua state is for: the player's session (the tune, the client, every match),
+  /// or the Tournament's neighbouring pitches (kubb-engine docs/SESSION.md "Neighbours"),
+  /// which need neither and must never share a state with the session.
+  public enum Role: Sendable { case session, neighbours }
+
+  /// What this state is for.
+  public let role: Role
+
+  /// The neighbours' own engine: the newest bundle in a Lua state of its own, with the
+  /// host's clock `__kubbClock` (monotonic milliseconds, for `neighbours.advance`'s
+  /// `budgetMs`) set before the boot chunk, and no `useTune` or `setClient` (kubb-engine
+  /// docs/CLIENTS.md "0.15.1 on top"). Only `neighbours.*` calls belong on it.
+  public static func neighbours() throws -> Engine {
+    let directory = try bundled()
+    let manifest: EngineManifest
+    do {
+      manifest = try Self.manifest(in: directory)
+    } catch {
+      throw EngineError.missingSources("engine.json: \(error)")
+    }
+    return try Engine(sources: sources(in: directory, manifest: manifest), manifest: manifest, appVersion: "", role: .neighbours)
+  }
+
+  private static func sources(in directory: URL, manifest: EngineManifest) throws -> [String: String] {
+    var sources: [String: String] = [:]
     for name in manifest.files.keys {
       guard let text = try? String(contentsOf: directory.appending(path: name), encoding: .utf8) else {
         throw EngineError.missingSources(name)
       }
       sources[String(name.dropLast(4))] = text
     }
-    try self.init(sources: sources, manifest: manifest, appVersion: appVersion)
+    return sources
+  }
+
+  /// The host's clock for the neighbours' budget: monotonic milliseconds since boot
+  /// (`CLOCK_UPTIME_RAW`, which stops while the device sleeps, as the match clock does).
+  /// A C function of the Swift target's, so the engine's C targets and their flags are
+  /// untouched; it reads no maths library.
+  static let hostClock: lua_CFunction = { state in
+    lua_pushnumber(state, Double(clock_gettime_nsec_np(CLOCK_UPTIME_RAW)) / 1_000_000)
+    return 1
   }
 
   /// `sources` maps module names as the engine's bundle does ("core/world",
   /// "session/api", "version") to their Lua.
-  init(sources: [String: String], manifest: EngineManifest, appVersion: String) throws {
+  init(sources: [String: String], manifest: EngineManifest, appVersion: String, role: Role = .session) throws {
     guard let state = luaL_newstate() else { throw EngineError.load("no memory for a Lua state") }
     do {
       luaL_openlibs(state)
+      if role == .neighbours {
+        lua_pushcclosure(state, Self.hostClock, 0)
+        lua_setglobal(state, "__kubbClock")
+      }
       lua_createtable(state, 0, Int32(sources.count))
       for (name, text) in sources {
         Self.push(state, text)
@@ -189,7 +232,7 @@ public final class Engine {
       let loaded = lua_type(state, -1) == LUA_TFUNCTION
       lua_settop(state, -2)
       if !loaded { throw EngineError.load("session/api did not define kubbCall") }
-      let version = try Self.start(state: state, appVersion: appVersion)
+      let version = try Self.start(state: state, appVersion: appVersion, role: role)
       if version != manifest.version {
         throw EngineError.load("the engine says it is \(version), engine.json \(manifest.version)")
       }
@@ -200,11 +243,13 @@ public final class Engine {
     }
     self.state = state
     self.manifest = manifest
+    self.role = role
   }
 
   /// The host's calls before the first `new` or `restore` (kubb-engine
   /// docs/SESSION.md "Starting"): the version, the tune, the client label and location.
-  private static func start(state: OpaquePointer, appVersion: String) throws -> String {
+  /// The neighbours' state asks the version alone.
+  private static func start(state: OpaquePointer, appVersion: String, role: Role) throws -> String {
     struct Version: Decodable { let version: String }
     func call(_ method: String, _ args: [String: String]) throws -> Data {
       let json = String(decoding: try JSONEncoder().encode(args), as: UTF8.self)
@@ -213,6 +258,7 @@ public final class Engine {
       return Data(text.utf8)
     }
     let version = try JSONDecoder().decode(Version.self, from: call("engineVersion", [:])).version
+    if role == .neighbours { return version }
     _ = try call("useTune", ["name": tune])
     _ = try call("setClient", ["label": clientLabel(appVersion: appVersion), "location": location])
     return version

@@ -38,6 +38,17 @@ import UIKit
     private let reviewMode = ProcessInfo.processInfo.environment["PITCH_REVIEW"]
     private let matchReview = ProcessInfo.processInfo.environment["MATCH_REVIEW"]
     private var timing = FrameTiming()
+    private var neighbourTiming = NeighbourTiming()
+    /// The neighbours' timing run draws the frame again off the screen, with and without
+    /// the live field.
+    func drawForTiming(_ ctx: CGContext, look: String, reduced: Bool, live: Bool) {
+      PitchRenderer.draw(
+        in: ctx, size: bounds.size, camera: pitch.shownCamera, scene: pitch.scene, look: look,
+        effects: pitch.effects, time: pitch.lookTime, reduced: reduced,
+        neighbours: live ? model.neighbours.drawn(turned: pitch.scene.neighboursTurned) : nil)
+    }
+    var timingNeighbours: TournamentNeighbours { model.neighbours }
+    var timingRate: Int { window?.windowScene?.screen.maximumFramesPerSecond ?? 60 }
   #endif
 
   static let practiceWords =
@@ -72,11 +83,26 @@ import UIKit
   private func startIfActive() {
     guard active, window != nil, display == nil else { return }
     let link = CADisplayLink(target: self, selector: #selector(frame(_:)))
-    let maxRate = Float(window?.windowScene?.screen.maximumFramesPerSecond ?? 60)
-    link.preferredFrameRateRange = CAFrameRateRange(
-      minimum: min(60, maxRate), maximum: maxRate, preferred: maxRate)
+    link.preferredFrameRateRange = fullRate
+    calmed = false
     link.add(to: .main, forMode: .common)
     display = link
+  }
+  private var fullRate: CAFrameRateRange {
+    let maxRate = Float(window?.windowScene?.screen.maximumFramesPerSecond ?? 60)
+    return CAFrameRateRange(minimum: min(60, maxRate), maximum: maxRate, preferred: maxRate)
+  }
+  /// The frame rate while only the neighbours move (nothing of the player's): 30 a
+  /// second, which their throws read well at, for a phone's battery.
+  static let calmRate = CAFrameRateRange(minimum: 20, maximum: 30, preferred: 30)
+  private var calmed = false
+  private func calm(_ on: Bool) {
+    #if targetEnvironment(simulator)
+      if matchReview == "neighbourstiming" { return }  // measured at the full rate
+    #endif
+    guard on != calmed, let display else { return }
+    calmed = on
+    display.preferredFrameRateRange = on ? Self.calmRate : fullRate
   }
   func wake() {
     nudgeWake?.invalidate()
@@ -180,6 +206,23 @@ import UIKit
               for _ in 0..<90 { try pitch.tick(1.0 / 60) }
             }
             if mode == "computer" { for _ in 0..<32 { try pitch.tick(1.0 / 60) } }
+            if mode.hasPrefix("neighbours") {
+              // the Tournament's field run on until a neighbour's throw is half way and in
+              // view: the thrower's view, or the watcher's wide view (neighbourswide)
+              // neighboursflight: the player's own baton in the air (the flight camera)
+              if mode == "neighboursflight" { try prepareReview("flight") }
+              if mode == "neighbourswide" {
+                pitch.watching = true
+                try pitch.watchWide(size: bounds.size, safe: insets)
+                pitch.dismissHandoff()
+              }
+              model.syncNeighbours()
+              for _ in 0..<(60 * 240) {
+                model.neighbours.tick(1.0 / 60)
+                model.neighbours.drain()
+                if model.neighbours.throwInView(size: bounds.size, session: pitch) { break }
+              }
+            }
             // the nudge frozen a second in, the draw back, beside the plan's sliders
             if mode == "nudge" { reviewNudge = 1.0 }
             if mode == "raisedrag", let g = pitch.raiseGeometry(in: bounds.size) {
@@ -214,8 +257,11 @@ import UIKit
             }
           }
         }
-        link.isPaused = true
-        return
+        // the neighbours' cost (neighbourstiming): the match stays live, the frames run on
+        if mode != "neighbourstiming" {
+          link.isPaused = true
+          return
+        }
       }
       if let mode = reviewMode, !bounds.isEmpty {
         if !ReviewOrientation.settled(bounds.size) { return }
@@ -234,6 +280,13 @@ import UIKit
     #endif
     do {
       let ticked = try model.online?.tick(dt) ?? pitch.tick(dt)
+      // the Tournament's neighbours: the match clock moves on with this frame, and their own
+      // queue is asked for the next beats (never waited on here)
+      model.syncNeighbours()
+      model.neighbours.tick(dt)
+      // drawn again only for what changes on the screen
+      let neighboursMoved = !bounds.isEmpty && model.neighbours.needsDraw(size: bounds.size, session: pitch)
+      let neighboursLive = model.neighbours.running
       let fed = pendingDial != nil
       if let q = pendingDial {
         pendingDial = nil
@@ -258,14 +311,18 @@ import UIKit
         }
       }
       stepNudge()
-      if ticked || nudgeShow.show || nudgeEnd != nil {
+      let busy = ticked || nudgeShow.show || nudgeEnd != nil
+      // only the neighbours moving: a calmer frame rate (Neighbours.swift)
+      calm(!busy && gesture == nil && !fed && !pitch.playing && pitch.result == nil && !pitch.wantsFrames && neighboursLive)
+      if neighboursMoved && !busy { setNeedsDisplay() }
+      if busy {
         if pitch.playing { gesture = nil }
         model.refresh()
         setNeedsDisplay()
         #if targetEnvironment(simulator)
           if reviewMode == "timing", pitch.playing, pitch.result == nil { timing.tick(start) }
         #endif
-      } else if gesture == nil && !fed && !pitch.playing && pitch.result == nil && !pitch.wantsFrames {
+      } else if gesture == nil && !fed && !pitch.playing && pitch.result == nil && !pitch.wantsFrames && !neighboursLive {
         link.isPaused = true
         previous = nil
         // sleep until the nudge would start
@@ -354,6 +411,7 @@ import UIKit
     guard bounds.size != laidOut else { return }
     let first = laidOut == .zero
     laidOut = bounds.size
+    model.boardWide = WideLayout.isWide(bounds.size)
     if !first {
       cancel()
       pitch.cancelHeld()
@@ -443,8 +501,10 @@ import UIKit
           ? pitch.scene.scenery.dressed(look, surface: model.selections["surface"].flatMap(Surface.init(rawValue:)))
           : pitch.scene.scenery)
         : pitch.scene, look: look,
-      effects: backdrop ? nil : pitch.effects, time: pitch.lookTime, reduced: reduced)
+      effects: backdrop ? nil : pitch.effects, time: pitch.lookTime, reduced: reduced,
+      neighbours: backdrop ? nil : model.neighbours.drawn(turned: pitch.scene.neighboursTurned))
     #if targetEnvironment(simulator)
+      if matchReview == "neighbourstiming" { neighbourTiming.frame(board: self, look: look, reduced: reduced) }
       if reviewMode != nil || matchReview != nil { writeReviewLayout() }
       if let mode = reviewMode, matchReview == nil, reviewReady, !signalled, model.error == nil,
         ReviewOrientation.settled(bounds.size)
@@ -479,6 +539,7 @@ import UIKit
           case "punishwhy": pitch.need?.kind == "punish" && pitch.placement?.ok == false
           case "computer": reviewReady && pitch.need?.cpu == true
           case "winner": pitch.need?.winner != nil && model.screen == .match
+          case "neighbours", "neighbourswide", "neighboursflight": reviewReady && model.neighbours.live
           case "sheet": model.sheet?.done == true && model.screen == .sheet
           default: false
           }
