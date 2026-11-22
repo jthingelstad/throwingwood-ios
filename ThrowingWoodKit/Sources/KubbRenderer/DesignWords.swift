@@ -33,14 +33,18 @@ public enum HeaderWords {
   /// (the computer's or another player's throw) the line drops "Watch". `n` is the
   /// throw's place in the turn (the engine's `setup.n`, one-based), `of` the turn's
   /// throws.
+  /// A computer player's throw ends it with " · computer · pro" (`thrower`: the need's
+  /// `setup.thrower`, engine 0.17; SeatWords.headerTail).
   public static func line(
-    turn: Int, n: Int?, of: Int?, projectile: String?, watching: Bool, at: String? = nil
+    turn: Int, n: Int?, of: Int?, projectile: String?, watching: Bool, at: String? = nil,
+    thrower: MatchNeed.Setup.Player? = nil
   ) -> String {
     var line = watching ? "Watch · turn \(turn)" : "Turn \(turn)"
     if let n, let of {
       line += " · \(projectile == "baton" ? "baton" : "kubb") \(n) of \(of)"
     }
     if let at = aimsAt(at) { line += " · " + at }
+    if let tail = SeatWords.headerTail(cpu: thrower?.cpu, level: thrower?.level) { line += tail }
     return line
   }
 

@@ -316,6 +316,19 @@ repository's backend/pitch-server (`npm run dev`, port 8797), then
 LocalPitchServerTests` (off without the variable, and it refuses any other host).
 
 
+## Computer players
+
+A team on a pitch may hold computer players beside its people, six a team together, each
+at its own level (engine 0.17, kubb-engine docs/PITCH.md "Computer seats"; the owner,
+2026-11-22: "in online play we should be able to add computer players to the match, with a
+specified level."). The host's ADD COMPUTER per team, a seat's level bar, ↑ ↓, TO A / TO B
+and REMOVE call the engine's `addComputer`, `setComputerLevel`, `moveComputer` and
+`removeComputer` through `PitchController`, which decide every rule; the app decides
+nothing. The words and numbers are the web's (its docs/SYSTEM.md "Computer seats"),
+`SeatWords`. `engineFor` is asked without the seats (`withoutSeats`, an engine gap). A
+match's computer players are the host's device's, as a computer side is. docs/ONLINE.md
+"Computer players".
+
 ## Observers and the free camera
 
 Anyone may watch an open game (Jamie: "I want to allow an observer to view open

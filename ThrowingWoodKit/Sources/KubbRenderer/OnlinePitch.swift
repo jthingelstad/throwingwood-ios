@@ -46,6 +46,32 @@ public struct PitchMember: Identifiable, Equatable {
   public let side: String?
 }
 
+/// A computer seat in the lobby (engine 0.17, docs/PITCH.md "Computer seats"): its id
+/// (`cpu:<n>`), its name as shown (`PitchController.seatName`), its own level and the level
+/// shown (Kid on a Kid pitch), its place in its team's throwing order, and the document's
+/// places of the rows either side of it, for a move up or down (the web's lobby.js rows).
+public struct LobbySeat: Identifiable, Equatable, Sendable {
+  public let id, name, level, shownLevel, side: String
+  public let place, of: Int
+  public let up, down: Int?
+  public var first: Bool { up == nil }
+  public var last: Bool { down == nil }
+  public var spoken: String { SeatWords.spoken(name, shownLevel, place: place, of: of, side: side) }
+}
+
+/// One row of a team in the lobby, in throwing order: a member or a computer seat.
+public enum LobbyEntry: Identifiable, Equatable {
+  case member(PitchMember), seat(LobbySeat)
+  public var id: String {
+    switch self {
+    case .member(let m): m.id
+    case .seat(let s): s.id
+    }
+  }
+  public var seat: LobbySeat? { if case .seat(let s) = self { s } else { nil } }
+  public var member: PitchMember? { if case .member(let m) = self { m } else { nil } }
+}
+
 @Observable @MainActor public final class OnlinePitch {
   public enum Stage: Equatable {
     case connecting, lobby, match, reconnecting, notFound, full, unreachable, replaced
@@ -67,6 +93,19 @@ public struct PitchMember: Identifiable, Equatable {
   public let appVersion: String
   public internal(set) var stage = Stage.connecting
   public private(set) var members: [PitchMember] = []
+  /// Each team in throwing order, its members on the pitch and its computer seats
+  /// (`lobbyOf`'s teams; the web's lobby.js `shown`).
+  public private(set) var roster: [String: [LobbyEntry]] = ["A": [], "B": []]
+  /// The Computer setting is Kid: every computer plays as Kid (its seat keeps its own
+  /// level for when Kid is switched off).
+  public private(set) var kidPitch = false
+  /// The Computer row's form beside the seats (SeatWords.computerRow), nil for no row.
+  public private(set) var computerRow: SeatWords.ComputerRow?
+  /// The last change the host made to a seat, said once to VoiceOver (SeatWords.says),
+  /// with a count so the same words twice are said twice.
+  public private(set) var seatNews: (count: Int, text: String)?
+  public var anySeat: Bool { roster.values.contains { $0.contains { $0.seat != nil } } }
+  public func players(_ side: String) -> [LobbyEntry] { roster[side] ?? [] }
   public private(set) var isHost = false
   public private(set) var canStart = false
   /// Why the pitch cannot start, in a player's words, when the room has no engine every
@@ -379,6 +418,28 @@ public struct PitchMember: Identifiable, Equatable {
     // every option, the engine's own (computer, scene) too, on the engine the next
     // match would run on (PitchController.roomOptions)
     options = try controller.roomOptions(pitch.document)
+    // the teams in throwing order, members on the pitch and computer seats (docs/PITCH.md
+    // "Computer seats"); a Kid pitch shows every seat as Kid
+    kidPitch = options["computer"] == "kid"
+    let comps = PitchController.computers(of: l)
+    let byId = Dictionary(members.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+    var next: [String: [LobbyEntry]] = [:]
+    for side in ["A", "B"] {
+      let doc = teams?[side]?.items.compactMap(\.string) ?? []
+      let ids = doc.filter { controller.isSeat($0) ? comps[$0] != nil : byId[$0] != nil }
+      next[side] = ids.enumerated().map { i, id in
+        guard let c = comps[id], controller.isSeat(id) else { return .member(byId[id]!) }
+        return .seat(
+          LobbySeat(
+            id: id, name: controller.seatName(id), level: c.level, shownLevel: kidPitch ? "kid" : c.level,
+            side: side, place: i + 1, of: ids.count,
+            up: i > 0 ? doc.firstIndex(of: ids[i - 1]) : nil,
+            down: i < ids.count - 1 ? doc.firstIndex(of: ids[i + 1]) : nil))
+      }
+    }
+    roster = next
+    computerRow = SeatWords.computerRow(
+      emptySide: roster.values.contains { $0.isEmpty }, anySeat: anySeat)
     let card = controller.optionRows(scene: options["scene"] ?? "day")?["rows"] ?? (try? controller.optionRows())
     optionRows = SoloOptions.ordered(
       ((try? JSONDecoder().decode([MatchOption].self, from: Data((card?.raw.text ?? "[]").utf8))) ?? []).filter {
@@ -473,6 +534,54 @@ public struct PitchMember: Identifiable, Equatable {
   }
   @ObservationIgnored private var teamRows: [String: NameRowModel] = [:]
   public func team(_ side: String?) async throws { try await controller.joinTeam(side) }
+
+  // MARK: - Computer seats, the host's (the web's pitch.js addSeat, seatLevel, moveSeat, removeSeat)
+
+  /// A computer player last in `side`'s throwing order, at Club.
+  public func addComputer(_ side: String, level: String = "club") async throws {
+    guard isHost, !observing else { return }
+    guard let id = try await controller.addComputer(side: side, level: level) else {
+      if players(side).count >= teamMax { note = "Team \(side) is full." }
+      return
+    }
+    try refreshPitch()
+    say(controller.seatName(id), .add(side: side, level: level))
+  }
+  public func seatLevel(_ id: String, _ level: String) async throws {
+    guard isHost, !observing else { return }
+    if try await controller.setComputerLevel(id, level) {
+      try refreshPitch()
+      say(controller.seatName(id), .level(level))
+    }
+  }
+  /// Up or down the team's order (to the document's place of the row beside it), or
+  /// last in the other team's.
+  public func moveSeat(_ seat: LobbySeat, _ change: SeatWords.Change) async throws {
+    guard isHost, !observing else { return }
+    let to: (side: String, index: Int?)
+    switch change {
+    case .up: to = (seat.side, seat.up)
+    case .down: to = (seat.side, seat.down)
+    case .across(let side): to = (side, nil)
+    default: return
+    }
+    if to.index == nil, change == .up || change == .down { return }
+    if try await controller.moveComputer(seat.id, side: to.side, index: to.index) {
+      try refreshPitch()
+      say(seat.name, change)
+    }
+  }
+  public func removeSeat(_ seat: LobbySeat) async throws {
+    guard isHost, !observing else { return }
+    if try await controller.removeComputer(seat.id) {
+      try refreshPitch()
+      say(seat.name, .remove)
+    }
+  }
+  private func say(_ name: String, _ change: SeatWords.Change) {
+    seatNews = ((seatNews?.count ?? 0) + 1, SeatWords.says(name, change))
+    changed?()
+  }
   public func option(_ key: String, _ value: String) async throws {
     // the host's options are kept for the next pitch they host, as the web keeps them
     if isHost { Self.keep(key, value, in: defaults) }
@@ -491,7 +600,10 @@ public struct PitchMember: Identifiable, Equatable {
     // the host's START is answered `ok`, not `start`: its document event came before the
     // controller held the match, so the pitch is taken up here
     if started, !ended { try refreshPitch() }
-    if !started, let mismatch = controller.mismatch {
+    if !started, let refusal = controller.startRefusal {
+      // the lineup itself (engine 0.17): the engine's own sentence
+      note = refusal
+    } else if !started, let mismatch = controller.mismatch {
       let m = try JSONNode.parse(mismatch)
       let ids = (m["differ"]?.items ?? []) + (m["unknown"]?.items ?? [])
       let who = ids.map { id in members.first { $0.id == id.string }?.name ?? "Someone" }

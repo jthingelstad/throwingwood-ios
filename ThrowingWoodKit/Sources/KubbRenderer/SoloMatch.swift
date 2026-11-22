@@ -137,7 +137,13 @@ public struct SoloOptions {
 
 public struct MatchNeed: Decodable {
   public struct Setup: Decodable {
-    public struct Player: Decodable { public let name: String }
+    /// The thrower: since engine 0.17 a computer player in a team has `cpu` and its
+    /// `level` ("Bold Birch · computer · Pro"); `key` is its member id (a seat's id).
+    public struct Player: Decodable {
+      public let name: String
+      public let cpu: Bool?
+      public let level, key: String?
+    }
     public let n, of: Int
     public let projectile, label: String
     public let thrower: Player?
@@ -176,6 +182,8 @@ public struct MatchNeed: Decodable {
     public let fromName: String?, took: Taken?
     /// The sides the card goes to and from, and the base kubbs standing: { from's, to's }.
     public let to, from: String?, base: [Int]?
+    /// The turn opens with a computer player (engine 0.17): its name and level.
+    public let thrower: String?, throwerCpu: Bool?, throwerLevel: String?
   }
   public struct Card: Decodable { public let handoff: Handoff? }
   public struct Winner: Decodable {
