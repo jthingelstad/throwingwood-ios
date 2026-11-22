@@ -1,4 +1,5 @@
 import Foundation
+import KubbEngine
 import KubbPitch
 
 // The solo match's replay trail on disk (docs/MATCH.md "The replay trail"): the match's
@@ -115,6 +116,42 @@ extension MatchSave {
   private func sibling(_ suffix: String) -> URL {
     file.deletingLastPathComponent().appending(
       path: file.deletingPathExtension().lastPathComponent + "-" + suffix)
+  }
+
+  /// The engine release the kept trail or finished-match file names for the save
+  /// `snapshot`, read without any engine: only a file that holds the save's own hash
+  /// (the engine's hash is FNV-1a of the snapshot text, and the save is that text) names
+  /// it, the trail first. Nil when neither does (a save from a build before the trail, or
+  /// a trail or finished file of another match).
+  public func engineNamed(for snapshot: String) -> String? {
+    let h = Self.fnv(snapshot)
+    if let trail = readTrail()?.trail,
+      trail.startHash == h || trail.entries.contains(where: { $0.hash == h })
+    {
+      return trail.engine
+    }
+    if let finished = finishedMatch(),
+      Self.fnv(finished.start) == h || finished.entries.contains(where: { $0.hash == h })
+    {
+      return finished.engine
+    }
+    return nil
+  }
+
+  /// A save made on an engine this build no longer carries goes, with its trail and a
+  /// finished-match file of the same engine (they could never be replayed either).
+  public func dropOld(engine: String) {
+    try? clear()
+    if let f = finishedMatch(), Engine.majorMinor(f.engine) == Engine.majorMinor(engine) {
+      try? FileManager.default.removeItem(at: finishedFile)
+    }
+  }
+
+  /// The engine's match hash (session.fnv): FNV-1a 32 of the snapshot's bytes, 8 hex digits.
+  static func fnv(_ text: String) -> String {
+    var h: UInt32 = 0x811c_9dc5
+    for b in text.utf8 { h = (h ^ UInt32(b)) &* 0x0100_0193 }
+    return String(format: "%08x", h)
   }
 
   /// The last finished solo match, if one is kept and readable.

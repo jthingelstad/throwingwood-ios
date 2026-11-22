@@ -104,13 +104,6 @@ import Testing
     #expect(got.allSatisfy { $0 == got[0] })
   }
 
-  /// A carried engine before 0.13 still plans a person's throw at the level, so the
-  /// kept level is still passed to it.
-  @Test func aCarriedEngineStillThrowsAtTheKeptLevel() throws {
-    let got = try bars(minor: "0.9", levels: ["beginner", "pro"])
-    #expect(got[0] != got[1])
-  }
-
   /// No screen asks for or shows the player's level: the solo set-up card and the
   /// online lobby show the player's line (the name and the way to Settings), and
   /// nothing binds the kept level.

@@ -11,7 +11,9 @@ import SwiftUI
 /// A shared match opened by its code: the join was refused `sealed`, so it is shown
 /// from the room's kept replay on a session of its own (never the solo match's).
 @Observable @MainActor final class SealedPitch {
-  enum Phase { case loading, shown, failed }
+  /// `old`: the match was made on an engine this build no longer carries, so it is not
+  /// shown (VersionWords.oldMatch), and trying again cannot mend it.
+  enum Phase { case loading, shown, failed, old }
   let code: String
   var phase = Phase.loading
   var board: PitchSession?
@@ -127,6 +129,9 @@ extension GameModel {
       pitch.phase = .shown
       screen = .match
       refresh()
+    } catch is OldMatch {
+      pitch.phase = .old
+      screen = .sealed
     } catch {
       pitch.phase = .failed
     }
@@ -225,6 +230,9 @@ struct SealedCard: View {
           "This pitch is a shared match, and it could not be loaded just now. Try again in a moment."
         ).fixedSize(horizontal: false, vertical: true)
         Button(ShareWords.tryAgain) { model.loadSealed(pitch) }.buttonStyle(WoodButton(accent: true))
+      case .old:
+        Text("PITCH \(pitch.code)").font(.caption.bold()).tracking(1.2)
+        Text(VersionWords.oldMatch).font(displayFont(30)).fixedSize(horizontal: false, vertical: true)
       default:
         // as the join that led here said it
         Text("Connecting").font(displayFont(38))
@@ -243,13 +251,16 @@ struct SealedCard: View {
     /// (tools/share-snapshots.py). Only invented names.
     func beginShareReview(_ mode: String) {
       let code = "mapkubb2"
-      if mode == "sealed" || mode == "sealedfailed" || mode == "sealedloading" {
+      if ["sealed", "sealedfailed", "sealedloading", "sealedold"].contains(mode) {
         let sealed = SealedPitch(code: code)
         self.sealed = sealed
-        if mode == "sealed" {
+        if mode == "sealed" || mode == "sealedold" {
           let snap = try? String(
             contentsOf: URL.temporaryDirectory.appending(path: "review-solo.json"), encoding: .utf8)
-          showSealed(sealed, kept: KeptReplay(v: 1, n: 1, hash: nil, snap: snap))
+          // sealedold: the same match, kept as made on an engine this build does not carry
+          showSealed(
+            sealed,
+            kept: KeptReplay(v: 1, n: 1, hash: nil, snap: snap, engine: mode == "sealedold" ? "0.9.0" : nil))
         } else {
           sealed.phase = mode == "sealedfailed" ? .failed : .loading
           screen = .sealed

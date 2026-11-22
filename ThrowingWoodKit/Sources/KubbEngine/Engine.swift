@@ -85,8 +85,10 @@ public final class Engine {
 
   /// The engines this build carries by major.minor, newest first (kubb-engine
   /// docs/VERSIONING.md "Carrying several engines"): the newest in the bundle's
-  /// `Engine/`, each older minor in `Engines/<major.minor>/`, laid out the same way
-  /// (as the web's vendor/engine/ and vendor/engines/, its docs/ENGINES.md).
+  /// `Engine/`, and each older minor we decide to keep supporting in
+  /// `Engines/<major.minor>/`, laid out the same way. Which ones is decided once, by
+  /// `OLDER` in scripts/vendor-engine.sh (docs/ENGINES.md); today the newest alone, and
+  /// the bundle has no `Engines/`.
   public static let carried: [String] = {
     var out: [String] = []
     if let dir = try? bundled(), let m = try? manifest(in: dir), let mm = majorMinor(m.version) {
@@ -107,7 +109,7 @@ public final class Engine {
   public static var newest: String { carried.first ?? "" }
 
   /// Every older engine's folder, by major.minor: `Engines/<mm>/` whose engine.json
-  /// names that minor.
+  /// names that minor. Empty when the bundle has none.
   private static let older: [String: URL] = {
     guard let root = Bundle.module.url(forResource: "Engines", withExtension: nil),
       let names = try? FileManager.default.contentsOfDirectory(atPath: root.path)

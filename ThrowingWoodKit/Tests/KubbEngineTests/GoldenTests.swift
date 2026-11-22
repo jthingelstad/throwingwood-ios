@@ -5,7 +5,8 @@ import Testing
 
 /// kubb-engine's golden corpus (`Fixtures/golden/hashes.json`, vendored with
 /// its driver `Fixtures/golden/drive.lua` from the same release by
-/// scripts/vendor-engine.sh; an older engine's in `Fixtures/engines/<mm>/golden/`):
+/// scripts/vendor-engine.sh; an older engine's, were one carried, in
+/// `Fixtures/engines/<mm>/golden/`):
 /// the hash after every action of its seeded matches (twelve computer against
 /// computer, since 0.8.0 a thirteenth of a person's short batons against the
 /// computer, and since 0.12.0 a person raised automatically against the pro
@@ -52,13 +53,10 @@ func goldenFolder(_ minor: String) -> String {
   minor == Engine.newest ? "Fixtures/golden" : "Fixtures/engines/\(minor)/golden"
 }
 
-/// The corpus each carried engine is pinned to, and its size: a new engine, or a
-/// dropped one, changes this on purpose.
+/// The corpus each carried engine is pinned to, and its size: a new engine, or one we
+/// decide to support again (docs/ENGINES.md), changes this on purpose.
 let pinnedCorpora: [String: (corpus: String, matches: Int)] = [
-  "0.13": ("0.13.0", 15),
-  "0.9": ("0.9.0", 13),
-  "0.8": ("0.8.0", 13),
-  "0.7": ("0.5.0", 12),
+  "0.13": ("0.13.0", 15)
 ]
 
 /// One golden match on one carried engine.
@@ -132,11 +130,11 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
     #expect(engine.luaVersion == "Lua 5.4.5")
   }
 
-  /// Every engine the build carries, each with the corpus it is pinned to: 0.13
-  /// (the newest), and 0.9, 0.8 and 0.7, kept so a match started on one plays on
-  /// as it was.
+  /// Every engine the build carries, each with the corpus it is pinned to: the newest
+  /// alone, since we support only the newest (docs/ENGINES.md). An engine it once
+  /// carried (0.9, 0.8, 0.7) is not carried.
   @Test func everyCarriedEngineHasItsOwnCorpus() throws {
-    #expect(Engine.carried == ["0.13", "0.9", "0.8", "0.7"])
+    #expect(Engine.carried == ["0.13"])
     #expect(Set(pinnedCorpora.keys) == Set(Engine.carried))
     for mm in Engine.carried {
       let engine = try Engine(minor: mm, appVersion: testAppVersion)
@@ -146,7 +144,9 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
       #expect(corpus.matches.count == pinnedCorpora[mm]?.matches)
       #expect(corpus.tune == Engine.tune)
     }
-    #expect(throws: EngineError.self) { try Engine(minor: "0.6", appVersion: testAppVersion) }
+    for gone in ["0.9", "0.8", "0.7", "0.6"] {
+      #expect(throws: EngineError.notCarried(gone)) { try Engine(minor: gone, appVersion: testAppVersion) }
+    }
   }
 
   /// The arguments where Apple's libm and musl's round the last bit

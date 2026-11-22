@@ -1,4 +1,5 @@
 import Foundation
+import KubbEngine
 import KubbPitch
 
 // Sharing a finished match against the computer from its winner card (the web's
@@ -33,7 +34,8 @@ extension PitchSession {
   /// match resumed from one, has none.
   public func shareableMatch(save: MatchSave) -> ShareableMatch? {
     guard onlineAction == nil, need?.kind == "over", let finished = save.finishedMatch(),
-      finished.complete, let key = finished.finalHash, (try? engine.hash()) == key
+      finished.complete, Engine.majorMinor(finished.engine) == engine.minor,
+      let key = finished.finalHash, (try? engine.hash()) == key
     else { return nil }
     let source = finished.shareSource(now: try? engine.call("snapshot"))
     guard source.shareable else { return nil }

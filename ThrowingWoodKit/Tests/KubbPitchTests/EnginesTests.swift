@@ -34,8 +34,9 @@ import Testing
     return try? JSONNode.parse(text).string
   }
 
-  /// The computer's level is a room option on 0.9 (in the document's `settings`, read
-  /// with `optionsOf`); a room whose next match is on 0.8 offers and reads 0.8's five.
+  /// The computer's level is a room option (in the document's `settings`, read with
+  /// `optionsOf`). A seated tester on an engine this build no longer carries leaves the
+  /// room with no engine: the options stay the newest's and nothing is dropped.
   @Test func theComputersLevelIsARoomOptionOnlyWhereTheMatchWouldTakeIt() async throws {
     let (p, fake) = try await setup()
     defer { p.close() }
@@ -52,14 +53,15 @@ import Testing
     _ = try await p.reduce("setOptions", fields: [("options", .object([("scene", .string("night"))]))])
     #expect(try JSONNode.parse(p.pitch.document)["settings"]?["scene"]?.string == "night")
 
-    // a tester on 0.8 takes a seat: the next match is on 0.8, which has no such option
+    // a tester on 0.8 takes a seat: no engine is carried by both, so no match is offered
+    // on 0.8; the lobby keeps the newest's options and the host's setting
     let guest = try await seat(p, fake, "Guest_08", me: [("name", .string("Tester")), ("engine", .string("0.8.1"))], side: "B")
     defer { guest.close() }
-    #expect(try p.roomEngine()["engine"]?.string == "0.8")
-    #expect(try !ids().contains("computer"))
-    #expect(!p.lobbyTakesScene())
-    #expect(try p.roomOptions(p.pitch.document)["computer"] == nil)
-    #expect(try JSONNode.parse(p.pitch.document)["settings"]?["computer"]?.string == "pro")
+    #expect(try p.roomEngine()["engine"]?.isNull == true)
+    #expect(p.lobbyEngine() === p.engines.newest)
+    #expect(try ids().contains("computer"))
+    #expect(p.lobbyTakesScene())
+    #expect(try p.roomOptions(p.pitch.document)["computer"] == "pro")
   }
 
   /// A new pitch the player hosts opens with what they last picked as a host (the web's
@@ -81,18 +83,9 @@ import Testing
     #expect(o["first"] == nil)
     #expect(try await p.prepareLobby(options: ["scene": "neon"]) == false)
 
-    // a pitch on 0.8 takes no scene and no Computer: its lobby is made without them
-    let fake = FakePitch(code: "bcdefghjkm")
-    let old = try await player(fake, "Native_Member", engines: EngineShelf(engine: Engine(minor: "0.8", appVersion: "0.0-test")))
-    defer { old.close() }
-    #expect(!old.lobbyTakesScene())
-    #expect(try await old.prepareLobby(options: ["scene": "neon", "computer": "pro", "wind": "strong"]))
-    let doc = try JSONNode.parse(old.pitch.document)
-    #expect(doc.kind == .object && doc["settings"]?["scene"] == nil && doc["settings"]?["computer"] == nil)
-    #expect(try old.roomOptions(old.pitch.document)["wind"] == "strong")
   }
 
-  @Test func aStartOnNineGivesTheComputerTheRoomsLevel() async throws {
+  @Test func aStartGivesTheComputerTheRoomsLevel() async throws {
     let (p, pitch) = try await setup()
     defer { withExtendedLifetime(pitch) { p.close() } }  // the fake pitch lives as long as the test
     try await p.joinTeam("A")
@@ -108,6 +101,7 @@ import Testing
     let me = try #require(fake.links[0].sent.first { $0["t"]?.string == "join" }?["me"])
     #expect(me["engine"]?.string == Engine.newest + "+engines")
     #expect(me["engines"]?.items.compactMap(\.string) == Engine.carried)
+    #expect(Engine.carried == [Engine.newest])  // the newest alone (docs/ENGINES.md)
     #expect(Engine.majorMinor(me["engine"]?.string) == Engine.newest)
   }
 
@@ -158,27 +152,49 @@ import Testing
     #expect(try JSONNode.parse(try #require(p.mismatch))["why"]?.string == "differs")
   }
 
-  /// The pitch's engine follows the players: a seated player carrying only an older
-  /// engine this build also carries brings the announcement down to it, START runs on
-  /// that engine and stamps the match with it, and the older Lua state is made only then.
-  @Test(.enabled(if: Engine.carried.count > 1)) func anOlderPlayerBringsThePitchDownToTheirEngine()
-    async throws
-  {
-    let older = Engine.carried[1]
+  /// A player on an engine this build no longer carries (an older iPhone build that
+  /// announces several, or a web tab on 0.9 alone): the room has no engine, START is
+  /// refused with nothing written, this member's engine and announcement stay the newest,
+  /// and the player is the one named to update.
+  @Test(arguments: ["older app", "older tab", "unnamed"])
+  func aPlayerOnAnOlderEngineIsNamedAndNothingStarts(_ who: String) async throws {
+    let engine: [(String, JS)] =
+      switch who {
+      case "older app":
+        [("engine", .string("0.9+engines")), ("engines", .array([.string("0.9"), .string("0.8"), .string("0.7")]))]
+      case "older tab": [("engine", .string("0.9.0"))]
+      default: []  // a client from before engines were named
+      }
     let (p, fake) = try await setup()
     defer { p.close() }
-    #expect(p.engines.loaded == [Engine.newest])
     try await p.joinTeam("A")
-    let guest = try await seat(p, fake, "Guest_07", me: [("name", .string("Old")), ("engine", .string(older))], side: "B")
-    #expect(try p.roomEngine()["engine"]?.string == older)
-    try await eventually { announced(fake) == older + "+engines" }
-    #expect(try await p.start(seed: 1001, at: startAt))
+    let guest = try await seat(p, fake, "Guest_09", me: [("name", .string("Old"))] + engine, side: "B")
+    defer { guest.close() }
+    let chosen = try p.roomEngine()
+    #expect(chosen["engine"]?.isNull == true)
+    let named = ((chosen["missing"]?.items ?? []) + (chosen["unknown"]?.items ?? [])).compactMap(\.string)
+    #expect(Set(named) == ["Guest_09"])
+    let before = fake.v
+    #expect(try await p.start(seed: 3, at: startAt) == false)
+    #expect(p.state == .versionMismatch && p.match == nil && fake.match == nil && fake.v == before)
+    #expect(p.engine.minor == Engine.newest && p.engines.loaded == [Engine.newest])
+    #expect(announced(fake) == Engine.newest + "+engines")
+  }
+
+  /// A match a peer started on an engine this build no longer carries (0.9) is refused,
+  /// never played: the version card's state, no seat, and the newest engine kept.
+  @Test func aMatchOnAnOlderEngineIsNeverPlayedHere() async throws {
+    let (p, fake) = try await setup()
+    defer { p.close() }
+    try await p.joinTeam("A")
+    #expect(try await p.start(seed: 5, at: startAt))
     let meta = try JSONNode.parse(fake.match!.meta)
-    #expect(meta["engine"]?.string == older && meta["version"]?.string?.hasPrefix(older + ".") == true)
-    #expect(p.engine.minor == older)
-    #expect(Set(p.engines.loaded) == Set([Engine.newest, older]))
-    // the player leaves for good: back to the newest
-    await guest.leave()
-    try await eventually { announced(fake) == Engine.newest + "+engines" }
+    fake.startAs(
+      "Member_X1", meta: PitchController.with(meta, [("engine", .string("0.9")), ("version", .string("0.9.0"))]).json,
+      h: fake.match!.h, snap: fake.match!.snap)
+    try await eventually { p.state == .versionMismatch }
+    #expect(!p.mayAct && p.engine.minor == Engine.newest)
+    let m = try JSONNode.parse(try #require(p.mismatch))
+    #expect(m["why"]?.string == "differs" && m["match"]?.string == "0.9")
   }
 }

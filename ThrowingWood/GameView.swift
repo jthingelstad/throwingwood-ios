@@ -165,6 +165,15 @@ struct GameView: View {
     } message: {
       Text(model.error ?? "")
     }
+    // one sentence (a kept match made on an engine this build no longer carries)
+    .alert(
+      model.notice ?? "",
+      isPresented: Binding(
+        get: { model.notice != nil && model.error == nil },
+        set: { if !$0 { model.notice = nil } })
+    ) {
+      Button("OK") { model.notice = nil }
+    }
   }
 
   /// The feedback card's kind in the simulator's "report" and "feedback" reviews (else the

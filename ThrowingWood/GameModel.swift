@@ -46,6 +46,9 @@ import Observation
     didSet { feedback.onPitch = screen.usesFeedback }
   }
   var error: String?
+  /// One sentence for the player, shown over the screen until closed: a kept match made
+  /// on an engine this build no longer carries (VersionWords.oldMatch).
+  var notice: String?
   var surface = Surface.grass
   var result: ThrowResult?
   var playing = false
@@ -241,11 +244,24 @@ import Observation
           return
         }
       #endif
-      if let snapshot = try save.read() {
-        try pitch.restore(snapshot, save: save)
+      if let snapshot = try save.read(), try resumeKept(snapshot, on: pitch) {
         try pitch.useLevel(throwLevel)
         screen = .match
       }
+    }
+  }
+
+  /// The kept solo match back on the pitch. One made on an engine this build no longer
+  /// carries cannot be played on (docs/ENGINES.md): it is dropped, with its trail, and
+  /// the player told in one sentence; the caller starts afresh. True when restored.
+  private func resumeKept(_ snapshot: String, on pitch: PitchSession) throws -> Bool {
+    do {
+      try pitch.restore(snapshot, save: save)
+      return true
+    } catch let old as OldMatch {
+      save.dropOld(engine: old.engine)
+      notice = VersionWords.oldMatch
+      return false
     }
   }
 
@@ -361,9 +377,8 @@ import Observation
   }
   func solo() {
     perform {
-      if let text = try save.read() {
-        try pitch?.restore(text, save: save)
-        try pitch?.useLevel(throwLevel)
+      if let pitch, let text = try save.read(), try resumeKept(text, on: pitch) {
+        try pitch.useLevel(throwLevel)
         screen = .match
       } else {
         screen = .options

@@ -366,28 +366,21 @@ public struct PitchMember: Identifiable, Equatable {
       shownVersionKey = nil
     }
   }
-  /// The lobby's line for a room with no engine every player carries: who to tell, and
-  /// what to do. `missing` names those without the engine most of the room shares.
+  /// The lobby's line for a room with no engine every player carries (VersionWords.lobby).
+  /// `missing` names those without the engine most of the room shares and `unknown` those
+  /// naming none (an older client).
   private func blocked(_ chosen: JSONNode) throws -> String {
-    let ids = (chosen["missing"]?.items ?? []).compactMap(\.string)
-    func name(_ id: String) -> String { members.first { $0.id == id }?.name ?? "Someone" }
-    // Newer or older than this build's newest, by the newest a member carries.
-    func newer(_ id: String) throws -> Bool { card(theirs: try controller.carried(by: id).first) == .newer }
-    if ids.contains(pitch.you) {
-      let others = members.filter { !$0.you && ($0.side != nil || $0.host) }.map(\.id)
-      if try others.contains(where: newer) {
-        return "This pitch is on a newer version of Throwing Wood. Update the app to play, or watch."
-      }
-      let who = others.map(name)
-      let names = who.isEmpty ? "Someone" : who.joined(separator: ", ")
-      return
-        "\(names) \(who.count > 1 ? "are" : "is") on an older version of Throwing Wood. To play together, they need to update the app or reload the page."
+    let ids = ((chosen["missing"]?.items ?? []) + (chosen["unknown"]?.items ?? [])).compactMap(\.string)
+    // newer or older than this build's newest, by the newest a member carries
+    var newer: [String: Bool] = [:]
+    for m in members where !m.you {
+      newer[m.id] = card(theirs: try controller.carried(by: m.id).first) == .newer
     }
-    let who = ids.map(name)
-    let names = who.isEmpty ? "Someone" : who.joined(separator: ", ")
-    let older = try !ids.isEmpty && !ids.contains(where: newer)
-    return
-      "\(names) \(who.count > 1 ? "are" : "is") on \(older ? "an older" : "another") version of Throwing Wood. To play together, \(older ? "they need to update the app or reload the page" : "update the app or reload the page")."
+    return VersionWords.lobby(
+      missing: ids, you: pitch.you,
+      players: members.filter { !$0.you && ($0.side != nil || $0.host) }.map(\.id),
+      isNewer: { newer[$0] ?? false },
+      name: { id in members.first { $0.id == id }?.name ?? "Someone" })
   }
   /// A seated player's card when the host carries no engine this build does: newer or
   /// older by the newest each carries.
@@ -445,10 +438,7 @@ public struct PitchMember: Identifiable, Equatable {
       let ids = (m["differ"]?.items ?? []) + (m["unknown"]?.items ?? [])
       let who = ids.map { id in members.first { $0.id == id.string }?.name ?? "Someone" }
       let chosen = try controller.roomEngine()
-      note =
-        chosen["engine"]?.string == nil
-        ? try blocked(chosen)
-        : "\(who.joined(separator: ", ")) \(who.count > 1 ? "are" : "is") on another version of Throwing Wood. To play together, update the app or reload the page."
+      note = chosen["engine"]?.string == nil ? try blocked(chosen) : VersionWords.another(who)
     }
     try seat()
     changed?()

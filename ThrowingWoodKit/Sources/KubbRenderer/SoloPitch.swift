@@ -62,36 +62,16 @@ extension PitchSession {
 
   /// Puts a kept match back on the pitch, on its own engine. `engine` (a version, or its
   /// major.minor) wins when the caller knows it (a shared match's kept replay). Otherwise
-  /// one rule, in order, each only when the save is proven to be that match (the save,
-  /// restored on that engine, hashes to a hash the file holds): (1) the kept trail's
-  /// engine (SoloTrail.swift), (2) the finished-match file's engine (the app reopened on
-  /// the winner card), (3) the newest. A trail or finished file from another match names
-  /// nothing here, and only an engine this build carries is used; a save written before
-  /// the trail plays on the newest, as it always did.
+  /// the engine the save's own files name (`MatchSave.engineNamed(for:)`: the kept
+  /// trail's, then the finished-match file's, each only when it holds the save's hash).
+  /// A match named on an engine this build does not carry is never guessed at: it throws
+  /// `OldMatch`, changing nothing, and the caller says it can no longer be replayed
+  /// (VersionWords.oldMatch; docs/ENGINES.md). A save nothing names (written
+  /// before the trail) plays on the newest, as it always did.
   public func restore(_ snapshot: String, save: MatchSave?, engine: String? = nil) throws {
-    func carried(_ named: String?) -> String? {
-      Engine.majorMinor(named).flatMap { Engine.carried.contains($0) ? $0 : nil }
-    }
-    /// The save's hash on `minor`, or nil when that engine cannot restore it.
-    func hash(on minor: String) -> String? {
-      guard (try? useEngine(minor: minor)) != nil,
-        (try? self.engine.call("restore", json: snapshot)) != nil
-      else { return nil }
-      return try? self.engine.hash()
-    }
-    var mm = carried(engine)
-    if engine == nil, let save {
-      if let trail = save.readTrail()?.trail, let named = carried(trail.engine),
-        let h = hash(on: named),
-        h == trail.lastHash || h == trail.startHash || trail.entries.contains(where: { $0.hash == h })
-      {
-        mm = named
-      } else if let finished = save.finishedMatch(), let named = carried(finished.engine),
-        let key = finished.finalHash, hash(on: named) == key
-      {
-        mm = named
-      }
-    }
+    let named = engine ?? save?.engineNamed(for: snapshot)
+    let mm = Engine.majorMinor(named)
+    if let mm, !Engine.carried.contains(mm) { throw OldMatch(engine: mm) }
     try useEngine(minor: mm)
     try openMatch("restore", json: snapshot, save: save)
   }

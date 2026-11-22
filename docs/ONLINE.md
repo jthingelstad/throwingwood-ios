@@ -42,33 +42,45 @@ on `GET /open` while the host is there.
 ### Engines in one room
 
 A match belongs to the engine major.minor it started on, for its whole life
-(kubb-engine docs/ROOM.md "Engines in one match"). The app speaks the engine's
-contract for clients that carry several engines ("The room's engine", "Speaking
-down"), so a client that carries one (an earlier TestFlight build, a web tab)
-agrees with it unchanged (which engines the app carries, and how each is loaded:
-docs/ENGINES.md):
+(kubb-engine docs/ROOM.md "Engines in one match"), and the app carries only the
+engines we decide to support, today the newest alone (docs/ENGINES.md). It still
+speaks the engine's contract for clients that carry several ("The room's engine",
+"Speaking down"), so an older build or a web tab that carries several agrees with it:
 
-- Presence is `room.announce`: `engines`, every major.minor this build carries,
-  and the legacy `engine` written as the room's engine with the `+engines` mark
-  (`"0.8+engines"`), which an older client reads as `0.8`. The room's engine is
-  `room.engineFor` counting this member; before the room is known it is the
-  newest. It is announced again whenever the answer changes: a member joins or
-  leaves, takes or gives up a seat, or the host changes.
-- The lobby asks `engineFor` (the host and the lineup; watchers do not count)
-  and shows nothing about versions while there is an engine everyone carries.
-  When there is none it says who is on an older version (they update the app or
-  reload the page), or that the pitch is on a newer one (update this app, or
-  watch); START is disabled, and a version is never named.
+- Presence is `room.announce`: `engines`, every major.minor this build carries, and
+  the legacy `engine` written as the room's engine with the `+engines` mark
+  (`"0.13+engines"`). The room's engine is `room.engineFor` counting this member;
+  before the room is known it is the newest. It is announced again whenever the
+  answer changes.
+- The lobby asks `engineFor` (the host and the lineup; watchers do not count) and
+  shows nothing about versions while there is an engine everyone carries. When there
+  is none (a player on an older build, which carries no 0.13, or on a newer one) the
+  lobby says who must update in the web's plain words (`VersionWords.lobby`), never
+  naming a version, and START is disabled:
+  - this device is the one without the room's engine: "This pitch needs the newest
+    version of the game. Update to play.";
+  - players on an older version (or naming none): "Ola has an older version of the
+    game. This pitch needs the newest version of the game. Ola: update to play.";
+  - players on a newer version: "Ola has a newer version of the game than this app.
+    Update the app to play, or Ola can watch."
 - START works the room's engine out again inside the document reducer, from the
-  document and presence of that write, not the lobby's, and refuses, writing
-  nothing, when there is none (the refusal names the players to tell). Otherwise
-  it runs on that engine's own `room.*` calls: `startCheck` and `startMatch` with
-  `room.speakAs` members, so the match is stamped `match.engine` with that engine.
+  document and presence of that write, and refuses, writing nothing, when there is
+  none or this build does not carry it; a refusal by the engine's own `startCheck`
+  says "Ola is on another version of the game. This pitch needs the newest version of
+  the game: update to play." A match is never started on an engine the app does not
+  have.
 - Entering a match (a document, a rejoin, a gap) runs it on the engine of its
-  `match.engine`, checked by that engine's `mayPlay`. A match on an engine this
-  build does not carry is refused: the version card says plainly to update the
-  app (newer) or that the host is on an older version, and the member can watch.
+  `match.engine`, checked by that engine's `mayPlay`. A match on an engine this build
+  does not carry is refused and never played: the version card ("A newer version":
+  "This pitch is playing on a newer version of the game. Update to play."; "An older
+  version": "This pitch is playing on an older version of the game, which this app no
+  longer plays. This pitch needs the newest version of the game: the host must update
+  to play.") with WATCH, which shows it from its snapshots as the web does.
 - A seated guest whose host carries no engine this build does sees the same card.
+
+The review pictures of the two cards (docs/review/online `newer` and `older`) are the
+old rooms harness's and keep the earlier words until a pitch server harness makes them
+again.
 
 ## One match, two clocks
 
@@ -245,7 +257,10 @@ The web's docs/REEL.md "The share card" is the contract: its words are `ShareWor
   restores its last snapshot on a board of its own: the winner card, with SCORE SHEET,
   MAKE A HIGHLIGHT REEL for that code and HOME, and no REMATCH. No replay player.
   While it loads the card says "Joining the pitch…"; if it cannot be read, the web's
-  words: "Could not show the match" and TRY AGAIN.
+  words: "Could not show the match" and TRY AGAIN. A kept replay made on an engine this
+  build does not carry is not shown: the card says "This match was made on an older
+  version of the game and can no longer be replayed." with HOME and no TRY AGAIN (review
+  state `sealedold`; docs/ENGINES.md).
 - **Verification.** `ShareTests` and `SoloShareTests` in the Kit, and `ReelTests`
   for the API's answers against an injected fetch. The old cross-play script against the
   rooms server (`tools/rooms-test.mjs`) went with it; a share has not been sent to the
