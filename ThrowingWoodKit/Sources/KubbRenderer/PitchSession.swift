@@ -112,8 +112,10 @@ public struct HitBurst {
   let anchor: V3, focusX: Double?
   /// Drawn in the watcher's wide view (the letterbox fit).
   var wide = false
+  /// The far baseline's frame y the pitch is fitted by (PitchScene.farFrameY).
+  var anchorY: Double? = nil
   public func point(size: CGSize, camera: Camera) -> CGPoint? {
-    PitchProjection(size: size, camera: camera, focusX: focusX ?? 200, letterbox: wide).project(anchor)
+    PitchProjection(size: size, camera: camera, focusX: focusX ?? 200, letterbox: wide, anchorY: anchorY).project(anchor)
   }
 }
 
@@ -169,6 +171,18 @@ public final class PitchSession {
   var standPeekLeft = 0.0
   public internal(set) var standAim = StandAim()
   var autoRaise = AutoRaise()
+  /// A watched raise of the need on the screen (AutoRaise.swift), and the kubbs the engine
+  /// stood up with the last throw being watched before the next view.
+  var raiseShow: RaiseShow?
+  var stoodShow: StoodShow?
+  /// Reduce Motion (the app sets it): a watched raise stands each kubb with no tip.
+  public var reduceMotion = false
+  /// A line for VoiceOver to say once (a watched raise's summary), numbered so the same
+  /// words twice are said twice.
+  public internal(set) var raiseNews: (id: Int, text: String)?
+  var raiseNewsCount = 0
+  /// The turn and side whose automatic raising has been announced.
+  var raiseRun: String?
   /// The raise screen's touch (RaiseTouch.swift): the kubb being tipped up, the end lit
   /// past half way, and the allowed end lit (for `left` seconds) after a refused one.
   public internal(set) var raiseDragging: RaiseTouch.Drag?
@@ -198,7 +212,7 @@ public final class PitchSession {
   public var onFeedback: ((PitchFeedback) -> Void)?
   public var cancelFeedback: (() -> Void)?
   public var canAim: Bool {
-    acceptsInput && !playing && handoff == nil
+    acceptsInput && !playing && handoff == nil && !raiseShowing
       && (need == nil || (need?.kind == "throw" && need?.cpu == false))
   }
   public private(set) var windText: String?, advantageText: String?, slow = false
@@ -262,6 +276,7 @@ public final class PitchSession {
             #"{"mode":"practice","drill":false,"surface":"grass"}"#
         ).utf8))
     scene = PitchScene(surface: v.surface, set: v.set, items: v.items, look: v.scene)
+    scene.farFrameY = PitchProjection.farFrame(v.camera)
     camera = v.camera
     dial = v.dial
     aim(v.aim, camera: v.camera)
@@ -451,9 +466,11 @@ public final class PitchSession {
   }
 
   func adopt(_ v: ViewOutput) throws {
-    let wide = scene.wide
+    let wide = scene.wide, far = scene.farFrameY
     scene = PitchScene(surface: v.surface, set: v.set, items: v.items, look: v.scene)
     scene.wide = wide
+    // a throw's aim camera fits the tall screen by its far baseline until the next throw
+    scene.farFrameY = v.need.kind == "throw" ? (PitchProjection.farFrame(v.camera) ?? far) : far
     scene.frameSide = viewFrame(of: v.need)
     dial = v.dial
     aim(v.aim, camera: v.camera)
@@ -480,8 +497,20 @@ public final class PitchSession {
     }
   }
 
+  /// The verdict goes the moment the player starts to aim (a press on the pitch, the
+  /// target, the stance, a tray plate or the meter): it is never in the way of the next
+  /// throw (the owner, 2026-11-22: "the display stays on the screen for a while keeping the
+  /// player from being able to aim at times"). VoiceOver has said it once already.
+  public func verdictAway() {
+    guard result != nil, playback == nil else { return }
+    result = nil
+    revision += 1
+  }
+
   func resetPresentation() {
     cancelFeedback?()
+    raiseShow = nil
+    stoodShow = nil
     input.reset()
     resetRaiseTouch()
     playback = nil
@@ -579,10 +608,12 @@ public final class PitchSession {
       }
     }
     if try raiseHintTick(dt) { changed = true }
+    // a watched raise: nothing else moves until it ends
+    if try raiseShowTick(dt) || stoodShowTick(dt) { return true }
     if try autoRaiseTick(dt) { return true }
     if result != nil {
       resultAge += dt
-      if resultAge >= 6 {
+      if resultAge >= Pacing.verdictShown {
         result = nil
         changed = true
       }
@@ -652,6 +683,7 @@ public final class PitchSession {
   /// are made again when the scene or Reduce Motion changes, so a throw never
   /// carries the last scene's dust.
   public func useLook(_ id: String, reduced: Bool) {
+    reduceMotion = reduced
     let shown = SceneID.shown(id)
     if effects?.look == shown && effects?.reduced == reduced { return }
     if effects == nil && shown == "day" { return }
@@ -695,6 +727,8 @@ public final class PitchSession {
       p.nextTime = min(p.recording.duration, t + dt * shown.speed)
     } else {
       p.rest += dt
+      // the verdict's time runs from the throw coming to rest (Pacing.verdictShown)
+      resultAge += dt
       effects?.tick(dt)
       // between throws nothing spins
       if scene.spins != nil { scene.spins = nil }
@@ -704,12 +738,16 @@ public final class PitchSession {
       let b = p.recording.timeline.bursts[i]
       let age = p.realTime - start
       guard age < (b.kind == "double" ? 0.7 : 0.6) else { return nil }
-      return HitBurst(kind: b.kind, age: age, anchor: b.anchor.vector, focusX: scene.focusX, wide: scene.wide)
+      return HitBurst(
+        kind: b.kind, age: age, anchor: b.anchor.vector, focusX: scene.focusX, wide: scene.wide, anchorY: scene.farFrameY)
     }
     p.realTime += dt
     if p.rest >= Pacing.restAfterThrow && bursts.isEmpty {
       playback = nil
-      try adopt(read("view"))
+      // kubbs the engine stood up with this throw (the computer's raises, or a match
+      // raising automatically) are watched first (AutoRaise.swift)
+      let view: ViewOutput = try read("view")
+      if !beginStoodShow(before: scene.items, view: view) { try adopt(view) }
     } else {
       playback = p
     }

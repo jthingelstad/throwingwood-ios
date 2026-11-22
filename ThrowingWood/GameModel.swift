@@ -86,6 +86,9 @@ import UIKit
   var notice: String?
   var surface = Surface.grass
   var result: ThrowResult?
+  /// A watched raise's one line for VoiceOver (PitchSession.raiseNews), numbered.
+  var raiseNewsID = 0
+  var raiseNews = ""
   var playing = false
   var slow = false
   var sheetReturn = Screen.match
@@ -281,7 +284,7 @@ import UIKit
           try pitch.restore(snapshot, save: nil)
           screen = .match
           if mode != "handoff" { pitch.dismissHandoff() }
-          raiseAutomatically = mode == "raiseauto"
+          raiseAutomatically = mode == "raiseauto" || mode == "raisetip"
           if mode == "raiserest" { pitch.raiseRest() }
           if mode == "menu" { screen = .menu }
           if mode == "matchsettings" {
@@ -329,6 +332,10 @@ import UIKit
     guard let pitch else { return }
     if playing != pitch.playing { playing = pitch.playing }
     if result != pitch.result { result = pitch.result }
+    if let news = pitch.raiseNews, news.id != raiseNewsID {
+      raiseNews = news.text
+      raiseNewsID = news.id
+    }
     if surface != pitch.scene.surface { surface = pitch.scene.surface }
     if slow != (pitch.playing && pitch.slow) { slow = pitch.playing && pitch.slow }
     if revision != pitch.revision { revision = pitch.revision }

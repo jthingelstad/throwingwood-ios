@@ -29,9 +29,12 @@ MODES = {
     # engine 0.15.1: the Tournament's live neighbours (--scene tournament), run on until a
     # neighbour's throw is half way and in view, in the thrower's view and the wide view
     "neighbours": "aim", "neighbourswide": "aim", "neighboursflight": "aim",
+    # a watched automatic raise frozen RAISE_AT s in (SIMCTL_CHILD_RAISE_AT; 0.3 by default)
+    "raisetip": "raise-many",
 }
 # Shots taken only when asked for (--only): they need a scene or show one thing.
-ON_REQUEST = {"kidhandoff", "kidaim", "kidplan", "kidstand", "ring", "spin", "neighbours", "neighbourswide", "neighboursflight"}
+ON_REQUEST = {"kidhandoff", "kidaim", "kidplan", "kidstand", "ring", "spin", "neighbours", "neighbourswide", "neighboursflight",
+              "raisetip"}
 # The engine's catalogue (core/scenes): each scene's ground and set, so a fixture shown
 # in a scene is the match a scene would have started (engine 0.14: the scene decides).
 SCENES = {

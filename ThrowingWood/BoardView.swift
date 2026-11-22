@@ -206,6 +206,11 @@ import UIKit
               for _ in 0..<90 { try pitch.tick(1.0 / 60) }
             }
             if mode == "computer" { for _ in 0..<32 { try pitch.tick(1.0 / 60) } }
+            if mode == "raisetip" {
+              // a watched automatic raise frozen RAISE_AT s in (0.3: its first kubb half up)
+              let at = Double(ProcessInfo.processInfo.environment["RAISE_AT"] ?? "") ?? 0.3
+              for _ in 0..<Int((at * 60).rounded()) { try pitch.tick(1.0 / 60) }
+            }
             if mode.hasPrefix("neighbours") {
               // the Tournament's field run on until a neighbour's throw is half way and in
               // view: the thrower's view, or the watcher's wide view (neighbourswide)
@@ -284,6 +289,8 @@ import UIKit
       // queue is asked for the next beats (never waited on here)
       model.syncNeighbours()
       model.neighbours.tick(dt)
+      // their sounds, quiet and far, as heard from this board's camera (under SOUND)
+      model.feedback.neighbours(model.neighbours.sounds(session: pitch))
       // drawn again only for what changes on the screen
       let neighboursMoved = !bounds.isEmpty && model.neighbours.needsDraw(size: bounds.size, session: pitch)
       let neighboursLive = model.neighbours.running
@@ -527,6 +534,7 @@ import UIKit
           case "tilt": pitch.held == .side
           case "stand": pitch.standHeld
           case "raisemany", "raiseauto", "raiserest", "raisedrag", "raiserefused": pitch.need?.kind == "raise"
+          case "raisetip": reviewReady && (pitch.need?.kind == "raise" || pitch.raiseShowing)
           case "flight": pitch.playing
           case "handoff", "kidhandoff": pitch.handoff != nil
           case "kidaim": model.screen == .match && pitch.canAim
@@ -670,7 +678,18 @@ import UIKit
       for t in touches where freeTouches.count < 2 { freeTouches.append((t, t.location(in: self))) }
       return
     }
+    if pitch.raiseShowing {
+      // a tap during a watched raise: the rest of it at once (AutoRaise.swift)
+      run { try pitch.skipRaise() }
+      wake()
+      return
+    }
     guard pitch.acceptsInput, !pitch.playing, tracking == nil, let t = touches.first else { return }
+    // the player starts to aim: the last verdict goes (it never stands in the way)
+    if pitch.canAim, pitch.result != nil {
+      pitch.verdictAway()
+      model.refresh()
+    }
     if pitch.openPlate != nil {
       // a tap outside the open plate closes it, and does nothing else
       run { try pitch.tapPlate(nil) }

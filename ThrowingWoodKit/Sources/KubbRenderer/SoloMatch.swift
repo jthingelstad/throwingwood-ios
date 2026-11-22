@@ -171,6 +171,9 @@ public struct MatchNeed: Decodable {
   public let card: Card?, winner: Winner?, how, short: String?
   public let ends: [End]?
   let choices: [End]?, others: [Other]?, pose, king: Pose?, kubb: String?
+  /// The engine's choice when no end is named (a one-based index into `choices`): the end
+  /// an automatic raise stands the kubb on.
+  let `default`: Int?
   let cursor: GroundMark?, bounds: Bounds?, keepOut: [GroundMark]?, last: Last?
 }
 

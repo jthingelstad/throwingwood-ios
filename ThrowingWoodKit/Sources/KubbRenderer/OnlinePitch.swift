@@ -613,7 +613,7 @@ public struct PitchMember: Identifiable, Equatable {
     }
   }
   private func drain() throws {
-    while !board.playing, let first = queue.first {
+    while !board.playing && !board.raiseShowing, let first = queue.first {
       let wait = first.2 - Self.now()
       if wait > 0 {
         if holding == nil {
@@ -640,11 +640,16 @@ public struct PitchMember: Identifiable, Equatable {
   }
   private func applyOnBoard(_ action: JSONText) throws {
     struct Applied: Decodable { let ok: Bool, recording: Recording? }
+    // a raise of the kubb on the screen is watched tipping up (AutoRaise.swift), at the
+    // sender's pace, before the next action is drawn
+    let raised = board.raiseEnd(of: action)
     let out: Applied = try board.read("apply", action.text)
     guard out.ok else { throw PitchError("refused") }
     board.dismissHandoff()
     if let recording = out.recording {
       try board.beginPlayback(recording)
+    } else if board.need?.kind == "raise", (try? JSONNode.parse(action.text))?["type"]?.string == "raise" {
+      try board.watchRaise(end: raised)
     } else {
       try board.adopt(board.read("view"))
     }
@@ -654,7 +659,7 @@ public struct PitchMember: Identifiable, Equatable {
   }
   /// Scripted seats use the same release/placement submission as a gesture.
   public func act(_ action: JSONText) throws {
-    guard board.acceptsInput, !board.playing else { throw PitchError("not-acting") }
+    guard board.acceptsInput, !board.playing, !board.raiseShowing else { throw PitchError("not-acting") }
     try applyOnBoard(action)
     try submit(action)
   }
@@ -697,12 +702,12 @@ public struct PitchMember: Identifiable, Equatable {
     changed?()
   }
   @discardableResult public func tick(_ dt: Double) throws -> Bool {
-    let playing = board.playing
+    let playing = board.playing || board.raiseShowing
     // this member's aim as it stands before the frame: a release in this frame sends it
     let aim = stage == .match && board.canAim && !writing ? JSONText(try board.engine.call("aimState")) : nil
     released = false
     let drew = try board.tick(dt)
-    if playing && !board.playing {
+    if playing && !board.playing && !board.raiseShowing {
       try drain()
       try seat()
     }

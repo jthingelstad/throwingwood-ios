@@ -490,9 +490,14 @@ struct MatchScreen: View {
         .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: {
           if model.headerBottom != $0 { model.headerBottom = $0 }
         }
-      // the minimap hangs under the header's right end: the captions keep left of it
-      captions(n)
-        .frame(maxWidth: .infinity)
+      // the minimap hangs under the header's right end: the captions keep left of it, and
+      // above what the next throw is aimed at (WideLayout.verdictBand)
+      let band = WideLayout.verdictBand(
+        size: screen.size, safe: screen.safe, headerBottom: model.headerBottom ?? (screen.safe.top + 66),
+        aimTop: playing ? nil : pitch.aimTop(in: screen.size), tall: screen.size.height)
+      captions(n, room: band.size)
+        .frame(maxWidth: .infinity, maxHeight: band.height, alignment: .top)
+        .clipShape(Rectangle().inset(by: -4))
         .padding(.trailing, WideLayout.uprightMinimap(size: screen.size, safe: screen.safe).width + 8)
       Spacer()
       if let online = model.online {
@@ -523,7 +528,9 @@ struct MatchScreen: View {
     let tray: CGFloat = model.online == nil ? 0 : WideLayout.trayWidth
     // under the floor beside SHOUT (a narrow window), a line of their own under
     // the header row; the stack may grow down to the first frame under it
-    let captionBox = WideLayout.captionRoom(size: size, safe: safe, trayWidth: tray, meter: meter, side: side)
+    let captionBox = WideLayout.verdictClear(
+      WideLayout.captionRoom(size: size, safe: safe, trayWidth: tray, meter: meter, side: side),
+      aimTop: playing ? nil : pitch.aimTop(in: size))
     let plan = WideLayout.plan(meter: meter, size: size, safe: safe, side: side, trayWidth: tray)
     // the held slider's caption grows from the block's side toward the middle
     let from: Alignment = plan.edge == .left ? .topLeading : .topTrailing
@@ -873,7 +880,7 @@ struct MatchScreen: View {
           .accessibilityHint("Raise every kubb automatically for the rest of this match")
       }
     } else {
-      Button("AUTO") { model.perform { try pitch.raise() } }
+      Button("AUTO") { model.perform { try pitch.raiseWatched() } }
         .accessibilityHint("Stand this kubb on the end the game chooses")
       if (n.n ?? 1) < (n.of ?? 1) {
         Button { model.perform { pitch.raiseRest() } } label: {

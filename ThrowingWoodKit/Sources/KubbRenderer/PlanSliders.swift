@@ -156,7 +156,7 @@ extension PitchSession {
   /// held or easing out of its peek, an automatic raise waiting its turn, or a raise's
   /// allowed end lit for its second.
   public var wantsFrames: Bool {
-    held != nil || peekLeft > 0 || pendingSlide != nil || autoRaise.waiting || raiseHint != nil
+    held != nil || peekLeft > 0 || pendingSlide != nil || raiseShowing || raiseHint != nil
       || standDrag != nil || standPeekLeft > 0 || effects?.active == true || freeCamera.easing
   }
 
@@ -166,6 +166,7 @@ extension PitchSession {
   /// A finger on a slider at `f` (0...1, bottom to top or left to right). Only
   /// records where it is: `tick` sends the latest place to the engine once a frame.
   public func slide(_ slider: PlanSlider, to f: Double, phase: SlidePhase) {
+    if phase == .down { verdictAway() }
     if phase == .cancel {
       cancelSlide()
       return
