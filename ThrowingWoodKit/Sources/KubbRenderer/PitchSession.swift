@@ -440,6 +440,9 @@ public final class PitchSession {
   /// snapshot's `side` (session.restore sets it from there, and a live session's is the
   /// last throw's, the same side). A practice has no side: Team A's. A throw's recording
   /// plays in the frame of the need it was thrown under, which stays until the next adopt.
+  /// In every view: the engine's wide view re-frames the items and the playback but never
+  /// a need, so a watcher's raise or punishment scene is the defender's frame too
+  /// (`PitchScene.neighboursTurned` leaves the rest of the wide view unturned).
   func viewFrame(of n: MatchNeed) -> String? {
     if ["throw", "raise", "punish"].contains(n.kind) { return n.side }
     struct Snap: Decodable { let side: String? }

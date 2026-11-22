@@ -70,9 +70,11 @@ public struct PitchScene: Decodable, Sendable {
   /// every adopt (never in the engine's view). The live neighbours turn with the field
   /// while it is Team B's (Neighbours.swift).
   var frameSide: String? = nil
-  /// The neighbours are drawn turned half round: the thrower's view in Team B's frame
-  /// (the watcher's wide view is the world frame, Team A's).
-  public var neighboursTurned: Bool { !wide && frameSide == "B" }
+  /// The neighbours are drawn turned half round: the board draws in Team B's frame. The
+  /// watcher's wide view is the world frame (Team A's), except a raise or punishment
+  /// scene (`stillZoom`), which keeps its own close camera on the need's poses, in the
+  /// defender's frame, for a watcher too.
+  public var neighboursTurned: Bool { (!wide || stillZoom != nil) && frameSide == "B" }
   var wide: Bool {
     get { wideView == true }
     set { wideView = newValue ? true : nil }
