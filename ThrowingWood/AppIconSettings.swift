@@ -141,7 +141,9 @@ struct AppIconSettings: View {
         .background(Color.woodBaton)
         Rectangle().fill(Color.woodInk).frame(height: TW.line)
         Text(AppIconArt.name(icon)).font(bodyFont(14, .bold, relativeTo: .subheadline)).tracking(14 * 0.04)
-          .textCase(.uppercase).lineLimit(1).minimumScaleFactor(0.7)
+          .textCase(.uppercase).lineLimit(1).minimumScaleFactor(0.6).allowsTightening(true)
+          // a name the tile cannot hold whole shrinks inside the ink line, never clipped by it
+          .padding(.horizontal, 6)
           .foregroundStyle(on ? Color.woodPaper : Color.woodInk)
           .frame(maxWidth: .infinity, minHeight: 28)
           .background(on ? Color.woodInk : Color.woodBaton)
