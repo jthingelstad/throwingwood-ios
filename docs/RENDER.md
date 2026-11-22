@@ -79,7 +79,7 @@ The scenery stands off the pitch (outside |x| 3.5 m, or past y 10.5 m) and is dr
 
 On the iPhone 17 simulator (iOS 26.2, Debug, about 60 Hz, `PITCH_REVIEW=timing`) a throw had 154 display callbacks 16.67 ms apart at the median in the day, 128 to 141 at 17.2 to 17.8 ms in the night (p95 23 to 33; 79 to 85 at 29 to 33 ms before), and 143 to 145 at 16.67 ms in the neon (p95 about 32). What the night still spends is its look: the milky band's 28 big glows (about 4.5 ms, up to 9 looking up), the moon's halo (1 to 4), the clearing's seven tones (about 5) and the lines' glow (about 2.7). Each could be thinned (fewer or smaller glows, a smaller halo, fewer tones, a lower-resolution sky); none has been. A physical phone's numbers are still to measure.
 
-The review tools take `--scene` with any scene's id (a fixture shown in a scene takes its ground and set, as a match started in it would), and the solo tool's `--only` adds `kidhandoff`, `kidaim`, `kidplan` and `kidstand` (a Kid match the app starts against the Kid computer), `ring` (with `--scene neon`: a throw played until a ring is part way grown) and `spin` (the practice pitch drilling a kubb at SPIN's most, frozen while it spins). The Kit's `SCENE_LOOKS_OUT=<dir>` writes each scene's thrower, side and wide views from `SceneLooksTests`, `KidTests` and `SpinTests`. Earlier: `--scene night` or `neon` (solo: `REVIEW_SCENE` picks the options' Scene; online: the host picks it in the lobby) and name the pictures `<phone>-<scene>[-landscape]-<shot>.png`, e.g. [night, aim](review/iphone-16e-night-aim.png), [night on its side](review/iphone-17-pro-max-night-landscape-flight.png), [neon, the winner](review/iphone-17-pro-max-neon-winner.png), [neon on an iPad](review/ipad-pro-13-neon-landscape-aim.png), [the night lobby as host](review/online/iphone-16e-night-host.png) and [the options' Scene row](review/iphone-16e-options.png).
+The review tools take `--scene` with any scene's id (a fixture shown in a scene takes its ground and set, as a match started in it would), and the solo tool's `--only` adds `kidhandoff`, `kidaim`, `kidplan` and `kidstand` (a Kid match the app starts against the Kid computer), `ring` (with `--scene neon`: a throw played until a ring is part way grown) and `spin` (the practice pitch drilling a kubb at SPIN's most, frozen while it spins). The Kit's `SCENE_LOOKS_OUT=<dir>` writes each scene's thrower, side and wide views from `SceneLooksTests`, `KidTests` and `SpinTests`. Earlier: `--scene night` or `neon` (solo: `REVIEW_SCENE` picks the options' Scene; online: the host picks it in the lobby) and name the pictures `<phone>-<scene>[-landscape]-<shot>.png`, e.g. [night, aim](review/iphone-16e-night-aim.png), [night on its side](review/iphone-17-pro-max-night-landscape-flight.png), [neon, the winner](review/iphone-17-pro-max-neon-winner.png), [neon on an iPad](review/ipad-pro-13-neon-aim.png), [the night lobby as host](review/online/iphone-16e-night-host.png) and [the options' Scene row](review/iphone-16e-options.png).
 
 ## The Tournament's neighbours
 
@@ -132,67 +132,119 @@ through it.
 
 ## Review pictures
 
-Each image is a real iOS 26.2 simulator capture of the app with a synthetic match. The five original 640 × 384 landscape renderer PNGs remain byte-identical. The portrait suite covers the HUD and cards on both screen sizes, and the landscape suite the same on each phone on its side.
+Each image is a real iOS 26.2 simulator capture of a Release build of the app with a synthetic match (the fixtures in `ThrowingWoodKit/Tests/KubbRendererTests/Fixtures/solo/`, or a Kid match or practice the app starts itself), the status bar at 9:41 with a full battery. The five original 640 × 384 landscape renderer PNGs remain byte-identical. Names: `<device>[-<scene>][-ax3][-landscape]-<shot>.png`, the devices `iphone-16e`, `iphone-17-pro-max`, `ipad-mini` and `ipad-pro-13`.
+
+### Retaking the review set
+
+`tools/review-set.sh <group>` retakes one group from the Release simulator build under `build/dd` (the command is in its header) and copies the PNGs into `docs/review`, so git shows what changed; look at them before committing. One group a command:
+
+| Group | What it takes |
+| --- | --- |
+| `phones` | Every solo shot below on both phones, upright (`tools/solo-snapshots.py`) |
+| `phones-side` | The shots on their side: the 16e turned right, the Pro Max left |
+| `ipads`, `ipads-side` | The same on the iPad mini and the iPad Pro 13-inch, upright and turned left |
+| `scenes` | In each scene but the day and the Tournament (Beach, Camping, Techno, Minnesota, Black & White): Play the computer with its tile chosen, the practice menu, hand-off, aim, ARC and STAND open, flight, verdict, the computer's turn, match menu, Settings from it, winner, score sheet, the coach and a Kid match's aim; Techno also its ring (`<phone>-<scene>-<shot>.png`) |
+| `scenes-side` | Hand-off, aim, ARC open, flight, verdict, menu and winner in each scene, on their side |
+| `scenes-ipad` | Aim, flight and winner in each scene on both iPads |
+| `ax3` | The cards at the largest accessibility text size (AX3XL) on the 16e: Play the computer, Settings, the App icon row, the practice menu, hand-off, Kid hand-off, match menu, winner and score sheet (`iphone-16e-ax3-<shot>.png`) |
+| `meters` | The practice pitch's meters (`tools/meter-snapshots.py --review-names`), the phones upright and on their side |
+| `share` | The share card's states (`tools/share-snapshots.py`) into `docs/review/share` |
+| `reel` | The highlight reel card's states into `docs/review/reel` (`REEL_VIDEOS`: a reel made by the web's renderer in a copy of the web checkout, docs/ONLINE.md "The highlight reel") |
+| `raises` | The raise and punishment shots on every device, upright and on their side |
+| `tournament` | The Tournament: the scene's shots and its live neighbours (`neighbours`, `neighbourswide`, `neighboursflight`), upright, on its side and on the iPads |
+| `drive` | Engine 0.16's drive (`--drive`: ARC at a drive, its flight, verdict and coach, the meters at a drive, the computer's raise watched) on both phones, a few on the 16e on its side and the iPads; kept out of the repo, in `build/review-private` |
+| `extras` | The verdict still up over the next aim (`verdictaim`) and a watched automatic raise part way (`raisetip`), upright and on their side; kept out of the repo |
+
+An engine release that changes the aim or the throw needs `phones`, `phones-side`, `ipads`, `ipads-side`, the three scene groups, `raises`, `tournament`, `drive` and `tools/store-snapshots.sh`; a layout change, the groups whose screens it touches. `tools/solo-snapshots.py` without `--capture-only` still checks the phones against the committed set tile by tile (mean RGB error under 4/255); a picture the app changed on purpose fails it until it is retaken.
+
+The online and observer pictures (`docs/review/online`, `docs/review/observer`) are not in any group: the rooms harness that made them went with the rooms server on 2026-11-21 (AGENTS.md "The pitch and the online screen"), so they are the last it made and show the older design (typed name fields, level rows, the old plate block) until a harness on the pitch server's `wrangler dev` retakes them.
+
+### The solo screens
+
+The release set (app 1.0.0 on engine 1.0.0, the build submitted to the App Store; retaken 2026-11-22). SIDE VIEW, the old plan block, the level rows and the typed-name fields are gone from the app, and their pictures with them; the side view is ARC open.
 
 | Screen | Small iPhone | Large iPhone |
 | --- | --- | --- |
 | Home | [16e](review/iphone-16e-home.png) | [17 Pro Max](review/iphone-17-pro-max-home.png) |
-| Options | [16e](review/iphone-16e-options.png) | [17 Pro Max](review/iphone-17-pro-max-options.png) |
-| Handoff | [16e](review/iphone-16e-handoff.png) | [17 Pro Max](review/iphone-17-pro-max-handoff.png) |
+| Play the computer: the scene tiles | [16e](review/iphone-16e-options.png) | [17 Pro Max](review/iphone-17-pro-max-options.png) |
+| Settings | [16e](review/iphone-16e-settings.png) | [17 Pro Max](review/iphone-17-pro-max-settings.png) |
+| Settings, the App icon row | [16e](review/iphone-16e-appicon.png) | [17 Pro Max](review/iphone-17-pro-max-appicon.png) |
+| Practice menu | [16e](review/iphone-16e-practicemenu.png) | [17 Pro Max](review/iphone-17-pro-max-practicemenu.png) |
+| Hand-off | [16e](review/iphone-16e-handoff.png) | [17 Pro Max](review/iphone-17-pro-max-handoff.png) |
 | Aim | [16e](review/iphone-16e-aim.png) | [17 Pro Max](review/iphone-17-pro-max-aim.png) |
-| Side view | [16e](review/iphone-16e-plan.png) | [17 Pro Max](review/iphone-17-pro-max-plan.png) |
-| ARC held | [16e](review/iphone-16e-arc.png) | [17 Pro Max](review/iphone-17-pro-max-arc.png) |
-| TILT held | [16e](review/iphone-16e-tilt.png) | [17 Pro Max](review/iphone-17-pro-max-tilt.png) |
-| STAND held | [16e](review/iphone-16e-stand.png) | [17 Pro Max](review/iphone-17-pro-max-stand.png) |
+| ARC open (the side view) | [16e](review/iphone-16e-arc.png) | [17 Pro Max](review/iphone-17-pro-max-arc.png) |
+| TILT open | [16e](review/iphone-16e-tilt.png) | [17 Pro Max](review/iphone-17-pro-max-tilt.png) |
+| STAND open | [16e](review/iphone-16e-stand.png) | [17 Pro Max](review/iphone-17-pro-max-stand.png) |
 | Linear, right, aim | [16e](review/iphone-16e-linear-right-aim.png) | [17 Pro Max](review/iphone-17-pro-max-linear-right-aim.png) |
-| Linear, right, ARC held | [16e](review/iphone-16e-linear-right-arc.png) | [17 Pro Max](review/iphone-17-pro-max-linear-right-arc.png) |
-| Linear, right, TILT held | [16e](review/iphone-16e-linear-right-tilt.png) | [17 Pro Max](review/iphone-17-pro-max-linear-right-tilt.png) |
-| Linear, right, STAND held | [16e](review/iphone-16e-linear-right-stand.png) | [17 Pro Max](review/iphone-17-pro-max-linear-right-stand.png) |
+| Linear, right, ARC open | [16e](review/iphone-16e-linear-right-arc.png) | [17 Pro Max](review/iphone-17-pro-max-linear-right-arc.png) |
+| Linear, right, TILT open | [16e](review/iphone-16e-linear-right-tilt.png) | [17 Pro Max](review/iphone-17-pro-max-linear-right-tilt.png) |
+| Linear, right, STAND open | [16e](review/iphone-16e-linear-right-stand.png) | [17 Pro Max](review/iphone-17-pro-max-linear-right-stand.png) |
 | Linear, left, aim | [16e](review/iphone-16e-linear-left-aim.png) | [17 Pro Max](review/iphone-17-pro-max-linear-left-aim.png) |
-| Linear, left, ARC held | [16e](review/iphone-16e-linear-left-arc.png) | [17 Pro Max](review/iphone-17-pro-max-linear-left-arc.png) |
-| Linear, left, TILT held | [16e](review/iphone-16e-linear-left-tilt.png) | [17 Pro Max](review/iphone-17-pro-max-linear-left-tilt.png) |
+| Linear, left, ARC open | [16e](review/iphone-16e-linear-left-arc.png) | [17 Pro Max](review/iphone-17-pro-max-linear-left-arc.png) |
+| Linear, left, TILT open | [16e](review/iphone-16e-linear-left-tilt.png) | [17 Pro Max](review/iphone-17-pro-max-linear-left-tilt.png) |
 | Nudge, clock, in a match | [16e](review/iphone-16e-clock-nudge.png) | [17 Pro Max](review/iphone-17-pro-max-clock-nudge.png) |
 | Nudge, linear right, in a match | [16e](review/iphone-16e-linear-right-nudge.png) | [17 Pro Max](review/iphone-17-pro-max-linear-right-nudge.png) |
 | Nudge, linear left, in a match | [16e](review/iphone-16e-linear-left-nudge.png) | [17 Pro Max](review/iphone-17-pro-max-linear-left-nudge.png) |
+| Coach, clock, learning | [16e](review/iphone-16e-coach.png) | [17 Pro Max](review/iphone-17-pro-max-coach.png) |
+| Coach, clock, after a SLOW flick | [16e](review/iphone-16e-coach-slow.png) | [17 Pro Max](review/iphone-17-pro-max-coach-slow.png) |
+| Coach, linear right | [16e](review/iphone-16e-linear-right-coach.png) | [17 Pro Max](review/iphone-17-pro-max-linear-right-coach.png) |
+| Coach, linear left | [16e](review/iphone-16e-linear-left-coach.png) | [17 Pro Max](review/iphone-17-pro-max-linear-left-coach.png) |
+| Coach, linear right, after a SLOW flick | [16e](review/iphone-16e-linear-right-coach-slow.png) | [17 Pro Max](review/iphone-17-pro-max-linear-right-coach-slow.png) |
 | Flight | [16e](review/iphone-16e-flight.png) | [17 Pro Max](review/iphone-17-pro-max-flight.png) |
 | Verdict | [16e](review/iphone-16e-verdict.png) | [17 Pro Max](review/iphone-17-pro-max-verdict.png) |
+| Computer's turn (WATCH) | [16e](review/iphone-16e-computer.png) | [17 Pro Max](review/iphone-17-pro-max-computer.png) |
+| Match menu | [16e](review/iphone-16e-menu.png) | [17 Pro Max](review/iphone-17-pro-max-menu.png) |
+| Settings from the match menu | [16e](review/iphone-16e-matchsettings.png) | [17 Pro Max](review/iphone-17-pro-max-matchsettings.png) |
+| Winner | [16e](review/iphone-16e-winner.png) | [17 Pro Max](review/iphone-17-pro-max-winner.png) |
+| Score sheet | [16e](review/iphone-16e-sheet.png) | [17 Pro Max](review/iphone-17-pro-max-sheet.png) |
+| Kid match, hand-off | [16e](review/iphone-16e-kidhandoff.png) | [17 Pro Max](review/iphone-17-pro-max-kidhandoff.png) |
+| Kid match, aim | [16e](review/iphone-16e-kidaim.png) | [17 Pro Max](review/iphone-17-pro-max-kidaim.png) |
+| Kid match, STAND (the Kid line) | [16e](review/iphone-16e-kidstand.png) | [17 Pro Max](review/iphone-17-pro-max-kidstand.png) |
+| Spin (practice, SPIN at its most) | [16e](review/iphone-16e-spin.png) | [17 Pro Max](review/iphone-17-pro-max-spin.png) |
 | Raise | [16e](review/iphone-16e-raise.png) | [17 Pro Max](review/iphone-17-pro-max-raise.png) |
 | Raise, two to go | [16e](review/iphone-16e-raisemany.png) | [17 Pro Max](review/iphone-17-pro-max-raisemany.png) |
 | Raising automatically | [16e](review/iphone-16e-raiseauto.png) | [17 Pro Max](review/iphone-17-pro-max-raiseauto.png) |
 | AUTO ALL | [16e](review/iphone-16e-raiserest.png) | [17 Pro Max](review/iphone-17-pro-max-raiserest.png) |
 | Raise, kubb dragged past half way | [16e](review/iphone-16e-raisedrag.png) | [17 Pro Max](review/iphone-17-pro-max-raisedrag.png) |
 | Raise, refused end tapped | [16e](review/iphone-16e-raiserefused.png) | [17 Pro Max](review/iphone-17-pro-max-raiserefused.png) |
-| Coach, clock, learning | [16e](review/iphone-16e-coach.png) | [17 Pro Max](review/iphone-17-pro-max-coach.png) |
-| Coach, clock, after a SLOW flick | [16e](review/iphone-16e-coach-slow.png) | [17 Pro Max](review/iphone-17-pro-max-coach-slow.png) |
-| Coach, linear right | [16e](review/iphone-16e-linear-right-coach.png) | [17 Pro Max](review/iphone-17-pro-max-linear-right-coach.png) |
-| Coach, linear left | [16e](review/iphone-16e-linear-left-coach.png) | [17 Pro Max](review/iphone-17-pro-max-linear-left-coach.png) |
-| Coach, linear right, after a SLOW flick | [16e](review/iphone-16e-linear-right-coach-slow.png) | [17 Pro Max](review/iphone-17-pro-max-linear-right-coach-slow.png) |
 | Punishment | [16e](review/iphone-16e-punish.png) | [17 Pro Max](review/iphone-17-pro-max-punish.png) |
-| Computer | [16e](review/iphone-16e-computer.png) | [17 Pro Max](review/iphone-17-pro-max-computer.png) |
-| Menu | [16e](review/iphone-16e-menu.png) | [17 Pro Max](review/iphone-17-pro-max-menu.png) |
-| Winner | [16e](review/iphone-16e-winner.png) | [17 Pro Max](review/iphone-17-pro-max-winner.png) |
-| Sheet | [16e](review/iphone-16e-sheet.png) | [17 Pro Max](review/iphone-17-pro-max-sheet.png) |
 
-On its side the 16e is turned right and the Pro Max left, so both ways are covered. The online screens on their side are in [ONLINE.md](ONLINE.md).
+On its side the 16e is turned right and the Pro Max left, so both ways are covered.
 
 | On its side | Small iPhone | Large iPhone |
 | --- | --- | --- |
 | Home | [16e](review/iphone-16e-landscape-home.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-home.png) |
-| Options | [16e](review/iphone-16e-landscape-options.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-options.png) |
-| Handoff | [16e](review/iphone-16e-landscape-handoff.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-handoff.png) |
+| Play the computer | [16e](review/iphone-16e-landscape-options.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-options.png) |
+| Settings | [16e](review/iphone-16e-landscape-settings.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-settings.png) |
+| Practice menu | [16e](review/iphone-16e-landscape-practicemenu.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-practicemenu.png) |
+| Hand-off | [16e](review/iphone-16e-landscape-handoff.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-handoff.png) |
 | Aim, clock right | [16e](review/iphone-16e-landscape-aim.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-aim.png) |
-| Aim, clock left (Linear, left) | [16e](review/iphone-16e-landscape-linear-left-aim.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-linear-left-aim.png) |
-| Side view | [16e](review/iphone-16e-landscape-plan.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-plan.png) |
-| ARC held | [16e](review/iphone-16e-landscape-arc.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-arc.png) |
-| TILT held | [16e](review/iphone-16e-landscape-tilt.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-tilt.png) |
-| STAND held | [16e](review/iphone-16e-landscape-stand.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-stand.png) |
-| TILT held, clock left | [16e](review/iphone-16e-landscape-linear-left-tilt.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-linear-left-tilt.png) |
-| STAND held, clock left | [16e](review/iphone-16e-landscape-clock-left-stand.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-clock-left-stand.png) |
+| Aim, linear left | [16e](review/iphone-16e-landscape-linear-left-aim.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-linear-left-aim.png) |
+| Aim, linear right | [16e](review/iphone-16e-landscape-linear-right-aim.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-linear-right-aim.png) |
+| ARC open | [16e](review/iphone-16e-landscape-arc.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-arc.png) |
+| TILT open | [16e](review/iphone-16e-landscape-tilt.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-tilt.png) |
+| STAND open | [16e](review/iphone-16e-landscape-stand.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-stand.png) |
+| TILT open, linear left | [16e](review/iphone-16e-landscape-linear-left-tilt.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-linear-left-tilt.png) |
+| STAND open, clock left | [16e](review/iphone-16e-landscape-clock-left-stand.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-clock-left-stand.png) |
 | Nudge, in a match | [16e](review/iphone-16e-landscape-clock-nudge.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-clock-nudge.png) |
+| Nudge, linear left | [16e](review/iphone-16e-landscape-linear-left-nudge.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-linear-left-nudge.png) |
 | Coach, learning | [16e](review/iphone-16e-landscape-coach.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-coach.png) |
 | Coach, after a SLOW flick | [16e](review/iphone-16e-landscape-coach-slow.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-coach-slow.png) |
+| Coach, linear left | [16e](review/iphone-16e-landscape-linear-left-coach.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-linear-left-coach.png) |
 | Flight | [16e](review/iphone-16e-landscape-flight.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-flight.png) |
 | Verdict | [16e](review/iphone-16e-landscape-verdict.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-verdict.png) |
+| Computer's turn | [16e](review/iphone-16e-landscape-computer.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-computer.png) |
+| Match menu | [16e](review/iphone-16e-landscape-menu.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-menu.png) |
+| Winner | [16e](review/iphone-16e-landscape-winner.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-winner.png) |
+| Score sheet | [16e](review/iphone-16e-landscape-sheet.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-sheet.png) |
+| Kid match, hand-off | [16e](review/iphone-16e-landscape-kidhandoff.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-kidhandoff.png) |
+| Kid match, aim | [16e](review/iphone-16e-landscape-kidaim.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-kidaim.png) |
+| Kid match, STAND | [16e](review/iphone-16e-landscape-kidstand.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-kidstand.png) |
+| Spin | [16e](review/iphone-16e-landscape-spin.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-spin.png) |
+| Practice, clock right | [16e](review/iphone-16e-landscape-practice.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-practice.png) |
+| Practice, linear left | [16e](review/iphone-16e-landscape-practice-left.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-practice-left.png) |
+| Practice, the coach | [16e](review/iphone-16e-landscape-clock-coach-wind.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-clock-coach-wind.png) |
+| Practice, a press beside the ring | [16e](review/iphone-16e-landscape-clock-beside.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-clock-beside.png) |
 | Raise | [16e](review/iphone-16e-landscape-raise.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-raise.png) |
 | Raise, two to go (AUTO ALL) | [16e](review/iphone-16e-landscape-raisemany.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-raisemany.png) |
 | Raise, kubb dragged past half way | [16e](review/iphone-16e-landscape-raisedrag.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-raisedrag.png) |
@@ -201,28 +253,47 @@ On its side the 16e is turned right and the Pro Max left, so both ways are cover
 | AUTO ALL | [16e](review/iphone-16e-landscape-raiserest.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-raiserest.png) |
 | Punishment | [16e](review/iphone-16e-landscape-punish.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-punish.png) |
 | Punishment, a refused spot's reason | [16e](review/iphone-16e-landscape-punishwhy.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-punishwhy.png) |
-| Computer | [16e](review/iphone-16e-landscape-computer.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-computer.png) |
-| Menu | [16e](review/iphone-16e-landscape-menu.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-menu.png) |
-| Winner | [16e](review/iphone-16e-landscape-winner.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-winner.png) |
-| Sheet | [16e](review/iphone-16e-landscape-sheet.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-sheet.png) |
-| Practice, clock right | [16e](review/iphone-16e-landscape-practice.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-practice.png) |
-| Practice, clock left | [16e](review/iphone-16e-landscape-practice-left.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-practice-left.png) |
-| Practice, the coach | [16e](review/iphone-16e-landscape-clock-coach-wind.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-clock-coach-wind.png) |
-| Practice, a press beside the ring | [16e](review/iphone-16e-landscape-clock-beside.png) | [17 Pro Max](review/iphone-17-pro-max-landscape-clock-beside.png) |
 
-The iPads are the iPad mini (A17 Pro) and the iPad Pro 13-inch (M5) under iOS 26.2, full screen, named `ipad-mini-*` and `ipad-pro-13-*`, upright and on their side (turned left; an iPad turns as a device, `tools/review_turn.py`). Every solo shot above has its iPad pictures (the practice pictures of `tools/meter-snapshots.py` take an iPad by `--device` and `--prefix`); a selection:
+The Tournament's own pictures (`iphone-16e-tournament-*`, `-neighbours`, `-neighbourswide`, `-neighboursflight`) follow the scenes' names; the raise and punishment pictures show the raise camera pulled back and, for AUTO, the first kubb of the watched raise.
+
+### Scenes
+
+| Scene | Options | Aim | ARC open | Flight | Winner | On its side | iPad |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Beach | [16e](review/iphone-16e-beach-options.png) | [16e](review/iphone-16e-beach-aim.png) | [Pro Max](review/iphone-17-pro-max-beach-arc.png) | [16e](review/iphone-16e-beach-flight.png) | [Pro Max](review/iphone-17-pro-max-beach-winner.png) | [16e](review/iphone-16e-beach-landscape-aim.png), [Pro Max](review/iphone-17-pro-max-beach-landscape-flight.png) | [mini](review/ipad-mini-beach-aim.png), [Pro](review/ipad-pro-13-beach-flight.png) |
+| Camping | [16e](review/iphone-16e-night-options.png) | [16e](review/iphone-16e-night-aim.png) | [Pro Max](review/iphone-17-pro-max-night-arc.png) | [16e](review/iphone-16e-night-flight.png) | [Pro Max](review/iphone-17-pro-max-night-winner.png) | [16e](review/iphone-16e-night-landscape-aim.png), [Pro Max](review/iphone-17-pro-max-night-landscape-flight.png) | [mini](review/ipad-mini-night-aim.png), [Pro](review/ipad-pro-13-night-flight.png) |
+| Techno | [16e](review/iphone-16e-neon-options.png) | [16e](review/iphone-16e-neon-aim.png) | [Pro Max](review/iphone-17-pro-max-neon-arc.png) | [16e](review/iphone-16e-neon-flight.png) | [Pro Max](review/iphone-17-pro-max-neon-winner.png) | [16e](review/iphone-16e-neon-landscape-aim.png), [Pro Max](review/iphone-17-pro-max-neon-landscape-flight.png) | [mini](review/ipad-mini-neon-aim.png), [Pro](review/ipad-pro-13-neon-flight.png) |
+| Minnesota | [16e](review/iphone-16e-minnesota-options.png) | [16e](review/iphone-16e-minnesota-aim.png) | [Pro Max](review/iphone-17-pro-max-minnesota-arc.png) | [16e](review/iphone-16e-minnesota-flight.png) | [Pro Max](review/iphone-17-pro-max-minnesota-winner.png) | [16e](review/iphone-16e-minnesota-landscape-aim.png), [Pro Max](review/iphone-17-pro-max-minnesota-landscape-flight.png) | [mini](review/ipad-mini-minnesota-aim.png), [Pro](review/ipad-pro-13-minnesota-flight.png) |
+| Black & White | [16e](review/iphone-16e-bw-options.png) | [16e](review/iphone-16e-bw-aim.png) | [Pro Max](review/iphone-17-pro-max-bw-arc.png) | [16e](review/iphone-16e-bw-flight.png) | [Pro Max](review/iphone-17-pro-max-bw-winner.png) | [16e](review/iphone-16e-bw-landscape-aim.png), [Pro Max](review/iphone-17-pro-max-bw-landscape-flight.png) | [mini](review/ipad-mini-bw-aim.png), [Pro](review/ipad-pro-13-bw-flight.png) |
+
+Techno's ring: [16e](review/iphone-16e-neon-ring.png), [17 Pro Max](review/iphone-17-pro-max-neon-ring.png). Each scene's Kid aim, practice menu, Settings from the match and score sheet follow the same names (`iphone-16e-minnesota-kidaim.png`).
+
+### The largest text size
+
+| AX3XL, 16e | |
+| --- | --- |
+| Play the computer | [16e](review/iphone-16e-ax3-options.png) |
+| Settings | [top](review/iphone-16e-ax3-settings.png), [the App icon row](review/iphone-16e-ax3-appicon.png) |
+| Practice menu | [16e](review/iphone-16e-ax3-practicemenu.png) |
+| Hand-off | [16e](review/iphone-16e-ax3-handoff.png), [Kid](review/iphone-16e-ax3-kidhandoff.png) |
+| Match menu | [16e](review/iphone-16e-ax3-menu.png) |
+| Winner | [16e](review/iphone-16e-ax3-winner.png) |
+| Score sheet | [16e](review/iphone-16e-ax3-sheet.png) |
+
+### iPads
+
+The iPads are the iPad mini (A17 Pro) and the iPad Pro 13-inch (M5) under iOS 26.2, full screen, named `ipad-mini-*` and `ipad-pro-13-*`, upright and on their side (turned left; an iPad turns as a device, `tools/review_turn.py`). Every solo shot above has its iPad pictures; a selection:
 
 | iPad | mini | mini on its side | Pro 13-inch | Pro 13-inch on its side |
 | --- | --- | --- | --- | --- |
 | Home | [mini](review/ipad-mini-home.png) | [turned](review/ipad-mini-landscape-home.png) | [Pro](review/ipad-pro-13-home.png) | [turned](review/ipad-pro-13-landscape-home.png) |
-| Options | [mini](review/ipad-mini-options.png) | [turned](review/ipad-mini-landscape-options.png) | [Pro](review/ipad-pro-13-options.png) | [turned](review/ipad-pro-13-landscape-options.png) |
+| Play the computer | [mini](review/ipad-mini-options.png) | [turned](review/ipad-mini-landscape-options.png) | [Pro](review/ipad-pro-13-options.png) | [turned](review/ipad-pro-13-landscape-options.png) |
+| Practice menu | [mini](review/ipad-mini-practicemenu.png) | [turned](review/ipad-mini-landscape-practicemenu.png) | [Pro](review/ipad-pro-13-practicemenu.png) | [turned](review/ipad-pro-13-landscape-practicemenu.png) |
 | Aim, clock right | [mini](review/ipad-mini-aim.png) | [turned](review/ipad-mini-landscape-aim.png) | [Pro](review/ipad-pro-13-aim.png) | [turned](review/ipad-pro-13-landscape-aim.png) |
 | Linear, left, aim | [mini](review/ipad-mini-linear-left-aim.png) | [turned](review/ipad-mini-landscape-linear-left-aim.png) | [Pro](review/ipad-pro-13-linear-left-aim.png) | [turned](review/ipad-pro-13-landscape-linear-left-aim.png) |
-| Linear, right, aim | [mini](review/ipad-mini-linear-right-aim.png) | [turned](review/ipad-mini-landscape-linear-right-aim.png) | [Pro](review/ipad-pro-13-linear-right-aim.png) | [turned](review/ipad-pro-13-landscape-linear-right-aim.png) |
-| STAND held | [mini](review/ipad-mini-stand.png) | [turned](review/ipad-mini-landscape-stand.png) | [Pro](review/ipad-pro-13-stand.png) | [turned](review/ipad-pro-13-landscape-stand.png) |
+| STAND open | [mini](review/ipad-mini-stand.png) | [turned](review/ipad-mini-landscape-stand.png) | [Pro](review/ipad-pro-13-stand.png) | [turned](review/ipad-pro-13-landscape-stand.png) |
 | Flight | [mini](review/ipad-mini-flight.png) | [turned](review/ipad-mini-landscape-flight.png) | [Pro](review/ipad-pro-13-flight.png) | [turned](review/ipad-pro-13-landscape-flight.png) |
-| Raise, two to go | [mini](review/ipad-mini-raisemany.png) | [turned](review/ipad-mini-landscape-raisemany.png) | [Pro](review/ipad-pro-13-raisemany.png) | [turned](review/ipad-pro-13-landscape-raisemany.png) |
-| Punishment | [mini](review/ipad-mini-punish.png) | [turned](review/ipad-mini-landscape-punish.png) | [Pro](review/ipad-pro-13-punish.png) | [turned](review/ipad-pro-13-landscape-punish.png) |
+| Kid match, aim | [mini](review/ipad-mini-kidaim.png) | [turned](review/ipad-mini-landscape-kidaim.png) | [Pro](review/ipad-pro-13-kidaim.png) | [turned](review/ipad-pro-13-landscape-kidaim.png) |
 | Menu | [mini](review/ipad-mini-menu.png) | [turned](review/ipad-mini-landscape-menu.png) | [Pro](review/ipad-pro-13-menu.png) | [turned](review/ipad-pro-13-landscape-menu.png) |
 | Winner | [mini](review/ipad-mini-winner.png) | [turned](review/ipad-mini-landscape-winner.png) | [Pro](review/ipad-pro-13-winner.png) | [turned](review/ipad-pro-13-landscape-winner.png) |
 | Sheet | [mini](review/ipad-mini-sheet.png) | [turned](review/ipad-mini-landscape-sheet.png) | [Pro](review/ipad-pro-13-sheet.png) | [turned](review/ipad-pro-13-landscape-sheet.png) |
@@ -339,4 +410,4 @@ Release took 12.07 ms in the full suite. The Kit's slowest frame crossed the 8.3
 5. For the frame-budget test use the Kit's simulator command with `-configuration Release ENABLE_TESTABILITY=YES -parallel-testing-enabled NO`. Local room conformance and cross-play commands are in [ROOMS-CLIENT.md](ROOMS-CLIENT.md).
 
 
-For the solo snapshots, build the simulator app with `xcodebuild -project ThrowingWood.xcodeproj -scheme ThrowingWood -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO build`. Run `python3 tools/solo-snapshots.py build/dd/Build/Products/Debug-iphonesimulator/ThrowingWood.app`. The script waits for each scene, captures to `build/solo-snapshots/` and checks every 24-point tile against the corresponding review PNG (mean RGB error below 4/255). The comparison masks the simulator-composited home indicator and Pro Max camera cutout. Use `--capture-only` to inspect a proposed new set before copying it. See [the session contract](MATCH.md) for checkpoint provenance.
+For the solo snapshots, build the simulator app with `xcodebuild -project ThrowingWood.xcodeproj -scheme ThrowingWood -configuration Release -destination 'generic/platform=iOS Simulator' -derivedDataPath build/dd CODE_SIGNING_ALLOWED=NO build` (the review set is a Release build; the review hooks are the simulator's, in either configuration). `tools/review-set.sh <group>` takes a group ("Retaking the review set" above). Run by hand, `python3 tools/solo-snapshots.py build/dd/Build/Products/Release-iphonesimulator/ThrowingWood.app` waits for each scene, captures to `build/solo-snapshots/` and checks every 24-point tile against the corresponding review PNG (mean RGB error below 4/255). The comparison masks the simulator-composited home indicator and Pro Max camera cutout. Use `--capture-only` to inspect a proposed new set before copying it, `--only` and `--skip` to pick shots, `--scene`, `--landscape`, `--ipad`, `--text-size accessibility-extra-extra-extra-large` (the `ax3` pictures) and `--player <name>` (the store's: a generated name for the fixtures' "You"). See [the session contract](MATCH.md) for checkpoint provenance.

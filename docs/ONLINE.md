@@ -333,8 +333,8 @@ shows the card over a finished match with a stand-in server (simulator only;
 own;
 `<dir>` holds a tall and a wide MP4 from the web's renderer, run in a copy of the
 web checkout). Every state on both phones upright; making, done, failed and
-offline also turned (`--landscape right` for the 16e, `left` for the Pro Max) and
-on both iPads upright and turned (`--ipad`, `--ipad --landscape left`). An iPad
+offline also turned left (`--landscape left`) and on both iPads upright and turned
+(`--ipad`, `--ipad --landscape left`); `tools/review-set.sh reel` takes them all. An iPad
 lays the card out from its window's shape, so upside down and turned right give
 the same pictures as upright and turned left.
 
@@ -417,6 +417,12 @@ The web's docs/REEL.md "The share card" is the contract: its words are `ShareWor
   for the API's answers against an injected fetch. The old cross-play script against the
   rooms server (`tools/rooms-test.mjs`) went with it; a share has not been sent to the
   pitch server's API stand-in from the app yet.
+- **Pictures** in docs/review/share (`tools/review-set.sh share`, 2026-11-22): every
+  state on both phones upright, and the winner, card, long card, checking, failed and
+  shared states on their side and on both iPads, e.g. [the card](review/share/iphone-16e-card.png)
+  and [the reel's card after a share](review/share/iphone-17-pro-max-shared.png). The
+  sealed pitch's `sealed` and `sealedold` are not among them: the solo fixture they
+  restore through the engine's check from outside is refused today.
 
 ## What travels
 

@@ -137,7 +137,66 @@ Find your range in practice, play a match against the computer, or send a pitch 
 
 **Keywords** — kubb,lawn,baton,king,wood,backyard,throw,toss,pitch,multiplayer,Viking,chess
 
-The six portrait PNGs under `docs/store/` come from the Release simulator app on iPhone 17 (1206 × 2622) and iPhone 17 Pro Max (1320 × 2868). Each size shows aim, flight and the score sheet from synthetic solo checkpoints with invented names. This target supports iPhone. [Apple's screenshot sizes](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/)
+### Proposed listing for 1.0 (for the owner to settle)
+
+The draft above predates scenes and Kid matches. This one is true of the app today; the
+words are the owner's to keep, change or drop.
+
+**Kubb: Throwing Wood**
+
+Six batons. Ten kubbs. One king. Kubb is the lawn game of knocking down your
+opponent's wooden blocks before you topple the king, and Throwing Wood puts the pitch
+in your hand: set your arc, from a high lob to a low, hard drive, your tilt and your
+stance, then wind the meter back and flick.
+
+Play the computer at four levels, from a gentle Kid match (three kubbs a side, thrown
+from the cones) to Pro. Send a pitch link to a friend and play opposite sides of the
+same match, iPhone against iPhone or iPhone against a web browser, with every throw
+the same on both, and fill out either team with computer players at their own levels.
+
+Choose where you play: a summer park, a beach by the sea, a campsite under the full
+moon, Techno's grid of light, a Minnesota snowfall, a tournament field with matches
+going on around you, or the black and white of the original handheld game. Raise your
+field kubbs, place the punishment kubbs, and read the finished game back on its score
+sheet in Planet Kubb notation.
+
+Every name in the game is made from its own word lists, so there is nothing to type and
+nothing to moderate. No ads, no tracking.
+
+**Keywords** (94 of 100 characters) —
+kubb,lawn game,baton,king,viking chess,backyard,throw,toss,scenes,kids,multiplayer,score sheet
+
+## Screenshots
+
+The app is universal, so the store takes an iPhone set and an iPad set. Apple's
+specification (read 2026-11-22,
+[Apple's screenshot specification](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications/)):
+iPhone needs one set in the large Dynamic Island class (1260 x 2736, 1290 x 2796 or
+1320 x 2868) or, failing that, the Face ID large class (1284 x 2778 or 1242 x 2688);
+every smaller iPhone class is scaled from it, so the iPhone 17 size (1206 x 2622, the
+medium class) is no longer needed. An app that runs on iPad needs one set in the
+13-inch class (2064 x 2752 or 2048 x 2732, portrait or landscape); the 11-inch and
+smaller are scaled from it. One to ten pictures a size, PNG or JPEG, no alpha channel.
+
+The sixteen portrait PNGs under `docs/store/` (and an alternate for picture 8 on each) come from the Release simulator app on the
+iPhone 17 Pro Max (1320 x 2868) and the iPad Pro 13-inch (M5, 2064 x 2752), status bar
+at 9:41 with a full battery (the iPad's shows the simulator's date; its status bar takes
+no date), the whole framebuffer (no Dynamic Island or rounded corners drawn, as a
+device's own screenshot), real screens with invented names and no words added
+(`tools/store-snapshots.sh`, which flattens the alpha the simulator leaves on an iPad's
+PNG). An iPad keeps the phone's control sizes, so its pictures are mostly pitch; that is
+the app as it is, not a framing choice. In order:
+
+1. `1-aim`: aiming in Park, the set-up tray, the clock and the target.
+2. `2-hit`: the moment after a hit, the verdict with its chips.
+3. `3-scenes`: Play the computer, the seven scene tiles.
+4. `4-techno`: a throw on Techno's grid with an impact ring.
+5. `5-camping`: Camping at night, the aim under the full moon in the scene's dark skin.
+6. `6-tournament`: the Tournament with a neighbouring pitch in play.
+7. `7-kid`: a Kid match, STAND open on the Kid line ("Stand anywhere from behind your line up to the Kid line"), three kubbs a side.
+8. `8-winner`: the winner card at the end of a match, its length on it; `8-sheet-alternate` is the score sheet of the same match, for the owner to choose between. Both are the review fixture's finished match stamped 24 minutes long (`--finish 24`): the fixtures predate a match's length, and a card with no time looks unfinished.
+
+Each is `iphone-17-pro-max-<n>-<name>.png` and `ipad-pro-13-<n>-<name>.png`.
 
 ## First signed iPhone checklist
 
