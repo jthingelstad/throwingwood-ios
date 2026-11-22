@@ -28,6 +28,13 @@ jobs:
           path: ThrowingWoodKit/.build
           key: kit-${{ runner.os }}-${{ hashFiles('ThrowingWoodKit/Package.swift', 'ThrowingWoodKit/Sources/**', 'ThrowingWoodKit/Tests/**') }}
           restore-keys: kit-${{ runner.os }}-
+      # SwiftPM rebuilds code by content but never removes a resource folder that
+      # Package.swift stopped copying: a cache from before such a change would keep it in
+      # the built bundles (in 2026-11, the dropped engines 0.9, 0.8 and 0.7 stayed in
+      # ThrowingWoodKit_KubbEngine.bundle). Resources are cheap to copy again, so every
+      # built resource bundle goes; the vendor check below fails on any that stays.
+      - name: Drop built resource bundles from the cache
+        run: find ThrowingWoodKit/.build -type d -name 'ThrowingWoodKit_*.bundle' -prune -exec rm -rf {} + 2>/dev/null || true
       # The vendored engine must be the kubb-engine release scripts/vendor-engine.sh
       # names, every file as its engine.json says, byte for byte.
       - name: Vendored engine matches its manifest

@@ -149,6 +149,16 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
     }
   }
 
+  /// The bundle holds no engine beyond the supported ones (Supported.swift, from
+  /// `OLDER`). SwiftPM leaves a resource folder in a built bundle when Package.swift stops
+  /// copying it, so a cached or earlier build kept 0.9, 0.8 and 0.7 after they were
+  /// dropped (CI, 2026-11-21). They are never carried; this says the build is stale.
+  @Test func theBundleHoldsOnlyTheSupportedEngines() {
+    let stale = Engine.bundledOlder.keys.filter { !Engine.supportedOlder.contains($0) }.sorted()
+    #expect(stale.isEmpty, "stale build: \(stale) in the bundle; remove the built bundles and build again")
+    #expect(Engine.carried == [Engine.newest] + Engine.supportedOlder)
+  }
+
   /// The arguments where Apple's libm and musl's round the last bit
   /// differently: the engine's Lua gives musl's (the web's) answer.
   @Test func mathIsTheWebsMath() throws {

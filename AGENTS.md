@@ -76,7 +76,8 @@ agrees. So:
   engines."). Today that is the newest alone. The decision is written in one place,
   `TAG` and `OLDER` in `scripts/vendor-engine.sh`: `OLDER` names any older minor we
   keep (none; `check` fails on an engine folder it does not name, and unless
-  `Package.swift` copies `Engines` exactly when it names one). A match belongs to
+  `Package.swift` copies `Engines` exactly when it names one; `sync` writes it as
+  compiled code too, `Supported.swift`, so a stale bundle never adds an engine). A match belongs to
   the engine it was started on (its `match.engine` major.minor), so a match on an
   engine this build does not carry is never played, replayed or reopened on another:
   every place one can be opened says `VersionWords.oldMatch` and breaks nothing

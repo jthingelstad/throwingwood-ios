@@ -36,6 +36,16 @@ name, and fails unless `Package.swift` copies `Engines` as a resource exactly wh
 `OLDER` names an engine. None is ever edited. `GoldenTests` plays every carried engine's
 corpus (`pinnedCorpora`).
 
+`sync` also writes `OLDER` as compiled code, `Sources/KubbEngine/Supported.swift`
+(`Engine.supportedOlder`), and `check` fails unless it matches. `Engine.carried` takes an
+older engine from the bundle only when that list names it, because a built bundle can
+outlive the change: SwiftPM never removes a resource folder that Package.swift stopped
+copying, so a cached or earlier build kept 0.9, 0.8 and 0.7 in
+`ThrowingWoodKit_KubbEngine.bundle` after they were dropped (CI, 2026-11-21). `check`
+also fails on such a stale bundle in a local build (`ThrowingWoodKit/.build`, `build/`),
+`GoldenTests.theBundleHoldsOnlyTheSupportedEngines` says so in a test run, and CI removes
+the built resource bundles after restoring its cache.
+
 ## Carrying an older engine again
 
 The machinery stays, so supporting an older minor again is a decision and three edits,
