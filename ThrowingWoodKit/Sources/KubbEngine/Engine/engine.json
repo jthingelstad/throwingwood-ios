@@ -1,6 +1,6 @@
 {
   "name": "kubb-engine",
-  "version": "0.13.3",
+  "version": "0.13.4",
   "extractedFrom": {
     "repository": "jthingelstad/playdate-kubb",
     "path": "source/core",
@@ -68,20 +68,21 @@
     "pitch/lobby.lua": "ec156ff4515f5d9a1c867c4ff39a4093db92057134dac6b8ea50e7facf64325b",
     "pitch/seats.lua": "6c12eec6c699d43d29c297fc680038cd0220041dd3f31e8813526c6f7c68fb92",
     "pitch/sync.lua": "fcdda8e612f296267603e47b268ded6ed8fecf7ed4d46a7c50cd25ba4ad2b60b",
-    "session/api.lua": "5cbfd6932d1aedf6aa42a603e4eb51b7fe9b7925b92864a9a1de03b6833c381e",
+    "session/api.lua": "b94fe26196ea00bdeeadeffc5bb06c77c1984e2ac72c876f3a9c9f216a4ad170",
     "session/check.lua": "0c4ffeee866f944cfbbad6c9964528df5fcf70de6e00a36952a2707a6004fb56",
     "session/json.lua": "8d0668bd82f2b3537fff0d76e986d813fc94104560ebcf2ae66416bf2f79185c",
-    "session/names.lua": "d7bffbdc94422267556932b3632eee5dab1e7f1045fb2a424f69f09e84803d02",
-    "session/replay.lua": "5b3e4d901e9abce5fb290228d58e3cec01ff3003b1e7152c06fea993cd7860d4",
-    "session/session.lua": "d1dd7bac80432102290dc1b9586539fa4ec62ddfb790fbf27f9d567901b9c284",
+    "session/namecheck.lua": "52ecda096159fcde0f74944ca7616f1455ce9b7aa32dce0cbe429e4045b02ab7",
+    "session/names.lua": "24ad83176ac83dc39d97c75e7fb52cead05c93302fd3d4e55d64b94caa5cab01",
+    "session/replay.lua": "5a491a5b2a916247c419793f63ac5cd0d1af94c2d33683610fa8516739efdfcc",
+    "session/session.lua": "507256c8c3af38f6c9b66eb7718e2b54ae01517e759a11635e19a509bbc3395b",
     "session/throw.lua": "ecc300f57732b4a6b7efa05b2a412096c3321d71a38066508329169620564963",
     "session/touch.lua": "1785c2057390574d94f42fde5945558e42ae20186a74d5bd8bc6d523231d4371",
     "session/wide.lua": "9f2087d3362b6ed4d2240365a5bd79504ae7207775529cc0d403ab201befd855",
     "tune/pointer.lua": "7b30c67adf47fb8387e5b0dd7f73af3c92c99116d05781885e7fc0157fcc9397",
     "tune/touch.lua": "b7c3f2851c4c386cc39a76d891cf273d703ac231fe51c235db5d1bc404915221",
-    "version.lua": "ccf2b0faf174842aa21211ca6301c6491b2e582055c938dd9d0ad55bec76f9ba"
+    "version.lua": "0252af65b97a4afa907cd6ca23bef5cf3261549e7d21522c25a132be8d33c464"
   },
   "bundle": {
-    "sha256": "8896378c9fb92547b9bc24c45517f6732d41e8c8e49afd625ce754e91e801216"
+    "sha256": "ac8a5c69bdd48995259e92b9bbb584a524834173fcb4172aa1b05e0a1cba83b2"
   }
 }

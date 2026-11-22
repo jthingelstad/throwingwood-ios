@@ -87,7 +87,21 @@ function M.setClient(a)
 end
 
 function M.new(a) R = nil; S = session.new(a or {}); return S:view() end
-function M.restore(text, raw) R = nil; S = session.restore(raw); return S:view() end
+-- restore's argument is the snapshot text itself, or since 0.13.4 { snap, names } with
+-- names = "check": the snapshot refused (nothing changes) when a name in it is not one
+-- the engine allows (session/namecheck). A snapshot has `v`, the wrapper does not.
+function M.restore(text, raw)
+	local d = json.decode(raw)
+	local opts = nil
+	if type(d) == "table" and d.v == nil and d.snap ~= nil then
+		opts = { names = d.names }
+		d = d.snap
+	end
+	local s = session.restore(d, nil, opts)
+	R = nil
+	S = s
+	return S:view()
+end
 function M.restorePractice(a) R = nil; S = session.restorePractice(a.checkpoint); return S:view() end
 function M.view() return need():view() end
 -- The view in the thrower's frame even while the wide view is on: what a report
@@ -127,8 +141,10 @@ local function withInfo(r)
 	return r
 end
 function M.replayLoad(a)
-	R = nil
-	R = replay.new(a)
+	-- made before it replaces anything: a replay that is refused (names = "check", or one
+	-- that is not a replay) leaves the session and a replay already loaded as they were
+	local r = replay.new(a)
+	R = r
 	S = R.s
 	return withInfo(S:view())
 end

@@ -6,7 +6,7 @@ An engine is carried only while we decide it is supported, never because it was 
 released (the owner, 2026-11-21: "Let's force all clients to the most recent engine. We
 should only support engines that we decide are worth supporting not just ones that have
 published so that we can push players to the new engines."). Today that is the newest
-alone: 0.13 (v0.13.3, golden corpus 0.13.0, 15 matches). Every match plays on it: solo,
+alone: 0.13 (v0.13.4, golden corpus 0.13.0, 15 matches). Every match plays on it: solo,
 practice and every pitch.
 
 The decision is written in one place, `TAG` and `OLDER` in `scripts/vendor-engine.sh`:

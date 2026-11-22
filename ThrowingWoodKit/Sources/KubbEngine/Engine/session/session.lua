@@ -37,6 +37,7 @@ import "version"
 import "session/json"
 import "session/throw"
 import "pitch/lobby"
+import "session/namecheck"
 
 local cmatch, cards, save, autothrow, wind = tw.match, tw.cards, tw.save, tw.autothrow, tw.wind
 local raising, frame, pitch, quat, swing, plan = tw.raising, tw.frame, tw.pitch, tw.quat, tw.swing, tw.plan
@@ -274,6 +275,9 @@ local function matchOptions(o)
 	out.teams = teams
 	return out
 end
+-- (session/namecheck reads a replay's setup through it, on a copy: matchOptions fills in
+-- the caller's start table)
+session.matchOptions = matchOptions
 
 local function isCpu(s, side)
 	for _, c in ipairs(s.opts.cpu or {}) do if c == side then return true end end
@@ -1320,10 +1324,17 @@ function Session:hash()
 	return fnv(self:snapshot())
 end
 
-function session.restore(text, control)
+-- opts (since 0.13.4): { names = "check" } refuses, before anything is made, a snapshot
+-- with a name (or any text) that session/namecheck does not allow: for a match that came
+-- from someone else. Absent, every snapshot of this version restores as before (a
+-- person's own kept match with typed names too).
+function session.restore(text, control, opts)
 	needTune()
 	local d = type(text) == "string" and json.decode(text) or text
 	assert(type(d) == "table" and d.v == session.snapshotVersion, "not a snapshot of this version")
+	if opts and opts.names ~= nil then
+		tw.web.namecheck.strict(opts.names, "restore", function() return tw.web.namecheck.snapshot(d) end)
+	end
 	local s = setmetatable({}, Session)
 	s.kind = "match"
 	s.control = { A = true, B = true, cpu = true }
