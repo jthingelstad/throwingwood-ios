@@ -28,7 +28,7 @@
 #                                    version or an earlier one (a hash-neutral
 #                                    release keeps its corpus: 0.4.1 carries
 #                                    0.2.0's, 0.7.1 to 0.7.4 0.5.0's, 0.8.1 and 0.8.2 0.8.0's,
-#                                    0.13.1 0.13.0's;
+#                                    0.13.1 to 0.13.3 0.13.0's;
 #                                    kubb-engine docs/VERSIONING.md), and no
 #                                    engine under Engines/ that OLDER does not
 #                                    name. Needs no kubb-engine checkout (CI runs it)
@@ -42,7 +42,7 @@ set -euo pipefail
 
 # The kubb-engine release new matches play on, and the older ones carried beside it,
 # one per major.minor, newest first.
-TAG=v0.13.1
+TAG=v0.13.3
 OLDER=(v0.9.0 v0.8.2 v0.7.4)
 
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -125,13 +125,13 @@ check_one() {
     corpus=$(json_version "$golden/hashes.json")
     # A hash-neutral patch ships the exact corpus of the last release that changed
     # hashes (kubb-engine docs/VERSIONING.md "Release notes"): 0.4.1 carries 0.2.0's,
-    # 0.5.1 and 0.7.1 to 0.7.4 0.5.0's, 0.8.1 and 0.8.2 0.8.0's, 0.13.1 0.13.0's. Arbitrary older corpora are
+    # 0.5.1 and 0.7.1 to 0.7.4 0.5.0's, 0.8.1 and 0.8.2 0.8.0's, 0.13.1 to 0.13.3 0.13.0's. Arbitrary older corpora are
     # not accepted when moving to another release.
     case $version in
       0.4.1) expected=0.2.0 ;;
       0.5.1 | 0.7.[1-4]) expected=0.5.0 ;;
       0.8.[12]) expected=0.8.0 ;;
-      0.13.1) expected=0.13.0 ;;
+      0.13.[1-3]) expected=0.13.0 ;;
       *) expected=$version ;;
     esac
     [[ $corpus == "$expected" ]] || fail "golden corpus is $corpus, expected $expected; run sync"
