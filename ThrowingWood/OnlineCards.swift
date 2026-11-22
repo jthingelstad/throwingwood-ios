@@ -245,12 +245,9 @@ struct LobbyStart: View {
     Button {
       model.perform { try online.profile(name: model.name) }
       model.runOnline {
-        let c = Calendar(identifier: .gregorian).dateComponents(in: .current, from: Date())
-        let date = JS.object([
-          ("year", .int(c.year!)), ("month", .int(c.month!)), ("day", .int(c.day!)),
-          ("hour", .int(c.hour!)), ("min", .int(c.minute!)),
-        ])
-        try await online.start(seed: Int.random(in: 0..<2_147_483_648), at: date.json)
+        // the start on this host's clock with its UTC offset (MatchClock): every member
+        // stamps its actions on it
+        try await online.start(seed: Int.random(in: 0..<2_147_483_648), at: MatchClock.start().json)
       }
     } label: {
       Text("START").frame(minWidth: 110)

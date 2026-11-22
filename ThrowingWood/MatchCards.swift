@@ -1,4 +1,5 @@
 import KubbRenderer
+import KubbPitch
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -1111,8 +1112,10 @@ struct MatchScreen: View {
   private func hits(_ w: MatchNeed.Winner) -> some View {
     Text("\(w.hits ?? 0) of \(w.thrown ?? 0) batons hit").modifier(Chip())
   }
+  /// The match's length only when it is known (MatchClock.shown, the web's cards.js): a
+  /// match no action stamped has no minutes (engine 0.18.0), and none is "under a minute".
   @ViewBuilder private func minutes(_ w: MatchNeed.Winner) -> some View {
-    if let minutes = w.minutes { Text(minutes == 0 ? "Under a minute" : "\(minutes) min").modifier(Chip()) }
+    if let minutes = MatchClock.shown(w.minutes) { Text("\(minutes) min").modifier(Chip()) }
   }
 
   /// The winner card's one SHARE (the web's word, its src/ui/cards.js): a finished pitch

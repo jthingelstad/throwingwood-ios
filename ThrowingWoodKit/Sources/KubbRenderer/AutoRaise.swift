@@ -446,8 +446,9 @@ extension PitchSession {
   func raiseShowTick(_ dt: Double) throws -> Bool {
     guard var s = raiseShow else { return false }
     s.age += autoRaise.hurry ? s.total + 1 : dt * (1 + RaisePace.catchUp * Double(raiseCatchUp))
-    if let action = s.pending, s.age >= s.lead {
+    if let pending = s.pending, s.age >= s.lead {
       s.pending = nil
+      let action = stamped(pending)
       let response: PlacementCheck = try read("apply", action)
       guard response.ok else {
         raiseShow = nil
