@@ -1010,25 +1010,42 @@ struct MatchScreen: View {
       }
     } buttons: {
       VStack(alignment: .leading, spacing: 10) {
-        if let online = model.online {
-          if online.isHost {
-            Button { model.runOnline { try await online.rematch() } } label: {
-              Text("REMATCH").frame(maxWidth: .infinity)
-            }.buttonStyle(WoodButton(accent: true))
+        if screen.wide {
+          // on its side a phone is about 390 pt tall: the buttons share one row, REMATCH
+          // last in it (the one go colour), so the figures above are not scrolled away
+          HStack(spacing: 12) {
+            Button(action: model.showSheet) { Text("SCORE SHEET").frame(maxWidth: .infinity) }
+            shareButton
+            rematchButton
           }
-        } else if model.sealed == nil {
-          Button { model.screen = .options } label: { Text("REMATCH").frame(maxWidth: .infinity) }
-            .buttonStyle(WoodButton(accent: true))
+          .buttonStyle(WoodButton()).lineLimit(1).minimumScaleFactor(0.7)
+        } else {
+          rematchButton
+          HStack(spacing: 12) {
+            Button(action: model.showSheet) { Text("SCORE SHEET").frame(maxWidth: .infinity) }
+            shareButton
+          }
+          .buttonStyle(WoodButton()).lineLimit(1).minimumScaleFactor(0.7)
         }
-        HStack(spacing: 12) {
-          Button(action: model.showSheet) { Text("SCORE SHEET").frame(maxWidth: .infinity) }
-          shareButton
-        }
-        .buttonStyle(WoodButton()).lineLimit(1).minimumScaleFactor(0.7)
         QuietButton("HOME", action: model.home)
       }
     }
     .onAppear { model.prepareShare() }
+  }
+
+  /// REMATCH, the winner card's go: the host's online, a match against the computer's
+  /// options; none for a sealed pitch opened by its code.
+  @ViewBuilder private var rematchButton: some View {
+    if let online = model.online {
+      if online.isHost {
+        Button { model.runOnline { try await online.rematch() } } label: {
+          Text("REMATCH").frame(maxWidth: .infinity)
+        }.buttonStyle(WoodButton(accent: true))
+      }
+    } else if model.sealed == nil {
+      Button { model.screen = .options } label: { Text("REMATCH").frame(maxWidth: .infinity) }
+        .buttonStyle(WoodButton(accent: true))
+    }
   }
 
   private func turns(_ w: MatchNeed.Winner) -> some View { Text("\(w.turns) turns").modifier(Chip()) }
