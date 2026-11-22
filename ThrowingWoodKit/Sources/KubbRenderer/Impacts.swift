@@ -26,11 +26,15 @@ struct Impacts {
     /// pt: the ring's line, and its bloom (width, alpha)
     static let ringCore = 1.4
     static let ringGlow: [(w: Double, a: Double)] = [(7, 0.16), (3.5, 0.3)]
-    static let puffLife = 0.6
+    /// m: a ring nearer the camera than this is not drawn (the impact camera's close
+    /// shots would ring across the whole screen)
+    static let ringNear = 2.2
+    static let puffLife = 0.55
     /// m/s: a softer strike raises nothing
-    static let puffFrom = 1.1
-    /// m: a blob's radius at the start (growing to 2.4 times), and how far it rises
-    static let puffSize = 0.07, puffRise = 0.18
+    static let puffFrom = 1.4
+    /// m: a disc's radius at its fullest (times the strike's weight), how far it rises,
+    /// and pt: its largest radius on the screen
+    static let puffSize = 0.045, puffRise = 0.12, puffMaxPt = 11.0
     /// live at once
     static let max = 40
   }
@@ -121,6 +125,7 @@ struct Impacts {
     ctx.setLineJoin(.round)
     for l in live {
       let (r, alpha) = ring(l)
+      guard projection.view(V3(l.impact.x, l.impact.y, 0)).z >= Tune.ringNear else { continue }
       let n = 40
       let pts = (0..<n).map { k -> V3 in
         let a = Double(k) / Double(n) * .pi * 2
@@ -143,21 +148,39 @@ struct Impacts {
     }
   }
 
+  /// A puff: a small cartoon cloud of three discs of the ground's colour with the ink
+  /// line, swelling a little and rising, then shrinking away (no tint over the pitch:
+  /// the flat style has none).
   private func drawPuffs(_ ctx: CGContext, _ projection: PitchProjection) {
     let cols = puffs.isEmpty ? [0xe8cf98] : puffs
     for l in live {
       let u = min(1, l.age / Tune.puffLife)
-      let k = min(1.6, 0.6 + (l.impact.speed ?? 1) * 0.3)
-      let grow = reduced ? 1.2 : 1 + 1.4 * Self.ease(u)
+      let k = min(1.5, 0.55 + (l.impact.speed ?? 1) * 0.28)
+      // swell to the middle of its life, then shrink to nothing
+      let grow = reduced ? 1 - u : (u < 0.4 ? 0.6 + Self.ease(u / 0.4) * 0.6 : 1.2 * (1 - Self.ease((u - 0.4) / 0.6)))
+      guard grow > 0.02 else { continue }
       let rise = reduced ? 0 : Tune.puffRise * Self.ease(u) * k
+      var discs: [(CGPoint, Double, Int)] = []
       for j in 0..<3 {
-        let ox = Double(j - 1) * Tune.puffSize * 1.2 * k
-        let v = projection.view(V3(l.impact.x + ox, l.impact.y, Tune.puffSize * k + rise * (0.7 + 0.3 * Double(j))))
+        let ox = Double(j - 1) * Tune.puffSize * 1.1 * k
+        let v = projection.view(V3(l.impact.x + ox, l.impact.y, Tune.puffSize * k * (j == 1 ? 1.3 : 0.9) + rise))
         guard v.z >= 0.05 else { continue }
-        let q = projection.screen(v)
-        let rr = Tune.puffSize * k * grow * projection.c.f * projection.k / v.z * (j == 1 ? 1.2 : 0.9)
-        ctx.setFillColor(KubbRenderer.color(cols[j % cols.count], (1 - u) * 0.8))
-        ctx.fillEllipse(in: CGRect(x: q.x - rr, y: q.y - rr, width: 2 * rr, height: 2 * rr))
+        // never larger than puffMaxPt on the screen: a strike under a close camera stays
+        // a small cloud
+        let rr = min(Tune.puffMaxPt, Tune.puffSize * k * projection.c.f * projection.k / v.z) * grow * (j == 1 ? 1.25 : 0.9)
+        discs.append((projection.screen(v), rr, cols[j % cols.count]))
+      }
+      guard let first = discs.first else { continue }
+      let w = max(0.8, min(2.2, first.1 * 0.12))
+      let outline = CGMutablePath()
+      for (c, r, _) in discs { outline.addEllipse(in: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)) }
+      ctx.setStrokeColor(KubbRenderer.color(ink))
+      ctx.setLineWidth(w * 2)
+      ctx.addPath(outline)
+      ctx.strokePath()
+      for (c, r, rgb) in discs {
+        ctx.setFillColor(KubbRenderer.color(rgb))
+        ctx.fillEllipse(in: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
       }
     }
   }
