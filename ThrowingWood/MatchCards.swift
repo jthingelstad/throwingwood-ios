@@ -2,42 +2,58 @@ import KubbRenderer
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// Home: the title plate over the four buttons, or, where the screen is too short for
+/// that (an iPhone on its side, a short window), the plate beside them.
 struct HomeCard: View {
   let model: GameModel
   var body: some View {
-    VStack {
-      VStack(spacing: -5) {
-        Text("KUBB").font(displayFont(82))
-        Text("THROWING WOOD").font(displayFont(30))
-      }.padding(.horizontal, 20).modifier(Plate())
-      Spacer()
-      VStack(spacing: 12) {
-        Button {
-          model.solo()
-        } label: {
-          Text("PLAY THE COMPUTER").frame(maxWidth: .infinity)
-        }
-        .buttonStyle(WoodButton(accent: true))
-        Button {
-          model.screen = .onlineEntry
-        } label: {
-          Text("PLAY ONLINE").frame(maxWidth: .infinity)
-        }
-        .buttonStyle(WoodButton())
-        Button {
-          model.openPractice()
-        } label: {
-          Text("PRACTICE").frame(maxWidth: .infinity)
-        }
-        .buttonStyle(WoodButton())
-        Button {
-          model.openSettings()
-        } label: {
-          Text("SETTINGS").frame(maxWidth: .infinity)
-        }
-        .buttonStyle(WoodButton())
-      }.frame(maxWidth: 280)
-    }.padding(.top, 22).padding(.bottom, 44)
+    ViewThatFits(in: .vertical) {
+      VStack {
+        title
+        Spacer()
+        buttons
+      }.padding(.top, 22).padding(.bottom, 44)
+      HStack(spacing: 40) {
+        title
+        buttons
+      }.frame(maxHeight: .infinity).padding(.vertical, 12)
+    }
+  }
+
+  private var title: some View {
+    VStack(spacing: -5) {
+      Text("KUBB").font(displayFont(82))
+      Text("THROWING WOOD").font(displayFont(30))
+    }.padding(.horizontal, 20).modifier(Plate())
+  }
+
+  private var buttons: some View {
+    VStack(spacing: 12) {
+      Button {
+        model.solo()
+      } label: {
+        Text("PLAY THE COMPUTER").frame(maxWidth: .infinity)
+      }
+      .buttonStyle(WoodButton(accent: true))
+      Button {
+        model.screen = .onlineEntry
+      } label: {
+        Text("PLAY ONLINE").frame(maxWidth: .infinity)
+      }
+      .buttonStyle(WoodButton())
+      Button {
+        model.openPractice()
+      } label: {
+        Text("PRACTICE").frame(maxWidth: .infinity)
+      }
+      .buttonStyle(WoodButton())
+      Button {
+        model.openSettings()
+      } label: {
+        Text("SETTINGS").frame(maxWidth: .infinity)
+      }
+      .buttonStyle(WoodButton())
+    }.frame(maxWidth: 280)
   }
 }
 
