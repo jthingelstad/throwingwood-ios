@@ -194,9 +194,12 @@ private struct ReportPiecePicker: View {
     return Button {
       if !selected.insert(p.id).inserted { selected.remove(p.id) }
     } label: {
+      // the list's buttons are controls: Inter 14 (nothing under 14 pt) and 44 pt tall;
+      // the marks drawn on the small map stay small, a picture of where pieces lie
       Text(compact ? (p.kind == "stake" ? "•" : p.id.uppercased()) : label)
-        .font(compact ? .system(size: 10, weight: .bold) : .caption.bold())
+        .font(compact ? .system(size: 10, weight: .bold) : bodyFont(14, .bold))
         .padding(compact ? 3 : 6)
+        .frame(minHeight: compact ? nil : TW.touch)
         .background(
           selected.contains(p.id) ? Color.woodGold : .woodPaper,
           in: RoundedRectangle(cornerRadius: 3)
