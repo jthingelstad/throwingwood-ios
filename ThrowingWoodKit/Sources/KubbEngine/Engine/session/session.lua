@@ -490,8 +490,9 @@ end
 -- The score sheet (docs/CLIENT.md "The score sheet"): the game file as it stands, in
 -- Planet Kubb Notation. Mid-match it is the turns so far, with no End, Duration or Win
 -- (core/notation writes Win only once there is a winner); once the match is over it is
--- the finished file (Session:over). `shown` is each line as a screen shows it, without
--- the positions on the pitch (core/gamefile.shown); `text` keeps them.
+-- the finished file (Session:over). `shown` is the lines a screen shows: every line but
+-- the position lines under the turns (core/gamefile.isPosition), so one entry for each
+-- header, the blank line and each turn line; `text` keeps them.
 function Session:sheet()
 	if self.kind ~= "match" then return nil end
 	local text, name
@@ -511,7 +512,9 @@ function Session:sheet()
 		name = start and notation.filename(start, m.game.teams.A.name, m.game.teams.B.name) or "kubb-game.txt"
 	end
 	local shown = {}
-	for line in text:gmatch("([^\n]*)\n") do shown[#shown + 1] = gamefile.shown(line) end
+	for line in text:gmatch("([^\n]*)\n") do
+		if not gamefile.isPosition(line) then shown[#shown + 1] = gamefile.shown(line) end
+	end
 	return { text = text, name = name, shown = shown, done = self.phase == "over" }
 end
 

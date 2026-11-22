@@ -17,7 +17,8 @@ local function isInkast(tok) return tok:find("[IR]") ~= nil end
 -- a, b (team names), winner ("A" | "B" | nil), first ("A" | "B"), turns,
 -- minutes, date ("NOV 20"), start (the header's text), mode, hits =
 -- { A = { hits, thrown }, B = ... }, kingBaton (the baton of its turn the
--- king fell to, or nil), lines (the file's lines, for the score sheet),
+-- king fell to, or nil), lines (the file's lines for the score sheet: every
+-- line but its position lines, gamefile.isPosition),
 -- players (how many each team lists), roster ({ A = { { name, id } }, B }:
 -- the [Team X Players] entries in order) and throws (every inkast and every
 -- baton thrown, { turn, side, player, token }: player is the token's prefix,
@@ -31,7 +32,7 @@ function gamefile.parse(text)
 	local turns, kingBaton = 0, nil
 	local first = nil
 	for line in (text .. "\n"):gmatch("([^\n]*)\n") do
-		lines[#lines + 1] = line
+		if not gamefile.isPosition(line) then lines[#lines + 1] = line end
 		local k, v = line:match('^%[([^"]-)%s+"(.*)"%]%s*$')
 		if k then
 			h[k] = v
@@ -45,15 +46,15 @@ function gamefile.parse(text)
 				local batons = 0
 				-- a note (# ...) says what the tokens cannot: not throws
 				rest = rest:gsub("%s*#.*$", "")
-				-- comments in parentheses, positions "(@ 1.32,5.87)" among
-				-- them, belong to the token before them: not tokens
+				-- comments in parentheses (files before Notation 2 wrote positions
+				-- as "(@ 1.32,5.87)") belong to the token before them: not tokens
 				rest = rest:gsub("%b()", " ")
 				for tok in rest:gmatch("%S+") do
 					local who, t = tok:match("^([%w_]+):(.+)$")
 					if not who then t = tok end
 					if isInkast(t) then
 						throws[#throws + 1] = { turn = n, side = side, player = who, token = t }
-					elseif not t:match("^%d+A$") then
+					elseif not t:match("^%d*A$") then
 						local _, _, hit, thrown = cards.batonCounts(t)
 						if thrown then
 							throws[#throws + 1] = { turn = n, side = side, player = who, token = t }
@@ -102,10 +103,19 @@ function gamefile.parse(text)
 	return s
 end
 
--- A game file's line as the score sheet shows it on screen: without the
--- positions on the pitch (" (@ 4.39,4.61 4.34,5.21)"), which are for readers
--- that draw the pitch and would fill the 400 px screen. Other comments stay.
+-- A position line of Notation 2 (a pitch, lay, stance or felled line under a
+-- turn: "@b 1.23,0.45", "~a ...", "^b ...", "*b 1.23,0.45 - -").
+function gamefile.isPosition(line)
+	return line:match("^[@~%^*][ab] ") ~= nil
+end
+
+-- A game file's line as the score sheet shows it on screen: "" for a position
+-- line (a screen that lists gamefile.parse's lines never meets one), and a
+-- line of a file from before Notation 2 without its positions comments
+-- (" (@ 4.39,4.61 4.34,5.21)"). Positions are for readers that draw the pitch
+-- and would fill the 400 px screen; other comments stay.
 function gamefile.shown(line)
+	if gamefile.isPosition(line) then return "" end
 	return (line:gsub(" ?%(@[^()]*%)", ""))
 end
 
