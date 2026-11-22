@@ -550,12 +550,15 @@ the colours and nothing else (`SceneSkinTests` 7:1; the day 4.5:1, `DesignTests`
   place, ARC into its slider with the side view (SIDE VIEW is no longer a button), TILT
   and STAND also in toward the middle, as the web's trayAt sizes them; a tap outside or
   on its band closes it. The minimap is a plate under the header's right end in every
-  layout, never moving while a control is held, Team A circles and Team B squares. The
+  layout (on a wide screen with the linear meter at the left, where that end is over the
+  throwing line, under the header 24 pt short of the line, so it never covers the
+  target), never moving while a control is held, Team A circles and Team B squares. The
   meters' power band is striped and the release band solid, both with ink end-marks,
   and the throw's distance (the engine's plan `dist`, `MeterWords`) sits on an inverted
   tab beside WIND BACK and DRAW BACK. The verdict leads with each off word inverted
   with its arrow (`VerdictWords`); the hand-off is a short card at the foot with one
-  line (`HandoffWords.line`, from the engine's rail); the computer's turn has no card,
+  line (`HandoffWords.line`, from the engine's rail; on a wide screen its words beside
+  THROW); the computer's turn has no card,
   only the WATCH tab on its team's colour over the faded meter. The coach is one
   inverted chip naming the marks by shape. VoiceOver reads the header, the prompt and
   distance, the meter, the tray, then the minimap (`MatchReaders.swift`). `TrayTests`.
