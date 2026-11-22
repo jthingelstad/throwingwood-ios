@@ -66,6 +66,13 @@ import SwiftUI
     board.cancelFeedback = { [weak self] in self?.silence() }
   }
 
+  /// The Tournament's other pitches, quiet and far (NeighbourSounds): under SOUND only,
+  /// never a haptic, and only while the pitch is on the screen with the app active.
+  func neighbours(_ sounds: [NeighbourSound]) {
+    guard active, onPitch, sound, !sounds.isEmpty else { return }
+    for s in sounds { audio?.play(s) }
+  }
+
   func silence() {
     audio?.silence()
     tactile.silence()

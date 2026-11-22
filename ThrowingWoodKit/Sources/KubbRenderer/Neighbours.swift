@@ -9,7 +9,7 @@ import simd
 // pitches round the player's, as scenery. They run on an engine of their own (a second
 // Lua state, `Engine.neighbours()`, on a serial queue of their own), never the player's,
 // and nothing about them reaches the player's match: its snapshot, actions and hashes.
-// No sound, no haptics, no names on the screen.
+// No people and no names on the screen; their sounds, quiet and far, are NeighbourSounds.
 
 // ---------- the engine's answers ----------
 
@@ -32,6 +32,8 @@ struct NeighbourRecording: Decodable, Sendable {
     let team: String?
     let start, frames: Int
     let poses: [Int]
+    /// s into the throw a kubb or the king went over (none: it did not).
+    var toppleT: Double? = nil
   }
   struct Projectile: Decodable, Sendable { let id, kind: String }
   let frameDt, duration, poseScale: Double
@@ -40,7 +42,8 @@ struct NeighbourRecording: Decodable, Sendable {
 
   /// The session's `Recording` this plays as through `Playback`: the pitch's current
   /// `items` in place of the recording's, and the thrown piece (not among them) added at
-  /// its first pose. No timeline, so no feedback: neighbours make no sound.
+  /// its first pose. No timeline, so no feedback of the player's: the neighbours' own quiet
+  /// sounds come from the recording itself (NeighbourSounds.cues).
   func recording(items: [Piece]) -> Recording {
     var all = items
     let have = Set(items.map(\.id))
@@ -105,18 +108,14 @@ struct NeighbourAdvance: Decodable, Sendable {
 
 // ---------- the field as the screen keeps it ----------
 
-/// A figure at a neighbouring pitch, in its pitch's frame: where it stands, its shirt (an
-/// index into the tournament's shirts), its arm raised (0 to 1) and a hop (m).
-struct NeighbourFigure: Equatable {
-  var x, y: Double
-  var shirt: Int
-  var arm = 0.0, hop = 0.0
-}
-
 /// The live neighbours as the screen holds them: each pitch's items (replaced by a beat
 /// that carries them, a throw's recording played over them and its last poses kept), and
-/// the last beat, from which the figures are drawn. Equal to `neighbours.view` after
-/// every call (the engine's tests prove the model; `NeighbourTests` holds this one to it).
+/// the last beat. Equal to `neighbours.view` after every call (the engine's tests prove
+/// the model; `NeighbourTests` holds this one to it). No people (the owner, 2026-11-22:
+/// "Tournament mode should not have people. Just pitches with live play."): the pieces
+/// move as if by unseen hands, calmly. A thrown piece shows once it is in the air
+/// (`Calm.airborne` from where it left), and kubbs a beat stands up (a raise, a fresh
+/// pitch set out) rise over `Calm.rise` s one after another rather than pop.
 struct NeighbourField {
   struct Live {
     let id: Int
@@ -126,9 +125,32 @@ struct NeighbourField {
     var phase: String
     var at: Double
     /// The throw playing: its playback and when it left the hand.
-    var playing: (playback: Playback, at: Double)?
+    var playing: (playback: Playback, at: Double)? {
+      didSet { launch = playing.flatMap { Calm.launch($0.playback) } }
+    }
+    /// Where the thrown piece left from (its first pose): it is drawn once it is clear of it.
+    private(set) var launch: V3?
     var from: NeighbourPoint?, side: String?, kind: String?
     var winner: String?
+    /// Pieces rising, by id: the pose they rise from and when they start.
+    var rises: [String: (from: Piece, at: Double)] = [:]
+    /// The throw's sounds (NeighbourSounds), on the field's clock.
+    var cues: [NeighbourCue] = []
+
+    /// A throw from `r`, over `items`, left the hand at `at`.
+    mutating func play(_ r: NeighbourRecording, at: Double) {
+      playing = (Playback(r.recording(items: items)), at)
+      cues = NeighbourSounds.cues(r, at: at)
+    }
+
+    init(id: Int, offset: NeighbourPoint, items: [Piece], teams: [String: NeighbourTeam], phase: String, at: Double) {
+      self.id = id
+      self.offset = offset
+      self.items = items
+      self.teams = teams
+      self.phase = phase
+      self.at = at
+    }
   }
   var pitches: [Live] = []
   var stakes: [NeighbourPoint] = []
@@ -141,7 +163,7 @@ struct NeighbourField {
       var live = Live(
         id: p.id, offset: p.offset, items: p.items, teams: p.teams ?? [:], phase: p.phase, at: p.at)
       if let r = p.recording {
-        live.playing = (Playback(r.recording(items: p.items)), p.at)
+        live.play(r, at: p.at)
         (live.from, live.side, live.kind) = (p.from, p.side, p.kind)
       }
       return live
@@ -154,7 +176,7 @@ struct NeighbourField {
     var live = Live(
       id: p.id, offset: p.offset, items: p.items, teams: p.teams ?? pitches[i].teams, phase: p.phase, at: p.at)
     if let r = p.recording {
-      live.playing = (Playback(r.recording(items: p.items)), p.at)
+      live.play(r, at: p.at)
       (live.from, live.side, live.kind) = (p.from, p.side, p.kind)
     }
     pitches[i] = live
@@ -168,10 +190,14 @@ struct NeighbourField {
       // a beat after a throw: the recording has played out by now, its last poses kept
       finish(&p)
       if e.phase == "throw", let r = e.recording {
-        p.playing = (Playback(r.recording(items: p.items)), e.at)
+        p.play(r, at: e.at)
         (p.from, p.side, p.kind) = (e.from, e.side, e.kind)
+        p.rises = [:]
       }
-      if let items = e.items { p.items = items }
+      if let items = e.items {
+        p.rises = Calm.rises(from: p.items, to: items, at: e.at)
+        p.items = items
+      }
       if let teams = e.teams { p.teams = teams }
       if e.phase == "over" { p.winner = e.winner }
       if e.phase == "setup" { (p.winner, p.from, p.side) = (nil, nil, nil) }
@@ -184,6 +210,7 @@ struct NeighbourField {
   mutating func settle(_ now: Double) {
     for i in pitches.indices {
       if let (pb, at) = pitches[i].playing, now - at >= pb.recording.duration { finish(&pitches[i]) }
+      if !pitches[i].rises.isEmpty, !Calm.rising(pitches[i], now) { pitches[i].rises = [:] }
     }
   }
 
@@ -191,36 +218,41 @@ struct NeighbourField {
     guard let (pb, _) = p.playing else { return }
     p.items = pb.pieces(at: pb.recording.duration)
     p.playing = nil
+    p.cues = []
   }
 
-  /// A throw is in the air somewhere, or a figure is moving: the screen draws again.
+  /// A throw is in the air somewhere, or kubbs are rising: the screen draws again.
   func moving(_ now: Double) -> Bool {
     pitches.contains { Self.moving($0, now) }
   }
 
   static func moving(_ p: Live, _ now: Double) -> Bool {
-    if p.playing != nil { return true }
-    let t = now - p.at
-    switch p.phase {
-    case "walk": return t < Figures.walk
-    case "over": return t < Figures.cheer
-    case "setup": return t < Figures.setOut
-    case "throw": return t < Figures.followThrough
-    default: return false
-    }
+    p.playing != nil || Calm.rising(p, now)
   }
 
   /// What the screen draws at `now`: every pitch at its offset with its pieces (the six
-  /// stakes among them) and figures, turned half round about the player's pitch centre
-  /// (0, 4) while the player's view is Team B's (`turned`).
+  /// stakes among them), turned half round about the player's pitch centre (0, 4) while
+  /// the player's view is Team B's (`turned`).
   func drawn(at now: Double, turned: Bool) -> [NeighbourPitch] {
     pitches.map { p in
-      var pieces = p.playing.map { $0.playback.pieces(at: max(0, now - $0.at)) } ?? p.items
+      var pieces: [Piece]
+      if let (pb, at) = p.playing {
+        pieces = pb.pieces(at: max(0, now - at))
+        // the thrown piece shows once it is in the air, clear of the hand no one holds it in
+        let id = pb.recording.projectile.id
+        if let launch = p.launch {
+          pieces.removeAll { $0.id == id && simd_distance($0.center, launch) < Calm.airborne }
+        }
+      } else {
+        pieces = p.items
+      }
+      if !p.rises.isEmpty {
+        pieces = pieces.map { q in p.rises[q.id].map { Calm.risen($0.from, to: q, u: (now - $0.at) / Calm.rise) } ?? q }
+      }
       pieces = pieces.filter { $0.kind != "stake" }
       pieces += stakes.enumerated().map { i, s in
         Piece(id: "stake\(i)", kind: "stake", team: nil, x: s.x, y: s.y, z: 0.075, qw: 1, qx: 0, qy: 0, qz: 0)
       }
-      var people = Figures.of(p, at: now)
       var dx = p.offset.x, dy = p.offset.y
       if turned {
         // (ox + x, oy + y) is drawn at (-(ox + x), 8 - (oy + y)): the pitch's origin at
@@ -228,9 +260,8 @@ struct NeighbourField {
         dx = -dx
         dy = -dy
         pieces = pieces.map(Self.halfTurned)
-        people = people.map { var f = $0; (f.x, f.y) = (-f.x, 8 - f.y); return f }
       }
-      return NeighbourPitch(dx: dx, dy: dy, pieces: pieces, score: Self.score(pieces), people: people)
+      return NeighbourPitch(dx: dx, dy: dy, pieces: pieces, score: Self.score(pieces))
     }
   }
 
@@ -252,100 +283,63 @@ struct NeighbourField {
   }
 }
 
-/// The figures at a neighbouring pitch, from its last beat: each team behind its own
-/// baseline, a thrower at `from` on a throw (its arm up as it lets go), the teams crossing
-/// to fetch batons and kubbs on a walk, one stooping to the kubbs on a raise, the winners
-/// cheering on `over`, and the teams setting out on `setup`. At most three a team, so a
-/// field of eight reads as a tournament and not as a crowd.
-enum Figures {
-  /// Seconds each moving beat is drawn moving.
-  static let walk = 14.0, cheer = 5.0, setOut = 4.0, followThrough = 0.6, stoop = 6.0
-  /// The baselines' waiting lines: m behind each end.
-  static let behind = 1.2
+/// How the neighbours' pieces move with no one to move them: calmly, as scenery.
+enum Calm {
+  /// m a thrown piece is from where it left before it is drawn (a baton leaves a hand at
+  /// about shoulder height; with no hand drawn it would hang there for a frame or two).
+  static let airborne = 0.3
+  /// s a kubb takes to rise, and the gap between one and the next (a raise of six takes
+  /// 0.5 + 5 x 0.12 = 1.1 s; at most `riseSpan` s from the first to the last start).
+  static let rise = 0.5, stagger = 0.12, riseSpan = 1.2
 
-  static func of(_ p: NeighbourField.Live, at now: Double) -> [NeighbourFigure] {
-    let t = max(0, now - p.at)
-    func hashed(_ side: String) -> Int {
-      var h = UInt32(2_166_136_261)
-      for b in (p.teams[side]?.name ?? side).utf8 { h = (h ^ UInt32(b)) &* 16_777_619 }
-      return Int(h % UInt32(TournamentPeople.shirts.count))
+  static func launch(_ pb: Playback) -> V3? {
+    pb.pieces(at: 0).first { $0.id == pb.recording.projectile.id }?.center
+  }
+
+  /// A kubb or the king standing in `to` that was not standing there in `from` rises:
+  /// from its own lying pose where it lay within half a metre (a raise), else from lying
+  /// where it now stands (a fresh pitch set out). Batons and lying pieces just change.
+  static func rises(from: [Piece], to: [Piece], at: Double) -> [String: (from: Piece, at: Double)] {
+    let was = Dictionary(from.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+    var out: [String: (from: Piece, at: Double)] = [:]
+    let up = to.filter { ($0.kind == "kubb" || $0.kind == "king") && !Neon.lying($0) }.filter { q in
+      guard let p = was[q.id] else { return true }
+      return Neon.lying(p) || simd_distance(p.center, q.center) > 0.05
     }
-    // each team its own shirt, never the other side's
-    func shirt(_ side: String) -> Int {
-      let a = hashed("A")
-      guard side == "B" else { return a }
-      let b = hashed("B")
-      return b == a ? (b + 1) % TournamentPeople.shirts.count : b
-    }
-    var out: [NeighbourFigure] = []
-    for side in ["A", "B"] {
-      let n = min(3, max(1, p.teams[side]?.players ?? 3))
-      let shirtOf = shirt(side)
-      let endY = side == "A" ? -behind : 8 + behind
-      let xs = [-0.9, 0.0, 0.9].prefix(n)
-      var spots = xs.enumerated().map { i, x in
-        NeighbourFigure(x: x + (i == 1 ? 0.15 : 0), y: endY + (i == 1 ? (side == "A" ? -0.35 : 0.35) : 0), shirt: shirtOf)
-      }
-      switch p.phase {
-      case "throw", "aim", "rest":
-        // the thrower on the line where the last throw left from (the next steps up there)
-        if p.side == side, let from = p.from, !spots.isEmpty {
-          let arm = p.phase == "throw" && t < followThrough ? 1 - t / followThrough * 0.6 : 0
-          spots[0] = NeighbourFigure(x: from.x, y: from.y + (side == "A" ? -0.25 : 0.25), shirt: shirtOf, arm: arm)
-        }
-      case "walk":
-        // the teams cross: out along their own sideline to the far end, and back
-        if t < walk {
-          let u = t / walk
-          let along = u < 0.5 ? u * 2 : (1 - u) * 2
-          let sx = side == "A" ? -3.0 : 3.0
-          for i in spots.indices {
-            let lag = Double(i) * 0.08
-            let a = max(0, min(1, (along - lag) / (1 - lag)))
-            let y0 = spots[i].y, y1 = side == "A" ? 8 + behind : -behind
-            spots[i].x = spots[i].x + (sx - spots[i].x) * min(1, a * 3)
-            spots[i].y = y0 + (y1 - y0) * a
-          }
-        }
-      case "raise":
-        // one of the team that threw the kubbs in goes to stand them up
-        if p.side == side, t < stoop, !spots.isEmpty {
-          let field = p.items.filter {
-            $0.kind == "kubb" && $0.team != side && (side == "A" ? $0.y > 0.6 : $0.y < 7.4) && $0.y > 0.4 && $0.y < 7.6
-          }
-          if !field.isEmpty {
-            let cx = field.map(\.x).reduce(0, +) / Double(field.count)
-            let cy = field.map(\.y).reduce(0, +) / Double(field.count)
-            spots[0] = NeighbourFigure(x: cx + 0.45, y: cy, shirt: shirtOf)
-          }
-        }
-      case "over":
-        if p.winner == side, t < cheer {
-          for i in spots.indices {
-            spots[i].arm = 1
-            spots[i].hop = abs(sin((t + Double(i) * 0.3) * 7)) * 0.12
-          }
-        }
-      case "setup":
-        // setting out: in from the side of the pitch to their end
-        if t < setOut {
-          let u = t / setOut
-          let sx = side == "A" ? -4.0 : 4.0
-          for i in spots.indices { spots[i].x = sx + (spots[i].x - sx) * u }
-        }
-      default: break
-      }
-      out += spots
+    let gap = up.count > 1 ? min(stagger, riseSpan / Double(up.count - 1)) : 0
+    for (k, q) in up.enumerated() {
+      var start = was[q.id].flatMap { Neon.lying($0) && simd_distance($0.center, q.center) < 0.5 ? $0 : nil }
+      if start == nil { start = lying(q) }
+      out[q.id] = (start!, at + Double(k) * gap)
     }
     return out
   }
-}
 
-/// The tournament's people: shirts in turn and their skin and trousers (the web's palette.js
-/// TOURNAMENT.shirts and person).
-enum TournamentPeople {
-  static let shirts = [0xe5484d, 0x33b6e8, 0xf2b705, 0xffffff, 0x2f7d4a, 0x8e44ad, 0xff7a3d]
-  static let skin = 0xe9c39b, trousers = 0x2f3a4a
+  /// A standing piece laid on its side where it stands, its long axis along the pitch.
+  static func lying(_ q: Piece) -> Piece {
+    var p = q
+    let r = simd_quatd(angle: .pi / 2, axis: V3(1, 0, 0)) * q.rotation
+    (p.qw, p.qx, p.qy, p.qz) = (r.real, r.imag.x, r.imag.y, r.imag.z)
+    p.z = q.kind == "king" ? 0.045 : 0.035
+    return p
+  }
+
+  /// `from` risen `u` of the way to `to`, eased.
+  static func risen(_ from: Piece, to: Piece, u: Double) -> Piece {
+    let t = max(0, min(1, u))
+    let e = t * t * (3 - 2 * t)
+    var p = to
+    p.x = from.x + (to.x - from.x) * e
+    p.y = from.y + (to.y - from.y) * e
+    p.z = from.z + (to.z - from.z) * e
+    let q = simd_slerp(from.rotation, to.rotation, e)
+    (p.qw, p.qx, p.qy, p.qz) = (q.real, q.imag.x, q.imag.y, q.imag.z)
+    return p
+  }
+
+  static func rising(_ p: NeighbourField.Live, _ now: Double) -> Bool {
+    p.rises.values.contains { now - $0.at < rise }
+  }
 }
 
 // ---------- the second engine ----------
@@ -434,6 +428,8 @@ private final class FieldEngine: @unchecked Sendable {
   private var fresh = Set<Int>()
   /// Frames whose `advance` was left out because the one before was still running.
   public private(set) var skipped = 0
+  /// The clock up to which the neighbours' sounds have been taken (`sounds`).
+  private var heard = 0.0
 
   public init() {}
 
@@ -478,6 +474,7 @@ private final class FieldEngine: @unchecked Sendable {
     generation += 1
     let g = generation
     clock = 0
+    heard = 0
     let box = box
     let args = #"{"seed":\#(want.seed),"scene":"tournament","layout":"\#(want.row ? "row" : "grid")","now":0}"#
     pending = true
@@ -564,7 +561,7 @@ private final class FieldEngine: @unchecked Sendable {
   }
 
   /// Something of the field on the screen of `size` has changed or moves (a beat, a
-  /// throw in the air, people walking): the board draws again. A pitch off the screen
+  /// throw in the air, kubbs rising): the board draws again. A pitch off the screen
   /// moving draws nothing, so an aim with nothing beside in view keeps its frames still.
   public func needsDraw(size: CGSize, session: PitchSession) -> Bool {
     guard live else { return false }
@@ -592,6 +589,20 @@ private final class FieldEngine: @unchecked Sendable {
   public func drawn(turned: Bool) -> LiveNeighbours? {
     guard live else { return nil }
     return LiveNeighbours(pitches: field.drawn(at: clock, turned: turned))
+  }
+
+  /// The cues come due since the last take, `NeighbourSounds.stale` at most behind the
+  /// clock, each with its pitch.
+  func takeCues() -> [(NeighbourField.Live, NeighbourCue)] {
+    defer { heard = clock }
+    guard live, clock > heard else { return [] }
+    var out: [(NeighbourField.Live, NeighbourCue)] = []
+    for p in field.pitches {
+      for c in p.cues where c.time > heard && c.time <= clock && clock - c.time <= NeighbourSounds.stale {
+        out.append((p, c))
+      }
+    }
+    return out
   }
 
   /// Waits for the queue (tests and review tools only, never the frame).

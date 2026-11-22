@@ -55,10 +55,9 @@ struct NeighbourPitch {
   let dx, dy: Double
   /// The pieces in the neighbour's own frame (x across, y along, as this pitch's).
   let pieces: [Piece]
-  /// Its scoreboard: base kubbs standing a side.
+  /// Its scoreboard: base kubbs standing a side. No people, live or fixed (the owner,
+  /// 2026-11-22: "Tournament mode should not have people. Just pitches with live play.").
   let score: (a: Int, b: Int)
-  /// Its people, in its own frame (none on the fixed pitches).
-  var people: [NeighbourFigure] = []
 }
 
 enum Tournament {
@@ -481,7 +480,7 @@ extension Painter {
 
   /// The neighbouring pitches, each from its data, the farthest first: its lines, its
   /// stakes and its pieces in the day's light and the USA set's colouring at a far pitch's
-  /// detail (no shadows), its people, then its scoreboard behind its far end. A pitch
+  /// detail (no shadows on the live field), then its scoreboard behind its far end. A pitch
   /// wholly off the screen is left out.
   func neighbours(_ list: [NeighbourPitch], live: Bool = false) {
     let eye = projection.c.eye, f = projection.c.forward
@@ -489,7 +488,7 @@ extension Painter {
     let screen = CGRect(origin: .zero, size: projection.size).insetBy(dx: -24, dy: -24)
     for n in list.sorted(by: { depth($0) > depth($1) }) {
 
-      // its footprint and the height of its people and board: nothing of it on the screen,
+      // its footprint and the height of its board: nothing of it on the screen,
       // nothing drawn
       let box = path(projection.polygon([
         V3(n.dx - 3.5, n.dy - 2, 0), V3(n.dx + 3.5, n.dy - 2, 0), V3(n.dx + 3.5, n.dy + 10, 0),
@@ -510,53 +509,9 @@ extension Painter {
         return q
       })
       s.look = "tournament"
-      // its people behind the pieces, then the pieces, then its people in front of them
-      let middle = depth(n)
-      // the pitches in line with the player's (straight ahead and behind) play on without
-      // their people: a person a few metres past the far kubbs stands taller on the screen
-      // than anything the player aims at, and one behind stands over the near end
-      let inLine = live && abs(n.dx) < 1
-      let people = (inLine ? [] : n.people).map { (at: o + V3($0.x, $0.y, 0), figure: $0) }
-        .sorted { dot($0.at - eye, f) > dot($1.at - eye, f) }
-      for p in people where dot(p.at - eye, f) >= middle { person(p.at, p.figure) }
-      pieces(s, shadows: n.people.isEmpty && !live)
-      for p in people where dot(p.at - eye, f) < middle { person(p.at, p.figure) }
+      pieces(s, shadows: !live)
       let board = o + V3(3.4, 9.6, 0)
       scoreboard(board, n.score)
-    }
-  }
-
-  /// A person at a neighbouring pitch (the web's scenery.js person): legs, a shirt, a head
-  /// and an arm, 1.75 m tall, raised `arm` (0 to 1) and off the ground by `hop`.
-  private func person(_ at: V3, _ f: NeighbourFigure) {
-    billboard(at) { u in
-      let s = 1.75
-      guard s * u >= 4 else { return }
-      let w = max(0.8, min(1.6, s * u / 22))
-      let y0 = f.hop
-      let leg = s * 0.06
-      for x in [-leg * 1.6, leg * 0.6] {
-        cutout([CGPoint(x: x, y: y0), CGPoint(x: x + leg, y: y0), CGPoint(x: x + leg, y: y0 + s * 0.46), CGPoint(x: x, y: y0 + s * 0.46)],
-          TournamentPeople.trousers, u, w: w)
-      }
-      if f.arm > 0 {
-        let shoulder = CGPoint(x: s * 0.12, y: y0 + s * 0.74)
-        let hand = CGPoint(x: s * 0.28, y: y0 + s * (0.74 + f.arm * 0.22))
-        stroke(path([shoulder, hand], closed: false), ink, max(w, s * 0.05 * u) / u)
-      }
-      let bw = s * 0.15
-      let body = CGMutablePath()
-      body.move(to: CGPoint(x: -bw, y: y0 + s * 0.44))
-      body.addLine(to: CGPoint(x: -bw * 1.05, y: y0 + s * 0.78))
-      body.addQuadCurve(to: CGPoint(x: bw * 1.05, y: y0 + s * 0.78), control: CGPoint(x: 0, y: y0 + s * 0.85))
-      body.addLine(to: CGPoint(x: bw, y: y0 + s * 0.44))
-      body.closeSubpath()
-      fill(body, TournamentPeople.shirts[f.shirt % TournamentPeople.shirts.count])
-      stroke(body, ink, w / u)
-      let r = s * 0.085
-      let head = CGPath(ellipseIn: CGRect(x: -r, y: y0 + s * 0.9 - r, width: 2 * r, height: 2 * r), transform: nil)
-      fill(head, TournamentPeople.skin)
-      stroke(head, ink, w / u)
     }
   }
 
