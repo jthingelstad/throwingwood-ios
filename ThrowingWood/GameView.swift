@@ -45,6 +45,9 @@ struct WoodButton: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
     var body: some View {
       configuration.label.font(.custom("LondrinaSolid-Black", size: 20, relativeTo: .headline))
+        // one line, shrinking where the larger text sizes would not fit it: never a word
+        // broken across lines (START as STAR / T at AX3, the 2026-11-22 review pictures)
+        .lineLimit(1).minimumScaleFactor(0.5)
         .frame(minHeight: TW.touch - 8).padding(.horizontal, 14)
         .modifier(Plate(accent: accent, inset: 4))
         .offset(y: configuration.isPressed && enabled ? 2 : 0)
