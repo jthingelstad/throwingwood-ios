@@ -46,9 +46,9 @@ struct MatchOptionsCard: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       Text("Play the computer").font(displayFont(37))
-      // the player's name and own level are the device's (Settings); this card's
-      // rows are the game's, its Computer level the match's `computer` option
-      LevelLine(model: model)
+      // the player's name is the device's (Settings); this card's rows are the
+      // game's, its Computer level the match's `computer` option
+      PlayerLine(model: model)
       ForEach(model.pitch?.options.rows ?? []) { row in
         let label = row.id == "computer" ? "Computer level" : row.label
         HStack {

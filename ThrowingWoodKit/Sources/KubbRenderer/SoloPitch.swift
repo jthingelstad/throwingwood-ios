@@ -24,7 +24,8 @@ extension PitchSession {
           + (look.map { #","scene":"\#($0)""# } ?? "") + "}"))
   }
 
-  /// `level` is the player's own (ThrowLevel, the device's); `selections["computer"]`
+  /// `level` is the player's kept level (ThrowLevel: 0.13 keeps it and throws every
+  /// person on one meter; an older carried engine throws by it); `selections["computer"]`
   /// is the computer's, the set-up's per-game choice (and the player's when no
   /// level is given). On 0.9 it is the match's `computer` option; on an older
   /// engine it goes on the computer's player entry, as it always did.

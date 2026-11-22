@@ -116,8 +116,8 @@ struct LobbyCard: View {
         copied = true
       }
     }.buttonStyle(WoodButton())
-    // the name and level are the device's (Settings): the pitch hears a change at once
-    LevelLine(model: model)
+    // the name is the device's (Settings): the pitch hears a change at once
+    PlayerLine(model: model)
     ForEach(["A", "B"], id: \.self) { side in
       let players = online.members.filter { $0.side == side }
       VStack(alignment: .leading, spacing: 3) {
@@ -219,7 +219,8 @@ struct LobbyCard: View {
       if !m.connected { Text("Away").font(.caption) }
     }
   }
-  /// The device's name and level (Settings), as the room knows them.
+  /// The device's name (Settings) and its kept level, as the room knows them: the
+  /// level is still sent for a match on a carried engine before 0.13 (ThrowLevel).
   private func profile() {
     model.commitName()  // a name still in its field goes first
     model.perform { try online.profile(name: model.name, level: model.throwLevel) }

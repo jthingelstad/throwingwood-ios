@@ -4,7 +4,7 @@ import Testing
 @testable import KubbRenderer
 
 /// Every setting lives where its scope says (the owner's sheet, 2026-11-20): the
-/// device's (name, level, sound, haptics, meter and its side) together in Settings,
+/// device's (name, sound, haptics, meter and its side) together in Settings,
 /// reached from home and from inside a match; the game's on the match options (the
 /// solo options, the practice menu, the lobby) and nowhere else.
 @MainActor struct SettingsScopesTests {
@@ -85,15 +85,15 @@ import Testing
 
   /// The device's controls are made in one file only, and Settings has them all.
   @Test func theDevicesSettingsAreTogetherInSettings() throws {
-    let controls = ["LevelSetting(", "FeedbackSettings(", "MeterSettings(", "NameField("]
+    let controls = ["FeedbackSettings(", "MeterSettings(", "NameField("]
     let files = try FileManager.default.contentsOfDirectory(atPath: app.path).filter { $0.hasSuffix(".swift") }
-    for name in files where name != "LevelSettings.swift" {
+    for name in files where name != "Settings.swift" {
       let text = try file(name)
       for c in controls { #expect(!text.contains(c), "\(name) presents \(c) outside Settings") }
       #expect(!text.contains("$model.name"), "\(name) binds the name")
       #expect(!text.contains(#"TextField("Your name""#), "\(name) asks the name")
     }
-    let settings = try body("LevelSettings.swift", "SettingsCard")
+    let settings = try body("Settings.swift", "SettingsCard")
     for c in controls { #expect(settings.contains(c), "Settings has \(c)") }
   }
 
@@ -109,7 +109,7 @@ import Testing
   /// No game setting hides in Settings: the options rows, the scene, the surface and
   /// Raising are the game's.
   @Test func noGameSettingIsInSettings() throws {
-    let settings = try body("LevelSettings.swift", "SettingsCard")
+    let settings = try body("Settings.swift", "SettingsCard")
     for game in ["selections", "optionRows", "Surface", "practiceScene", "RaisingSetting", "raiseAutomatically", "online.option"] {
       #expect(!settings.contains(game), "Settings holds \(game)")
     }
