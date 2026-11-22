@@ -137,7 +137,7 @@ import Testing
         // the tray and an open plate are on the other half (the minimap hangs under
         // the header wherever the header is: a picture, it takes no touch)
         let plan = WideLayout.plan(meter: ml, size: p.size, safe: p.safe, side: side)
-        for f in [plan.block, plan.open] {
+        for f in [plan.block, plan.reach] {
           #expect(side == .right ? f.maxX < mid : f.minX > mid, "\(p.name) \(side)")
         }
         // a whole stroke fits: from home, the track's full draw back and flick
@@ -201,9 +201,8 @@ import Testing
             ("meter", WideLayout.meterBox(meter, size: p.size, safe: s, side: side)),
             ("tray", plan.block),
           ]
-          // on every phone an open plate stands beside the column, never over it
-          #expect(!plan.openOver, "\(p.name) \(kind) \(side)")
-          frames.append(("open plate", plan.open))
+          // all an open plate may take, beside and over the column, meets nothing else
+          frames[4] = ("tray", plan.reach)
           if let m = meter.linear { frames.append(("tab", m.tab)) }
           // online, SHOUT top right (beside a linear meter at the right)
           if online { frames.append(("shout", WideLayout.shout(size: p.size, safe: s, meter: meter))) }
@@ -229,38 +228,36 @@ import Testing
             #expect(c.center.y + c.radius * 1.12 <= p.size.height - s.bottom)
             #expect(c.center.x - c.radius * 1.12 >= s.left && c.center.x + c.radius * 1.12 <= p.size.width - s.right)
           }
-          // the tray's column is at the screen's edge away from the meter, 8 in from
+          // the tray's column is at the screen's edge away from the meter, 12 in from
           // the safe area, its foot 10 above the meter's box's foot, three plates of
-          // 104 by 70 8 apart; an open plate beside it toward the middle, its foot level
+          // 104 by 70 8 apart; an open plate grows up from its place
           let plan = WideLayout.plan(meter: meter, size: p.size, safe: s, side: side)
           let box = WideLayout.meterBox(meter, size: p.size, safe: s, side: side)
           #expect(plan.edge == (side == .right ? .left : .right), "\(what)")
           #expect(plan.block.size == CGSize(width: 104, height: 226))
           #expect(
             side == .right
-              ? plan.block.minX == s.left + 8 : plan.block.maxX == p.size.width - s.right - 8, "\(what)")
+              ? plan.block.minX == s.left + 12 : plan.block.maxX == p.size.width - s.right - 12, "\(what)")
           #expect(plan.block.maxY == box.maxY - WideLayout.planLift)
-          #expect(plan.open.maxY == plan.block.maxY && plan.open.width == plan.block.width)
-          #expect(side == .right ? plan.open.minX == plan.block.maxX + 8 : plan.open.maxX == plan.block.minX - 8)
-          // ARC open is as tall as it is open where the room under the header allows
           let rail = WideLayout.rail(size: p.size, safe: s, meter: meter)
-          #expect(plan.open.minY >= rail.maxY + 10, "\(what): open plate \(plan.open) under the header")
-          #expect(Tray.openFrame(.arc, in: plan).height >= Tray.openHeight(.stand, wide: true))
+          for open in TrayPlate.allCases {
+            let f = plan.tray.plates(open: open)
+            #expect(f[open]!.maxY <= plan.block.maxY && f[open]!.minY >= plan.tray.ceiling, "\(what) \(open)")
+            #expect(f[open]!.minY >= rail.maxY + 8 || !f[open]!.intersects(rail))
+          }
           // the minimap hangs under the header's right end (the 1.0 design: one home)
-          #expect(plan.minimap.maxX == rail.maxX && plan.minimap.minY == rail.maxY + 10, "\(what): \(plan.minimap)")
+          #expect(plan.minimap.maxX == rail.maxX && plan.minimap.minY == rail.maxY + 8, "\(what): \(plan.minimap)")
           // nothing on the throwing line: the tray and an open plate stop 24 short of
           // the screen's centre, the meter is on the other half
           let centre = p.size.width / 2
-          for f in [plan.block, plan.open] {
+          for f in [plan.block, plan.reach] {
             #expect(side == .right ? f.maxX <= centre - 24 : f.minX >= centre + 24, "\(what): \(f)")
           }
           #expect(side == .right ? box.minX > centre : box.maxX < centre)
           // and clear of the clock's outer touch zone (a press beside the ring)
           if let c = meter.clock {
-            for f in [plan.block, plan.open] {
-              #expect(
-                distance(c.center, f) > c.radius * ClockMeter.touchReach, "\(what): \(f) in the clock's reach")
-            }
+            #expect(
+              distance(c.center, plan.reach) > c.radius * ClockMeter.touchReach, "\(what): \(plan.reach) in the clock's reach")
           }
           // the meter has not moved for it
           #expect(meter == MeterLayout.make(
@@ -297,7 +294,7 @@ import Testing
     for online in [false, true] {
       let tray = online ? WideLayout.trayWidth : 0
       let plan = WideLayout.plan(meter: meter, size: size, safe: s, side: side, trayWidth: tray)
-      #expect(plan.block.size == WideLayoutTests.block)
+      #expect(plan.block.width == WideLayoutTests.block.width && plan.tray.plate.height >= 48)
       let caption = WideLayout.caption(size: size, safe: s, trayWidth: tray, meter: meter, side: side)
       // the stack (wind or a held slider's words over the verdict) is framed to
       // this room, from the caption's line down to the first frame under it
@@ -307,14 +304,9 @@ import Testing
         ("rail", WideLayout.rail(size: size, safe: s, meter: meter)),
         ("caption", room),
         ("meter", WideLayout.meterBox(meter, size: size, safe: s, side: side)),
-        ("tray", plan.block),
+        // the column and all an open plate may take
+        ("tray", plan.reach),
       ]
-      // an open plate beside the column, or over it in a window too narrow (it covers
-      // the column only while it is open)
-      if !plan.openOver { frames.append(("open plate", plan.open)) } else {
-        #expect(plan.open.minX == plan.block.minX && plan.open.maxY == plan.block.maxY)
-        #expect(safeRect.contains(plan.open))
-      }
       if online { frames.append(("shout", WideLayout.shout(size: size, safe: s, meter: meter))) }
       // a minimap with no room over the block in a narrow window is not drawn
       if !plan.minimap.isNull { frames.append(("minimap", plan.minimap)) }
@@ -379,14 +371,10 @@ import Testing
     // off the throwing line. (The minimap, under the header's right end, is a
     // picture: where it could not keep out of the way it is not drawn.)
     if let c = meter.clock {
-      for f in [plan.block] + (plan.openOver ? [] : [plan.open]) {
-        #expect(distance(c.center, f) > c.radius * ClockMeter.touchReach, "\(what): \(f) in the clock's reach")
-      }
+      #expect(distance(c.center, plan.reach) > c.radius * ClockMeter.touchReach, "\(what): \(plan.reach) in the clock's reach")
     }
     let centre = size.width / 2
-    for f in [plan.block] + (plan.openOver ? [] : [plan.open]) {
-      #expect(side == .right ? f.maxX <= centre - 24 : f.minX >= centre + 24, "\(what): \(f)")
-    }
+    #expect(side == .right ? plan.reach.maxX <= centre - 24 : plan.reach.minX >= centre + 24, "\(what): \(plan.reach)")
   }
 
   @Test func anIPadOnItsSideIsTheWideArrangementWithTheLinearMetersRoom() throws {
@@ -411,8 +399,8 @@ import Testing
             safeBottom: p.safe.bottom)
           let plan = WideLayout.plan(meter: meter, size: p.size, safe: p.safe, side: side)
           #expect(plan.edge == (side == .right ? .left : .right), "\(p.name) \(kind) \(side)")
-          #expect(plan.block.size == Tray.column(wide: true) && !plan.openOver && !plan.minimap.isNull)
-          #expect(Tray.openFrame(.arc, in: plan).height == Tray.openHeight(.arc, wide: true))
+          #expect(plan.block.size == Tray.column(wide: true) && !plan.minimap.isNull)
+          #expect(plan.tray.open(.arc) == (CGSize(width: 104, height: 300), false))
         }
       }
       // the clock is the web's wide clock: S = min(0.28 W, 0.46 H, 380), not a phone's
@@ -522,9 +510,7 @@ import Testing
         let plan = WideLayout.plan(meter: meter, size: size, safe: s, side: side)
         #expect(plan.edge == (side == .right ? .left : .right))
         if let m = meter.linear {
-          for f in [plan.block, plan.open] {
-            #expect(!f.intersects(m.tab) && !f.intersects(WideLayout.coachBand(m, size: size)))
-          }
+          #expect(!plan.reach.intersects(m.tab) && !plan.reach.intersects(WideLayout.coachBand(m, size: size)))
         }
       }
     }
@@ -551,12 +537,20 @@ import Testing
       near(a.minX, b.minX) && near(a.minY, b.minY) && near(a.width, b.width) && near(a.height, b.height)
     }
     let right = at(CGSize(width: 852, height: 393), .right)
-    #expect(right.edge == .left && near(right.block, CGRect(x: 67, y: 129, width: 104, height: 226)))
-    #expect(near(right.open, CGRect(x: 179, y: 125, width: 104, height: 230)) && !right.openOver)
-    #expect(near(right.minimap.minX, 306.1) && near(right.minimap.minY, 82) && near(right.minimap.width, 62.9))
+    #expect(right.edge == .left && near(right.block, CGRect(x: 71, y: 129, width: 104, height: 226)))
+    // the header: 0.4 of the width, short of the throwing line (852 / 2 - 24 - 69)
+    let rail = WideLayout.rail(size: CGSize(width: 852, height: 393), safe: safe)
+    #expect(near(rail, CGRect(x: 69, y: 10, width: 333, height: 62)))
+    #expect(near(right.minimap.maxX, 402) && near(right.minimap.minY, 80) && near(right.minimap.width, 62.9))
+    // ARC open grows up from its place as far as the room under the header row (72 +
+    // 8) leaves with the other two showing: 355 - 80 - 2 x 78 = 119, over the web's
+    // openMin of 100, so it does not cover them
+    #expect(right.tray.ceiling == 80)
+    #expect(right.tray.open(.arc) == (CGSize(width: 104, height: 119), false))
+    // TILT opens in toward the middle, 240 wide, short of the minimap
+    #expect(right.tray.open(.tilt).size.width == 240 || right.tray.open(.tilt).size.width < 240)
     let left = at(CGSize(width: 852, height: 393), .left)
-    #expect(left.edge == .right && near(left.block, CGRect(x: 681, y: 129, width: 104, height: 226)))
-    #expect(left.open.minX == 569)
+    #expect(left.edge == .right && near(left.block, CGRect(x: 677, y: 129, width: 104, height: 226)))
     // the minimap does not follow the meter: it is the header's
     #expect(left.minimap == right.minimap)
   }

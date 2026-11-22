@@ -176,12 +176,15 @@ import UIKit
               try pitch.raiseTap(i)
             }
             if mode == "stand" {
-              // a finger held on STAND, toward the right and back: the caption says where
+              // STAND open, a finger held on it toward the right and back: the caption says where
+              try pitch.tapPlate(.stand)
               pitch.stand(fx: 0.8, fy: 0.75, phase: .down)
               for _ in 0..<3 { try pitch.tick(1.0 / 60) }
             }
             if mode == "arc" || mode == "tilt" {
-              // A finger held on the slider three quarters along: the side view eases in.
+              // The plate open, a finger held on its slider three quarters along: the
+              // side view eases in.
+              try pitch.tapPlate(mode == "arc" ? .arc : .tilt)
               pitch.slide(mode == "arc" ? .arc : .side, to: 0.75, phase: .down)
               for _ in 0..<90 { try pitch.tick(1.0 / 60) }
             }
@@ -306,9 +309,9 @@ import UIKit
   /// any level with it.
   private var trayFrames: [CGRect] {
     let f = TrayView.frames(
-      size: bounds.size, safe: insets, meter: meter, side: model.meter.side, open: pitch.openPlate,
-      online: model.online != nil)
-    return Array(f.slots.values) + (f.open.map { [$0] } ?? [])
+      size: bounds.size, safe: insets, meter: meter, side: model.meter.side, online: model.online != nil,
+      headerBottom: model.headerBottom)
+    return Array(f.plates(open: pitch.openPlate).values)
   }
 
   /// The meter on the screen: the player's choice where it has its room.
@@ -353,7 +356,7 @@ import UIKit
         "size": [Double(bounds.width), Double(bounds.height)],
         "safe": ["top": Double(s.top), "left": Double(s.left), "bottom": Double(s.bottom), "right": Double(s.right)],
         "side": model.meter.side.rawValue, "meter": r(WideLayout.meterBox(meter, size: bounds.size, safe: s, side: model.meter.side)),
-        "block": r(plan.block), "edge": plan.edge.rawValue, "open": r(plan.open), "minimap": r(plan.minimap),
+        "block": r(plan.block), "edge": plan.edge.rawValue, "reach": r(plan.reach), "minimap": r(plan.minimap),
       ]
       if let c = meter.clock { json["clock"] = [Double(c.center.x), Double(c.center.y), Double(c.radius)] }
       if let floor = pitch.stillFloor {

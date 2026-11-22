@@ -13,18 +13,18 @@ import SwiftUI
 /// adjustable a step at a time as the open sliders are, and a double tap opens it.
 struct TrayView: View {
   let model: GameModel, pitch: PitchSession, revision: Int
-  /// The closed plates to draw, in whole-screen points.
-  let slots: [TrayPlate: CGRect]
-  /// The open plate's frame (nil: none open).
-  let open: CGRect?
-  let wide: Bool
+  /// The tray on this screen (TrayFrames), in whole-screen points.
+  let tray: TrayFrames
+  var wide: Bool { tray.wide }
 
   var body: some View {
+    let frames = tray.plates(open: pitch.openPlate)
+    let open = pitch.openPlate.flatMap { frames[$0] }
     ZStack(alignment: .topLeading) {
       Color.clear
       ForEach(TrayPlate.allCases, id: \.self) { p in
-        if let f = slots[p] {
-          closed(p, selected: pitch.openPlate == p)
+        if p != pitch.openPlate, let f = frames[p] {
+          closed(p, selected: false)
             .frame(width: f.width, height: f.height)
             .offset(x: f.minX, y: f.minY)
             .accessibilitySortPriority(Double(3 - (TrayPlate.allCases.firstIndex(of: p) ?? 0)))
@@ -123,7 +123,7 @@ struct TrayView: View {
     switch p {
     case .arc:
       let loft = Double(pitch.arcDegrees ?? 30)
-      let k = min(1, max(0.15, tan(min(75, max(5, loft)) * .pi / 180) / 2.2))
+      let k = min(1, max(0.2, loft / 45))
       var path = Path()
       let y0 = h - 5
       path.move(to: CGPoint(x: 8, y: y0))
@@ -214,22 +214,15 @@ struct TrayView: View {
 }
 
 extension TrayView {
-  /// The tray's frames on this screen: the closed plates to draw and the open plate's
-  /// frame, in whole-screen points (TrayLayout.swift, WideLayout.plan).
+  /// The tray on this screen, in whole-screen points (TrayLayout.swift, WideLayout.plan).
   @MainActor static func frames(
-    size: CGSize, safe: ScreenInsets, meter: MeterLayout, side: MeterSide, open: TrayPlate?, online: Bool
-  ) -> (slots: [TrayPlate: CGRect], open: CGRect?) {
+    size: CGSize, safe: ScreenInsets, meter: MeterLayout, side: MeterSide, online: Bool, headerBottom: CGFloat?
+  ) -> TrayFrames {
     if WideLayout.isWide(size) {
-      let plan = WideLayout.plan(
-        meter: meter, size: size, safe: safe, side: side, trayWidth: online ? WideLayout.trayWidth : 0)
-      var slots = Tray.stack(x: plan.block.minX, foot: plan.block.maxY, wide: true)
-      guard let open else { return (slots, nil) }
-      let f = Tray.openFrame(open, in: plan)
-      if plan.openOver { slots = slots.filter { !$0.value.intersects(f) } }
-      return (slots, f)
+      return WideLayout.plan(
+        meter: meter, size: size, safe: safe, side: side, trayWidth: online ? WideLayout.trayWidth : 0
+      ).tray
     }
-    var slots = Tray.uprightPlates(size: size, safe: safe, meter: meter, side: side, open: open)
-    guard let open, let f = slots.removeValue(forKey: open) else { return (slots, nil) }
-    return (slots, f)
+    return Tray.uprightFrames(size: size, safe: safe, meter: meter, side: side, headerBottom: headerBottom)
   }
 }
