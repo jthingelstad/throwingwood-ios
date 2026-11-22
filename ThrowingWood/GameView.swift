@@ -178,7 +178,7 @@ struct GameView: View {
       model.online?.close()
     }
     // a scene skins the system's controls too: its menus and pickers go dark
-    .preferredColorScheme(SkinStore.shared.skin.isDay ? .light : .dark)
+    .preferredColorScheme(SkinStore.shared.skin.light ? .light : .dark)
     .tint(SkinStore.shared.skin.isDay ? nil : Color(SkinStore.shared.skin.accent))
     .onChange(of: model.shownScene, initial: true) { _, id in SkinStore.shared.use(id) }
     .alert(

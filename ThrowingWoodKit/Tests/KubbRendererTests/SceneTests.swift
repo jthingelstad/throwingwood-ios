@@ -335,6 +335,14 @@ struct SceneSkinTests {
     }
   }
 
+  /// The status bar reads over every scene's sky (the 2026-11-22 review pictures: Black
+  /// & White took the dark look, white type on its white sky): light where the sky is
+  /// light, dark under Camping's and Techno's.
+  @Test func theStatusBarReadsOverTheSky() {
+    for id in ["day", "beach", "minnesota", "tournament", "bw"] { #expect(SceneSkin.of(id).light, "\(id)") }
+    for id in ["night", "neon"] { #expect(!SceneSkin.of(id).light, "\(id)") }
+  }
+
   @Test func theDayIsTheAppsOwn() {
     #expect(SceneSkin.of(nil) == .day)
     #expect(SceneSkin.of("sunset") == .day)

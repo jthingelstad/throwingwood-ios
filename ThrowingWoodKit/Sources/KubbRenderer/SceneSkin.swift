@@ -40,6 +40,10 @@ public struct SceneSkin: Equatable, Sendable {
   /// Black and white only (Black & White): the dimming behind a card is the Playdate's
   /// 50% checker, never grey.
   public var mono: Bool { id == "bw" }
+  /// The system's light look (dark status bar, light system controls): the day and the
+  /// daylight scenes, and Black & White, whose sky is white; a dark scene (Camping,
+  /// Techno) takes the dark look, so the status bar reads over its sky.
+  public var light: Bool { isDay || mono }
   // the plates and cards (the 1.0 system's tokens: kubb-sources design/system, the
   // day's are its values): ink draws every outline, shadow and word and fills a chosen
   // segment; paper is cards and plain buttons; accent is go (marigold in the day)
