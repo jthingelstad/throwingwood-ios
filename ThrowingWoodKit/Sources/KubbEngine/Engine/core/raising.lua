@@ -610,4 +610,42 @@ function raising.autoPunishment(ctx, policy)
 	return { x = bx, y = by, standing = true, angle = 0 }
 end
 
+-- The fair spot (the Kid rules, 0.15.0; docs/notes/kid-mode.md): where the engine
+-- stands a kubb out twice, for nobody's advantage, instead of a punishment kubb. The
+-- valid spot (raising.punishmentCheck: in the half, a baton length from the king and
+-- the stakes, on no kubb) nearest either fair point: fairAcross metres either side of
+-- the middle and fairDepth metres past the centre line, where a good kubb thrown in
+-- lands. Not the middle of the half, which the obvious choice would be: the king stands
+-- on that line, between the thrower and the kubb. The nearer point wins; on a tie the
+-- left one as Team A sees it (the grid is scanned from x = -halfWidth). Makes no table
+-- per spot. Returns a pose, or nil when no spot is valid.
+raising.tune.fairAcross = 1
+raising.tune.fairDepth = 1
+function raising.fairSpot(ctx)
+	local t = raising.tune
+	local g = t.punishGrid
+	local y0 = pitch.baseline[ctx.half]
+	local dirY = ctx.half == "A" and 1 or -1
+	local fy = pitch.center - dirY * t.fairDepth
+	local fa = t.fairAcross
+	local nx = floor(2 * pitch.halfWidth / g + 0.5)
+	local ny = floor(pitch.center / g + 0.5)
+	local p = scratch
+	local bx, by, best = nil, nil, huge
+	for j = 0, ny do
+		for i = 0, nx do
+			p.x, p.y = -pitch.halfWidth + i * g, y0 + dirY * j * g
+			local dy = p.y - fy
+			local dl, dr = p.x + fa, p.x - fa
+			local d = math.min(dl * dl, dr * dr) + dy * dy
+			if d < best - 1e-12 and raising.inBounds(p, ctx.half)
+				and (clearSpot(p.x, p.y, ctx) or raising.punishmentCheck(p, ctx)) then
+				bx, by, best = p.x, p.y, d
+			end
+		end
+	end
+	if not bx then return nil end
+	return { x = bx, y = by, standing = true, angle = 0 }
+end
+
 tw.raising = raising

@@ -6,14 +6,15 @@ An engine is carried only while we decide it is supported, never because it was 
 released (the owner, 2026-11-21: "Let's force all clients to the most recent engine. We
 should only support engines that we decide are worth supporting not just ones that have
 published so that we can push players to the new engines."). Today that is the newest
-alone: 0.13 (v0.13.4, golden corpus 0.13.0, 15 matches). Every match plays on it: solo,
+alone: 0.15 (v0.15.0, golden corpus 0.15.0, 19 matches: two on the Techno grid and
+two Kid matches among them). Every match plays on it: solo,
 practice and every pitch.
 
 The decision is written in one place, `TAG` and `OLDER` in `scripts/vendor-engine.sh`:
 `TAG` is the newest and `OLDER` the older minors we have decided to keep supporting,
 one per major.minor. `OLDER` is empty. Moving to a new minor drops the last one unless
-we decide otherwise. 0.9, 0.8 and 0.7 went on 2026-11-21 (app 0.8); no client shipped
-0.10 to 0.12.
+we decide otherwise. 0.9, 0.8 and 0.7 went on 2026-11-21 (app 0.8); 0.13 went with app 0.10, which moved
+straight to 0.15; no iPhone build shipped 0.10 to 0.12 or 0.14.
 
 A match still belongs to the engine it was started on, its `match.engine` major.minor,
 for its whole life (kubb-engine docs/VERSIONING.md), because a new minor can change how a

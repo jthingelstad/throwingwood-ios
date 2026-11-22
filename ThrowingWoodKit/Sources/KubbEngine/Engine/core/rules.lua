@@ -14,7 +14,9 @@
 --   g:resign(side)
 --
 -- Kubbs have permanent ids "a1".."a5" (Team A's base kubbs, x = -2..2 on
--- y = 0) and "b1".."b5" (y = 8). The king is "king".
+-- y = 0) and "b1".."b5" (y = 8). The king is "king". A Kid match (0.15.0,
+-- rules = "kid": docs/notes/kid-mode.md) has three base kubbs a side, "a1".."a3"
+-- and "b1".."b3" at x = -1, 0, 1, and the gentler rules rules.kid lists.
 import "core/tw"
 import "core/pitch"
 import "core/raising"
@@ -34,6 +36,29 @@ rules.Game = Game
 local function fail(msg) error("rules: " .. msg, 3) end
 
 local function copyPose(p) return raising.copyPose(p) end
+
+-- The Kid rules (0.15.0; docs/notes/kid-mode.md). The owner, 2026-11-21: "kid level
+-- is for kids to have fun with kubb". A game's rules are "kid" (g.rules) or standard
+-- (nil, every game before 0.15). In a Kid game:
+--   * three base kubbs a side, at baseX on each baseline;
+--   * every kubb and every baton at a kubb is thrown from `line` metres in front of the
+--     thrower's own baseline, or from the advantage line when that is nearer the middle
+--     (the king shot stays on the baseline, as in the standard rules);
+--   * the king knocked down before its time (by a baton or a kubb thrown in) is stood
+--     back up where it was and the turn goes on;
+--   * a kubb out twice is no punishment kubb: the engine stands it at the fair spot
+--     (raising.fairSpot) and nobody chooses;
+--   * no throw is illegal: a helicopter counts as thrown.
+rules.kid = {
+	line = 2,              -- m in front of the baseline every kubb and baton is thrown from
+	baseX = { -1, 0, 1 },  -- the base kubbs: the middle three of the standard five spots
+}
+
+-- The base kubbs' x positions on each baseline for a game's rules.
+function rules.baseXFor(kind)
+	if kind == "kid" then return rules.kid.baseX end
+	return pitch.baseX
+end
 
 -- Batons for a turn: 2-4-6 opening (II.A) or six from the start.
 function rules.batonsFor(opening, turn)
@@ -62,9 +87,11 @@ function rules.new(opts)
 	g.opening = opts.opening == "six" and "six" or "2-4-6"
 	g.first = opts.first == "B" and "B" or "A"
 	g.raisePolicy = opts.raisePolicy or "apart"
+	-- the Kid rules (rules.kid), or nil: the standard rules, as every game before 0.15
+	if opts.rules == "kid" then g.rules = "kid" end
 	g.kubbs, g.ids = {}, {}
 	for _, side in ipairs { "A", "B" } do
-		for i, x in ipairs(pitch.baseX) do
+		for i, x in ipairs(rules.baseXFor(g.rules)) do
 			local id = side:lower() .. i
 			g.kubbs[id] = {
 				id = id, kind = "base", half = side, where = "pitch",
@@ -144,8 +171,10 @@ function Game:need()
 	if ph == "over" then
 		return { kind = "over", winner = self.winner, how = self.how }
 	elseif ph == "toss" or ph == "rethrow" then
+		local throwY = pitch.baseline[self.attacker]
+		if self.rules == "kid" then throwY = self:kidLineY(self.attacker) end
 		return { kind = "toss", side = self.attacker, kubb = self.current, rethrow = ph == "rethrow",
-			throwY = pitch.baseline[self.attacker], half = self.defender,
+			throwY = throwY, half = self.defender,
 			left = #self.firstQueue + #self.rethrowQueue }
 	elseif ph == "raise" then
 		local k = self.kubbs[self.current]
@@ -167,10 +196,27 @@ function Game:need()
 		end
 		local throwY = pitch.baseline[self.attacker]
 		if self.advantageY and not kingShot then throwY = self.advantageY end
+		if self.rules == "kid" and not kingShot then throwY = self:kidThrowY(self.attacker) end
 		return { kind = "baton", side = self.attacker, n = self.batonIndex + 1, of = self.batonsTotal,
 			left = self.batonsLeft, kingShot = kingShot, throwY = throwY,
 			advantageY = self.advantageY, targets = targets }
 	end
+end
+
+-- The Kid line of `side` (rules.kid.line in front of its own baseline), world y.
+function Game:kidLineY(side)
+	local b = pitch.baseline[side]
+	return b + (side == "A" and 1 or -1) * rules.kid.line
+end
+
+-- The line a Kid game's batons at kubbs are thrown from: the Kid line, or the advantage
+-- line when that is nearer the middle.
+function Game:kidThrowY(side)
+	local y = self:kidLineY(side)
+	if self.advantageY and pitch.fromBaseline(side, self.advantageY) > pitch.fromBaseline(side, y) then
+		y = self.advantageY
+	end
+	return y
 end
 
 -- ---------- turn flow ----------
@@ -251,6 +297,9 @@ function Game:_next()
 		self.phase = "punish"
 	end
 	if self.phase == "punish" then
+		-- the Kid rules: no punishment kubbs; the engine stands each kubb out twice at
+		-- the fair spot, and nobody is asked
+		while self.rules == "kid" and #self.punishQueue > 0 do self:_placeFair(self.punishQueue[1]) end
 		if #self.punishQueue > 0 then
 			self.current = self.punishQueue[1]
 			return
@@ -434,7 +483,8 @@ function Game:_judge(pid)
 				k.where = "punish"
 				k.inkBy = pid          -- its position goes on the token that counts its P
 				self.punishQueue[#self.punishQueue + 1] = k.id
-				self.sheet:ink(pid, "P")
+				-- the Kid rules have no punishment kubbs: no P (Game:_placeFair)
+				if self.rules ~= "kid" then self.sheet:ink(pid, "P") end
 				j.punish = j.punish + 1
 			end
 		end
@@ -467,7 +517,13 @@ function Game:toss(o, player)
 	self.tossSeq = (self.tossSeq or 0) + 1
 	k.inkBy, k.tossSeq = pid, self.tossSeq
 
-	if o.kingToppled then
+	-- the Kid rules: the king a kubb thrown in knocks down is stood back up where it was,
+	-- and the inkast goes on
+	local kidKing = o.kingToppled and self.rules == "kid"
+	if kidKing then
+		self.sheet:note("a kubb thrown in knocked the king down; stood back up (kid rules)")
+	end
+	if o.kingToppled and not kidKing then
 		k.where, k.kind, k.half = "pitch", "field", def
 		k.pose = poseFrom(o.rest, k.pose)
 		self:_completeInkast(pid)
@@ -489,8 +545,10 @@ function Game:toss(o, player)
 	local struck = {}
 	for id, pose in pairs(o.moved or {}) do
 		if id == "king" then
-			self.king.pose = poseFrom(pose, self.king.pose)
-			self.king.pose.standing = true
+			if not kidKing then
+				self.king.pose = poseFrom(pose, self.king.pose)
+				self.king.pose.standing = true
+			end
 		else
 			local p = self.kubbs[id]
 			if not p then fail("unknown piece " .. tostring(id)) end
@@ -573,6 +631,21 @@ function Game:autoPunishment(policy)
 	return self:placePunishment(pose)
 end
 
+-- The Kid rules: kubb `id`, out twice, stood at the fair spot (raising.fairSpot) for
+-- nobody's advantage. Kept on the sheet as a note and in t.placed (the turn's pitch line
+-- is then left out: the kubb does not stand where it was thrown).
+function Game:_placeFair(id)
+	local k = self.kubbs[id]
+	local pose = raising.fairSpot(self:context(self.defender, k.id))
+		or raising.autoPunishment(self:context(self.defender, k.id))
+	if not pose then fail("no spot for kubb " .. id) end
+	removeFrom(self.punishQueue, k.id)
+	k.pose, k.where, k.kind, k.half = pose, "pitch", "field", self.defender
+	local t = self.sheet.current
+	t.placed = (t.placed or 0) + 1
+	self.sheet:note("a kubb out twice was stood at the fair spot, no punishment kubb (kid rules)")
+end
+
 -- ---------- batons (II.B) ----------
 
 local function set(list)
@@ -593,6 +666,18 @@ function Game:throwBaton(o, player)
 	local toppled = set(o.toppled)
 	local kingDown = o.kingToppled or toppled.king
 	toppled.king = nil
+	-- the Kid rules: no throw is illegal (a helicopter counts as thrown), and the king
+	-- knocked down before its time is stood back up where it was (kingBack) while the
+	-- throw counts as it would otherwise
+	local kingBack = false
+	if self.rules == "kid" then
+		if o.illegal then self.sheet:note("b" .. n .. " helicopter; counted (kid rules)") end
+		o = { toppled = o.toppled, moved = o.moved, ownHalfHit = o.ownHalfHit }
+		if kingDown and not kingShot then
+			kingBack, kingDown = true, false
+			self.sheet:note("b" .. n .. " knocked the king down early; stood back up (kid rules)")
+		end
+	end
 	for id in pairs(toppled) do
 		local k = self.kubbs[id]
 		if not k then fail("unknown piece " .. tostring(id)) end
@@ -674,7 +759,7 @@ function Game:throwBaton(o, player)
 	for id, pose in pairs(o.moved or {}) do
 		if not toppled[id] then
 			local piece = id == "king" and self.king or self.kubbs[id]
-			if piece and (id == "king" or piece.where == "pitch") and not (id == "king" and kingDown) then
+			if piece and (id == "king" or piece.where == "pitch") and not (id == "king" and (kingDown or kingBack)) then
 				if pitch.onPitch(pose.x, pose.y) then
 					piece.pose = { x = pose.x, y = pose.y, standing = true, angle = pose.angle or piece.pose.angle or 0 }
 				else

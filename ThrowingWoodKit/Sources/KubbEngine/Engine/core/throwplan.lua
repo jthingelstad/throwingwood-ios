@@ -178,6 +178,10 @@ plan.tune = {
 -- club's reference row, 19 to 27) and the recorded people on the person's meter beat it
 -- about 60 games in 100; at 0.5 it is 25% and they win about 49 (docs/notes/gym.md)
 plan.levels = {
+	-- kid (0.15.0, docs/notes/kid-mode.md): the Kid computer, gentle and a little clumsy, set
+	-- in the Gym so a child's hand on the Kid meter wins about three games in four
+	kid      = { powerHalf = 18, releaseHalf = 36, inGain = 0.1, shakeGain = 0.5,  overGain = 0.5,
+		nervesDeg = 1.8, nervesLen = 0.08, tumbleTurns = 0.62, tumbleSd = 0.12, drillScatter = 2.5 },
 	beginner = { powerHalf = 15, releaseHalf = 30, inGain = 0.1, shakeGain = 0.5,  overGain = 0.5,
 		nervesDeg = 1.6, nervesLen = 0.06, tumbleTurns = 0.62, tumbleSd = 0.10, drillScatter = 2 },
 	club     = { powerHalf = 8,  releaseHalf = 18, inGain = 0.3, shakeGain = 0.75, overGain = 0.75,
@@ -185,7 +189,7 @@ plan.levels = {
 	pro      = { powerHalf = 4,  releaseHalf = 10, inGain = 0.6, shakeGain = 1,    overGain = 1,
 		nervesDeg = 0.5, nervesLen = 0.02, tumbleTurns = 0.50, tumbleSd = 0.035, drillScatter = 0.35 },
 }
-plan.LEVELS = { "beginner", "club", "pro" }
+plan.LEVELS = { "kid", "beginner", "club", "pro" }
 
 -- The person's meter (0.13; the owner, 2026-11-21: "player level really should only
 -- mean for the computer opponent. It doesn't mean anything for the human player. The
@@ -206,8 +210,12 @@ plan.LEVELS = { "beginner", "club", "pro" }
 -- cause. A drilled kubb's release scatter is drillScatter (pro's: a clean swing lands
 -- dead) times 1 + scatterGain x the shake as it counts + roughGain x how far past a
 -- bar the swing was (plan.scatterFor), so a rough swing scatters.
--- plan.tune.meter names the meter the session uses; a second, wider one (a Kid mode)
--- would be another entry here.
+-- plan.tune.meter names the meter the session uses by default; `kid` (0.15.0,
+-- docs/notes/kid-mode.md) is the Kid match's: much wider bars at every range, the same
+-- honest rule (inside both bars and steady goes where aimed), a gentler pull past the
+-- release bar and a gentler scatter past a bar for a kubb. Set with tools/meterprobe.lua
+-- so a small child's hand (the recorded hand, misses times three) fells a lone kubb 6 m
+-- away about half the time and a field kubb 3 m away about four times in five.
 plan.meters = {
 	standard = {
 		powerHalf8 = 2, releaseHalf8 = 7.5, widen = 0.45, nearM = 3, farM = 10, narrowMin = 0.5,
@@ -215,6 +223,19 @@ plan.meters = {
 		inGain = 0.1, pullPerDeg = 0.15, shakeIn = 0.1, shakeGain = 0.75, overGain = 0.75,
 		nervesDeg = 0.12, nervesLen = 0.008, tumbleTurns = 0.50, tumbleSd = 0.015,
 		drillScatter = 0.35, scatterGain = 3, roughGain = 6, roughMax = 2,
+	},
+	-- the Kid meter (0.15.0): bars about five times the standard's at 6 m and three at 3 m,
+	-- an error inside them counting a fifth as much (a wider bar with the same inGain lets
+	-- more of an error through: inside these the throw goes where aimed), the release's
+	-- pull past its bar about half, the shake past STEADY two thirds, a soft flick's
+	-- shortfall a third (flickIn) and a kubb's scatter past a bar half (roughGain)
+	kid = {
+		powerHalf8 = 11, releaseHalf8 = 30, widen = 0.3, nearM = 3, farM = 10, narrowMin = 0.5,
+		kubbPower = 1.35, kubbRelease = 1.35,
+		inGain = 0.02, pullPerDeg = 0.08, shakeIn = 0.1, shakeGain = 0.5, overGain = 0.75,
+		nervesDeg = 0.12, nervesLen = 0.008, tumbleTurns = 0.50, tumbleSd = 0.015,
+		drillScatter = 0.35, scatterGain = 3, roughGain = 3, roughMax = 2,
+		flickIn = 0.3,
 	},
 }
 
@@ -227,7 +248,7 @@ end
 -- The level-shaped table a person's throw at distance d (m) with projectile ("baton"
 -- or "kubb") is planned and launched on, from meter m (plan.meters). Fills and
 -- returns out (a new table when nil): powerHalf, releaseHalf, inGain, shakeIn,
--- pullPerDeg, shakeGain, overGain, nervesDeg, nervesLen, tumbleTurns, tumbleSd, drillScatter,
+-- pullPerDeg, flickIn (the Kid meter's: a soft flick's shortfall counts this share), shakeGain, overGain, nervesDeg, nervesLen, tumbleTurns, tumbleSd, drillScatter,
 -- scatterGain, roughGain, roughMax, and meter = m.
 function plan.meterLevel(m, d, projectile, out)
 	out = out or {}
@@ -240,6 +261,7 @@ function plan.meterLevel(m, d, projectile, out)
 	out.powerHalf, out.releaseHalf = m.powerHalf8 * k * kp, m.releaseHalf8 * k * kr
 	out.inGain, out.shakeIn, out.shakeGain, out.overGain = m.inGain, m.shakeIn, m.shakeGain, m.overGain
 	out.pullPerDeg = m.pullPerDeg
+	out.flickIn = m.flickIn
 	out.nervesDeg, out.nervesLen, out.tumbleTurns, out.tumbleSd = m.nervesDeg, m.nervesLen, m.tumbleTurns, m.tumbleSd
 	out.drillScatter, out.scatterGain, out.roughGain, out.roughMax = m.drillScatter, m.scatterGain, m.roughGain, m.roughMax
 	out.meter = m
@@ -734,6 +756,10 @@ function plan.launch(sol, r, opts, out)
 	local shake = r.shake or (1 - (r.smoothness or 1))
 	local pull = (r.pull or 1) < 0 and -1 or 1
 	local flick = r.flickFrac or 1
+	-- the Kid meter (0.15.0) forgives a soft flick: its shortfall counts flickIn of itself,
+	-- everywhere the flick counts (speed, verdict, tumble), so the verdict still reads what
+	-- the throw got
+	if lv.flickIn then flick = 1 - lv.flickIn * (1 - flick) end
 	local back = r.back or 0
 	-- power: the backswing, forgiven inside the target, sets the speed; the
 	-- flick delivers its share of it

@@ -166,6 +166,12 @@ world.tune = {
 --     plough    1/s per m (optional): the drag grows with the distance a piece
 --               has slid since it last left the ground (snow piles up in front
 --               of it), so a slide starts slick and ends heavy
+--     hold      1/s (optional; grid): a kubb or the king standing on an end
+--               (within 30 degrees of upright) on the ground loses this share of
+--               its turn about the level axes a second, at its full weight (its
+--               rocking: pressed more lightly, less). A rate, not a lever, so it
+--               never holds a piece balanced past its edge: a glancing touch
+--               settles sooner, and one that tips it past the balance still fells it
 world.surfaces = {
 	grass = {
 		name = "grass", mu = 0.7, e = 0.15,
@@ -200,12 +206,30 @@ world.surfaces = {
 			drag = 0.6, grip = 4, gripSpeed = 0.3, plough = 1.5,
 			footMu = 0.3, footSpeed = 0.3 },
 	},
+	-- grid (0.14; the Techno scene's floor, Jamie 2026-11-22: "I think the surface should
+	-- feel intentionally flat and electronic, maybe even magnetic"). A built floor, not
+	-- turf: no texture (every patch alike, no bumps, no dig and no bite, so the same throw
+	-- does the same thing every time), lower friction and little drag so a landed piece
+	-- glides straight and farther than on grass, a hard grip below gripSpeed so a slow
+	-- piece stops dead (the magnet), and a hold on a standing kubb's rocking so a
+	-- glancing touch settles or falls quickly. mu stays over the 0.47 a kubb's footprint
+	-- needs to tip, so a shoved kubb falls rather than skating (snow needs footMu for
+	-- that). docs/notes/physics.md "The grid".
+	grid = {
+		name = "grid", mu = 0.55, e = 0.05,
+		dig = 0, digSpeed = 0.3, digRamp = 1, digLever = 0, digTime = 0.15,
+		bite = 0, biteTime = 0.05,
+		roll = 0.002,
+		texture = { cell = 0.25, muVar = 0, eVar = 0, digVar = 0, bump = 0, bumpSpeed = 1e9,
+			drag = 0.6, grip = 60, gripSpeed = 0.7, hold = 6 },
+	},
 	-- ICE (stage 7, not built): very low friction for the Minnesota slide,
 	-- something like mu = 0.05, e = 0.1, dig = 0, roll = 0.0005. Add it
 	-- here as another parameter set; nothing else should need to change.
 }
--- The surfaces a game can be played on, in the order they are offered.
-world.SURFACES = { "grass", "sand", "snow" }
+-- The surfaces a game can be played on, in the order they are offered (core/scenes
+-- decides which a scene allows).
+world.SURFACES = { "grass", "sand", "snow", "grid" }
 
 -- Optional profiling (the device autobench): set world.prof to a table
 -- from world.newProf(clock) and world.step adds the seconds of each phase
@@ -1837,6 +1861,11 @@ function world.step(w)
 			if w.onContact and a == proj and r[K_LNMAX] > 0 then
 				w.onContact(w.time, a, nil, r[K_LNMAX])
 			end
+			-- any piece striking the ground (faster than restitutionSpeed): a
+			-- renderer's impacts (session/throw); nil costs one test
+			if w.onGround and r[K_LNMAX] > 0 and r[K_V0] < -t.restitutionSpeed then
+				w.onGround(w.time, a, r[K_LNMAX], cPx[idx], cPy[idx], -r[K_V0])
+			end
 			if r[K_LNMAX] > 0 and a == proj and not w.firstContact then
 				-- the dead landing (tune.deadLanding): caught, it stops where it touched and
 				-- keeps its spin about the long axis and nothing else of its turn. It then
@@ -1981,6 +2010,16 @@ function world.step(w)
 				if tex then
 					local r33 = b.r33
 					if r33 < 0 then r33 = -r33 end
+					local hd = tex.hold
+					if hd and b.shape == 1 and r33 > COS_END then
+						-- the grid's hold on a standing kubb's rocking (a rate on its
+						-- turn about the level axes, by how hard it presses)
+						local share = load / (b.m * t.g * dt)
+						if share > 1 then share = 1 end
+						local f = 1 - hd * share * dt
+						if f < 0 then f = 0 end
+						b.wx, b.wy = b.wx * f, b.wy * f
+					end
 					local vx, vy = b.vx, b.vy
 					local v2 = vx * vx + vy * vy
 					if v2 > 1e-8 then

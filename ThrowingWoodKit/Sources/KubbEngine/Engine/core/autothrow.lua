@@ -41,7 +41,7 @@ autothrow.tune = {
 	                         -- thrower's hand does, not a thing a level's name decides (until
 	                         -- 0.10: beginner 0, club 1, pro 2). One tap is the least that holds
 	                         -- the nose to the touch; the levels differ by their swings' mistakes
-	swingScale = { beginner = 2.2, club = 1.3, pro = 1 },
+	swingScale = { kid = 1.5, beginner = 2.2, club = 1.3, pro = 1 },
 	batonShort = 0,          -- m the baton's target is short of the kubb's center: none, the
 	                         -- center, where a player's target snaps (measured 2026-11-15 with
 	                         -- the plan's arcs: a clean baton landing up to 0.2 m past the
@@ -118,6 +118,7 @@ autothrow.tune = {
 	-- (rowStep apart), 0 picks a clear spot from the grid as 0.10 did. How steady
 	-- the release is comes from the level too (plan.levels' drillScatter).
 	inkast = {
+		kid = { spin = 0, hand = 0.6, group = 0, row = 0 },   -- 0.15.0: tossed out, as a beginner, rougher
 		beginner = { spin = 0, hand = 0.5, group = 0, row = 0 },
 		club = { spin = 1, hand = 0.26, group = 1, row = 1 },
 		pro = { spin = 1, hand = 0.06, group = 1, row = 1 },

@@ -34,7 +34,7 @@
 --   save.mode, opts.mode                       the sheet's [Mode]
 --   save.game.surface, .first, .winner         the sheet's headers
 --   save.lineup.<side>[].level, opts levels    [Throw Levels] (cpu.levelName writes it)
---   opts.set, opts.scene                       a look id: an engine-listed set, a scene id
+--   opts.set, opts.scene                       a set and a scene core/scenes lists
 --   the rest (sides, phases, kubb and piece ids, keys)  never shown, held to the values
 --       the engine writes so a string cannot hide in them
 --
@@ -49,6 +49,7 @@ import "core/notation"
 import "core/wind"
 import "core/throwplan"
 import "core/raising"
+import "core/scenes"
 import "session/json"
 import "pitch/lobby"
 
@@ -74,13 +75,12 @@ local MODES = set { "Vs Computer", "Pass and Play", "Computer vs Computer" }
 local HOWS = set { "king", "resigned", "king toppled by a thrown kubb", "king toppled early" }
 local PHASES = set { "toss", "rethrow", "raise", "punish", "batons", "over" }
 local WHERE = set { "pitch", "hand", "out", "punish" }
-local SURFACE_KEYS = set { "grass", "sand", "snow" }
-local SURFACES = set { "Grass", "Sand", "Snow" }
+-- the surfaces and the sets: every one core/scenes lists (sweden and wisconsin are in no
+-- scene, but a match from before 0.14 may carry them)
+local SURFACE_KEYS, SURFACES = set(tw.scenes.SURFACES), {}
+for _, k in ipairs(tw.scenes.SURFACES) do SURFACES[tw.scenes.surfaceName[k]] = true end
 local OPENINGS = set { "2-4-6", "six" }
-local SETS = {}
-for _, row in ipairs(lobby.MATCH_OPTIONS) do
-	if row[1] == "set" then for _, c in ipairs(row[3]) do SETS[c[1]] = true end end
-end
+local SETS = set(tw.scenes.SETS)
 
 local function isKubb(v) return v:match("^[ab]%d%d?$") ~= nil end
 local function isPiece(v)
@@ -99,6 +99,9 @@ local NOTES = set {
 	"king toppled by a thrown kubb",
 	"a kubb hit a field kubb in the thrower's own half (II.C.4b)",
 	"resigned during the inkast",
+	-- the Kid rules (0.15.0, core/rules rules.kid)
+	"a kubb thrown in knocked the king down; stood back up (kid rules)",
+	"a kubb out twice was stood at the fair spot, no punishment kubb (kid rules)",
 }
 local NOTE_PATTERNS = {
 	"^b%d+ illegal throw toppled the king early$",
@@ -109,6 +112,8 @@ local NOTE_PATTERNS = {
 	"^b%d+ toppled %d+ base kubbs early; raised %(II%.B%.4a%)$",
 	"^b%d+ pushed a kubb out without toppling; put back %(II%.B%.7%)$",
 	"^b%d+ pushed %d+ kubbs out without toppling; put back %(II%.B%.7%)$",
+	"^b%d+ knocked the king down early; stood back up %(kid rules%)$",
+	"^b%d+ helicopter; counted %(kid rules%)$",
 }
 local function isNote(v)
 	if NOTES[v] then return true end
@@ -123,8 +128,12 @@ local RULING = set {
 	"base kubb early: raised", "pushed out: put back", "own half hit: kubb out", "kubb out for now",
 	"kubb in for now", "own half hit", "kubb in", "all in", "kubb out: rethrown",
 	"out twice: punishment kubb", "on a kubb: lowered", "rescue",
+	-- the Kid rules (0.15.0)
+	"king down: stood back up", "king down early: stood back up", "helicopter: counted",
+	"out twice: stood at the fair spot",
 }
-local RULING_PATTERNS = { "^%d+ out: rethrown$", "^%d+ punishment kubbs$", "^%d+ rescues$" }
+local RULING_PATTERNS = { "^%d+ out: rethrown$", "^%d+ punishment kubbs$", "^%d+ rescues$",
+	"^%d+ out twice: stood at the fair spot$" }
 local function isDown(v)
 	local inner = v:match("^(.+) down$")
 	if not inner then return false end
@@ -264,11 +273,12 @@ RULES[".mem.markerSide"] = side
 RULES[".mem.stanceSide"] = side
 RULES[".mem.stanceKind"] = enum(set { "baton", "kubb" }, "not a projectile")
 RULES[".opts.computer"] = level
+RULES[".opts.rules"] = enum(set { "kid" }, "not a rule set")
 RULES[".opts.cpu[]"] = side
 RULES[".opts.first"] = side
 RULES[".opts.opening"] = enum(OPENINGS, "not an opening")
 RULES[".opts.raising"] = enum(set { "auto", "hand" }, "not a raising")
-RULES[".opts.scene"] = function(v) return lobby.isScene(v), "not a scene id" end
+RULES[".opts.scene"] = function(v) return tw.scenes.known(v), "not a scene the engine lists" end
 RULES[".opts.set"] = enum(SETS, "not a kubb set the engine lists")
 RULES[".opts.surface"] = enum(SURFACE_KEYS, "not a surface")
 RULES[".opts.wind"] = function(v) return wind.levels[v] ~= nil, "not a wind" end
@@ -295,6 +305,7 @@ RULES[".save.game.kubbs.{}.where"] = enum(WHERE, "not a place")
 RULES[".save.game.lastTosser"] = pid
 RULES[".save.game.opening"] = enum(OPENINGS, "not an opening")
 RULES[".save.game.phase"] = enum(PHASES, "not a phase")
+RULES[".save.game.rules"] = enum(set { "kid" }, "not a rule set")
 RULES[".save.game.raisePolicy"] = function(v) return raising.policies[v] ~= nil, "not a raising policy" end
 RULES[".save.game.surface"] = enum(SURFACES, "not a surface")
 RULES[".save.game.sheet.turns[].batons[].player"] = pid

@@ -35,7 +35,7 @@ function R.constants()
 	return object {
 		DOC_VERSION = lobby.DOC_VERSION, TEAM_MAX = lobby.TEAM_MAX, SEATS = lobby.SEATS,
 		SIDES = { "A", "B" }, NAME_MAX = lobby.NAME_MAX, OPTION_DEFAULTS = defaults,
-		MATCH_OPTIONS = options, LEVELS = { "beginner", "club", "pro" }, LOG_BUDGET = lobby.LOG_BUDGET,
+		MATCH_OPTIONS = options, LEVELS = { table.unpack(lobby.LEVELS) }, LOG_BUDGET = lobby.LOG_BUDGET,
 		REPLAY_VERSION = lobby.REPLAY_VERSION, CLIENT = sync.CLIENT, WITH_BYTES = sync.WITH_BYTES,
 		ENGINE = lobby.ENGINE,
 	}
@@ -45,6 +45,7 @@ end
 function R.cleanOptions(a) return lobby.cleanOptions(a.options) end
 function R.optionsOf(a) return lobby.optionsOf(a.doc) end
 function R.optionLabel(a) return lobby.optionLabel(a.key, a.value) end
+function R.optionRows(a) return lobby.optionRows(a.scene) end
 function R.cleanName(a) return lobby.cleanName(a.name) end
 function R.lobbyOf(a) return lobby.lobbyOf(a.doc) end
 function R.sideOf(a) return lobby.sideOf(a.doc, a.id) end

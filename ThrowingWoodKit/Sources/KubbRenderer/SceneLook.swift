@@ -128,7 +128,7 @@ enum Night {
   static let clearing = (x0: -6.5, x1: 6.5, y0: -7.0, y1: 10.6)
   static func ground(_ s: Surface) -> SceneGround {
     switch s {
-    case .grass:
+    case .grass, .grid:
       SceneGround(
         pitch: 0x284a3b, stripe: 0x2e5242, rough: 0x1a3329, speck: 0x10241b, sky: 0x02040b,
         line: 0xe6f8ff, glow: 0x6fcfff, edge: 0x0b1813, rim: 0x04090a)
@@ -154,7 +154,7 @@ enum Neon {
   ]
   static func ground(_ s: Surface) -> SceneGround {
     switch s {
-    case .grass:
+    case .grass, .grid:
       SceneGround(
         pitch: 0x04242e, stripe: 0, rough: 0, speck: 0, sky: 0, line: 0xc8fdff, glow: 0x2be4ff,
         pitchAlpha: 0.4, grid: 0x11a3b4, gridEvery: 1)

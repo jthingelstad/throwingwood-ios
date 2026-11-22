@@ -290,7 +290,10 @@ local function decideToss(s, r, lname, t)
 	-- inkast.roll: spun to roll toward the sideline (the plan aims short of the spot by
 	-- the roll); a level the inkast table does not name spins drillSpin
 	local spin = ik and ik.spin * side or t.drillSpin
-	local intent = { tx = tx, ty = ty, basket = side, spin = spin, arc = plan.arcFor("drill"), standY = s.lineY }
+	-- from the line a kubb is thrown from: the baseline, or in a Kid match (s.kid, 0.15.0)
+	-- the Kid line, which its setup's forwardY is
+	local intent = { tx = tx, ty = ty, basket = side, spin = spin, arc = plan.arcFor("drill"),
+		standY = (s.kid and s.forwardY) or s.lineY }
 	-- a kubb aimed beside one already down carries out inkast.roll; one aimed at the
 	-- basket or the clear spot nearest it, inkast.corner
 	local play = (how == "row" or how == "into") and "inkast.roll" or "inkast.corner"
@@ -463,7 +466,7 @@ end
 
 -- The decision for match setup s (view frame) at level (a tw.plan level name; default
 -- the thrower's, then autothrow.tune.level). Tosses: the basket (inkast.corner) and the
--- spot in it (inkast.roll), drilled from the baseline. Batons: the nearest live target,
+-- spot in it (inkast.roll), drilled from the baseline (a Kid match's Kid line). Batons: the nearest live target,
 -- at a field the lane with the most kubbs (field.roles), stood behind as far forward as
 -- allowed. Draws from r only for the basket's coin.
 function cpu.decide(s, r, level)
@@ -484,7 +487,9 @@ end
 -- which needs Choose's own random stream, and that does not exist yet (the throw's stream
 -- must not be drawn from for it: docs/notes/computer-player.md, "Rules this design
 -- keeps"). A level not named here raises apart.
-cpu.raising = { beginner = "first", club = "apart", pro = "par" }
+-- Kid (0.15.0, docs/notes/kid-mode.md) raises as simply as a beginner, `first`: never
+-- `apart` or `par`, which spread or break up a child's kubbs on purpose.
+cpu.raising = { kid = "first", beginner = "first", club = "apart", pro = "par" }
 
 -- A person's side, when the engine raises for it (RAISING: AUTOMATIC) and as the end
 -- offered first when the person raises by hand: the engine's best advice.
