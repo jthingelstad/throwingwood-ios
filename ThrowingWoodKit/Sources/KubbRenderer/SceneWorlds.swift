@@ -221,7 +221,7 @@ extension Painter {
 
   // ---------- the daylight scenes ----------
 
-  func daylit(_ scene: PitchScene, look: String, time: Double, still: Bool) {
+  func daylit(_ scene: PitchScene, look: String, effects: SceneEffects?, time: Double, still: Bool) {
     let g = Daylit.ground(look, scene.surface)
     ground(
       scene, colors: g,
@@ -255,6 +255,7 @@ extension Painter {
     }
     marks(scene)
     pieces(scene)
+    effects?.draw(ctx, projection)
     if look == "minnesota" && !still { snowfall(time: time) }
     if let arc = scene.arc { trajectory(arc, ground: false) }
   }

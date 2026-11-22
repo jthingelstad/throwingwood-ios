@@ -19,6 +19,8 @@ public enum PitchHaptic: Equatable, Sendable {
   case band, release
   case contact(Double)
   case landing(Surface, Double)
+  /// A ring on Techno's floor (a ground impact in a scene that rings): a light, crisp tick.
+  case impact(Double)
   case king, win, handoff
 
   public var pulses: [Pulse] {
@@ -28,6 +30,7 @@ public enum PitchHaptic: Equatable, Sendable {
     case .contact(let strength): [Pulse(0, 0.15 + 0.8 * strength, 0.65)]
     case .landing(let surface, let strength):
       [Pulse(0, 0.10 + 0.35 * strength, [.grass: 0.20, .sand: 0.10, .snow: 0.04, .grid: 0.55][surface]!)]
+    case .impact(let strength): [Pulse(0, 0.08 + 0.3 * strength, 0.9)]
     case .king: [Pulse(0, 0.90, 0.32), Pulse(0.085, 0.66, 0.18)]
     case .win: [Pulse(0, 0.40, 0.45), Pulse(0.095, 0.72, 0.70)]
     case .handoff: [Pulse(0, 0.32, 0.4)]
@@ -49,7 +52,10 @@ struct TimedFeedback: Equatable {
 }
 
 extension Recording.Timeline {
-  func feedback(projectileID: String) -> [TimedFeedback] {
+  /// `rings`: the scene rings at each ground impact (Techno), and each ring of any
+  /// strength (a tenth or more) taps lightly, but where the baton's own landing already
+  /// does (within 30 ms of it).
+  func feedback(projectileID: String, rings: Bool = false) -> [TimedFeedback] {
     var cues: [TimedFeedback] = []
     func add(_ time: Double, _ sound: PitchSound?, _ haptic: PitchHaptic?) {
       cues.append(TimedFeedback(time: time, cue: PitchFeedback(sound: sound, haptic: haptic)))
@@ -72,6 +78,12 @@ extension Recording.Timeline {
     // A pre-0.4.1 recording has touch times without measured strengths.
     for t in touches { add(t.t, .knock(gain: 0.8 * (t.kind == "king" ? 1 : 0.9)), nil) }
     if let l = batonLanding { add(l.t, nil, .landing(l.surface, l.strength)) }
+    if rings {
+      for i in impacts ?? [] where (i.strength ?? 0) >= 0.1 {
+        if let l = batonLanding, abs(l.t - i.t) < 0.03 { continue }
+        add(i.t, nil, .impact(i.strength ?? 0))
+      }
+    }
     for b in bursts where b.kind == "king" {
       add(b.start, .kingChord, b.takenBack == true ? nil : .king)
     }

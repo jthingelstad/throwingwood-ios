@@ -3,24 +3,37 @@ import Foundation
 import simd
 
 /// A scene's effects for the throws it shows: the night's stardust, the
-/// neon's ribbon and sparks (the web's Stage.fx). Fed by the session's playback
-/// (`watch` a recording, `observe` each shown frame, `tick` between), drawn by
-/// the renderer after the pieces. Reduce Motion calms them: no trail and no
-/// ribbon, fewer and shorter puffs, no hit flash.
+/// neon's ribbon, sparks and impact rings, the beach's sand and Minnesota's snow
+/// where a piece strikes the ground (the web's Stage.fx). Fed by the session's
+/// playback (`watch` a recording, `observe` each shown frame, `tick` between), drawn
+/// by the renderer after the pieces. Reduce Motion calms them: no trail and no
+/// ribbon, fewer and shorter puffs, no hit flash, rings that do not grow.
 public final class SceneEffects {
   public let look: String
   public let reduced: Bool
-  var dust: Stardust
-  // the neon's ribbon: the thrown piece's two ends, kept for a moment
-  private static let ribbonN = 40, ribbonLife = 0.35, ribbonAlpha = 0.26, ribbonCore = 0.012
+  var dust: Stardust?
+  /// The ground impacts' rings or puffs (Impacts.swift), where the scene has them.
+  var impacts: Impacts?
+  /// The scene's impacts ring (the catalogue's `ring`: Techno).
+  public var rings: Bool { impacts?.style == .ring }
+  // the neon's ribbon: the thrown piece's two ends, kept for a moment; Techno's light
+  // trail lingers (the web's 0.55 s)
+  private static let ribbonN = 40, ribbonLife = 0.55, ribbonAlpha = 0.26, ribbonCore = 0.012
   private var poses: [(a: V3, b: V3, t: Double)] = []
   private var now = 0.0
 
-  /// nil for the day (it has none) and an unknown scene (drawn as the day).
+  /// nil for the scenes that have none (Park, the Tournament, Black & White) and an
+  /// unknown scene (drawn as the day).
   public init?(look id: String, reduced: Bool) {
     switch SceneID.shown(id) {
     case "night": dust = Stardust(.night(reduced: reduced))
-    case "neon": dust = Stardust(.neon(reduced: reduced))
+    case "neon":
+      dust = Stardust(.neon(reduced: reduced))
+      impacts = Impacts(
+        style: .ring, reduced: reduced,
+        colors: (Neon.team["A"]!.lit, Neon.team["B"]!.lit, Neon.kingLit, Neon.stakeLit))
+    case "beach": impacts = Impacts(style: .puff, reduced: reduced, puffs: [0xe8cf98, 0xdcbd80, 0xf3e2b8])
+    case "minnesota": impacts = Impacts(style: .puff, reduced: reduced, puffs: [0xffffff, 0xeef4fb, 0xdfe9f4])
     default: return nil
     }
     look = SceneID.shown(id)
@@ -29,23 +42,27 @@ public final class SceneEffects {
 
   /// True while anything is still to be drawn (the display stays awake).
   public var active: Bool {
-    dust.active || (poses.last.map { now - $0.t <= Self.ribbonLife } ?? false)
+    dust?.active == true || impacts?.active == true
+      || (poses.last.map { now - $0.t <= Self.ribbonLife } ?? false)
   }
   /// Most particles alive at once since the effects were made.
-  public var peak: Int { dust.peak }
+  public var peak: Int { dust?.peak ?? 0 }
 
   public func clear() {
-    dust.clear()
+    dust?.clear()
+    impacts?.clear()
     poses = []
   }
   func watch(_ rec: Recording) {
-    dust.watch(rec)
+    dust?.watch(rec)
+    impacts?.watch(rec)
     poses = []
   }
   func observe(_ items: [Piece], _ t: Double) {
-    dust.observe(items, t)
+    dust?.observe(items, t)
+    impacts?.observe(t)
     now = t
-    guard look == "neon", !reduced, let id = dust.pid, let p = dust.byId[id] else { return }
+    guard look == "neon", !reduced, let dust, let id = dust.pid, let p = dust.byId[id] else { return }
     let hz = dust.pkind == "baton" ? 0.15 : 0.075
     let axis = V3(
       2 * (p.qx * p.qz + p.qw * p.qy), 2 * (p.qy * p.qz - p.qw * p.qx),
@@ -56,13 +73,15 @@ public final class SceneEffects {
     if poses.count > Self.ribbonN { poses.removeFirst(poses.count - Self.ribbonN) }
   }
   func tick(_ dt: Double) {
-    dust.tick(dt)
+    dust?.tick(dt)
+    impacts?.tick(dt)
     if dt > 0 { now += dt }
   }
 
   func draw(_ ctx: CGContext, _ projection: PitchProjection) {
+    impacts?.draw(ctx, projection)
     if poses.count > 1 { ribbon(ctx, projection) }
-    dust.draw(ctx, projection)
+    dust?.draw(ctx, projection)
   }
 
   // Each unbroken run of poses is one band and two edge lines, faded along the

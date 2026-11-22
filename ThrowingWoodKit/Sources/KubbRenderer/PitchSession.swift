@@ -247,6 +247,7 @@ public final class PitchSession {
     self.appVersion = appVersion
     self.input = input
     engine = try Engine(appVersion: appVersion)
+    Self.askForImpacts(engine)
     newestVersion = engine.engineVersion
     engines[engine.minor] = engine
     options = try SoloOptions(engine: engine)
@@ -278,8 +279,17 @@ public final class PitchSession {
       return
     }
     let e = try Engine(minor: mm, appVersion: appVersion)
+    Self.askForImpacts(e)
     engines[mm] = e
     engine = e
+  }
+
+  /// Ground impacts on (`setImpacts`, engine 0.14), once per Lua state: each recording's
+  /// `timeline.impacts` from the next throw, for the scenes that ring or puff
+  /// (Impacts.swift). Presentation only, in no snapshot, action or hash; an engine before
+  /// 0.14 answers an unknown call, which changes nothing.
+  static func askForImpacts(_ e: Engine) {
+    _ = try? e.call("setImpacts", json: #"{"on":true}"#)
   }
 
   /// The watcher's wide view on a screen of `size` (WatchView): the engine frames the
@@ -558,7 +568,7 @@ public final class PitchSession {
     endSlide()
     endStand()
     input.reset()
-    playback = Playback(recording)
+    playback = Playback(recording, rings: effects?.rings == true)
     effects?.watch(recording)
     result = nil
     scene.arc = nil

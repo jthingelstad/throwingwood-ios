@@ -104,7 +104,7 @@ public enum PitchRenderer {
     let p = Painter(ctx: context, projection: scene.projection(size, camera))
     let shown = SceneID.shown(look ?? scene.look)
     if Daylit.looks.contains(shown) {
-      p.daylit(scene, look: shown, time: reduced ? 0 : time, still: reduced)
+      p.daylit(scene, look: shown, effects: effects?.look == shown ? effects : nil, time: reduced ? 0 : time, still: reduced)
       return
     }
     if shown == "bw" {

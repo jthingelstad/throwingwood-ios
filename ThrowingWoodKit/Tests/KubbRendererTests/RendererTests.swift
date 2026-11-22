@@ -123,6 +123,9 @@ struct RendererTests {
     var inputCues: [PitchHaptic] = []
     pitch.onFeedback = { if let h = $0.haptic { inputCues.append(h) } }
     let reference = try Engine(appVersion: "test")
+    // the session asks for ground impacts, as the app does (PitchSession.askForImpacts):
+    // they ride in the recording and nowhere else
+    _ = try reference.call("setImpacts", json: #"{"on":true}"#)
     _ = try reference.call("new", json: #"{"mode":"practice","drill":false,"surface":"grass"}"#)
     try pitch.surface(.sand)
     _ = try reference.call("setSurface", json: #"{"surface":"sand"}"#)
@@ -176,6 +179,7 @@ struct RendererTests {
     let checkpoint = try #require(compact["practice"]?["before"]?.string)
     #expect(compact["practice"]?["ops"]?.isNull == true)
     let replay = try Engine(appVersion: "test")
+    _ = try replay.call("setImpacts", json: #"{"on":true}"#)  // as the device drew it
     _ = try replay.call("restorePractice", json: JS.object([("checkpoint", .string(checkpoint))]).json.text)
     _ = try replay.call("apply", json: #require(compact["lastThrow"]?["action"]?.raw.text))
     #expect(try replay.call("recording") == reference.call("recording"))

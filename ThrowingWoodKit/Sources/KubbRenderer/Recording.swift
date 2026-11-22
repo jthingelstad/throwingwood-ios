@@ -45,8 +45,20 @@ struct Recording: Decodable {
   struct Touch: Decodable { let t: Double, id, kind: String }
   struct Contact: Decodable { let t, strength: Double, a, b, idA, idB: String }
   struct Landing: Decodable { let t, strength: Double, surface: Surface }
+  /// A piece meeting the ground hard enough to matter (engine 0.14's `timeline.impacts`,
+  /// while `setImpacts` is on): when (the throw's clock), where (the recording's frame),
+  /// which piece and its kind, whether it is the thrown one, how fast it came down (m/s)
+  /// and its push on the ground (0 to 1). A scene that rings draws one there.
+  struct Impact: Decodable, Equatable {
+    let t, x, y: Double
+    let id: String
+    let with: String
+    let thrown: Bool?
+    let speed, strength: Double?
+  }
   struct Timeline: Decodable {
     let bursts: [Burst], touches: [Touch]?, contacts: [Contact]?, batonLanding: Landing?
+    let impacts: [Impact]?
   }
   let projectile: Projectile
   let frameDt, duration, poseScale: Double
@@ -62,9 +74,10 @@ struct Playback {
   var nextCue = 0
   var finished = false
   var starts: [Double?]
-  init(_ r: Recording) {
+  /// `rings`: the scene rings at each ground impact, and taps with it (PitchFeedback).
+  init(_ r: Recording, rings: Bool = false) {
     recording = r
-    feedback = r.timeline.feedback(projectileID: r.projectile.id)
+    feedback = r.timeline.feedback(projectileID: r.projectile.id, rings: rings)
     let indices = Dictionary(uniqueKeysWithValues: r.items.enumerated().map { ($1.id, $0) })
     tracks = r.bodies.compactMap { b in indices[b.id].map { ($0, b) } }
     starts = Array(repeating: nil, count: r.timeline.bursts.count)
