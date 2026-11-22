@@ -62,9 +62,16 @@ extension PitchScene {
       let p = point(piece.x, piece.y)
       guard rect.contains(p) else { continue }
       let shape = Self.mapShape(piece)
+      if shape == .baton {
+        // a baton lying on the pitch: a short ink bar, as the web's minimap draws it
+        ctx.setFillColor(color(ink))
+        ctx.fill(CGRect(x: p.x - 2.6, y: p.y - 0.7, width: 5.2, height: 1.4))
+        continue
+      }
       let paint = shape == .square ? m.teamB : (shape == .circle ? m.teamA : m.king)
       let path = CGMutablePath()
       switch shape {
+      case .baton: break
       case .circle: path.addEllipse(in: CGRect(x: p.x - 2.6, y: p.y - 2.6, width: 5.2, height: 5.2))
       case .square: path.addRect(CGRect(x: p.x - 2.2, y: p.y - 2.2, width: 4.4, height: 4.4))
       case .crown:
@@ -93,11 +100,12 @@ extension PitchScene {
 
 extension PitchScene {
   /// A piece's mark on the minimap: Team A a circle, Team B a square (the 1.0 design's
-  /// "Teams"), the king a square with a crown (the web's), anything else (a baton) a
-  /// small square in the king's ink.
-  public enum MapShape: Sendable { case circle, square, crown }
+  /// "Teams"), the king alone a square with a crown (the web's), anything else (a baton
+  /// left lying, which has no team) a short bar.
+  public enum MapShape: Sendable { case circle, square, crown, baton }
   public static func mapShape(_ p: Piece) -> MapShape {
-    p.team == "A" ? .circle : (p.team == "B" ? .square : .crown)
+    if p.kind == "king" { return .crown }
+    return p.team == "A" ? .circle : (p.team == "B" ? .square : .baton)
   }
 
 
