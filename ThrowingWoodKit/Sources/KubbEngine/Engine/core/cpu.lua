@@ -48,6 +48,16 @@ cpu.tune = {
 		weigh = 1,       -- 1: count the kubbs behind the front one as raise.par weighs a pair
 		                 -- (read.lineLane's w); 0: the lane's count less one
 	},
+	-- field.drive (0.16, built switched off): at a group of field kubbs close enough, the
+	-- low hard throw a person's default arc makes (plan.arcFor, the drive) instead of the
+	-- line it threw before (plan.sharedArcFor). A group: another standing field kubb within
+	-- `near` m of the front kubb, centre to centre; close enough: the front kubb within
+	-- `maxM` m of the stance. Club and pro would know it; beginner and kid do not
+	drive = {
+		on = 0, beginner = 0, club = 1, pro = 1,
+		near = 0.45,
+		maxM = 5,
+	},
 	-- inkast.depth: lay the kubbs one behind another down the baton's path (core/cpu depthSpot).
 	-- Pro only: it made club stronger and moved club away from real play (longer games,
 	-- more doubles), so club plays as 0.11.2 did until it is retuned as a whole (Jamie,
@@ -453,14 +463,32 @@ local function decideBaton(s, t, lname)
 	else
 		st = plan.stance(tx, ty, s.lineY, py, t.halfWidth, {})
 	end
-	-- the default arc for the distance (plan.arcFor), as a player's is
+	-- the default arc for the distance: the line a person's followed until 0.16 (plan.sharedArcFor)
 	local dx, dy = tx - st.x, ty - st.y
-	local arc = plan.arcFor("baton", math.sqrt(dx * dx + dy * dy))
+	local dist = math.sqrt(dx * dx + dy * dy)
+	local arc = plan.sharedArcFor(dist)
+	-- field.drive, at a level that knows it: the person's default line (the drive close
+	-- in) at a close group
+	local drive = nil
+	if target.role == "field" and not king and knows("drive", lname) and dist <= cpu.tune.drive.maxM then
+		local near2, n = cpu.tune.drive.near ^ 2, 0
+		for _, id in ipairs(s.targets) do
+			local g = pos[id]
+			if g and g ~= target and g.role == "field" and (g.x - target.x) ^ 2 + (g.y - target.y) ^ 2 <= near2 then
+				n = n + 1
+			end
+		end
+		if n > 0 then
+			-- (named in why.facts only: why.play and core/plays take it when it is switched on)
+			arc, drive = plan.arcFor("baton", dist), n + 1
+		end
+	end
 	local intent = { on = target.id, tx = tx, ty = ty, aimZ = aimZ, standY = py, stance = st, arc = arc }
 	local facts = { on = target.id, target = king and "king" or target.role, targets = #s.targets, lane = lane }
 	if lfacts then
 		facts.over, facts.stanceX, facts.range, facts.score = lfacts.over, lx, lfacts.range, lscore
 	end
+	if drive then facts.group, facts.drive = drive, true end
 	return { kind = "baton", intent = intent, why = { play = play, facts = facts } }
 end
 

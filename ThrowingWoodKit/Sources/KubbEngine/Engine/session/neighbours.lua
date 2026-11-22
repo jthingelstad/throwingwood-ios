@@ -415,11 +415,41 @@ local function pitchLoop(P)
 		checkpoint("choose")
 		local a = autothrow.choose(s, P.throwRng, nil, P.levels[s.side])
 		autothrow.launch(w, s, a)
+		-- the sounds (0.16.0): the first contact on each body something strikes, and the
+		-- thrown piece's first touch of the ground, on the recording's clock with the
+		-- session's strength (an impulse of 2 N s is 1). Listeners only: the physics and
+		-- the order of steps are as before
+		local proj = w.projectile
+		local hits, hitSeen, landing = {}, {}, nil
+		w.onContact = function(time, x, other, impulse)
+			local strength = min(1, impulse / 2)
+			if not other then
+				if x == proj then
+					if not landing then landing = { t = ms(time), strength = ms(strength) }
+					elseif landing.t == ms(time) and ms(strength) > landing.strength then landing.strength = ms(strength) end
+				end
+				return
+			end
+			for k = 1, 2 do
+				local hb = k == 1 and other or x
+				if hb ~= proj then
+					local e = hitSeen[hb]
+					if not e then
+						e = { t = ms(time), id = hb.id, strength = ms(strength) }
+						hitSeen[hb] = e
+						hits[#hits + 1] = e
+					elseif e.t == ms(time) and ms(strength) > e.strength then
+						e.strength = ms(strength)
+					end
+				end
+			end
+		end
 		local pb = playback.new(w, frameDt)
 		while not pb.done do
 			checkpoint("step")
 			playback.advance(pb, 0, zero)
 		end
+		w.onContact = nil
 		local bodies, last = recordingOf(w, pb, s.side)
 		checkpoint("encode")
 		local list = {}
@@ -428,9 +458,9 @@ local function pitchLoop(P)
 				poses = json.raw("[" .. table.concat(b.ints, ",") .. "]"), toppleT = b.toppleT }
 		end
 		local res = world.result(w)
-		local proj = w.projectile
 		local rec = { frameDt = frameDt, frames = last, duration = ms(last * frameDt), poseScale = K,
-			projectile = { id = proj.id, kind = proj.kind }, bodies = list }
+			projectile = { id = proj.id, kind = proj.kind }, bodies = list,
+			hits = #hits > 0 and hits or nil, landing = landing }
 		local text = json.encode(rec)
 		local after = bake(items, bodies)
 		checkpoint("resolve")

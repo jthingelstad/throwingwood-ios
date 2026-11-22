@@ -237,6 +237,27 @@ local function minimap(side, m)
 	return o
 end
 
+-- A setup whose settled list is turned into the world frame (a copy; the session keeps
+-- its own).
+local function settled(setup)
+	local o = {}
+	for k, v in pairs(setup) do o[k] = v end
+	local st = {}
+	for k, v in pairs(setup.settled) do st[k] = v end
+	st.list = {}
+	for i, e in ipairs(setup.settled.list) do
+		local n = {}
+		for k, v in pairs(e) do n[k] = v end
+		for _, f in ipairs { "lying", "standing", "pose" } do
+			if e[f] then n[f] = frame.pose(e.side, e[f]) end
+		end
+		n.frame = "world"
+		st.list[i] = n
+	end
+	o.settled = st
+	return o
+end
+
 -- A call's result in the wide view. side: the frame the session's pitch is
 -- in (Session.frameSide); recSide: the frame of its last recording. Replaces
 -- every camera with the wide one and un-turns what is in a thrower's frame.
@@ -251,6 +272,15 @@ function wide.out(r, cam, side, recSide)
 		if r.minimap then r.minimap = minimap(side, r.minimap) end
 	end
 	if r.recording then r.recording = recording(recSide, r.recording) end
+	-- a need's setup.settled (0.16.0): each kubb's poses are in its raiser's view frame;
+	-- here every one goes to the world frame (Team A's), whoever raised
+	if r.setup and r.setup.settled and r.setup.settled.list then r.setup = settled(r.setup) end
+	if type(r.need) == "table" and r.need.setup and r.need.setup.settled and r.need.setup.settled.list then
+		local n = {}
+		for k, v in pairs(r.need) do n[k] = v end
+		n.setup = settled(r.need.setup)
+		r.need = n
+	end
 	r.wide = cam.kind
 	return r
 end
