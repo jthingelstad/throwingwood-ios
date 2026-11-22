@@ -255,8 +255,11 @@ struct SealedCard: View {
         let sealed = SealedPitch(code: code)
         self.sealed = sealed
         if mode == "sealed" || mode == "sealedold" {
-          let snap = try? String(
+          let fixture = try? String(
             contentsOf: URL.temporaryDirectory.appending(path: "review-solo.json"), encoding: .utf8)
+          // a shared match holds only generated names (the review fixture's stand-in "You"
+          // would not be shown), so the stand-in takes one here
+          let snap = fixture?.replacingOccurrences(of: #""name":"You""#, with: #""name":"Brave Birch""#)
           // sealedold: the same match, kept as made on an engine this build does not carry
           showSealed(
             sealed,
