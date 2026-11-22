@@ -763,9 +763,10 @@ public final class PitchSession {
     if p.rest >= Pacing.restAfterThrow && bursts.isEmpty {
       playback = nil
       // kubbs the engine stood up with this throw (the computer's raises, or a match
-      // raising automatically) are watched first (AutoRaise.swift)
+      // raising automatically) are watched first, from the engine's own list (AutoRaise.swift;
+      // none until engine 0.16.0)
       let view: ViewOutput = try read("view")
-      if !beginStoodShow(before: scene.items, view: view) { try adopt(view) }
+      if !beginStoodShow(view: view) { try adopt(view) }
     } else {
       playback = p
     }

@@ -503,41 +503,64 @@ import simd
     #expect(app.raiseNews?.text.contains("automatically") == true)
   }
 
-  /// The computer's raises (no raise need of this device's: the engine stands them as the
-  /// turn changes) are watched after the throw that sent the kubbs over, one after
-  /// another in the raise scene, before the next view; with Reduce Motion each stands
-  /// with no tip. The match's actions and hashes are the engine's own.
-  @Test func theComputersRaisesAreWatched() throws {
-    for reduced in [false, true] {
-      // the computer plays both sides, so its kubbs land and are raised by it
-      let app = try PitchSession(appVersion: "test")
-      try app.openMatch("new", json: #"{"mode":"match","seed":11,"cpu":"both"}"#, save: nil)
-      app.reduceMotion = reduced
-      var seen = false, tipped = false, kubbs = 0
-      for _ in 0..<(60 * 60 * 6) {
-        if app.need?.kind == "over" { break }
-        try app.tick(1.0 / 60)
-        if let s = app.stoodShow {
-          seen = true
-          kubbs = max(kubbs, s.kubbs.count)
-          #expect(app.raiseShowing && !app.canAim)
-          #expect(s.inPlace || app.scene.stillZoom == RaiseCamera.zoom)
-          let k = s.kubbs[s.k]
-          if let shown = app.scene.items.first(where: { $0.id == k.id }), shown.z > 0.04, shown.z < 0.07 {
-            tipped = true
-          }
-        } else if seen {
-          break
-        }
+  /// The raises the engine makes itself (the computer's, here both sides') wait for the
+  /// engine to hand them out (engine 0.16.0's `raised`): the app never turns poses between
+  /// frames to find them, so today they show as before, the kubbs standing in the next view,
+  /// and the board goes straight on.
+  @Test func theEnginesOwnRaisesWaitForTheEngine() throws {
+    let app = try PitchSession(appVersion: "test")
+    try app.openMatch("new", json: #"{"mode":"match","seed":11,"cpu":"both"}"#, save: nil)
+    var raisedByEngine = 0
+    var lyingBefore = Set<String>()
+    for _ in 0..<(60 * 60 * 3) {
+      if app.need?.kind == "over" { break }
+      let wasPlaying = app.playing
+      if wasPlaying {
+        lyingBefore = Set(app.scene.items.filter { $0.kind == "kubb" && Neon.lying($0) }.map(\.id))
       }
-      #expect(seen, "reduced \(reduced)")
-      #expect(kubbs >= 1)
-      #expect(tipped != reduced, "reduced \(reduced)")
-      // afterwards the board shows the engine's own view
-      if app.need?.kind == "throw" {
+      try app.tick(1.0 / 60)
+      #expect(app.stoodShow == nil)
+      if wasPlaying && !app.playing {
         let v: ViewOutput = try app.read("view")
-        #expect(Set(v.items.map(\.id)) == Set(app.scene.items.map(\.id)))
+        #expect(StoodShow.engineRaised(v) == nil)
+        raisedByEngine += app.scene.items.filter { $0.kind == "kubb" && !Neon.lying($0) && lyingBefore.contains($0.id) }.count
       }
+    }
+    // the match had raises the engine made, and none was held up
+    #expect(raisedByEngine > 0)
+  }
+
+  /// When the engine hands out a raise it made, it plays from the poses it gives, in that
+  /// one frame: lying, tipped part way onto its end with the hand drag's tip, standing; a
+  /// tap skips it. (Built here from a raise need's own poses, standing in for the list.)
+  @Test func anEngineRaisedClipPlaysFromItsOwnPoses() throws {
+    for reduced in [false, true] {
+      let app = try PitchSession(appVersion: "test")
+      try app.restore(fixture("raise"), save: nil)
+      let n = try #require(app.need)
+      let id = try #require(n.kubb), pose = try #require(n.pose), end = try #require(n.ends?.first)
+      let lying = pose.piece(id: id)
+      let standing = MatchNeed.Pose(x: end.pose.x, y: end.pose.y, angle: end.pose.angle, standing: true).piece(id: id)
+      let toward = simd_normalize(V2(end.pose.x - pose.x, end.pose.y - pose.y))
+      let clip = StoodShow.Kubb(
+        id: id, lying: lying, standing: standing, toward: toward,
+        ends: [V2(end.pose.x, end.pose.y), V2(2 * pose.x - end.pose.x, 2 * pose.y - end.pose.y)])
+      let view: ViewOutput = try app.read("view")
+      app.reduceMotion = reduced
+      app.stoodShow = StoodShow(kubbs: [clip], before: (n.others ?? []).map { $0.pose.piece(id: $0.id) }, after: view)
+      var tipped = false, stood = false
+      for _ in 0..<120 where app.stoodShow != nil {
+        try app.tick(1.0 / 60)
+        guard app.stoodShow != nil, let k = app.scene.items.first(where: { $0.id == id }) else { continue }
+        #expect(app.scene.stillZoom == RaiseCamera.zoom)
+        if k.z > 0.04 && k.z < 0.07 { tipped = true }
+        if !Neon.lying(k) { stood = true }
+      }
+      #expect(app.stoodShow == nil && stood)
+      #expect(tipped != reduced, "reduced \(reduced)")
+      app.stoodShow = StoodShow(kubbs: [clip], before: [], after: view)
+      try app.skipRaise()
+      #expect(app.stoodShow == nil)
     }
   }
 

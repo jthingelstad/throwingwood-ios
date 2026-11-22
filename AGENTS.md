@@ -152,11 +152,14 @@ Where the thrower stands is STAND, a plate in the plan (`StandPad.swift`, the
 web's stand-pad.js numbers and words); WALK, the Playdate's held A, is gone.
 A raise is a touch on the kubb (`RaiseTouch.swift`, the web's raise-touch.js
 numbers), and Raising (by hand or automatic) is the match's choice, never a
-device setting. Every automatic raise is watched (the owner, 2026-11-22: "When you hit
+device setting. Raises the app sends or receives as actions are watched (the owner, 2026-11-22: "When you hit
 auto to raise kubbs you should watch the computer raise them."): AUTO, AUTO ALL, REST OF
-GAME, the computer's raises and a match raising automatically tip each kubb up in the
-raise scene one after another (`RaiseShow`, `StoodShow` in AutoRaise.swift; `Pacing.raiseBeat`),
-a tap skips to the end, and the engine's actions and their order never change. The raise
+GAME, the menu's Raising: Automatic and another member's raises online tip each kubb up in
+the raise scene one after another from the need's own poses (`RaiseShow` in AutoRaise.swift;
+`Pacing.raiseBeat`), a tap skips to the end, and the engine's actions and their order never
+change. The raises the engine makes itself (the computer's, a match started with Raising:
+Automatic) wait for engine 0.16.0 to hand them out (`StoodShow.engineRaised`, the view's
+`raised`): never turn a pose between frames in Swift to find them. The raise
 camera stands twice as far back as it did (`RaiseCamera`, the web's numbers). The last
 throw's verdict never stops a player aiming: it takes no touches, goes at the first press
 of the aim or after `Pacing.verdictShown`, and stands clear of the target

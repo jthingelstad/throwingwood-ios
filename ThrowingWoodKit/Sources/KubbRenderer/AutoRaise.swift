@@ -135,13 +135,14 @@ struct RaiseShow {
 
 /// Kubbs the engine stood up with no raise of this device's to show (the computer's own
 /// raises, or every raise in a match whose Raising is Automatic): seen the same way after
-/// the throw that sent them there, one after another, each in the raise scene (or where it
-/// lies in the watcher's wide view), before the board moves on.
+/// the throw that sent them there, one after another, each in the raise scene, before the
+/// board moves on. Built only from the engine's own list (`engineRaised`, engine 0.16.0),
+/// every pose in the one frame it gives: today none.
 struct StoodShow {
   struct Kubb {
     let id: String
-    /// Lying where the throw left it, and standing where the engine put it, in the show's
-    /// frame.
+    /// Lying where the throw left it, and standing where the engine put it, both in the
+    /// frame the raise view draws in, as the engine gives them.
     let lying, standing: Piece
     /// From its middle toward the end it stands on, on the ground (unit).
     let toward: V2
@@ -149,7 +150,7 @@ struct StoodShow {
     let ends: [V2]
   }
   var kubbs: [Kubb]
-  /// The pieces as the throw left them, in the show's frame.
+  /// The pitch round them, in the same frame.
   let before: [Piece]
   /// The view the board takes when the show ends.
   let after: ViewOutput
@@ -157,16 +158,13 @@ struct StoodShow {
   var age = 0.0
   /// The first kubb lies `Pacing.autoRaiseWait` s; each then takes `beat`.
   let beat: Double
-  /// Seen in place (the watcher's wide view): no camera of its own.
-  let inPlace: Bool
   var lead: Double { k == 0 ? Pacing.autoRaiseWait : 0 }
   var total: Double { lead + beat }
 
-  init(kubbs: [Kubb], before: [Piece], after: ViewOutput, inPlace: Bool) {
+  init(kubbs: [Kubb], before: [Piece], after: ViewOutput) {
     self.kubbs = kubbs
     self.before = before
     self.after = after
-    self.inPlace = inPlace
     beat = Pacing.raiseBeat(kubbs.count)
   }
 
@@ -208,38 +206,17 @@ struct StoodShow {
     return p
   }
 
-  /// The kubbs that went from lying (`before`, as the throw left them) to standing
-  /// (`after`'s items), in the frame where they lie in the near half (the raising side's,
-  /// whose raise scene looks at them from its own baseline). `turnBefore`: the throw's
-  /// pieces are in the other side's frame from the view's. nil when none stood.
-  static func of(before: [Piece], after: ViewOutput, turnBefore: Bool, inPlace: Bool) -> StoodShow? {
-    var was = before
-    if turnBefore { was = was.map(NeighbourField.halfTurned) }
-    let byId = Dictionary(was.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-    var stood: [(lying: Piece, standing: Piece)] = []
-    for q in after.items where q.kind == "kubb" && !Neon.lying(q) {
-      // a kubb that lay and now stands within a metre of where it lay (a raise; one put
-      // somewhere else, a punishment kubb the engine placed, just appears there)
-      guard let p = byId[q.id], Neon.lying(p), simd_distance(V2(p.x, p.y), V2(q.x, q.y)) < 1 else { continue }
-      stood.append((p, q))
-    }
-    guard !stood.isEmpty else { return nil }
-    // the raising side's frame: the kubbs in its own half (y under 4); the wide view's
-    // world frame stays as it is
-    let turn = !inPlace && stood.map(\.standing.y).reduce(0, +) / Double(stood.count) > 4
-    func framed(_ p: Piece) -> Piece { turn ? NeighbourField.halfTurned(p) : p }
-    let kubbs = stood.map { pair -> Kubb in
-      let lying = framed(pair.lying), standing = framed(pair.standing)
-      let axis3 = lying.rotation.act(V3(0, 0, 1))
-      var u = simd_length(V2(axis3.x, axis3.y)) > 1e-6 ? simd_normalize(V2(axis3.x, axis3.y)) : V2(1, 0)
-      let off = RaiseTouch.halfLength + RaiseTouch.halfSide
-      let a = V2(lying.x, lying.y) + u * off, b = V2(lying.x, lying.y) - u * off
-      let s = V2(standing.x, standing.y)
-      if simd_distance(b, s) < simd_distance(a, s) { u = -u }
-      let first = V2(lying.x, lying.y) + u * off, other = V2(lying.x, lying.y) - u * off
-      return Kubb(id: pair.standing.id, lying: lying, standing: standing, toward: u, ends: [first, other])
-    }
-    return StoodShow(kubbs: kubbs, before: was.map(framed), after: after, inPlace: inPlace)
+  /// The raises the engine makes itself, with no raise need on this device (the
+  /// computer's own, and every raise of a match started with Raising: Automatic), as
+  /// clips: the kubbs and the pitch round them. The app never turns a pose from one side's
+  /// frame into another's to find them (the raise view draws in the raiser's frame, the
+  /// throw before it in the thrower's): from engine 0.16.0 the view hands them out as
+  /// `raised`, each kubb's id, the end it stands on, and its lying and standing poses in
+  /// the frame the raise view draws in. Until the app is on that engine this returns none,
+  /// and such a raise shows as it always did: the kubbs standing in the next view.
+  static func engineRaised(_ view: ViewOutput) -> (kubbs: [Kubb], others: [Piece])? {
+    // waits for the view's `raised` (engine 0.16.0)
+    nil
   }
 }
 
@@ -424,28 +401,18 @@ extension PitchSession {
   }
 
   /// After a throw has played: the kubbs the engine stood up with it (the computer's
-  /// raises, or a match raising automatically), watched before `view` is taken. False
-  /// when none stood (the caller adopts `view`).
-  func beginStoodShow(before: [Piece], view: ViewOutput) -> Bool {
-    guard need != nil, view.need.kind != "raise" else { return false }
-    let turn = !scene.wide && scene.frameSide != nil && viewFrame(of: view.need) != scene.frameSide
-    guard let show = StoodShow.of(before: before, after: view, turnBefore: turn, inPlace: scene.wide) else {
-      return false
-    }
-    stoodShow = show
-    let who = view.need.teams?[show.kubbs.count > 0 ? raisingSide(show, view) : "A"] ?? "The other side"
-    announce("\(who) stood \(show.kubbs.count == 1 ? "a kubb" : "\(show.kubbs.count) kubbs") up.")
+  /// raises, or a match raising automatically), watched before `view` is taken, from the
+  /// engine's own list in the raise view's frame (`StoodShow.engineRaised`: none until
+  /// engine 0.16.0). False when there is none (the caller adopts `view`). Not in the
+  /// watcher's wide view, which draws the world frame.
+  func beginStoodShow(view: ViewOutput) -> Bool {
+    guard need != nil, view.need.kind != "raise", !scene.wide,
+      let raised = StoodShow.engineRaised(view), !raised.kubbs.isEmpty
+    else { return false }
+    stoodShow = StoodShow(kubbs: raised.kubbs, before: raised.others, after: view)
+    announce("\(raised.kubbs.count == 1 ? "A kubb" : "\(raised.kubbs.count) kubbs") stood up.")
     _ = try? stoodShowTick(0)
     return true
-  }
-
-  /// The side whose half the stood kubbs are in (in the view's frame, its own half is
-  /// under 4 m for the side the view belongs to).
-  private func raisingSide(_ s: StoodShow, _ v: ViewOutput) -> String {
-    let viewSide = viewFrame(of: v.need) ?? "A"
-    let y = v.items.filter { k in s.kubbs.contains { $0.id == k.id } }.map(\.y)
-    let near = (y.reduce(0, +) / Double(max(1, y.count))) < 4
-    return near ? viewSide : (viewSide == "A" ? "B" : "A")
   }
 
   func stoodShowTick(_ dt: Double) throws -> Bool {
@@ -475,15 +442,12 @@ extension PitchSession {
     scene.advantageY = nil
     scene.kidY = nil
     scene.keepOut = nil
-    if !s.inPlace {
-      let lying = k.lying
-      camera = RaiseCamera.camera(x: lying.x, y: lying.y, axis: k.toward)
-      scene.stillZoom = RaiseCamera.zoom
-      scene.focusX = nil
-      scene.stillLowest = nil
-      scene.footprints = k.ends.enumerated().map { j, e in
-        GroundMark(x: e.x, y: e.y, angle: atan2(k.toward.y, k.toward.x), allowed: true, chosen: j == 0 && t >= 0.5)
-      }
+    camera = RaiseCamera.camera(x: k.lying.x, y: k.lying.y, axis: k.toward)
+    scene.stillZoom = RaiseCamera.zoom
+    scene.focusX = nil
+    scene.stillLowest = nil
+    scene.footprints = k.ends.enumerated().map { j, e in
+      GroundMark(x: e.x, y: e.y, angle: atan2(k.toward.y, k.toward.x), allowed: true, chosen: j == 0 && t >= 0.5)
     }
     revision += 1
     return true
