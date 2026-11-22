@@ -173,6 +173,13 @@ public struct MatchNeed: Decodable {
       /// none, and the board draws the king alone round the kubbs meanwhile).
       let others: [Other]?
       let king: Pose?
+      /// The orientation it stands at in the next throw's world, in the same frame (engine
+      /// 1.0.0: its seat in the turf, up to 3 degrees off plumb; nil when it stands plumb,
+      /// as on the grid).
+      let seat: Seat?
+    }
+    struct Seat: Decodable {
+      let qw, qx, qy, qz: Double
     }
     let list: [Entry]?
   }

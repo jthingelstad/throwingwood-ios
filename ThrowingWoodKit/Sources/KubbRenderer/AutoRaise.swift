@@ -182,7 +182,8 @@ struct StoodShow {
 
   /// The kubb at this moment (the web's liftKubb): lying, tipping onto its end, then
   /// standing, sliding from the footprint it tipped onto to where the engine stood it in
-  /// half the beat's rest.
+  /// half the beat's rest, and settling into its seat over the same (engine 1.0.0's
+  /// `seat`: it ends as the next throw's first frame draws it, so nothing steps).
   func shown(reduced: Bool) -> Piece {
     let kb = kubbs[k]
     let t = up(reduced: reduced)
@@ -193,7 +194,23 @@ struct StoodShow {
     var p = kb.standing
     p.x = top.x + (kb.standing.x - top.x) * u
     p.y = top.y + (kb.standing.y - top.y) * u
+    p.z = top.z + (kb.standing.z - top.z) * u
+    let q = simd_slerp(top.rotation, kb.standing.rotation, u)
+    (p.qw, p.qx, p.qy, p.qz) = (q.real, q.imag.x, q.imag.y, q.imag.z)
     return p
+  }
+
+  /// A standing kubb at `seat` (engine 1.0.0): that orientation, resting on its lowest
+  /// corner as the engine rests it (core/world addPiece, `-lowestZ`).
+  static func seated(_ p: Piece, _ seat: MatchNeed.Settled.Seat?) -> Piece {
+    guard let seat else { return p }
+    var out = p
+    let q = simd_normalize(simd_quatd(ix: seat.qx, iy: seat.qy, iz: seat.qz, r: seat.qw))
+    (out.qw, out.qx, out.qy, out.qz) = (q.real, q.imag.x, q.imag.y, q.imag.z)
+    // the world z of each body axis, times its half extent
+    let ax = q.act(V3(1, 0, 0)).z, ay = q.act(V3(0, 1, 0)).z, az = q.act(V3(0, 0, 1)).z
+    out.z = RaiseTouch.halfSide * (abs(ax) + abs(ay)) + RaiseTouch.halfLength * abs(az)
+    return out
   }
 
   /// The pieces at this moment: the pitch round the kubb, the list's kubbs done standing
@@ -272,7 +289,8 @@ struct StoodShow {
         kubbs.append(
           Kubb(
             id: e.id, lying: MatchNeed.Pose(x: l.x, y: l.y, angle: l.angle, standing: false).piece(id: e.id),
-            standing: MatchNeed.Pose(x: st.x, y: st.y, angle: st.angle, standing: true).piece(id: e.id),
+            standing: Self.seated(
+              MatchNeed.Pose(x: st.x, y: st.y, angle: st.angle, standing: true).piece(id: e.id), e.seat),
             toward: V2(cos(a), sin(a)) * sign, frame: frame, around: around))
       case "punish":
         guard let p = e.pose else { continue }
@@ -280,7 +298,8 @@ struct StoodShow {
         kubbs.append(
           Kubb(
             id: e.id, lying: MatchNeed.Pose(x: p.x, y: p.y, angle: p.angle, standing: false).piece(id: e.id),
-            standing: MatchNeed.Pose(x: p.x, y: p.y, angle: p.angle, standing: true).piece(id: e.id),
+            standing: Self.seated(
+              MatchNeed.Pose(x: p.x, y: p.y, angle: p.angle, standing: true).piece(id: e.id), e.seat),
             toward: V2(cos(a), sin(a)), placed: true, frame: frame, around: around))
       default: continue
       }

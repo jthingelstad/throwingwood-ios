@@ -164,8 +164,11 @@ Automatic) and the punishment kubbs it places are watched too, from engine 0.16.
 the next throw need, `need.setup.settled` (`StoodShow.engineRaised`): in its order, with the
 watched raise's tip and pace, in the frame it gives (the raiser's view frame; the world frame
 in the wide view), the king alone round them in the thrower's view until the engine gives each
-entry its `others` and `king` (its next release). Never compare pieces before and after or turn
-a pose between frames in Swift to find them. The raise
+entry its `others` and `king` (its next release). Each such raise ends on its entry's `seat`
+(engine 1.0.0: a standing kubb leans up to 3 degrees in the turf), settling into it as it
+slides to its spot, so the kubb does not step at the next throw's first frame; a raise the app
+sends itself ends plumb and takes its seat on the next throw. Never compare pieces before and
+after or turn a pose between frames in Swift to find them. The raise
 camera stands twice as far back as it did (`RaiseCamera`, the web's numbers). The last
 throw's verdict never stops a player aiming: it takes no touches, goes at the first press
 of the aim or after `Pacing.verdictShown`, and stands clear of the target
