@@ -44,6 +44,13 @@ public enum HeaderWords {
     return line
   }
 
+  /// The header's line while the engine's own raise is watched (engine 0.16.0's
+  /// `setup.settled`): "Turn 3 · raise 1 of 2", "Turn 3 · punishment kubb", over the
+  /// raising side's name.
+  public static func engineRaise(turn: Int, k: Int, of: Int, placed: Bool) -> String {
+    placed ? "Turn \(turn) · punishment kubb" : "Turn \(turn) · raise \(k) of \(of)"
+  }
+
   /// What the thrower aims at, from the engine's rail (session.lua aimView `rail.r1`:
   /// "FIELD 2", "BASE 5", "KING"), when it is not the base kubbs the numbers show: "2
   /// field kubbs", "1 field kubb", "at the king"; nil for the base kubbs or nothing.

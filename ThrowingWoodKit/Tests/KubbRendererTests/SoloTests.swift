@@ -28,6 +28,9 @@ import Testing
         releases += 1
         try #require(try app.engine.hash() == ref.hash(), "release \(releases)")
         try app.skipPlayback()
+        // the engine's own raises before the next throw are watched (engine 0.16.0's
+        // setup.settled); the reference has no screen, so a tap skips them
+        if app.raiseShowing { try app.skipRaise() }
         // Let the other main-actor Kit tests service their transports between throws.
         await Task.yield()
       }

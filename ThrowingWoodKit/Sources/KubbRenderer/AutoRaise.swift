@@ -301,6 +301,24 @@ extension PitchSession {
       revision += 1
     }
   }
+  /// The engine's own raises being watched: how far through, 0 to 1 of the whole show (its
+  /// first kubb's lying included); nil when none is (review tools).
+  public var engineRaiseProgress: Double? {
+    guard let s = stoodShow else { return nil }
+    let total = Pacing.autoRaiseWait + s.beat * Double(s.kubbs.count)
+    // the first kubb's age runs through its lying; each later one's from its own start
+    let done = s.k == 0 ? s.age : Pacing.autoRaiseWait + s.beat * Double(s.k) + s.age
+    return min(1, done / total)
+  }
+  /// The engine's own raise being watched now: the kubb's place in the list (one-based),
+  /// the list's length, the side that raised it and whether it is a punishment kubb placed
+  /// (the header's words, `HeaderWords.engineRaise`); nil when none is.
+  public var engineRaising: (k: Int, of: Int, side: String?, placed: Bool)? {
+    guard let s = stoodShow, s.kubbs.indices.contains(s.k) else { return nil }
+    let kb = s.kubbs[s.k]
+    let side = s.after.need.setup?.settled?.list?.first { $0.id == kb.id }?.side
+    return (s.k + 1, s.kubbs.count, side, kb.placed)
+  }
   /// AUTO ALL is raising this turn's kubbs.
   public var raisingRest: Bool { autoRaise.turn }
   /// This device has been asked to raise in this match (or chose Automatic).

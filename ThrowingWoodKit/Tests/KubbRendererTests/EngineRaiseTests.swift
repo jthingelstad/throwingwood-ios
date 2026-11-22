@@ -54,15 +54,21 @@ import simd
     #expect(app.beginStoodShow(view: v))
     #expect(app.raiseNews?.text == "A kubb stood up and a punishment kubb placed.")
     var punishSeenBefore = false, punishStood = false
+    var progress = 0.0
     var raisedEnd: Piece?
     for _ in 0..<600 where app.stoodShow != nil {
       let k = app.stoodShow!.k
       if k == 0 && app.scene.items.contains(where: { $0.id == "b4" }) { punishSeenBefore = true }
+      let r = try #require(app.engineRaising)
+      #expect(r.k == k + 1 && r.of == 2 && r.side == "B" && r.placed == (k == 1))
       if k == 1 {
         raisedEnd = app.scene.items.first { $0.id == "b3" }
         if let p = app.scene.items.first(where: { $0.id == "b4" }), !Neon.lying(p) { punishStood = true }
       }
       #expect(app.scene.frameSide == "B")
+      let p = try #require(app.engineRaiseProgress)
+      #expect(p >= progress && p <= 1)
+      progress = p
       #expect(app.scene.footprints == nil)
       try app.tick(1.0 / 60)
     }
@@ -70,7 +76,9 @@ import simd
     // the raised kubb stands where the engine stood it while the next plays
     let b3 = try #require(raisedEnd)
     #expect(b3.x == 0.4 && b3.y == 1.9 && !Neon.lying(b3))
-    #expect(app.stoodShow == nil && app.need?.kind == "throw")
+    #expect(app.stoodShow == nil && app.need?.kind == "throw" && app.engineRaising == nil)
+    #expect(HeaderWords.engineRaise(turn: 3, k: 1, of: 2, placed: false) == "Turn 3 · raise 1 of 2")
+    #expect(HeaderWords.engineRaise(turn: 3, k: 2, of: 2, placed: true) == "Turn 3 · punishment kubb")
   }
 
   @Test func theWideViewDrawsTheWorldFrameWithTheViewsPieces() throws {

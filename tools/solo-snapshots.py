@@ -102,7 +102,7 @@ for meter in ["clock", "linear"]:
 # a thrown kubb's narrower bars (nothing built for it): the inkast's meter
 DRIVE_SHOTS["inkast-meter"] = ("aim", "inkast", "clock", "right", {})
 DRIVE_SHOTS["inkast-meter-linear"] = ("aim", "inkast", "linear", "right", {})
-for i, at in enumerate([0.1, 0.45, 0.6, 0.75, 0.95, 1.1, 1.25, 1.36]):
+for i, at in enumerate([0.05, 0.3, 0.42, 0.55, 0.68, 0.8, 0.9, 0.98]):
     DRIVE_SHOTS[f"cpu-raise-{i:02d}"] = ("cpuraise", "inkast", "clock", "right", {"STOOD_AT": str(at)})
 ENV = {shot: v[4] for shot, v in DRIVE_SHOTS.items()}
 ON_REQUEST |= set(DRIVE_SHOTS)
