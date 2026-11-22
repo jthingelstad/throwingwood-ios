@@ -14,7 +14,8 @@ from review_turn import is_ipad, turn as turn_device
 
 ROOT = Path(__file__).resolve().parents[1]
 MODES = {
-    "home": None, "options": None, "settings": None, "menu": "aim", "verdict": "aim", "handoff": "aim", "aim": "aim", "plan": "aim",
+    "home": None, "options": None, "settings": None, "practicemenu": None,
+    "menu": "aim", "verdict": "aim", "handoff": "aim", "aim": "aim",
     "arc": "aim", "tilt": "aim", "stand": "aim", "flight": "aim", "raise": "raise", "raisemany": "raise-many",
     "raiseauto": "raise-many", "raiserest": "raise-many", "raisedrag": "raise",
     "raiserefused": "raise-refused", "punish": "punish", "computer": "computer",
@@ -22,9 +23,9 @@ MODES = {
     # Settings opened from a match's menu, in the match's scene (--scene)
     "matchsettings": "aim",
     # engine 0.15: a Kid match the app starts against the Kid computer (no fixture), its
-    # hand-off, aim, side view (the Kid line and its cones) and STAND (worded for the
-    # line); Techno's ring part way grown (--scene neon); a kubb drilled at SPIN's most
-    "kidhandoff": None, "kidaim": None, "kidplan": None, "kidstand": None,
+    # hand-off, aim and STAND (the Kid line and its cones, worded for the line); Techno's
+    # ring part way grown (--scene neon); a kubb drilled at SPIN's most
+    "kidhandoff": None, "kidaim": None, "kidstand": None,
     "ring": "aim", "spin": None,
     # engine 0.15.1: the Tournament's live neighbours (--scene tournament), run on until a
     # neighbour's throw is half way and in view, in the thrower's view and the wide view
@@ -34,9 +35,25 @@ MODES = {
     # the last throw's verdict still up over the next aim, untouched
     "verdictaim": "aim",
 }
-# Shots taken only when asked for (--only): they need a scene or show one thing.
-ON_REQUEST = {"kidhandoff", "kidaim", "kidplan", "kidstand", "ring", "spin", "neighbours", "neighbourswide", "neighboursflight",
-              "raisetip", "verdictaim"}
+# Shots that belong to one scene: taken in that scene's run (--scene), and only there.
+SCENE_OWN = {
+    "neon": ["ring"],
+    "tournament": ["neighbours", "neighbourswide", "neighboursflight"],
+}
+ON_REQUEST = {s for shots in SCENE_OWN.values() for s in shots}
+# one moment of a watched raise, and the verdict over the next aim: asked for by name
+ON_REQUEST |= {"raisetip", "verdictaim"}
+# A run in a scene (--scene, no --only) takes the screens a scene changes, not every
+# fixture: its tile chosen, its skin on the cards and plates, its world in play.
+SCENE_SHOTS = [
+    "options", "practicemenu", "handoff", "aim", "arc", "stand", "flight", "verdict", "raise", "punish",
+    "computer", "menu", "matchsettings", "winner", "sheet", "coach", "kidaim",
+]
+SCENE_LANDSCAPE = ["handoff", "aim", "arc", "flight", "verdict", "menu", "winner"]
+# Settings with its rows opened at their foot (REVIEW_CARD_FOOT): the App icon row.
+EXTRA_ENV = {"appicon": {"REVIEW_CARD_FOOT": "1"}}
+# At the accessibility text sizes (--text-size): the cards whose rows must reflow.
+TEXT_SHOTS = ["options", "settings", "appicon", "practicemenu", "handoff", "kidhandoff", "menu", "winner", "sheet"]
 # The engine's catalogue (core/scenes): each scene's ground and set, so a fixture shown
 # in a scene is the match a scene would have started (engine 0.14: the scene decides).
 SCENES = {
@@ -71,10 +88,10 @@ METER_SHOTS = {
 # these shots are taken turned, named <phone>-landscape-<shot>.png. The linear
 # shots show the linear meter at its edge, the whole safe height.
 LANDSCAPE = [
-    "home", "options", "settings", "handoff", "aim", "plan", "arc", "tilt", "stand", "flight", "verdict",
+    "home", "options", "settings", "practicemenu", "handoff", "aim", "arc", "tilt", "stand", "flight", "verdict",
     "raise", "raisemany", "raiseauto", "raiserest", "raisedrag", "raiserefused", "punish", "computer", "menu", "winner", "sheet",
     "linear-left-aim", "linear-right-aim", "linear-left-tilt", "clock-nudge", "linear-left-nudge",
-    "coach", "coach-slow", "linear-left-coach",
+    "coach", "coach-slow", "linear-left-coach", "kidhandoff", "kidaim", "kidstand", "spin",
 ]
 # Engine 0.16's drive and the engine's own raises, taken only when asked for (--only, or
 # --drive for all of them): name: (MATCH_REVIEW mode, fixture, meter, side, environment).
@@ -117,7 +134,9 @@ LANDSCAPE += list(LANDSCAPE_ONLY)
 # every other shot is a device that has learned the throw (no coach line)
 LEARNING = {"coach", "coachslow"}
 SHOTS = {**{m: (m, f, "clock", "right") for m, f in MODES.items()}, **METER_SHOTS, **LANDSCAPE_ONLY,
-         **{k: v[:4] for k, v in DRIVE_SHOTS.items()}}
+         **{k: v[:4] for k, v in DRIVE_SHOTS.items()}, "appicon": ("settings", None, "clock", "right")}
+# the scene's own shots on its side (the ring, the neighbours upright and in the wide view)
+SCENE_OWN_LANDSCAPE = {"ring", "neighbours", "neighbourswide"}
 APP = "com.throwingwood.app"
 # The review devices under the iOS 26.2 runtime and their picture names: both
 # phones, and a small and a large iPad (the same game on a bigger screen).
@@ -144,44 +163,55 @@ def capture(phone, args):
     try:
         sim("bootstatus", udid, "-b", stdout=subprocess.DEVNULL)
         sim("install", udid, str(args.app))
-        sim("status_bar", udid, "override", "--time", "9:41", "--batteryState", "charged",
+        sim("status_bar", udid, "override", "--time", "9:41", "--batteryState", "discharging",
             "--batteryLevel", "100", "--cellularBars", "4", "--wifiBars", "3")
         tmp = Path(sim("get_app_container", udid, APP, "data", capture_output=True,
                        text=True).stdout.strip()) / "tmp"
         if is_ipad(phone):
             turn_device(udid, args.landscape)  # an iPad turns as a device, not from the app
-        prefix = DEVICES[phone] + (f"-{args.scene}" if args.scene else "") + ("-landscape" if args.landscape else "")
+        prefix = (DEVICES[phone] + (f"-{args.scene}" if args.scene else "") + ("-ax3" if args.text_size else "")
+                  + ("-landscape" if args.landscape else ""))
         turn = {"SIMCTL_CHILD_REVIEW_ORIENTATION": args.landscape} if args.landscape else {}
+        if args.text_size:
+            sim("ui", udid, "content_size", args.text_size)
         for shot, (mode, fixture, meter, side) in SHOTS.items():
-            if args.only and shot not in args.only:
-                continue
-            if args.landscape and not args.only and shot not in LANDSCAPE:
-                continue
-            if not args.only and shot in ON_REQUEST:
-                continue
-            if not args.landscape and shot in LANDSCAPE_ONLY:
+            if not wanted(shot, args):
                 continue
             ready = tmp / "review-ready"
             ready.unlink(missing_ok=True)
             (tmp / "review-layout.json").unlink(missing_ok=True)
             if fixture:
                 src = ROOT / "ThrowingWoodKit/Tests/KubbRendererTests/Fixtures/solo" / (fixture + ".json")
+                text = src.read_text()
+                if args.player:
+                    # the fixtures' own side A is "You": a generated name for the store's pictures
+                    text = text.replace('"You"', json.dumps(args.player))
+                if args.finish and fixture == "over":
+                    # the fixtures predate a match's length (engine 0.18.0): stamp the finished
+                    # match's last action that many minutes after its start, as a played match
+                    # would be, so the winner card and the sheet say how long it took
+                    snap = json.loads(text)
+                    st = snap["save"]["start"]
+                    total = st["hour"] * 60 + st["min"] + args.finish
+                    snap["finish"] = {"year": st["year"], "month": st["month"], "day": st["day"],
+                                      "hour": total // 60, "min": total % 60}
+                    text = json.dumps(snap)
                 if args.scene:
                     # the same match in a scene: its options name it, as a match started in it does
-                    snap = json.loads(src.read_text())
+                    snap = json.loads(text)
                     snap["opts"]["scene"] = args.scene
                     snap["opts"]["surface"], snap["opts"]["set"] = SCENES[args.scene]
                     if "game" in snap.get("save", {}):
                         snap["save"]["game"]["surface"] = SCENES[args.scene][0].capitalize()
-                    (tmp / "review-solo.json").write_text(json.dumps(snap))
-                else:
-                    shutil.copyfile(src, tmp / "review-solo.json")
+                    text = json.dumps(snap)
+                (tmp / "review-solo.json").write_text(text)
             scene = {"SIMCTL_CHILD_REVIEW_SCENE": args.scene} if args.scene else {}
             scene.update({f"SIMCTL_CHILD_{k}": v for k, v in ENV.get(shot, {}).items()})
             sim("launch", "--terminate-running-process", udid, APP,
                 "-pitch.meter", meter, "-pitch.meterSide", side,
                 "-pitch.throwsMade", "0" if mode in LEARNING else "9",
-                env={**os.environ, **turn, **scene, "SIMCTL_CHILD_MATCH_REVIEW": mode},
+                env={**os.environ, **turn, **scene, "SIMCTL_CHILD_MATCH_REVIEW": mode,
+                     **{"SIMCTL_CHILD_" + k: v for k, v in EXTRA_ENV.get(shot, {}).items()}},
                 stdout=subprocess.DEVNULL)
             deadline = time.monotonic() + 30
             while not ready.exists() or ready.read_text() != mode:
@@ -190,7 +220,10 @@ def capture(phone, args):
                 time.sleep(0.1)
             time.sleep(0.7)  # allow the launch transition and SwiftUI transaction to finish
             file = args.out / f"{prefix}-{shot}.png"
-            sim("io", udid, "screenshot", str(file), capture_output=True)
+            # --unmasked: the whole framebuffer, square corners and nothing drawn where the
+            # Dynamic Island is (the store's pictures, as a device's own screenshot is)
+            sim("io", udid, "screenshot", *(["--mask=ignored"] if args.unmasked else []), str(file),
+                capture_output=True)
             if args.landscape:
                 upright(file, args.landscape)
                 # the app's frames and the safe area it was given (not compared)
@@ -199,12 +232,35 @@ def capture(phone, args):
                     shutil.copyfile(layout, file.with_suffix(".json"))
             print(f"{phone} {shot}", flush=True)
     finally:
+        if args.text_size:
+            sim("ui", udid, "content_size", "large")
         sim("status_bar", udid, "clear")
         subprocess.run(["xcrun", "simctl", "terminate", udid, APP], capture_output=True)
         if is_ipad(phone) and args.landscape:
             turn_device(udid, None)
         if boot:
             sim("shutdown", udid)
+
+
+def wanted(shot, args):
+    """Whether a run takes this shot: --only names them; otherwise the run's set (a
+    scene's, the accessibility sizes', on its side or upright)."""
+    if args.skip and shot in args.skip:
+        return False
+    if args.only:
+        return shot in args.only
+    own = SCENE_OWN.get(args.scene, [])
+    if args.text_size:
+        return shot in TEXT_SHOTS and not args.landscape
+    if args.scene:
+        if shot in own:
+            return not args.landscape or shot in SCENE_OWN_LANDSCAPE
+        return shot in (SCENE_LANDSCAPE if args.landscape else SCENE_SHOTS)
+    if shot in ON_REQUEST:
+        return False
+    if args.landscape:
+        return shot in LANDSCAPE
+    return shot not in LANDSCAPE_ONLY
 
 
 def upright(file, way):
@@ -228,11 +284,21 @@ if __name__ == "__main__":
     parser.add_argument("--drive", action="store_true",
                         help="engine 0.16's drive and engine-raise shots (implies --capture-only)")
     parser.add_argument("--udid", help="take the shots on this simulator (by id) in place of the named review device")
+    parser.add_argument("--unmasked", action="store_true",
+                        help="the whole framebuffer, no Dynamic Island or rounded corners drawn")
+    parser.add_argument("--finish", type=int,
+                        help="stamp the finished match (the over fixture) this many minutes after its start")
+    parser.add_argument("--player", help="the name side A plays under in the fixtures (theirs is You)")
+    parser.add_argument("--skip", type=lambda v: set(v.split(",")), default=None,
+                        help="comma-separated shot names to leave out")
     parser.add_argument("--phone", action="append", choices=list(DEVICES),
                         help="one review device (repeatable)")
     parser.add_argument("--ipad", action="store_true", help="the two review iPads, not the phones")
     parser.add_argument("--landscape", choices=["left", "right"],
                         help="turn the interface this way (the landscape shots)")
+    parser.add_argument("--text-size", choices=["accessibility-extra-extra-extra-large",
+                                                "accessibility-extra-large"],
+                        help="the cards at an accessibility text size (<phone>-ax3-<shot>.png; implies --capture-only)")
     parser.add_argument("--scene", choices=list(SCENES),
                         help="the shots in a scene (<phone>-<scene>-<shot>.png; implies --capture-only)")
     args = parser.parse_args()
@@ -240,13 +306,13 @@ if __name__ == "__main__":
     phones = args.phone or (IPADS if args.ipad else PHONES)
     if args.drive:
         args.only = (args.only or set()) | set(DRIVE_SHOTS)
-    if args.only or args.scene:
+    if args.only or args.scene or args.text_size:
         args.capture_only = True
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         list(pool.map(lambda phone: capture(phone, args), phones))
     if not args.capture_only:
         tag = "-landscape" if args.landscape else ""
-        shots = LANDSCAPE if args.landscape else [m for m in SHOTS if m not in LANDSCAPE_ONLY]
+        shots = [m for m in SHOTS if wanted(m, args)]
         subprocess.run(["swift", str(ROOT / "tools/check-snapshots.swift"), str(ROOT / "docs/review"),
                         str(args.out), *[f"{DEVICES[p]}{tag}-{m}.png"
                                        for p in phones for m in shots]], check=True)

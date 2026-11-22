@@ -62,7 +62,7 @@ def capture(phone, args):
     try:
         sim("bootstatus", udid, "-b", stdout=subprocess.DEVNULL)
         sim("install", udid, str(args.app))
-        sim("status_bar", udid, "override", "--time", "9:41", "--batteryState", "charged",
+        sim("status_bar", udid, "override", "--time", "9:41", "--batteryState", "discharging",
             "--batteryLevel", "100", "--cellularBars", "4", "--wifiBars", "3")
         tmp = Path(sim("get_app_container", udid, APP, "data", capture_output=True,
                        text=True).stdout.strip()) / "tmp"

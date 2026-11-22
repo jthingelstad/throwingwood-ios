@@ -47,6 +47,18 @@ SHOTS = {
     "clock-coach-wind": ("wind", "clock", "right", {"THROWS_MADE": "0"}),
     "linear-right-coach-wind": ("wind", "linear", "right", {"THROWS_MADE": "0"}),
 }
+# The shots kept in docs/review and the names they have there (--review-names):
+# upright, and (with --landscape) on its side.
+REVIEW_NAMES = {
+    "linear-right-idle": "linear-right", "linear-left-idle": "linear-left",
+    "linear-right-marks": "linear-marks", "clock-marks": "clock-marks", "clock-beside": "clock-beside",
+    "clock-nudge-back": "nudge-clock", "linear-right-nudge-back": "nudge-linear",
+    "clock-coach-wind": "clock-coach-wind", "linear-right-coach-wind": "linear-right-coach-wind",
+}
+REVIEW_NAMES_LANDSCAPE = {
+    "clock-idle": "practice", "linear-left-idle": "practice-left",
+    "clock-coach-wind": "clock-coach-wind", "clock-beside": "clock-beside",
+}
 
 
 def sim(*args, **kwargs):
@@ -69,7 +81,7 @@ def capture(device, args):
     sim("bootstatus", udid, "-b", stdout=subprocess.DEVNULL)
     if args.app:
         sim("install", udid, str(args.app))
-    sim("status_bar", udid, "override", "--time", "9:41", "--batteryState", "charged",
+    sim("status_bar", udid, "override", "--time", "9:41", "--batteryState", "discharging",
         "--batteryLevel", "100", "--cellularBars", "4", "--wifiBars", "3")
     tmp = Path(sim("get_app_container", udid, APP, "data", capture_output=True,
                    text=True).stdout.strip()) / "tmp"
@@ -77,8 +89,11 @@ def capture(device, args):
         turn_device(udid, args.landscape)  # an iPad turns as a device, not from the app
     prefix = args.prefix or name.lower().replace(" ", "-") + ("-landscape" if args.landscape else "")
     try:
+        names = (REVIEW_NAMES_LANDSCAPE if args.landscape else REVIEW_NAMES) if args.review_names else None
         for shot, (mode, meter, side, extra) in SHOTS.items():
             if args.only and shot not in args.only:
+                continue
+            if names is not None and shot not in names:
                 continue
             ready = tmp / "review-ready"
             ready.unlink(missing_ok=True)
@@ -96,14 +111,27 @@ def capture(device, args):
                     raise RuntimeError(f"{name} did not reach {shot}")
                 time.sleep(0.1)
             time.sleep(0.8)
-            file = args.out / f"{prefix}-{shot}.png"
+            file = args.out / f"{prefix}-{names[shot] if names else shot}.png"
             sim("io", udid, "screenshot", str(file), capture_output=True)
+            if args.landscape:
+                upright(file, args.landscape)
             print(file, flush=True)
     finally:
         sim("status_bar", udid, "clear")
         subprocess.run(["xcrun", "simctl", "terminate", udid, APP], capture_output=True)
         if is_ipad(name) and args.landscape:
             turn_device(udid, None)
+
+
+def upright(file, way):
+    """simctl captures a phone's display as it is mounted: turn the picture the
+    way the interface turned (solo-snapshots.py)."""
+    out = subprocess.run(["sips", "-g", "pixelWidth", "-g", "pixelHeight", str(file)],
+                         capture_output=True, text=True, check=True).stdout.split()
+    w, h = int(out[out.index("pixelWidth:") + 1]), int(out[out.index("pixelHeight:") + 1])
+    if h > w:
+        subprocess.run(["sips", "-r", "90" if way == "left" else "270", str(file)],
+                       capture_output=True, check=True)
 
 
 if __name__ == "__main__":
@@ -114,6 +142,8 @@ if __name__ == "__main__":
     parser.add_argument("--only", action="append")
     parser.add_argument("--prefix")
     parser.add_argument("--landscape", choices=["left", "right"])
+    parser.add_argument("--review-names", action="store_true",
+                        help="only the shots kept in docs/review, under their names there")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     for device in args.device:
