@@ -4,9 +4,9 @@ import Foundation
 // A phone on its side (Jamie, 2026-11-19: "Given we have a widescreen view for
 // web, can we extend that to support iPhone rotated display?"). The web's wide
 // arrangement (src/game/layout.js, its numbers): the clock lower right or lower
-// left by Meter side, the plan (TILT, STAND, ARC, SIDE VIEW) in one block at the
-// other edge with TILT and STAND at the screen's edge, the minimap on the
-// block's inner side (`plan`), the header (the turn rail) top left with MENU inside
+// left by Meter side, the set-up tray (ARC, TILT and STAND, three plates in a
+// column, the 1.0 design) at the other edge, the minimap under the header's right
+// end (`plan`), the header (the turn rail) top left with MENU inside
 // its plate (the 1.0 design: "MENU never leaves it"), and online SHOUT top right. The
 // player's choice of meter holds on a phone on its side: the linear meter goes
 // at its edge with the whole safe height (`LinearMeter.layout`, its track at
@@ -41,8 +41,7 @@ public enum WideLayout {
   public static let menuInset: CGFloat = 8
   /// pt from the safe area's top and sides to the rail and MENU (the web's 10).
   public static let edge: CGFloat = 10
-  /// pt between the plan block and the meter's box, and above its foot (hud.js place).
-  public static let planGap: CGFloat = 6
+  /// pt the tray's column stands above the meter box's foot (hud.js place).
   public static let planLift: CGFloat = 10
 
   public static func isWide(_ size: CGSize) -> Bool {
@@ -76,15 +75,6 @@ public enum WideLayout {
     case .clock: return clockBox(size: size, safe: safe, side: side)
     case .linear(let m): return m.cover
     }
-  }
-
-  /// The minimap in the bottom corner the meter leaves: max(56, min(118, 0.085 W,
-  /// 0.16 H)) wide, as tall as the iPhone's map is (1.65 of its width).
-  public static func minimap(size: CGSize, safe: ScreenInsets, side: MeterSide) -> CGRect {
-    let w = max(56, min(118, size.width * 0.085, size.height * 0.16))
-    let h = w * 1.65
-    let x = side == .left ? size.width - safe.right - margin - w : safe.left + margin
-    return CGRect(x: x, y: size.height - safe.bottom - margin - h, width: w, height: h)
   }
 
   /// The turn rail, top left; beside the linear meter, `edge` off its body, where
@@ -170,7 +160,9 @@ public enum WideLayout {
     var row = CGRect(
       x: safe.left + edge, y: max(r.maxY, m.maxY) + edge,
       width: size.width - safe.left - safe.right - 2 * edge, height: r.height)
-    var keepOut = [meterBox(meter, size: size, safe: safe, side: side), place(meter: meter, size: size, safe: safe, side: side).plan.block]
+    let col = column(block: Tray.column(wide: true), meter: meter, size: size, safe: safe, side: side)
+    let open = openRoom(column: col.rect, edge: col.edge, meter: meter, size: size, safe: safe, side: side)
+    var keepOut = [meterBox(meter, size: size, safe: safe, side: side), col.rect.union(open.rect)]
     if let lm = meter.linear { keepOut += [lm.tab, coachBand(lm, size: size)] }
     for k in keepOut where k.minY < row.maxY && k.maxY > row.minY {
       if k.midX >= size.width / 2 {
@@ -201,7 +193,7 @@ public enum WideLayout {
     let side = side ?? meter.linear?.side ?? .right
     let c = caption(size: size, safe: safe, trayWidth: trayWidth, meter: meter, side: side)
     let p = plan(meter: meter, size: size, safe: safe, side: side, trayWidth: trayWidth)
-    var under = [meterBox(meter, size: size, safe: safe, side: side), p.block]
+    var under = [meterBox(meter, size: size, safe: safe, side: side), p.reach]
     if !p.minimap.isNull { under.append(p.minimap) }
     if let lm = meter.linear { under += [lm.tab, coachBand(lm, size: size)] }
     var foot = size.height - safe.bottom - edge
@@ -239,110 +231,123 @@ public enum WideLayout {
     return CGRect(x: lo, y: safe.top + edge, width: max(0, hi - lo), height: practiceHeaderHeight)
   }
 
-  /// The plan's block of `block` size, on the meter's inner side `planGap` off
-  /// its box, the block's foot `planLift` above the box's foot (hud.js place).
-  public static func plans(
-    block: CGSize, meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide
-  ) -> CGRect {
-    let b = meterBox(meter, size: size, safe: safe, side: side)
-    let x = side == .left ? b.maxX + planGap : b.minX - planGap - block.width
-    return CGRect(x: x, y: b.maxY - planLift - block.height, width: block.width, height: block.height)
-  }
+  // MARK: The set-up tray at the far edge
 
-  // MARK: The plan block at the far edge
-
-  /// The plan block as the app draws it: TILT over STAND beside ARC over SIDE
-  /// VIEW, 10 pt apart, the plates' shadows included (the app frames the block
-  /// to this size; the web's is 202 x 168 CSS px).
-  public static let planBlock = CGSize(width: 206, height: 212)
   /// pt inside the safe area at the screen's edge (the web's tune.planEdge).
   public static let planEdge: CGFloat = 8
-  /// pt between the block and the minimap on its inner side (tune.planGap).
-  public static let planMapGap: CGFloat = 12
-  /// The block and the minimap keep this many pt short of the throwing line,
-  /// the screen's centre, or the block stays beside the meter (tune.planClear).
+  /// The tray and an open plate keep this many pt short of the throwing line, the
+  /// screen's centre (tune.planClear).
   public static let planClear: CGFloat = 24
-  /// pt a minimap stacked over the block keeps under the rail and MENU.
-  public static let stackedMapGap: CGFloat = 10
 
-  /// Where the plan block and the minimap go on a phone on its side.
+  /// Where the set-up tray, an open plate and the minimap go on a wide screen.
   public struct Plan: Equatable, Sendable {
-    /// The block's rect.
+    /// The tray's column: ARC, TILT and STAND, three plates of one size
+    /// (`Tray.widePlate`) 8 pt apart, their shadows inside it.
     public var block: CGRect
-    /// The screen edge the block is at, away from the meter; nil where it sits
-    /// beside the meter instead (a screen too narrow to keep it and the
-    /// minimap off the throwing line).
-    public var edge: MeterSide?
-    /// The minimap: the same y and size as in its corner, on the block's inner
-    /// side when the block is at the edge, else in its corner. Beside a linear
-    /// meter in a narrow window, over the block (`stackedMapGap` under the rail and MENU), or `.null`
-    /// (not drawn) where even that has no room.
+    /// The screen edge the column is at: the one away from the meter.
+    public var edge: MeterSide
+    /// The room an open plate takes (`Tray.openFrame`): beside the column toward the
+    /// middle, its foot level with the column's, as tall as ARC open or the room under
+    /// the header row; over the column itself where beside it would reach the throwing
+    /// line, the minimap, the meter, its tab or the coach line.
+    public var open: CGRect
+    /// The open plate stands over the column (not beside it).
+    public var openOver: Bool
+    /// The minimap: under the header's right end (the 1.0 design, "one home"), `edge`
+    /// under the header row, or under the captions' own line where they have one;
+    /// `.null` (not drawn) where it would meet the meter, the tray or the bottom. It
+    /// is a picture, never a control: it gives way first.
     public var minimap: CGRect
+    /// The column and the room an open plate may take: what the captions keep out of.
+    public var reach: CGRect { block.union(open) }
   }
 
-  /// The plan block at the screen's edge away from the meter, `planEdge` inside
-  /// the safe area, its foot where it was beside the meter, so one hand sets the
-  /// plan and the other throws (Jamie, 2026-11-19: "in landscape the tilt, arc,
-  /// stand controls should be pushed to the left hand side of the screen so the
-  /// user can control those with the left hand and the throw with the right
-  /// hand"). The web's planAt (src/game/layout.js) with the app's block size.
-  ///
-  /// `trayWidth`: SHOUT's online (`trayWidth`), which can push the captions to a
-  /// line of their own under the header row: a stacked minimap keeps clear of it.
-  public static func plan(
-    block: CGSize = planBlock, meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide,
-    trayWidth: CGFloat = 0
-  ) -> Plan {
-    var p = place(block: block, meter: meter, size: size, safe: safe, side: side)
-    guard p.stacked else { return p.plan }
-    // the minimap over the block: clear of the rail, MENU and the captions' line
-    var top = max(rail(size: size, safe: safe, meter: meter).maxY, menu(size: size, safe: safe, meter: meter).maxY)
-    let c = caption(size: size, safe: safe, trayWidth: trayWidth, meter: meter, side: side)
-    if captionHasItsOwnLine(c, size: size, safe: safe, meter: meter), c.minX < p.plan.minimap.maxX,
-      c.maxX > p.plan.minimap.minX
-    {
-      top = max(top, c.maxY)
-    }
-    if p.plan.minimap.minY < top + stackedMapGap { p.plan.minimap = .null }
-    return p.plan
-  }
-
-  /// The block and its edge, and the minimap where it would go (`stacked`: over
-  /// the block, to be checked against the top row by `plan`).
-  static func place(
-    block: CGSize = planBlock, meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide
-  ) -> (plan: Plan, stacked: Bool) {
-    let beside = plans(block: block, meter: meter, size: size, safe: safe, side: side)
-    let corner = minimap(size: size, safe: safe, side: side)
-    // the block's edge is the one away from the meter
+  /// The column at the edge away from the meter, `planEdge` inside the safe area,
+  /// its foot `planLift` above the meter box's foot (Jamie, 2026-11-19: "in landscape
+  /// the tilt, arc, stand controls should be pushed to the left hand side of the screen
+  /// so the user can control those with the left hand and the throw with the right
+  /// hand"; the 1.0 design: "the column is at the edge away from the meter").
+  static func column(block: CGSize, meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide)
+    -> (rect: CGRect, edge: MeterSide)
+  {
+    let box = meterBox(meter, size: size, safe: safe, side: side)
     let edge: MeterSide = side == .right ? .left : .right
     let x = edge == .left ? safe.left + planEdge : size.width - safe.right - planEdge - block.width
-    let mx = edge == .left ? x + block.width + planMapGap : x - planMapGap - corner.width
-    let inner = edge == .left ? mx + corner.width : size.width - mx
-    if inner > size.width / 2 - planClear {
-      // Too narrow for the block and the minimap side by side off the throwing
-      // line. Beside the clock the block goes back beside the meter (the web's
-      // planAt). Beside the linear meter that would put ARC over its prompt tab
-      // and the coach line, whatever the height, so the block stays at the far
-      // edge and the minimap goes over it, or is not drawn where it would meet
-      // the rail or MENU (it is a picture, never a control: the block's
-      // controls and the tab keep their places).
-      let blockInner = edge == .left ? x + block.width : size.width - x
-      guard meter.linear != nil, blockInner <= size.width / 2 - planClear else {
-        return (Plan(block: beside, edge: nil, minimap: corner), false)
-      }
-      let b = CGRect(x: x, y: beside.minY, width: block.width, height: block.height)
-      var map = corner
-      map.origin.x = edge == .left ? b.maxX - corner.width : b.minX
-      map.origin.y = b.minY - planMapGap - corner.height
-      return (Plan(block: b, edge: edge, minimap: map), true)
+    return (CGRect(x: x, y: box.maxY - planLift - block.height, width: block.width, height: block.height), edge)
+  }
+
+  /// The minimap's size: max(56, min(118, 0.085 W, 0.16 H)) wide, 1.65 of that tall.
+  static func mapSize(_ size: CGSize) -> CGSize {
+    let w = max(56, min(118, size.width * 0.085, size.height * 0.16))
+    return CGSize(width: w, height: w * 1.65)
+  }
+
+  /// The room an open plate takes, and whether it is over the column.
+  static func openRoom(
+    column c: CGRect, edge: MeterSide, meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide
+  ) -> (rect: CGRect, over: Bool) {
+    let r = rail(size: size, safe: safe, meter: meter), m = menu(size: size, safe: safe, meter: meter)
+    let top = max(r.maxY, m.maxY) + edgeGap
+    let tall = Tray.openHeight(.arc, wide: true)
+    let foot = c.maxY
+    let y = max(top, foot - tall)
+    var beside = CGRect(
+      x: edge == .left ? c.maxX + Tray.gap : c.minX - Tray.gap - c.width, y: y, width: c.width, height: foot - y)
+    // under the minimap where it hangs over the same x (a narrow screen's header)
+    let map = mapSize(size)
+    if beside.minX < r.maxX, beside.maxX > r.maxX - map.width {
+      let under = max(y, top + map.height + edgeGap)
+      beside = CGRect(x: beside.minX, y: under, width: beside.width, height: max(0, foot - under))
     }
-    var map = corner
-    map.origin.x = mx
-    return (
-      Plan(
-        block: CGRect(x: x, y: beside.minY, width: block.width, height: block.height), edge: edge,
-        minimap: map), false)
+    var keepOut = [meterBox(meter, size: size, safe: safe, side: side)]
+    if let lm = meter.linear { keepOut += [lm.tab, coachBand(lm, size: size)] }
+    let centre = size.width / 2
+    let clear = edge == .left ? beside.maxX <= centre - planClear : beside.minX >= centre + planClear
+    let fits =
+      clear && beside.height >= Tray.openHeight(.stand, wide: true)
+      && !keepOut.contains { $0.intersects(beside) }
+    if fits { return (beside, false) }
+    return (CGRect(x: c.minX, y: y, width: c.width, height: foot - y), true)
+  }
+  /// pt an open plate keeps under the header row.
+  static let edgeGap: CGFloat = 10
+
+  /// The set-up tray's column at the edge away from the meter, the room an open plate
+  /// takes, and the minimap under the header's right end (the 1.0 design's aim layout,
+  /// "Wide": the column at the edge away from the meter, the header top left, the
+  /// minimap under the header's right end).
+  ///
+  /// `trayWidth`: SHOUT's online, which can push the captions to a line of their own
+  /// under the header row: the minimap goes under that line.
+  public static func plan(
+    block: CGSize = Tray.column(wide: true), meter: MeterLayout, size: CGSize, safe: ScreenInsets,
+    side: MeterSide, trayWidth: CGFloat = 0
+  ) -> Plan {
+    let (c, edge) = column(block: block, meter: meter, size: size, safe: safe, side: side)
+    let open = openRoom(column: c, edge: edge, meter: meter, size: size, safe: safe, side: side)
+    let r = rail(size: size, safe: safe, meter: meter), m = menu(size: size, safe: safe, meter: meter)
+    let s = mapSize(size)
+    var map = CGRect(x: r.maxX - s.width, y: max(r.maxY, m.maxY) + edgeGap, width: s.width, height: s.height)
+    let cap = caption(size: size, safe: safe, trayWidth: trayWidth, meter: meter, side: side)
+    if captionHasItsOwnLine(cap, size: size, safe: safe, meter: meter), cap.minX < map.maxX, cap.maxX > map.minX {
+      map.origin.y = cap.maxY + edgeGap
+    }
+    var keepOut = [meterBox(meter, size: size, safe: safe, side: side), c, open.rect]
+    if let lm = meter.linear { keepOut += [lm.tab, coachBand(lm, size: size)] }
+    if map.maxY > size.height - safe.bottom || map.minX < safe.left || keepOut.contains(where: { $0.intersects(map) }) {
+      map = .null
+    }
+    return Plan(block: c, edge: edge, open: open.rect, openOver: open.over, minimap: map)
+  }
+
+  /// The minimap on an upright screen: under the header's right end (12 pt in from
+  /// the safe edge, as the header), at least 75 pt under the safe top and `edgeGap`
+  /// under the header as measured (`header`, its maxY; a larger text size grows it),
+  /// min(74, 0.18 W) wide and 1.65 of that tall. It never moves while a control is held.
+  public static func uprightMinimap(size: CGSize, safe: ScreenInsets, headerBottom: CGFloat? = nil) -> CGRect {
+    let w = min(74, size.width * 0.18)
+    let y = max(safe.top + 75, (headerBottom ?? 0) + edgeGap)
+    return CGRect(x: size.width - safe.right - 12 - w, y: y, width: w, height: w * 1.65)
   }
 
   // MARK: The raise and punishment bar

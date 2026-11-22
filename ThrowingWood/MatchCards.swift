@@ -267,6 +267,57 @@ struct MenuGrid: View {
   }
 }
 
+/// The practice pitch's menu (the web's menu on the practice pitch, its words): SETTINGS,
+/// HOW TO THROW and FEEDBACK as the menus' plain buttons, then the practice's own Surface
+/// and Scene as segmented bars (two to four choices: the 1.0 system's one control, where
+/// the native pop-ups were), BACK TO THE PITCH as go, HOME quiet, the version at the foot.
+/// A change of Scene starts a new practice in it, as on the web.
+struct PracticeMenu: View {
+  @Bindable var model: GameModel
+  var body: some View {
+    CardScreen(width: 400) {
+      VStack(alignment: .leading, spacing: TW.rowGap) {
+        Text("Menu").cardTitle()
+        let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+        LazyVGrid(columns: columns, spacing: 12) {
+          SettingsButton(model: model)
+          Button(action: model.openHowTo) { Text("HOW TO THROW").frame(maxWidth: .infinity) }
+          ReportButton(model: model, title: "FEEDBACK")
+        }
+        .buttonStyle(WoodButton())
+        .lineLimit(1).minimumScaleFactor(0.7)
+        FormRow("Surface") { full in
+          Segmented(
+            label: "Surface", choices: Surface.allCases.map { ($0, $0.rawValue.capitalized) },
+            value: Binding(get: { model.surface }, set: { model.setPracticeSurface($0) }), full: full)
+        }
+        .disabled(model.playing)
+        if model.offline?.options.takesScene == true {
+          FormRow(SceneID.row.label) { full in
+            Segmented(
+              label: SceneID.row.label, choices: SceneID.row.choices.map { ($0[0], $0[1]) },
+              value: Binding(get: { model.practiceScene }, set: { model.practiceScene = $0 }), full: full)
+          }
+          .disabled(model.playing)
+        }
+      }
+    } buttons: {
+      VStack(alignment: .leading, spacing: 8) {
+        Button {
+          model.screen = .practice
+        } label: {
+          Text("BACK TO THE PITCH").frame(maxWidth: .infinity)
+        }.buttonStyle(WoodButton(accent: true))
+        HStack {
+          Spacer()
+          QuietButton("HOME", action: model.home)
+        }
+        if let label = model.pitch?.versionLabel { VersionFooter(label: label) }
+      }
+    }
+  }
+}
+
 /// How to throw, from a menu's grid: the words the match menu said before 1.0, for the
 /// meter this device shows, on a card of their own. DONE goes back to the menu.
 struct HowToCard: View {
@@ -277,7 +328,7 @@ struct HowToCard: View {
         Text("How to throw").cardTitle()
         Text(
           model.meter.kind == .linear
-            ? "Tap the pitch to aim, or drag anywhere to move the circle. Draw the knob back toward you, fling it up through the middle and let go on the blue."
+            ? "Tap the pitch to aim, or drag anywhere to move the circle. Draw the knob back toward you, fling it up through the middle and let go on the solid mark."
             : "Tap the pitch to aim, or drag anywhere to move the circle. Wind back on the left of the dial, flick through six and lift on the right."
         )
         .font(bodyFont(17)).fixedSize(horizontal: false, vertical: true)
@@ -286,7 +337,7 @@ struct HowToCard: View {
       ButtonRow {
         EmptyView()
       } trailing: {
-        Button { model.screen = .menu } label: { Text("DONE").frame(minWidth: 96) }
+        Button { model.screen = model.howToReturn } label: { Text("DONE").frame(minWidth: 96) }
           .buttonStyle(WoodButton(accent: true))
       }
     }
@@ -300,27 +351,42 @@ struct MatchScreen: View {
   var body: some View {
     if let n = pitch.need {
       ZStack {
+        if pitch.handoff != nil {
+          // the hand-off: the pitch dimmed under the header (the design's), the card at the foot
+          Color(skin.dim).ignoresSafeArea().accessibilityHidden(true)
+        }
         // behind the winner card nothing reads through the dim (the build list's
         // accessibility: "the dimmed header behind the winner card"): the screen under
         // it is the pitch alone
         if n.winner == nil || pitch.handoff != nil {
-          if screen.wide {
-            wide(n)
-          } else {
-            tall(n)
+          Group {
+            if screen.wide {
+              wide(n)
+            } else {
+              tall(n)
+            }
           }
+          .accessibilitySortPriority(10)
         }
+        // VoiceOver's order: the header, the prompt and distance, the meter, the tray,
+        // the minimap (the build list's)
+        MeterReader(model: model, pitch: pitch, need: n, playing: playing).accessibilitySortPriority(9)
+        if !playing && pitch.canAim && !((n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput) {
+          tray.accessibilitySortPriority(8)
+        }
+        MapReader(model: model, pitch: pitch, need: n).accessibilitySortPriority(7)
         if pitch.freeOn && pitch.handoff == nil && n.winner == nil {
           FreeViewControls(model: model, pitch: pitch, revision: revision)
         }
         if let c = pitch.handoff {
-          modal { handoff(c) }
+          handoffCard(c).accessibilitySortPriority(20)
         } else if let w = n.winner {
           winner(n, w)
         } else if let banner = model.online?.watchHandoff {
           watchBanner(banner.handoff)
         }
       }
+      .accessibilityElement(children: .contain)
     }
   }
 
@@ -328,7 +394,11 @@ struct MatchScreen: View {
   private func tall(_ n: MatchNeed) -> some View {
     VStack(spacing: 8) {
       header(n, nameSize: 24)
+        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { model.headerBottom = $0 }
+      // the minimap hangs under the header's right end: the captions keep left of it
       captions(n)
+        .frame(maxWidth: .infinity)
+        .padding(.trailing, WideLayout.uprightMinimap(size: screen.size, safe: screen.safe).width + 8)
       Spacer()
       if let online = model.online {
         HStack {
@@ -361,7 +431,7 @@ struct MatchScreen: View {
     let captionBox = WideLayout.captionRoom(size: size, safe: safe, trayWidth: tray, meter: meter, side: side)
     let plan = WideLayout.plan(meter: meter, size: size, safe: safe, side: side, trayWidth: tray)
     // the held slider's caption grows from the block's side toward the middle
-    let from: Alignment = (plan.edge ?? (side == .right ? .left : .right)) == .left ? .topLeading : .topTrailing
+    let from: Alignment = plan.edge == .left ? .topLeading : .topTrailing
     let corner: Alignment = side == .left ? .bottomLeading : .bottomTrailing
     let edge: Edge.Set = side == .left ? .leading : .trailing
     return ZStack(alignment: .topLeading) {
@@ -411,14 +481,6 @@ struct MatchScreen: View {
         }
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: corner)
-      if !playing && pitch.canAim && !((n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput) {
-        // TILT and STAND at the screen's edge, ARC and SIDE VIEW toward the middle
-        plans
-          .frame(
-            width: plan.block.width, height: plan.block.height,
-            alignment: plan.edge == .left || (plan.edge == nil && side == .left) ? .bottomLeading : .bottomTrailing)
-          .offset(x: plan.block.minX, y: plan.block.minY)
-      }
     }
     // flexible, so the screen it fills is the whole screen without growing the
     // safe area's container (a fixed frame did, widening the board under it)
@@ -434,12 +496,15 @@ struct MatchScreen: View {
   /// `fills`: on its side the plate fills the header's frame (WideLayout.rail).
   private func header(_ n: MatchNeed, nameSize: CGFloat, fills: Bool = false) -> some View {
     let online = model.online != nil
-    let watching = n.cpu == true || (online && !pitch.acceptsInput)
+    // where the WATCH tab says so (a throw this device watches, its meter drawn), the
+    // line drops "Watch"; an observer's wide view and a raise it watches keep it
+    let watching = (n.cpu == true || (online && !pitch.acceptsInput)) && (n.kind != "throw" || pitch.wideOn)
     return HStack(spacing: 10) {
       VStack(alignment: .leading, spacing: 0) {
         Text(
           HeaderWords.line(
-            turn: n.turn ?? 1, n: n.setup?.n, of: n.setup?.of, projectile: n.setup?.projectile, watching: watching)
+            turn: n.turn ?? 1, n: n.setup?.n, of: n.setup?.of, projectile: n.setup?.projectile, watching: watching,
+            at: n.kind == "throw" ? pitch.railAt : nil)
         )
         .labelStyle().foregroundStyle(Color.woodMuted).lineLimit(1).minimumScaleFactor(0.7)
         Text(
@@ -557,8 +622,6 @@ struct MatchScreen: View {
     if (n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput {
       // the web's .panel, min(520px, 100% - 24px), centred: an iPad's is not a strip
       placement(n).frame(maxWidth: 520)
-    } else if !playing && pitch.canAim {
-      plans.padding(meterRoom.edge, meterRoom.width)
     } else if playing {
       HStack {
         Spacer()
@@ -569,8 +632,18 @@ struct MatchScreen: View {
     }
   }
 
-  private var plans: some View {
-    PlanControls(model: model, pitch: pitch, revision: revision)
+  /// The set-up tray (TrayView): upright at the edge beside the clock away from the
+  /// throwing thumb, on its side at the edge away from the meter.
+  private var tray: some View {
+    let size = screen.size, safe = screen.safe
+    let meter = model.meter.layout(
+      bounds: CGRect(origin: .zero, size: size),
+      safe: UIEdgeInsets(top: safe.top, left: safe.left, bottom: safe.bottom, right: safe.right))
+    let f = TrayView.frames(
+      size: size, safe: safe, meter: meter, side: model.meter.side, open: pitch.openPlate,
+      online: model.online != nil)
+    return TrayView(model: model, pitch: pitch, revision: revision, slots: f.slots, open: f.open, wide: screen.wide)
+      .ignoresSafeArea()
   }
 
   private func tool(
@@ -709,46 +782,44 @@ struct MatchScreen: View {
     }
   }
 
-  private func modal<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-    ZStack {
-      Color(skin.dim).ignoresSafeArea()
-      content().frame(maxWidth: 330).modifier(Plate(inset: 20)).padding(22).modifier(FitOrScroll())
-    }
-  }
-
-  private func handoff(_ c: MatchNeed.Handoff) -> some View {
-    VStack(alignment: .leading, spacing: 10) {
-      Text("TURN \(c.turn)").font(.caption.bold()).tracking(1.5)
-      Text(c.toName).font(displayFont(44))
-      if let took = c.took, let from = c.fromName {
-        Text("\(from) took \(took.field) field and \(took.base) base kubbs.")
-      }
-      // a turn this device only watches: "They throw 6 batons."; with no side in the
-      // match at all, both teams by name with their base kubbs (HandoffWords)
-      Text(HandoffWords.throwLine(c, watcher: model.online != nil && !pitch.acceptsInput))
-      HStack {
-        Text(
-          (pitch.watching ? HandoffWords.watcherBases(c, teams: pitch.need?.teams) : c.baseText)
-            .joined(separator: "\n")
-        ).font(.caption.bold())
-        Spacer()
-        Canvas { ctx, size in
-          ctx.withCGContext { cg in
-            pitch.scene.scenery.drawMap(
-              in: cg, rect: CGRect(origin: .zero, size: size).insetBy(dx: 3, dy: 3))
-          }
-        }.frame(width: 62, height: 98)
-      }
-      Button(model.online != nil && !pitch.acceptsInput ? "WATCH" : "THROW") {
+  /// The hand-off (the 1.0 design): a short card at the foot of the screen, the pitch
+  /// dimmed above it under the header: the title ("Your turn", or the team's turn this
+  /// device watches), one line of what the thrower faces (HandoffWords.line, from the
+  /// engine's rail) and one go button. No turn number and no minimap: the header says
+  /// the turn. The computer's turn has no card (the engine gives none): the header, the
+  /// WATCH tab and the faded meter (BoardView).
+  private func handoffCard(_ c: MatchNeed.Handoff) -> some View {
+    let own = !(model.online != nil && !pitch.acceptsInput)
+    return VStack(alignment: .leading, spacing: 8) {
+      Text(HandoffWords.title(c, own: own)).cardTitle(40)
+        .lineLimit(1).minimumScaleFactor(0.6)
+      Text(HandoffWords.line(c, at: pitch.railAt)).font(bodyFont(18, relativeTo: .body))
+        .fixedSize(horizontal: false, vertical: true)
+      Button {
         model.perform { pitch.dismissHandoff() }
-      }.buttonStyle(
-        WoodButton(accent: true))
-    }.frame(maxWidth: .infinity, alignment: .leading)
-      .task(id: "\(c.turn)-\(pitch.acceptsInput)") {
-        guard model.online != nil, !pitch.acceptsInput else { return }
-        do { try await Task.sleep(for: .milliseconds(2500)) } catch { return }
-        if !pitch.acceptsInput { model.perform { pitch.dismissHandoff() } }
+      } label: {
+        Text(own ? "THROW" : "WATCH").font(displayFont(28, relativeTo: .title)).frame(maxWidth: .infinity, minHeight: 52)
       }
+      .buttonStyle(WoodButton(accent: true)).padding(.top, 8)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(18)
+    .background(Color.woodPaper, in: RoundedRectangle(cornerRadius: TW.cardRadius))
+    .overlay(RoundedRectangle(cornerRadius: TW.cardRadius).strokeBorder(Color.woodInk, lineWidth: TW.line))
+    .background(
+      RoundedRectangle(cornerRadius: TW.cardRadius).fill(Color.woodDrop)
+        .offset(x: TW.cardShadow, y: TW.cardShadow))
+    .frame(maxWidth: 420)
+    .padding(.horizontal, TW.cardSide)
+    .padding(.bottom, screen.wide ? 12 : 48 - min(screen.safe.bottom, 34) + 8)
+    .modifier(FitOrScroll())
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+    .accessibilityElement(children: .contain)
+    .task(id: "\(c.turn)-\(pitch.acceptsInput)") {
+      guard model.online != nil, !pitch.acceptsInput else { return }
+      do { try await Task.sleep(for: .milliseconds(2500)) } catch { return }
+      if !pitch.acceptsInput { model.perform { pitch.dismissHandoff() } }
+    }
   }
 
   /// Someone else's turn, while this device watches (`OnlinePitch.watchHandoff`): the
@@ -852,85 +923,6 @@ struct RaisingSetting: View {
           value: $model.raiseAutomatically, full: full)
       }
     }
-  }
-}
-
-/// ARC over SIDE VIEW on the left of the dial, TILT or SPIN over STAND on the
-/// right, their feet level. With the linear meter on the left the two swap, so
-/// the shorter TILT column sits beside the meter, under its prompt tab. On a
-/// phone on its side the two are one block beside the clock, ARC next to it
-/// (the web's wide `.plans`).
-struct PlanControls: View {
-  let model: GameModel, pitch: PitchSession, revision: Int
-  @Environment(\.meterRoom) private var meterRoom
-  @Environment(\.screenGeometry) private var screen
-  var body: some View {
-    if screen.wide {
-      HStack(alignment: .bottom, spacing: 10) {
-        if model.meter.side == .left {
-          reported(arc, 0)
-          reported(side, 1)
-        } else {
-          reported(side, 1)
-          reported(arc, 0)
-        }
-      }
-    } else {
-      let mirrored = meterRoom.width > 0 && meterRoom.edge == .leading
-      HStack(alignment: .bottom) {
-        if mirrored { reported(side, 1) } else { reported(arc, 0) }
-        Spacer()
-        if mirrored { reported(arc, 0) } else { reported(side, 1) }
-      }
-    }
-  }
-
-  /// Where a column is, for the coach line (BoardView keeps it clear of them).
-  private func reported(_ column: some View, _ key: Int) -> some View {
-    column
-      .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { model.planFrames[key] = $0 }
-      .onDisappear { model.planFrames[key] = nil }
-  }
-
-  private var arc: some View {
-    let enabled = pitch.canAim
-    return VStack(spacing: 12) {
-      ArcSlider(
-        place: pitch.arcPlace, loft: pitch.arcDegrees,
-        held: pitch.held == .arc ? pitch.heldFraction : nil, marks: pitch.arcMarks(run:),
-        enabled: enabled,
-        slide: { f, phase in model.perform { pitch.slide(.arc, to: f, phase: phase) } },
-        step: { s in model.perform { try pitch.stepPlan(.arc, by: s) } })
-      tool("SIDE VIEW", label: "Side view", on: pitch.plan) { try pitch.togglePlan() }
-    }
-  }
-
-  private var side: some View {
-    let enabled = pitch.canAim
-    return VStack(spacing: 12) {
-      SideSlider(
-        value: pitch.sideStep ?? 0, place: pitch.sidePlace, kubb: pitch.throwsKubb,
-        held: pitch.held == .side ? pitch.heldFraction : nil, marks: pitch.sideMarks(run:),
-        enabled: enabled,
-        slide: { f, phase in model.perform { pitch.slide(.side, to: f, phase: phase) } },
-        step: { s in model.perform { try pitch.stepPlan(.side, by: s) } })
-      StandPlate(
-        span: pitch.standSpan, thrower: pitch.standPoint, held: pitch.standHeld, enabled: enabled,
-        valueText: pitch.standValueText,
-        stand: { fx, fy, phase in model.perform { pitch.stand(fx: fx, fy: fy, phase: phase) } },
-        step: { dx, dy in model.perform { try pitch.standStep(dx: dx, dy: dy) } })
-    }
-  }
-
-  private func tool(
-    _ text: String, label: String, on: Bool, _ action: @escaping () throws -> Void
-  ) -> some View {
-    Button {
-      model.perform(action)
-    } label: {
-      Text(text).font(displayFont(16)).frame(minWidth: 84, minHeight: 34)
-        .modifier(Plate(accent: on, inset: 4))
-    }.accessibilityLabel(label).accessibilityAddTraits(on ? .isSelected : [])
   }
 }
 

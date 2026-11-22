@@ -21,7 +21,7 @@ struct ReportButton: View {
         model.report =
           try model.online?.captureReport(size: size, scale: scale)
           ?? board.captureReport(size: size, scale: scale)
-        model.reportReturn = model.screen == .practice ? .practice : .match
+        model.reportReturn = model.screen == .practice || model.screen == .practiceMenu ? .practice : .match
         model.screen = .report
       }
     } label: {

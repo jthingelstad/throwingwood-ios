@@ -10,7 +10,8 @@ import Foundation
 /// pull back sets the power and its speed does not matter; the forward flick
 /// must be fast, because a slow one delivers only part of that power (the
 /// engine's verdict for it is SLOW); the throw leaves where the flick stops.
-/// The power band is the orange mark, the release band the blue mark.
+/// The marks are named by their shape, not their colour (the owner's decision in the
+/// 1.0 design review): the power band is the stripes, the release band the solid mark.
 ///
 /// Pure. Drawing only: never fed to the engine, sent or recorded.
 public enum Coach {
@@ -21,9 +22,9 @@ public enum Coach {
   public enum Stage: String, Sendable { case rest, winding, band }
 
   public static let lines: [Stage: String] = [
-    .rest: "PULL BACK TO THE ORANGE MARK",
+    .rest: "PULL BACK TO THE STRIPES",
     .winding: "NO RUSH GOING BACK",
-    .band: "NOW FLICK FAST AND STOP ON THE BLUE MARK",
+    .band: "NOW FLICK FAST AND STOP ON THE SOLID MARK",
   ]
   /// The lead line for the throw after one the engine called SLOW.
   public static let slowLine = "SLOW FLICK. FLICK FASTER."

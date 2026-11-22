@@ -5,11 +5,11 @@ import Observation
 @MainActor @Observable final class GameModel {
   enum Screen {
     case home, options, practice, match, menu, sheet, onlineEntry, join, pitch, report, invalidLink,
-      reel, share, sealed, settings, howTo
+      reel, share, sealed, settings, howTo, practiceMenu
 
     var usesFeedback: Bool {
       switch self {
-      case .options, .practice, .match, .pitch, .menu, .howTo: true
+      case .options, .practice, .match, .pitch, .menu, .howTo, .practiceMenu: true
       default: false
       }
     }
@@ -35,9 +35,9 @@ import Observation
   var sealed: SealedPitch?
   /// Review pictures stand in for the reel's server (simulator only).
   @ObservationIgnored var reelHooksOverride: ((String) -> HighlightReel.Hooks)?
-  /// The plan's two columns on the screen (window points; PlanControls reports them):
-  /// the coach line keeps out of any level with it. Drawing only, not observed.
-  @ObservationIgnored var planFrames: [Int: CGRect] = [:]
+  /// The header's foot on an upright screen (window points; MatchScreen measures it, a
+  /// larger text size grows it): the minimap hangs under its right end. Drawing only.
+  @ObservationIgnored var headerBottom: CGFloat?
   var joinInput = ""
   static let version =
     Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
@@ -116,8 +116,12 @@ import Observation
     default: return SceneID.shown(pitch?.scene.look)
     }
   }
-  /// How to throw, from a menu's grid; DONE goes back to the menu.
-  func openHowTo() { screen = .howTo }
+  /// How to throw, from a menu's grid; DONE goes back to the menu it came from.
+  func openHowTo() {
+    howToReturn = screen == .practiceMenu ? .practiceMenu : .menu
+    screen = .howTo
+  }
+  var howToReturn = Screen.menu
   /// Where Settings goes back to.
   var settingsReturn = Screen.home
   func openSettings() {

@@ -1,4 +1,5 @@
 import CoreGraphics
+import simd
 
 extension PitchScene {
   public var scenery: PitchScene {
@@ -9,22 +10,32 @@ extension PitchScene {
     return background
   }
 
+  /// The minimap's plate: the same as a tray plate's (the 1.0 design, "Minimap: one
+  /// home"): a 3 pt ink line, radius 6 and a 3 pt hard shadow.
+  public static let mapLine: CGFloat = 3, mapRadius: CGFloat = 6, mapShadow: CGFloat = 3
+
   /// From the same thrower-frame poses as the pitch, with the far baseline at the top.
-  /// `look`: the scene the map is skinned for (the web's skin hud.mapGround);
-  /// the day, or an unknown scene, draws it as it always was.
+  /// `look`: the scene the map is skinned for (the web's skin hud.mapGround). Teams are
+  /// told apart by shape as well as colour (the 1.0 design): Team A circles, Team B
+  /// squares, the king a triangle. `rect` is the plate, its shadow outside it.
   public func drawMap(in ctx: CGContext, rect: CGRect, look: String? = nil) {
     ctx.saveGState()
     defer { ctx.restoreGState() }
     let m = MapPaint.of(SceneID.shown(look ?? self.look), surface)
     let ink = m.ink, white = m.line
+    let r = Self.mapRadius
     ctx.setFillColor(color(m.drop.rgb, m.drop.a))
-    ctx.fill(rect.offsetBy(dx: 2, dy: 2))
+    ctx.addPath(CGPath(roundedRect: rect.offsetBy(dx: Self.mapShadow, dy: Self.mapShadow), cornerWidth: r, cornerHeight: r, transform: nil))
+    ctx.fillPath()
+    let inner = rect.insetBy(dx: Self.mapLine / 2, dy: Self.mapLine / 2)
     ctx.setFillColor(color(m.paper))
-    ctx.fill(rect)
+    ctx.addPath(CGPath(roundedRect: inner, cornerWidth: r - Self.mapLine / 2, cornerHeight: r - Self.mapLine / 2, transform: nil))
+    ctx.fillPath()
     ctx.setStrokeColor(color(ink))
-    ctx.setLineWidth(2)
-    ctx.stroke(rect)
-    let s = min((rect.width - 8) / 5, (rect.height - 8) / 8)
+    ctx.setLineWidth(Self.mapLine)
+    ctx.addPath(CGPath(roundedRect: inner, cornerWidth: r - Self.mapLine / 2, cornerHeight: r - Self.mapLine / 2, transform: nil))
+    ctx.strokePath()
+    let s = min((rect.width - 10) / 5, (rect.height - 10) / 8)
     let field = CGRect(x: rect.midX - 2.5 * s, y: rect.midY - 4 * s, width: 5 * s, height: 8 * s)
     ctx.setFillColor(color(m.ground))
     ctx.fill(field)
@@ -50,18 +61,65 @@ extension PitchScene {
     for piece in items where piece.kind != "stake" {
       let p = point(piece.x, piece.y)
       guard rect.contains(p) else { continue }
-      let dot = CGRect(x: p.x - 2, y: p.y - 2, width: 4, height: 4)
-      let paint = piece.team == "B" ? m.teamB : (piece.team == "A" ? m.teamA : m.king)
+      let shape = Self.mapShape(piece)
+      let paint = shape == .square ? m.teamB : (shape == .circle ? m.teamA : m.king)
+      let path = CGMutablePath()
+      switch shape {
+      case .circle: path.addEllipse(in: CGRect(x: p.x - 2.6, y: p.y - 2.6, width: 5.2, height: 5.2))
+      case .square: path.addRect(CGRect(x: p.x - 2.2, y: p.y - 2.2, width: 4.4, height: 4.4))
+      case .triangle:
+        path.addLines(between: [CGPoint(x: p.x, y: p.y - 3.4), CGPoint(x: p.x + 3.2, y: p.y + 2.4), CGPoint(x: p.x - 3.2, y: p.y + 2.4)])
+        path.closeSubpath()
+      }
       ctx.setFillColor(color(paint))
-      ctx.fill(dot)
+      ctx.addPath(path)
+      ctx.fillPath()
       ctx.setStrokeColor(color(ink))
-      ctx.stroke(dot)
+      ctx.addPath(path)
+      ctx.strokePath()
     }
     if let m = marker, m.shown != false {
       let p = point(m.x, m.y)
       ctx.setStrokeColor(color(ink))
       ctx.strokeEllipse(in: CGRect(x: p.x - 4, y: p.y - 4, width: 8, height: 8))
     }
+  }
+}
+
+extension PitchScene {
+  /// A piece's mark on the minimap: Team A a circle, Team B a square (the 1.0 design's
+  /// "Teams"), anything else (the king, a baton) a triangle.
+  public enum MapShape: Sendable { case circle, square, triangle }
+  public static func mapShape(_ p: Piece) -> MapShape {
+    p.team == "A" ? .circle : (p.team == "B" ? .square : .triangle)
+  }
+
+  /// Is a piece standing (its own z axis within about 45 degrees of up)?
+  static func standing(_ p: Piece) -> Bool {
+    // the local z axis turned into the world: its z component
+    let q = p.rotation
+    let z = q.act(SIMD3<Double>(0, 0, 1)).z
+    return z > 0.7
+  }
+
+  /// The minimap as VoiceOver reads it, one image with a summary: each team's kubbs
+  /// standing and their shape, the king, and the aim ("Map of the pitch. Computer: 5
+  /// kubbs standing, squares. Brave Birch: 5 kubbs standing, circles. The king standing.
+  /// The aim ringed.").
+  public func mapSummary(teamA: String?, teamB: String?) -> String {
+    func count(_ team: String) -> Int {
+      items.filter { $0.kind == "kubb" && $0.team == team && Self.standing($0) }.count
+    }
+    func side(_ name: String?, _ team: String, _ shape: String) -> String {
+      let n = count(team)
+      return "\(name ?? "Team \(team)"): \(n) \(n == 1 ? "kubb" : "kubbs") standing, \(shape)."
+    }
+    var parts = ["Map of the pitch.", side(teamB, "B", "squares"), side(teamA, "A", "circles")]
+    if let king = items.first(where: { $0.kind == "king" }) {
+      parts.append(Self.standing(king) ? "The king standing." : "The king down.")
+    }
+    if let m = marker, m.shown != false { parts.append("The aim ringed.") }
+    return parts.joined(separator: " ")
   }
 }
 

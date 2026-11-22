@@ -88,6 +88,7 @@ struct GameView: View {
             case .options: MatchOptionsCard(model: model)
             case .settings: SettingsCard(model: model)
             case .howTo: HowToCard(model: model)
+            case .practiceMenu: PracticeMenu(model: model)
             case .practice: practice(wide: WideLayout.isWide(screen(geometry).size), room: meterRoom(geometry))
             case .match:
               MatchScreen(
@@ -127,6 +128,11 @@ struct GameView: View {
       .modifier(OnlineReview(model: model))
       .modifier(ShareReview(model: model))
     #endif
+    // a verdict is announced once when it comes, the off words first
+    .onChange(of: model.result) { _, r in
+      guard let r, UIAccessibility.isVoiceOverRunning else { return }
+      AccessibilityNotification.Announcement(VerdictWords.spoken(flag: r.flag, words: r.words, rest: r.restText)).post()
+    }
     .onOpenURL { model.join($0.absoluteString) }
     .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
       if let url = activity.webpageURL { model.join(url.absoluteString) }
@@ -223,42 +229,23 @@ struct GameView: View {
   private func practice(wide: Bool, room: MeterRoom) -> some View {
     VStack(spacing: 10) {
       HStack {
-        Button(action: model.home) { Image(systemName: "house.fill").frame(width: 36, height: 36) }
+        Button(action: model.home) { Image(systemName: "house.fill").frame(width: TW.touch, height: TW.touch) }
           .accessibilityLabel("Home")
         Text("Practice pitch").font(displayFont(28))
         Spacer()
-        Menu {
-          // each row says what it sets and shows its value (the web's menu)
-          Picker(
-            "Surface",
-            selection: Binding(
-              get: { model.surface },
-              set: { s in model.setPracticeSurface(s) })
-          ) {
-            ForEach(Surface.allCases, id: \.self) { s in Text(s.rawValue.capitalized).tag(s) }
-          }
-          .pickerStyle(.menu).disabled(model.playing)
-          if model.offline?.options.takesScene == true {
-            Picker(
-              SceneID.row.label,
-              selection: Binding(get: { model.practiceScene }, set: { model.practiceScene = $0 })
-            ) {
-              ForEach(SceneID.row.choices, id: \.self) { c in Text(c[1]).tag(c[0]) }
-            }
-            .pickerStyle(.menu).disabled(model.playing)
-          }
-          ReportButton(model: model)
-          // the device's own (name, sound, haptics, meter) are in Settings
-          Button("Settings", systemImage: "gearshape", action: model.openSettings)
-          if let label = model.pitch?.versionLabel {
-            Section {
-              Text("Throwing Wood \(label.text)")
-              ForEach(label.detail, id: \.self) { Text($0) }
-            }
-          }
+        // the practice's own menu, a card (PracticeMenu): its rows are segmented bars
+        Button {
+          model.screen = .practiceMenu
         } label: {
-          Label("Menu", systemImage: "line.3.horizontal")
+          Text(HeaderWords.menu).font(displayFont(17, relativeTo: .headline)).foregroundStyle(Color.woodInk)
+            .lineLimit(1).fixedSize()
+            .padding(.horizontal, 12).frame(minHeight: TW.touch)
+            .background(Color.woodPaper, in: RoundedRectangle(cornerRadius: TW.controlRadius))
+            .overlay(RoundedRectangle(cornerRadius: TW.controlRadius).strokeBorder(Color.woodInk, lineWidth: 2))
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(HeaderWords.menuLabel)
       }.modifier(Plate(inset: 8))
       // on its side the linear meter has its edge's whole height: the header stops short of it
       .padding(room.edge, wide ? room.width : 0)
@@ -268,6 +255,13 @@ struct GameView: View {
   }
 }
 
+/// The verdict after a throw (the 1.0 design, "Verdict: the reason leads"): the
+/// engine's flag, then each off word first, inverted, 18 pt, with an arrow for its
+/// direction (VerdictWords.arrow: down for SHORT and LOW, up for LONG and HIGH, left and
+/// right for PULLED, a wavy line for SHAKY, a clock hand for SLOW), then the on-target
+/// words as small chips after it, then the rest. Told by inversion and arrow, never by
+/// colour alone. VoiceOver reads it as one element, the off words first; it is
+/// announced once when it comes (GameView).
 struct Verdict: View {
   let result: ThrowResult
   /// How much of it shows where the room is short (MatchScreen.wide fits the
@@ -282,33 +276,132 @@ struct Verdict: View {
       if row {
         HStack(spacing: 8) {
           flag
-          VStack(spacing: 3) { words; rest }
+          VStack(alignment: .leading, spacing: 6) { words; rest }
         }
       } else {
-        VStack(spacing: 3) {
+        VStack(alignment: .leading, spacing: 6) {
           flag
           if cut != .flag || result.flag == nil { words }
           if cut == .full { rest }
         }
       }
-    }.modifier(Plate(inset: 7)).allowsHitTesting(false)
+    }
+    .padding(.horizontal, 10).padding(.vertical, 8)
+    .background(Color.woodPaper, in: RoundedRectangle(cornerRadius: TW.controlRadius))
+    .overlay(RoundedRectangle(cornerRadius: TW.controlRadius).strokeBorder(Color.woodInk, lineWidth: TW.line))
+    .background(
+      RoundedRectangle(cornerRadius: TW.controlRadius).fill(Color.woodDrop)
+        .offset(x: TW.controlShadow, y: TW.controlShadow))
+    .allowsHitTesting(false)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(VerdictWords.spoken(flag: result.flag, words: result.words, rest: result.restText))
   }
   // the caption strip online beside a linear meter on its side is as narrow
   // as 112.6 pt (the SE): a long flag (HELICOPTER) shrinks, never truncates
   @ViewBuilder private var flag: some View {
-    if let flag = result.flag { Text(flag).font(displayFont(29)).lineLimit(1).minimumScaleFactor(0.6) }
+    if let flag = result.flag {
+      Text(flag).font(displayFont(29, relativeTo: .title)).foregroundStyle(Color.woodInk)
+        .lineLimit(1).minimumScaleFactor(0.6)
+    }
   }
   private var words: some View {
-    HStack(spacing: 4) {
+    FlowRow(spacing: 6) {
       ForEach(Array(result.words.enumerated()), id: \.offset) { _, word in
-        Text(word.text).font(.caption2.bold()).padding(3)
-          .foregroundStyle(word.offTarget ? Color.woodPaper : Color.woodInk)
-          .background(word.offTarget ? Color.woodInk : Color.clear)
+        if word.offTarget {
+          HStack(spacing: 6) {
+            if let a = VerdictWords.arrow(word.text) { VerdictArrow(arrow: a).frame(width: 15, height: 15) }
+            Text(word.text).font(bodyFont(18, .bold, relativeTo: .body)).tracking(18 * 0.04)
+              .lineLimit(1).minimumScaleFactor(0.7)
+          }
+          .foregroundStyle(Color.woodPaper)
+          .padding(.horizontal, 10).padding(.vertical, 5)
+          .background(Color.woodInk, in: RoundedRectangle(cornerRadius: TW.controlRadius))
+        } else {
+          Text(word.text).modifier(Chip())
+        }
       }
-    }.lineLimit(1).minimumScaleFactor(0.7)
+    }
   }
   @ViewBuilder private var rest: some View {
-    if let rest = result.restText, !rest.isEmpty { Text(rest).font(.caption) }
+    if let rest = result.restText, !rest.isEmpty {
+      Text(rest).font(bodyFont(14, relativeTo: .footnote)).foregroundStyle(Color.woodInk)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+  }
+}
+
+/// An off word's arrow, drawn in the chip's type colour.
+struct VerdictArrow: View {
+  let arrow: VerdictWords.Arrow
+  var body: some View {
+    Canvas { ctx, s in
+      let w = s.width, h = s.height
+      var p = Path()
+      func chevron(_ tip: CGPoint, _ a: CGPoint, _ b: CGPoint) {
+        p.move(to: a)
+        p.addLine(to: tip)
+        p.addLine(to: b)
+      }
+      switch arrow {
+      case .down:
+        p.move(to: CGPoint(x: w / 2, y: 1)); p.addLine(to: CGPoint(x: w / 2, y: h - 2))
+        chevron(CGPoint(x: w / 2, y: h - 1), CGPoint(x: 2, y: h * 0.5), CGPoint(x: w - 2, y: h * 0.5))
+      case .up:
+        p.move(to: CGPoint(x: w / 2, y: h - 1)); p.addLine(to: CGPoint(x: w / 2, y: 2))
+        chevron(CGPoint(x: w / 2, y: 1), CGPoint(x: 2, y: h * 0.5), CGPoint(x: w - 2, y: h * 0.5))
+      case .left:
+        p.move(to: CGPoint(x: w - 1, y: h / 2)); p.addLine(to: CGPoint(x: 2, y: h / 2))
+        chevron(CGPoint(x: 1, y: h / 2), CGPoint(x: w * 0.5, y: 2), CGPoint(x: w * 0.5, y: h - 2))
+      case .right:
+        p.move(to: CGPoint(x: 1, y: h / 2)); p.addLine(to: CGPoint(x: w - 2, y: h / 2))
+        chevron(CGPoint(x: w - 1, y: h / 2), CGPoint(x: w * 0.5, y: 2), CGPoint(x: w * 0.5, y: h - 2))
+      case .wavy:
+        p.move(to: CGPoint(x: 0, y: h / 2))
+        p.addCurve(to: CGPoint(x: w / 2, y: h / 2), control1: CGPoint(x: w * 0.15, y: 1), control2: CGPoint(x: w * 0.35, y: 1))
+        p.addCurve(to: CGPoint(x: w, y: h / 2), control1: CGPoint(x: w * 0.65, y: h - 1), control2: CGPoint(x: w * 0.85, y: h - 1))
+      case .clock:
+        p.addEllipse(in: CGRect(x: 1.25, y: 1.25, width: w - 2.5, height: h - 2.5))
+        p.move(to: CGPoint(x: w / 2, y: h / 2)); p.addLine(to: CGPoint(x: w / 2, y: 3.5))
+        p.move(to: CGPoint(x: w / 2, y: h / 2)); p.addLine(to: CGPoint(x: w * 0.75, y: h * 0.62))
+      }
+      ctx.stroke(p, with: .foreground, style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+    }
+    .accessibilityHidden(true)
+  }
+}
+
+/// Views in a row, wrapping onto the next line where the width runs out.
+struct FlowRow: Layout {
+  var spacing: CGFloat = 6
+  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    let width = proposal.width ?? .infinity
+    var x: CGFloat = 0, y: CGFloat = 0, line: CGFloat = 0, widest: CGFloat = 0
+    for s in subviews {
+      let d = s.sizeThatFits(.init(width: width, height: nil))
+      if x > 0 && x + d.width > width {
+        y += line + spacing
+        x = 0
+        line = 0
+      }
+      x += d.width + spacing
+      line = max(line, d.height)
+      widest = max(widest, x - spacing)
+    }
+    return CGSize(width: min(widest, width), height: y + line)
+  }
+  func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    var x = bounds.minX, y = bounds.minY, line: CGFloat = 0
+    for s in subviews {
+      let d = s.sizeThatFits(.init(width: bounds.width, height: nil))
+      if x > bounds.minX && x + d.width > bounds.maxX {
+        y += line + spacing
+        x = bounds.minX
+        line = 0
+      }
+      s.place(at: CGPoint(x: x, y: y), proposal: .init(width: min(d.width, bounds.width), height: d.height))
+      x += d.width + spacing
+      line = max(line, d.height)
+    }
   }
 }
 

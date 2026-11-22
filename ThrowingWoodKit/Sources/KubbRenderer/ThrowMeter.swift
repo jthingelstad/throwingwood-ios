@@ -242,10 +242,12 @@ public struct LinearMeter: Equatable, Sendable {
   }
 
   /// The prompt tab at the knob's home, as wide as its longest words could make
-  /// it (LinearMeterHUD's tab; the nudge keeps 5 tab heights for it too), its
-  /// own hard shadow falling on the body.
+  /// it, with the distance tab beside DRAW BACK (LinearMeterHUD's tabs; the nudge
+  /// keeps the same `tabRoom` tab heights for them), its own hard shadow falling on
+  /// the body.
+  public static let tabRoom: CGFloat = 6
   public var tab: CGRect {
-    let w = promptHeight * 5
+    let w = promptHeight * Self.tabRoom
     return CGRect(x: side == .right ? left - w : cover.maxX, y: yHome - promptHeight / 2, width: w, height: promptHeight)
   }
 
@@ -264,7 +266,7 @@ public struct LinearMeter: Equatable, Sendable {
   ) -> (x: CGFloat, y0: CGFloat) {
     let R = Self.nudgeFinger
     let right = side == .right
-    let plateW = promptHeight * 5
+    let plateW = promptHeight * Self.tabRoom
     let tab =
       right
       ? left - frame * 2 - plateW - Self.nudgeZoneGap - R

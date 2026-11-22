@@ -27,4 +27,37 @@ public enum HandoffWords {
     }
     return watcher ? "They throw \(c.batons) batons." : "Throw \(c.batons) batons."
   }
+
+  /// The hand-off card's title: "Your turn" for this device's own turn, else the
+  /// team's ("Mighty Maple's turn").
+  public static func title(_ c: MatchNeed.Handoff, own: Bool) -> String {
+    own ? "Your turn" : "\(c.toName)'s turn"
+  }
+
+  /// The hand-off card's one line (the owner's decision, 2026-11-22): what the thrower
+  /// faces, from the engine's own state, in plain words. A turn of batons: "Six batons.
+  /// Two field kubbs to clear first." (the rail's FIELD n), "Six batons. Aim for the
+  /// base kubbs." (no field kubb standing), "Six batons. Go for the king." (every base
+  /// kubb of the other side down: the rail's KING); an inkast: "Throw three kubbs into
+  /// the other half."; a raise by hand: "Stand your kubbs up." Counts are words up to
+  /// ten. `at`: the engine's rail (`rail.r1`) for the turn's first throw.
+  public static func line(batons: Int, kubbs: Int, at: String?, raise: Bool = false) -> String {
+    if raise { return "Stand your kubbs up." }
+    if kubbs > 0 {
+      return "Throw \(CountWords.count(kubbs, "kubb", "kubbs")) into the other half."
+    }
+    let first = CountWords.sentence(CountWords.count(batons, "baton", "batons")) + "."
+    if at == "KING" { return first + " Go for the king." }
+    let parts = (at ?? "").split(separator: " ")
+    if parts.count == 2, parts[0] == "FIELD", let n = Int(parts[1]), n > 0 {
+      return first + " " + CountWords.sentence(CountWords.count(n, "field kubb", "field kubbs")) + " to clear first."
+    }
+    return first + " Aim for the base kubbs."
+  }
+
+  /// The line for a hand-off card, from the card and the rail.
+  public static func line(_ c: MatchNeed.Handoff, at: String?) -> String {
+    line(batons: c.batons, kubbs: c.kubbs, at: at)
+  }
 }
+

@@ -25,9 +25,17 @@ import UIKit
     context.addLine(to: b)
     context.strokePath()
   }
+  /// The width a plated word takes (its plate 9 pt wider each side than the word).
+  func plateWidth(_ word: String, size: Double) -> CGFloat {
+    let font = UIFont(name: "LondrinaSolid-Black", size: size) ?? UIFont.boldSystemFont(ofSize: size)
+    return (word as NSString).size(withAttributes: [.font: font]).width + 18
+  }
+
+  /// `fill`: the plate's own face and type (an inverted tab: ink with paper type; the
+  /// WATCH tab: the thrower's team colour).
   func text(
     _ word: String, at p: CGPoint, size: Double, color: UIColor, plate: Bool = false,
-    outlined: Bool = false
+    outlined: Bool = false, fill: UIColor? = nil
   ) {
     let font =
       UIFont(name: "LondrinaSolid-Black", size: size) ?? UIFont.boldSystemFont(ofSize: size)
@@ -42,10 +50,10 @@ import UIKit
       let box = rect.insetBy(dx: -9, dy: -3)
       drop.setFill()
       UIBezierPath(roundedRect: box.offsetBy(dx: 2, dy: 3), cornerRadius: 4).fill()
-      plateFace.setFill()
+      (fill ?? plateFace).setFill()
       let path = UIBezierPath(roundedRect: box, cornerRadius: 4)
       path.fill()
-      type.setStroke()
+      (fill == nil ? type : ink).setStroke()
       path.lineWidth = 2
       path.stroke()
     }
@@ -54,8 +62,11 @@ import UIKit
 
   /// `hintBeside`: on a phone on its side there is no room under the ring, so
   /// the practice hint goes level with its foot on the screen's inner side.
+  /// `distance`: the throw's distance ("8 m") on an inverted tab beside the prompt, the
+  /// pair centred over the clock (the 1.0 design's "Meter marks and distance").
+  /// `tab`: a WATCH tab in place of the prompt, on the thrower's team colour.
   func dial(_ d: DialState, at c: CGPoint, radius r: Double, showHint: Bool, finger: CGPoint? = nil,
-    prompt: String?? = nil, hintBeside: MeterSide? = nil
+    prompt: String?? = nil, hintBeside: MeterSide? = nil, distance: String? = nil
   ) {
     context.saveGState()
     defer { context.restoreGState() }
@@ -80,8 +91,26 @@ import UIKit
     sector(-180, 180, UIColor(skin.ring))
     sector(-180, -overStart(d), skin.isDay ? .systemRed : UIColor(skin.over))  // never over the power target
     sector(-d.deadDeg, 0, skin.isDay ? .systemGray3 : UIColor(skin.dead))
-    sector(d.powerHi.map { -$0 }, d.powerLo.map { -$0 }, UIColor(skin.power))
+    // the power band striped, the release band solid, both with ink end-marks: told
+    // apart by shape, never by colour alone (the 1.0 design)
+    if let hi = d.powerHi, let lo = d.powerLo, hi > lo {
+      context.saveGState()
+      context.setLineWidth(r * 0.17)
+      context.beginPath()
+      context.addArc(
+        center: c, radius: r * 0.85, startAngle: (90 + hi) * .pi / 180, endAngle: (90 + lo) * .pi / 180,
+        clockwise: true)
+      context.replacePathWithStrokedPath()
+      context.clip()
+      stripes(around: c, radius: r, UIColor(skin.power))
+      context.restoreGState()
+    }
     sector(d.releaseLo, d.releaseHi, UIColor(skin.release))
+    let markW = max(2, r * 0.032)
+    for a in [d.powerHi.map { -$0 }, d.powerLo.map { -$0 }, d.releaseLo, d.releaseHi].compactMap({ $0 }) {
+      context.setLineCap(.butt)
+      line(at(a, r * 0.75), at(a, r * 0.95), ink, markW)
+    }
     for h in 0..<12 {
       let major = h.isMultiple(of: 3)
       let angle = Double(h) * 30
@@ -113,7 +142,15 @@ import UIKit
     disk(knob, r * 0.145, ink)
     disk(knob, r * 0.115, UIColor(skin.meterKnob))
     if let prompt = prompt ?? d.prompt {
-      text(prompt, at: CGPoint(x: c.x, y: c.y - r - 20), size: 20, color: type, plate: true)
+      let y = c.y - r - 20
+      if let distance, MeterWords.showsDistance(prompt) {
+        let wp = plateWidth(prompt, size: 20), wd = plateWidth(distance, size: 20)
+        let left = c.x - (wp + 8 + wd) / 2
+        text(prompt, at: CGPoint(x: left + wp / 2, y: y), size: 20, color: type, plate: true)
+        text(distance, at: CGPoint(x: left + wp + 8 + wd / 2, y: y), size: 20, color: paper, plate: true, fill: ink)
+      } else {
+        text(prompt, at: CGPoint(x: c.x, y: y), size: 20, color: type, plate: true)
+      }
     }
     if showHint {
       let words = "Tap or drag to aim · Circle dial to throw"
@@ -126,6 +163,34 @@ import UIKit
       }
       text(words, at: at, size: 16, color: type, plate: true)
     }
+  }
+
+  /// Diagonal stripes of `color` over the meter's face, 6 pt apart (3 of colour, 3 of
+  /// face), across the clip the caller set.
+  func stripes(around c: CGPoint, radius r: Double, _ color: UIColor) {
+    let box = CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)
+    stripes(in: box, color)
+  }
+  func stripes(in box: CGRect, _ color: UIColor, step: CGFloat = 6) {
+    context.setFillColor(paper.cgColor)
+    context.fill(box)
+    context.setStrokeColor(color.cgColor)
+    context.setLineWidth(step / 2)
+    context.setLineCap(.butt)
+    var x = box.minX - box.height
+    context.beginPath()
+    while x < box.maxX + box.height {
+      context.move(to: CGPoint(x: x, y: box.maxY))
+      context.addLine(to: CGPoint(x: x + box.height, y: box.minY))
+      x += step
+    }
+    context.strokePath()
+  }
+
+  /// The WATCH tab (the computer's or another player's turn), where the prompt goes, on
+  /// the thrower's team colour.
+  func watchTab(at p: CGPoint, size: Double, fill: UIColor, type: UIColor) {
+    text(MeterWords.watch, at: p, size: size, color: type, plate: true, fill: fill)
   }
 
   /// An end's number beside its footprint on the raise screen (the web's drawEndLabels):

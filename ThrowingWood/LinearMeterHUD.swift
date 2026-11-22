@@ -51,7 +51,18 @@ extension PracticeHUD {
   /// slides in; the wooden stem fills it from home to the knob. Home is a hub in
   /// the groove, marked across the body and by an index in the lane, and the
   /// prompt is a tab hung off the body there. Each end is a stop.
-  func linear(_ d: DialState, _ g: LinearMeter, held: Bool, prompt: String?) {
+  /// `distance`: the throw's distance ("8 m") on an inverted tab beside DRAW BACK.
+  /// `watch`: the WATCH tab's colours in place of the prompt (another's turn).
+  func linear(
+    _ d: DialState, _ g: LinearMeter, held: Bool, prompt: String?, distance: String? = nil,
+    watch: (fill: UIColor, type: UIColor)? = nil, tabOnly: Bool = false
+  ) {
+    if tabOnly {
+      // the WATCH tab alone, over a meter drawn faded
+      let laneFirst = g.side != .left
+      tab(g, MeterWords.watch, lane: laneFirst ? (g.left + g.frame, g.divider) : (g.divider, g.right - g.frame), colours: watch)
+      return
+    }
     let ctx = context
     ctx.saveGState()
     defer { ctx.restoreGState() }
@@ -144,18 +155,23 @@ extension PracticeHUD {
       fill(band(lane, -R, -over), MeterPaint.over)
       across(-over, lw)
     }
-    // the targets: power behind home, release ahead of it
-    func target(_ a0: Double, _ a1: Double, _ light: UIColor, _ deep: UIColor) {
-      fill(band(chan, a0, a1), light)
-      fill(band(lane, a0, a1), deep)
-      across(a0, lw)
-      across(a1, lw)
-    }
+    // the targets: power behind home, striped; release ahead of it, solid; both with
+    // ink end-marks (the 1.0 design: told apart by shape, never by colour alone)
+    let mark = max(2, lw * 1.8)
     if let lo = d.powerLo, let hi = d.powerHi, hi > lo {
-      target(-hi, -lo, MeterPaint.power, MeterPaint.powerDeep)
+      let r = band((in0, in1), -hi, -lo)
+      ctx.saveGState()
+      ctx.clip(to: r)
+      stripes(in: r, MeterPaint.power, step: max(5, g.channelWidth * 0.16))
+      ctx.restoreGState()
+      across(-hi, mark)
+      across(-lo, mark)
     }
     if let lo = d.releaseLo, let hi = d.releaseHi, hi > lo {
-      target(lo, hi, MeterPaint.release, MeterPaint.releaseDeep)
+      fill(band(chan, lo, hi), MeterPaint.release)
+      fill(band(lane, lo, hi), MeterPaint.releaseDeep)
+      across(lo, mark)
+      across(hi, mark)
     }
 
     // the ends: past each stop the face is shaded, with a wooden peg in the lane
@@ -240,7 +256,31 @@ extension PracticeHUD {
     // the knob: a little baton end, wood with an ink rim and end-grain rings
     woodKnob(CGPoint(x: kc, y: ky), kr, held: held, lw: lw)
 
-    if let prompt { tab(g, prompt, lane: lane) }
+    if let watch {
+      tab(g, MeterWords.watch, lane: lane, colours: watch)
+    } else if let prompt {
+      let t = tab(g, prompt, lane: lane)
+      if let distance, MeterWords.showsDistance(prompt) { distanceTab(g, distance, beside: t) }
+    }
+  }
+
+  /// The throw's distance on an inverted tab beside the prompt's, toward the middle
+  /// (within the tab's room, `LinearMeter.tab`).
+  private func distanceTab(_ g: LinearMeter, _ text: String, beside t: CGRect) {
+    let h = g.promptHeight
+    let font = UIFont(name: "LondrinaSolid-Black", size: max(14, (h * 0.62).rounded())) ?? .boldSystemFont(ofSize: 14)
+    let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: paper]
+    let s = (text as NSString).size(withAttributes: attributes)
+    let w = s.width + h * 0.6
+    let x = g.tabDirection < 0 ? t.minX - 6 - w : t.maxX + 6
+    let rect = CGRect(x: x, y: g.yHome - h / 2, width: w, height: h)
+    let r = h * 0.22
+    ink.setFill()
+    UIBezierPath(roundedRect: rect.offsetBy(dx: g.shadow * 0.8, dy: g.shadow * 0.8), cornerRadius: r).fill()
+    UIBezierPath(roundedRect: rect, cornerRadius: r).fill()
+    (text as NSString).draw(
+      in: CGRect(x: rect.midX - s.width / 2, y: g.yHome - s.height / 2 + h * 0.04, width: s.width, height: s.height),
+      withAttributes: attributes)
   }
 
   /// Practice's hint, beside the meter at the bottom of the screen.
@@ -270,12 +310,14 @@ extension PracticeHUD {
 
   /// The prompt: a tab hung off the body on the lane's side at home, its inner
   /// end tucked under the frame so it is one piece with the body.
-  private func tab(_ g: LinearMeter, _ text: String, lane: (CGFloat, CGFloat)) {
+  @discardableResult private func tab(
+    _ g: LinearMeter, _ text: String, lane: (CGFloat, CGFloat), colours: (fill: UIColor, type: UIColor)? = nil
+  ) -> CGRect {
     let h = g.promptHeight
     let inverted = text.hasSuffix("!")
     let font = UIFont(name: "LondrinaSolid-Black", size: (h * 0.74).rounded()) ?? .boldSystemFont(ofSize: h * 0.74)
     let attributes: [NSAttributedString.Key: Any] = [
-      .font: font, .foregroundColor: inverted ? paper : ink,
+      .font: font, .foregroundColor: colours?.type ?? (inverted ? paper : ink),
     ]
     let size = (text as NSString).size(withAttributes: attributes)
     let w = size.width + h * 0.8
@@ -295,7 +337,7 @@ extension PracticeHUD {
     ink.setFill()
     path(rect.offsetBy(dx: sh, dy: sh)).fill()
     let p = path(rect)
-    (inverted ? ink : paper).setFill()
+    (colours?.fill ?? (inverted ? ink : paper)).setFill()
     p.fill()
     ink.setStroke()
     p.lineWidth = max(1.5, h * 0.1)
@@ -304,6 +346,7 @@ extension PracticeHUD {
     (text as NSString).draw(
       in: CGRect(x: cx - size.width / 2, y: g.yHome - size.height / 2 + h * 0.05, width: size.width, height: size.height),
       withAttributes: attributes)
+    return rect
   }
 
   /// Where the red begins: the engine's overpowered mark (11 o'clock), but never

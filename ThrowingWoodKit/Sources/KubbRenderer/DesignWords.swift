@@ -25,15 +25,36 @@ public enum SegmentWords {
 /// each side as two numbers on the team colours, with a spoken label; MENU as a word.
 public enum HeaderWords {
   /// "Turn 4 · baton 2 of 6"; an inkast's "Turn 3 · kubb 1 of 4" (as "Kubb 1 of 4" was
-  /// before); "Watch · turn 4 · baton 2 of 6"
-  /// while this device only watches. `n` is the throw's place in the turn (the engine's
-  /// `setup.n`, one-based), `of` the turn's throws.
-  public static func line(turn: Int, n: Int?, of: Int?, projectile: String?, watching: Bool) -> String {
+  /// before); with what the thrower aims at when it is not the base kubbs the numbers
+  /// show, the web's words (its hud.js headerLine): "Turn 4 · baton 2 of 6 · 2 field
+  /// kubbs", "Turn 9 · baton 5 of 6 · at the king" (`at`: the engine's rail, `aimsAt`).
+  /// "Watch · turn 4 · baton 2 of 6" while this device only watches and no WATCH tab
+  /// says so (an observer's wide view, a raise it watches); where the WATCH tab shows
+  /// (the computer's or another player's throw) the line drops "Watch". `n` is the
+  /// throw's place in the turn (the engine's `setup.n`, one-based), `of` the turn's
+  /// throws.
+  public static func line(
+    turn: Int, n: Int?, of: Int?, projectile: String?, watching: Bool, at: String? = nil
+  ) -> String {
     var line = watching ? "Watch · turn \(turn)" : "Turn \(turn)"
     if let n, let of {
       line += " · \(projectile == "baton" ? "baton" : "kubb") \(n) of \(of)"
     }
+    if let at = aimsAt(at) { line += " · " + at }
     return line
+  }
+
+  /// What the thrower aims at, from the engine's rail (session.lua aimView `rail.r1`:
+  /// "FIELD 2", "BASE 5", "KING"), when it is not the base kubbs the numbers show: "2
+  /// field kubbs", "1 field kubb", "at the king"; nil for the base kubbs or nothing.
+  public static func aimsAt(_ r1: String?) -> String? {
+    guard let r1 else { return nil }
+    if r1 == "KING" { return "at the king" }
+    let parts = r1.split(separator: " ")
+    if parts.count == 2, parts[0] == "FIELD", let n = Int(parts[1]) {
+      return "\(n) field \(n == 1 ? "kubb" : "kubbs")"
+    }
+    return nil
   }
 
   /// What VoiceOver reads for the two numbers, the web's words (its hud.js): "Kubbs
@@ -45,4 +66,85 @@ public enum HeaderWords {
   /// MENU, the word inside the header's plate, and what VoiceOver reads for it.
   public static let menu = "MENU"
   public static let menuLabel = "Menu"
+}
+
+/// Counts as words, up to ten, as a sentence says them ("Six batons", "two field
+/// kubbs"); past ten, the digits.
+public enum CountWords {
+  static let words = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+  public static func word(_ n: Int) -> String { n >= 0 && n < words.count ? words[n] : String(n) }
+  /// "six batons", "one field kubb": the count and the noun, singular or plural.
+  public static func count(_ n: Int, _ one: String, _ many: String) -> String {
+    "\(word(n)) \(n == 1 ? one : many)"
+  }
+  /// The first letter in capitals.
+  public static func sentence(_ s: String) -> String { s.prefix(1).uppercased() + s.dropFirst() }
+}
+
+/// The meter's words beyond the engine's prompts: the throw's distance on the inverted
+/// tab beside WIND BACK or DRAW BACK (the 1.0 design's "Meter marks and distance"), to
+/// the nearest metre, and what VoiceOver says for the prompt and the meter.
+public enum MeterWords {
+  /// The tab: "8 m" (the engine's plan `dist`, m from the stance to the target), or
+  /// nil where there is no distance.
+  public static func distance(_ metres: Double?) -> String? {
+    guard let m = metres, m.isFinite, m > 0 else { return nil }
+    return "\(Int(m.rounded())) m"
+  }
+  /// Spoken: "8 metres", "1 metre".
+  public static func spokenDistance(_ metres: Double?) -> String? {
+    guard let m = metres, m.isFinite, m > 0 else { return nil }
+    let n = Int(m.rounded())
+    return "\(n) \(n == 1 ? "metre" : "metres")"
+  }
+  /// The prompts the tab stands beside: the clock's WIND BACK and the linear meter's DRAW BACK.
+  public static func showsDistance(_ prompt: String?) -> Bool { prompt == "WIND BACK" || prompt == "DRAW BACK" }
+  /// The prompt and the distance, spoken together: "Wind back, 8 metres".
+  public static func spokenPrompt(_ prompt: String?, metres: Double?) -> String? {
+    guard let prompt, !prompt.isEmpty else { return nil }
+    let p = CountWords.sentence(prompt.lowercased())
+    guard showsDistance(prompt), let d = spokenDistance(metres) else { return p }
+    return "\(p), \(d)"
+  }
+  /// The WATCH tab on the computer's or another player's turn.
+  public static let watch = "WATCH"
+  /// The meter, spoken (its marks by shape, as the coach names them).
+  public static func spokenMeter(linear: Bool, watching: Bool) -> (label: String, value: String) {
+    let label = linear ? "Linear meter" : "Clock meter"
+    if watching { return (label, "Watching only") }
+    return (label, "The stripes are the power band, the solid mark the release band.")
+  }
+}
+
+/// The verdict after a throw (the 1.0 design's "Verdict: the reason leads"): each off
+/// word first, inverted, 18 pt, with an arrow for its direction; the on-target words
+/// after it as small chips. Announced once, the off words first.
+public enum VerdictWords {
+  public enum Arrow: String, Sendable { case down, up, left, right, wavy, clock }
+  /// The off word's arrow: down for SHORT and LOW, up for LONG and HIGH, left and right
+  /// for PULLED, a wavy line for SHAKY, a clock hand for SLOW.
+  public static func arrow(_ word: String) -> Arrow? {
+    switch word {
+    case "SHORT", "LOW": .down
+    case "LONG", "HIGH": .up
+    case "PULLED LEFT": .left
+    case "PULLED RIGHT": .right
+    case "SHAKY": .wavy
+    case "SLOW": .clock
+    default: nil
+    }
+  }
+  /// What VoiceOver says, once: the off words, the flag, the on-target words, the rest
+  /// ("Short. Miss. Arc on, steady, straight.").
+  public static func spoken(flag: String?, words: [ThrowResult.Verdict], rest: String?) -> String {
+    func say(_ s: String) -> String { CountWords.sentence(s.lowercased()) }
+    var parts: [String] = []
+    let off = words.filter(\.offTarget).map { $0.text.lowercased() }
+    if !off.isEmpty { parts.append(CountWords.sentence(off.joined(separator: ", "))) }
+    if let flag, !flag.isEmpty { parts.append(say(flag)) }
+    let on = words.filter { !$0.offTarget }.map { $0.text.lowercased() }
+    if !on.isEmpty { parts.append(CountWords.sentence(on.joined(separator: ", "))) }
+    if let rest, !rest.isEmpty { parts.append(rest) }
+    return parts.map { $0.hasSuffix(".") || $0.hasSuffix("!") ? $0 : $0 + "." }.joined(separator: " ")
+  }
 }

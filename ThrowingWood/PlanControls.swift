@@ -16,23 +16,48 @@ import SwiftUI
   static var woodGrain: Color { Color(skin.grain) }
 }
 
-private struct SliderPlate<Body: View>: View {
+/// A tray plate (the 1.0 design's control shape, "One tray, three equal plates"): a
+/// wood band with the plate's title and value over a baton body, a 3 pt ink line,
+/// radius 6 and a 3 pt hard ink shadow. Open, the band is a button that closes it.
+struct SliderPlate<Body: View>: View {
   let title: String
+  /// The plate's width, and its body's height under the band.
   let width, height: CGFloat
+  /// The band's tap: closes an open plate (nil: the band is words only).
+  var close: (() -> Void)? = nil
   @ViewBuilder let content: () -> Body
   var body: some View {
     VStack(spacing: 0) {
-      Text(title).font(displayFont(17)).lineLimit(1).minimumScaleFactor(0.7)
-        .frame(maxWidth: .infinity, minHeight: 28).background(Color.woodHeader)
-      Rectangle().fill(Color.woodInk).frame(height: 2)
+      band
+      Rectangle().fill(Color.woodInk).frame(height: TW.line)
       content().frame(width: width, height: height)
     }
     .frame(width: width).foregroundStyle(Color.woodInk)
-    .background(Color.woodPaper, in: RoundedRectangle(cornerRadius: 5))
-    .clipShape(RoundedRectangle(cornerRadius: 5))
-    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(Color.woodInk, lineWidth: 2))
-    .background(RoundedRectangle(cornerRadius: 5).fill(Color.woodDrop).offset(x: 3, y: 4))
+    .background(Color.woodBaton)
+    .clipShape(RoundedRectangle(cornerRadius: TW.controlRadius))
+    .overlay(RoundedRectangle(cornerRadius: TW.controlRadius).strokeBorder(Color.woodInk, lineWidth: TW.line))
+    .background(
+      RoundedRectangle(cornerRadius: TW.controlRadius).fill(Color.woodDrop)
+        .offset(x: TW.controlShadow, y: TW.controlShadow))
   }
+  @ViewBuilder private var band: some View {
+    let words = Text(title).font(displayFont(17, relativeTo: .headline)).lineLimit(1).minimumScaleFactor(0.6)
+      .padding(.top, TW.line).padding(.horizontal, 4)
+      .frame(maxWidth: .infinity, minHeight: Tray.band + TW.line).background(Color.woodHeader)
+    if let close {
+      Button(action: close) { words.contentShape(Rectangle()) }.buttonStyle(.plain)
+        .accessibilityLabel("Close")
+    } else {
+      words
+    }
+  }
+}
+
+extension Tray {
+  /// The wood band's height under the plate's top line.
+  static let band: CGFloat = 22
+  /// The body's height under the band in a plate `height` tall.
+  static func body(_ height: CGFloat) -> CGFloat { max(0, height - band - 2 * TW.line) }
 }
 
 /// The wooden knob: the dial's knob, end grain and all.
@@ -78,29 +103,33 @@ struct ArcSlider: View {
   let enabled: Bool
   let slide: (Double, SlidePhase) -> Void
   let step: (Int) -> Void
+  /// The open plate's width and its body's height (Tray.openHeight less the band).
+  var width: CGFloat = 86, height: CGFloat = 186
+  var close: (() -> Void)? = nil
   @State private var dragging = false
   @GestureState private var touching = false
-  private let width: CGFloat = 84, height: CGFloat = 124, inset: CGFloat = 18
+  private let inset: CGFloat = 18
   var body: some View {
-    SliderPlate(title: PlanScale.arcLabel(loft: loft), width: width, height: height) {
+    SliderPlate(title: PlanScale.arcLabel(loft: loft), width: width, height: height, close: close) {
       Canvas { ctx, size in
         let run = size.height - inset * 2
-        let slotX: CGFloat = 26
+        let slotX: CGFloat = size.width * 0.32
         func y(_ f: Double) -> CGFloat { inset + run * (1 - f) }
         ctx.fill(
           Path(roundedRect: CGRect(x: slotX - 3, y: inset - 4, width: 6, height: run + 8), cornerRadius: 3),
           with: .color(.woodInk))
+        let m0 = size.width * 0.6, m1 = size.width * 0.86, m2 = size.width * 0.76
         for m in marks(run) {
           var line = Path()
-          line.move(to: CGPoint(x: 50, y: y(m.f)))
-          line.addLine(to: CGPoint(x: m.long ? 74 : 64, y: y(m.f)))
+          line.move(to: CGPoint(x: m0, y: y(m.f)))
+          line.addLine(to: CGPoint(x: m.long ? m1 : m2, y: y(m.f)))
           ctx.stroke(line, with: .color(.woodInk), lineWidth: m.long ? 3 : 2)
         }
         let f = held ?? place
         var index = Path()
-        index.move(to: CGPoint(x: 40, y: y(f)))
-        index.addLine(to: CGPoint(x: 47, y: y(f) - 5))
-        index.addLine(to: CGPoint(x: 47, y: y(f) + 5))
+        index.move(to: CGPoint(x: m0 - 10, y: y(f)))
+        index.addLine(to: CGPoint(x: m0 - 3, y: y(f) - 5))
+        index.addLine(to: CGPoint(x: m0 - 3, y: y(f) + 5))
         index.closeSubpath()
         ctx.fill(index, with: .color(.woodInk))
         knob(ctx, at: CGPoint(x: slotX, y: y(f)), radius: 15)
@@ -109,13 +138,13 @@ struct ArcSlider: View {
       .gesture(
         DragGesture(minimumDistance: 0)
           .onChanged { v in
-            slide(1 - (v.location.y - inset) / (height - inset * 2), dragging ? .move : .down)
+            slide(1 - (v.location.y - inset) / max(1, height - inset * 2), dragging ? .move : .down)
             dragging = true
           }
           .updating($touching) { _, on, _ in on = true }
           .onEnded { v in
             dragging = false
-            slide(1 - (v.location.y - inset) / (height - inset * 2), .up)
+            slide(1 - (v.location.y - inset) / max(1, height - inset * 2), .up)
           })
     }
     .heldSliderCancels(touching: touching, dragging: $dragging) { slide(0, .cancel) }
@@ -141,22 +170,25 @@ struct SideSlider: View {
   let enabled: Bool
   let slide: (Double, SlidePhase) -> Void
   let step: (Int) -> Void
+  /// The open plate's width and its body's height.
+  var width: CGFloat = 86, height: CGFloat = 70
+  var close: (() -> Void)? = nil
   @State private var dragging = false
   @GestureState private var touching = false
-  private let width: CGFloat = 96, height: CGFloat = 64, inset: CGFloat = 16
+  private let inset: CGFloat = 16
   var body: some View {
-    SliderPlate(title: PlanScale.sideLabel(value, kubb: kubb), width: width, height: height) {
+    SliderPlate(title: PlanScale.sideLabel(value, kubb: kubb), width: width, height: height, close: close) {
       Canvas { ctx, size in
         let run = size.width - inset * 2
         func x(_ f: Double) -> CGFloat { inset + run * f }
-        let slotY: CGFloat = 42
+        let slotY: CGFloat = size.height * 0.64
         ctx.fill(
           Path(roundedRect: CGRect(x: inset - 4, y: slotY - 3, width: run + 8, height: 6), cornerRadius: 3),
           with: .color(.woodInk))
         for m in marks(run) {
           var line = Path()
-          line.move(to: CGPoint(x: x(m.f), y: 24))
-          line.addLine(to: CGPoint(x: x(m.f), y: m.long ? 8 : 15))
+          line.move(to: CGPoint(x: x(m.f), y: slotY - 18))
+          line.addLine(to: CGPoint(x: x(m.f), y: slotY - (m.long ? 34 : 27)))
           ctx.stroke(line, with: .color(.woodInk), lineWidth: m.long ? 3 : 1.6)
         }
         let f = held ?? place
@@ -166,13 +198,13 @@ struct SideSlider: View {
       .gesture(
         DragGesture(minimumDistance: 0)
           .onChanged { v in
-            slide((v.location.x - inset) / (width - inset * 2), dragging ? .move : .down)
+            slide((v.location.x - inset) / max(1, width - inset * 2), dragging ? .move : .down)
             dragging = true
           }
           .updating($touching) { _, on, _ in on = true }
           .onEnded { v in
             dragging = false
-            slide((v.location.x - inset) / (width - inset * 2), .up)
+            slide((v.location.x - inset) / max(1, width - inset * 2), .up)
           })
     }
     .heldSliderCancels(touching: touching, dragging: $dragging) { slide(0, .cancel) }
@@ -221,13 +253,14 @@ struct StandPlate: View {
   let step: (Double, Double) -> Void
   /// Its body: TILT's width, and short (the web's 44 px or so) so TILT over it
   /// stays under the linear meter's prompt tab.
-  var width: CGFloat = 96, height: CGFloat = 48
+  var width: CGFloat = 86, height: CGFloat = 96
+  var close: (() -> Void)? = nil
   @State private var dragging = false
   @GestureState private var touching = false
   /// The run (the ground shown) inside the body, as the web's `inset: 6px 8px`.
   private let insetX: CGFloat = 8, insetY: CGFloat = 6
   var body: some View {
-    SliderPlate(title: "STAND", width: width, height: height) {
+    SliderPlate(title: "STAND", width: width, height: height, close: close) {
       Canvas { ctx, size in
         let run = CGRect(x: insetX, y: insetY, width: size.width - insetX * 2, height: size.height - insetY * 2)
         func y(_ f: Double) -> CGFloat { run.minY + run.height * f }
