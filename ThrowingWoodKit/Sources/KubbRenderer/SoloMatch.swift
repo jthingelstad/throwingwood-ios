@@ -208,8 +208,28 @@ public struct MatchNeed: Decodable {
   let cursor: GroundMark?, bounds: Bounds?, keepOut: [GroundMark]?, last: Last?
 }
 
+/// The match's game file as the engine writes it, but for a Duration that cannot be true
+/// (the web's sheet.js UNKNOWN_DURATION): a stamped match ended within its first minute
+/// says `[Duration "0m"]`, and a stamp from a clock gone wrong says more than
+/// `MatchClock.maxMinutes`; those lines are left out of what is shown, copied and saved.
+/// A match no action stamped has no Duration line at all (engine 0.18.0).
 public struct ScoreSheet: Decodable {
   public let shown: [String], text, name: String, done: Bool
+  enum CodingKeys: CodingKey { case shown, text, name, done }
+  public init(from decoder: Decoder) throws {
+    let c = try decoder.container(keyedBy: CodingKeys.self)
+    shown = try c.decode([String].self, forKey: .shown).filter { !Self.unknownDuration($0) }
+    text = try c.decode(String.self, forKey: .text).split(separator: "\n", omittingEmptySubsequences: false)
+      .filter { !Self.unknownDuration(String($0)) }.joined(separator: "\n")
+    name = try c.decode(String.self, forKey: .name)
+    done = try c.decode(Bool.self, forKey: .done)
+  }
+  /// `[Duration "<n>m"]` with n under 1 or over `MatchClock.maxMinutes`.
+  static func unknownDuration(_ line: String) -> Bool {
+    guard line.hasPrefix("[Duration \""), line.hasSuffix("m\"]") else { return false }
+    let n = Int(line.dropFirst(11).dropLast(3)) ?? 0
+    return n < 1 || n > MatchClock.maxMinutes
+  }
 }
 
 public struct PlacementCheck: Decodable { public let ok: Bool, label: String? }

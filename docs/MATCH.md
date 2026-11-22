@@ -36,7 +36,9 @@ sheet `[Duration "7m"]`. A start with no offset (a fixture, a match from before)
 stamps, and a finished match with no stamps has no `winner.minutes` and no Duration line:
 the card then shows no time, never "Under a minute", and a length that cannot be true
 (over twelve hours) is not shown either (`MatchClock.shown`, the web's cards.js; the card
-shows 1 to 720 minutes). `MatchClockTests`.
+shows 1 to 720 minutes). The score sheet likewise leaves out a Duration that cannot be
+true, `0m` (a stamped match ended within its first minute) or over 720, from what it shows,
+copies and saves (`ScoreSheet`, the web's sheet.js). `MatchClockTests`.
 
 ## The replay trail
 
