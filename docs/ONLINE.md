@@ -8,10 +8,10 @@ A shared link currently opens the website in a browser.
 ## From lobby to match
 
 The socket opens when the player starts or joins a pitch. The host initializes
-the lobby document. Presence sends the locally remembered name after room.cleanName,
-the level and the engines this build carries (`room.announce`, below). The lobby shows names, sides,
+the lobby document. Presence sends the locally remembered name after room.cleanName
+and the engines this build carries (`room.announce`, below). The lobby shows names, sides,
 watchers, host and connection state. A member can join either team or sit out.
-The player's name is the device's (Settings, `PlayerName`): the lobby shows it as a line with a way to Settings and asks only for a name the device does not have yet; a change in Settings goes to the room at once (`profile`). The member's `level` is the device's kept level (`ThrowLevel`, no longer set on any screen): engine 0.13 throws every person on one meter whatever it says, and a match on 0.9 still plans the person's throw at it. Team capacity, the levels and match options come from the engine. The host sets
+The player's name is the device's (Settings, `PlayerName`): the lobby shows it as a line with a way to Settings and asks only for a name the device does not have yet; a change in Settings goes to the room at once (`profile`). A member sends no level: engine 0.13 throws every person on one meter, and the lineup takes "club" for a member that names none (AGENTS.md "Levels are the computer's"). Team capacity, the computer's levels and match options come from the engine. The host sets
 options, invite-only or open access, and starts. An empty side plays as the
 computer. The options offered are the `MATCH_OPTIONS` of the engine the next match
 would run on (`PitchController.lobbyEngine`, the room's engine counting this member),
@@ -269,7 +269,7 @@ The web's docs/REEL.md "The share card" is the contract: its words are `ShareWor
 ## What travels
 
 - Joining (`/ws?pitch=<code>`, no Origin) sends the persistent random member ID, the
-  role, name, level and the engines carried (`engine` as the room's engine with
+  role, name and the engines carried (`engine` as the room's engine with
   `+engines`, and `engines`), and on a rejoin the document version and the `n` and `seq`
   of the last action held (own actions in flight not counted). A name change in
   Settings goes as `me`.

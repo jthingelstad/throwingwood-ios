@@ -43,9 +43,9 @@ Test, all set with `scripts/asc.swift`.
 
 ## Data that leaves the device
 
-- The pitch code, persistent random room member ID, typed name, selected level,
-  connection presence and engine version travel to the rooms service. People on
-  the pitch can see names, levels, teams and connection state.
+- The pitch code, persistent random room member ID, typed name, connection
+  presence and engine version travel to the rooms service. People on the pitch
+  can see names, teams and connection state.
 - Team choices, match options, throw, raise and placement actions, scores,
   snapshots and game history travel in the shared document and action riders.
   The server retains match records, including typed names. It keeps an eligible

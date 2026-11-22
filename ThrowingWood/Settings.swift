@@ -5,7 +5,7 @@ import SwiftUI
 /// name yet is asked for one here, once (`NameField`); after that the name is
 /// changed in Settings. There is no level for the player to set: from engine 0.13
 /// every person throws on one meter and a level is the computer's alone (kubb-engine
-/// docs/notes/throw.md "The person's meter"; ThrowLevel.swift).
+/// docs/notes/throw.md "The person's meter"), so none is kept or sent.
 struct PlayerLine: View {
   let model: GameModel
   /// Whether this screen asks for the name: decided when it appears, so the field

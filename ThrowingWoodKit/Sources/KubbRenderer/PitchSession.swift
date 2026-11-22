@@ -194,7 +194,6 @@ public final class PitchSession {
       && (need == nil || (need?.kind == "throw" && need?.cpu == false))
   }
   public private(set) var windText: String?, advantageText: String?, slow = false
-  var levelOverride: String?
   public var playing: Bool { playback != nil }
   /// The watcher's free camera (FreeCamera.swift), its lens the wide camera while the
   /// wide view is on.
@@ -377,9 +376,6 @@ public final class PitchSession {
       let previous = need
       let previousHandoff = handoff
       need = v.need
-      if let levelOverride, v.need.kind == "throw", v.need.cpu == false {
-        try useLevel(levelOverride)
-      }
       // A resignation can retain the preceding informative card in the engine view.
       handoff = v.need.kind == "throw" ? v.need.card?.handoff : nil
       if let handoff, handoff.turn != previousHandoff?.turn || handoff.toName != previousHandoff?.toName {
@@ -411,7 +407,6 @@ public final class PitchSession {
     endStand()
     mix = 0
     slow = false
-    levelOverride = nil
     handoff = nil
     placement = nil
     cursor = nil

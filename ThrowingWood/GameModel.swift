@@ -57,11 +57,6 @@ import Observation
   var revision = 0
   var sheet: ScoreSheet?
   var selections = [String: String]()
-  /// The player's kept throw level (ThrowLevel): no screen sets it any more. From
-  /// engine 0.13 a person's throw is on one meter whatever it says; it is still
-  /// passed so a match on a carried engine before 0.13 throws as it always did. The
-  /// solo set-up's `selections["computer"]` is the computer's level.
-  private(set) var throwLevel = ThrowLevel.fallback
   /// The practice pitch's scene (its menu's Scene), kept on the device.
   var practiceScene = SceneID.shown(UserDefaults.standard.string(forKey: "pitch.practiceScene")) {
     didSet {
@@ -70,7 +65,6 @@ import Observation
       // the engine keeps a practice's scene from its start: a new practice in it, on the same surface
       perform {
         try offline?.practice(scene: practiceScene, surface: practiceSurface)
-        try offline?.useLevel(throwLevel)
       }
     }
   }
@@ -95,7 +89,6 @@ import Observation
         SceneID.shown(offline.scene.look) != practiceScene || offline.scene.surface != practiceSurface
       {
         try offline.practice(scene: practiceScene, surface: practiceSurface)
-        try offline.useLevel(throwLevel)
       }
       screen = .practice
     }
@@ -135,7 +128,7 @@ import Observation
     didSet {
       guard name != oldValue else { return }
       PlayerName.store(name, in: .standard)
-      if let online { perform { try online.profile(name: name, level: throwLevel) } }
+      if let online { perform { try online.profile(name: name) } }
     }
   }
   /// The name being typed in a `NameField`, before the field is let go. A start
@@ -185,11 +178,6 @@ import Observation
       }
     }
     name = PlayerName.load(defaults)
-    throwLevel = ThrowLevel.load(
-      defaults,
-      choices: pitch.options.levels,
-      soloInProgress: (try? save.read()) != nil)
-    try? pitch.useLevel(throwLevel)  // practice throws at it from the start
     perform {
       #if targetEnvironment(simulator)
         if let mode = ProcessInfo.processInfo.environment["ONLINE_REVIEW"] {
@@ -245,7 +233,6 @@ import Observation
         }
       #endif
       if let snapshot = try save.read(), try resumeKept(snapshot, on: pitch) {
-        try pitch.useLevel(throwLevel)
         screen = .match
       }
     }
@@ -283,8 +270,7 @@ import Observation
     perform {
       let pitch = try OnlinePitch(
         url: PitchConfiguration.server, link: link, create: create,
-        name: name,
-        level: throwLevel, appVersion: Self.version, api: PitchConfiguration.client)
+        name: name, appVersion: Self.version, api: PitchConfiguration.client)
       if online != nil { leaveOnline() }
       sealed = nil
       feedback.silence()
@@ -371,14 +357,12 @@ import Observation
     perform {
       if pitch?.need?.kind == "over" { try save.clear() }
       try pitch?.practice(scene: practiceScene, surface: practiceSurface)
-      try pitch?.useLevel(throwLevel)
       screen = .home
     }
   }
   func solo() {
     perform {
       if let pitch, let text = try save.read(), try resumeKept(text, on: pitch) {
-        try pitch.useLevel(throwLevel)
         screen = .match
       } else {
         screen = .options
@@ -389,7 +373,7 @@ import Observation
     share = nil
     commitName()
     perform {
-      try pitch?.startSolo(name: name, level: throwLevel, selections: selections, save: save)
+      try pitch?.startSolo(name: name, selections: selections, save: save)
       for (key, value) in selections {
         UserDefaults.standard.set(value, forKey: "solo.option." + key)
       }
