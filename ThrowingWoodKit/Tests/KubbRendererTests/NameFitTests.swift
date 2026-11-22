@@ -12,20 +12,30 @@ import Testing
 /// widest). The web measures its own (its tests/game/names-fit-client.test.mjs).
 ///
 /// The widths are the iPhone 16e's (375 pt wide, the smallest review phone), at the
-/// default text size; at larger sizes the name row's words go under each other and the
-/// name wraps between words (NameRowView), and the rail shrinks its line to fit.
+/// default text size, on the 1.0 design's cards: a card is the screen less 16 a side and
+/// 20 inside, 303 pt, and the name row is the name and SHUFFLE on one line. A name too
+/// wide for its room shrinks (never truncates) down to its view's least scale; at the
+/// largest text sizes SHUFFLE goes under the name and the name wraps between words.
 @MainActor struct NameFitTests {
-  /// The name row's own room on a 16e: the Settings card is 375 less its padding (20 a
-  /// side) and the plate's inset (20 a side), 295 pt; SHUFFLE takes about 95 of it.
-  static let rowText: CGFloat = 200
-  /// A word in its menu picker, beside its KEEP (the web's NAME_FIT.word).
-  static let word: CGFloat = 150
+  /// A card's room on a 16e: 375 less 16 a side and 20 inside.
+  static let card: CGFloat = 303
+  /// SHUFFLE (Londrina Solid at 20, 14 and 4 in a side, its 3 pt shadow) and the gap to it.
+  static func shuffle(_ t: NameFitTests) -> CGFloat { t.width("SHUFFLE", Self.display, 20) + 2 * 18 + 3 + 10 }
+  /// The name row's least scale (NameRowView) and the header's (the rail).
+  static let rowScale: CGFloat = 0.6
+  static let headerScale: CGFloat = 0.6
+  /// The header's name beside its two numbers (about 88 pt) and MENU (about 66), its
+  /// plate's insets and gaps (38): upright on a 16e (375 less 12 a side) and on its side
+  /// (WideLayout.railSize, 300).
+  static let headerUpright: CGFloat = 351 - 88 - 66 - 38
+  static let headerWide: CGFloat = 300 - 88 - 66 - 38
+  /// A word in Settings' stepper, less its two 44 pt arrows, lines and padding: the two
+  /// steppers side by side where both words fit in half the card, else one under the
+  /// other across the whole card (NameSteppers), so every word fits whole in that.
+  static let word: CGFloat = 303 - 2 * 44 - 4 * 3 - 8
   /// The handoff card's name (Londrina Solid at 44, wrapping between words): the card's
   /// content on a 16e, 375 less 22 padding and 20 inset a side.
   static let handoffWord: CGFloat = 291
-  /// The rail's name (Londrina Solid at 27, one line): the rail beside its counts on a
-  /// 16e, upright.
-  static let rail: CGFloat = 215
 
   static let display: CTFont = {
     let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
@@ -52,20 +62,29 @@ import Testing
     let names = Names(engine: try Engine(appVersion: "test"))
     let players = try names.all(.player), teams = try names.all(.team)
     #expect(players.count > 4000 && teams.count > 6000)
-    let headline = system(0.4), body = system(0)  // semibold, regular
+    let bold = system(0.4)
     func widest(_ list: [String], _ font: CTFont, _ size: CGFloat) -> (String, CGFloat) {
       list.map { ($0, width($0, font, size)) }.max { $0.1 < $1.1 }!
     }
     let all = players + teams
     let words = Set(all.flatMap { $0.split(separator: " ").map(String.init) })
-    let row = widest(all, headline, 17)
-    let word = widest(Array(words), body, 17)
-    let handoff = widest(Array(words), Self.display, 44)
-    let rail = widest(players + teams, Self.display, 27)
-    print("widest: row \(row), word \(word), handoff word \(handoff), rail \(rail)")
-    #expect(row.1 <= Self.rowText, "\(row)")
+    let row = Self.card - Self.shuffle(self)
+    // the name rows: Settings at 30, the solo card at 26, the share card and the lobby's
+    // You row at 24 (players), a side's team name at 22
+    for (list, size) in [(players, CGFloat(30)), (players, 26), (players, 24), (teams, 22)] {
+      let w = widest(list, Self.display, size)
+      print("widest at \(size): \(w), room \(row), scale \(row / w.1)")
+      #expect(w.1 * Self.rowScale <= row, "\(w) at \(size)")
+    }
+    // Settings' stepper words (Inter bold 15, measured here in the system's bold, about
+    // as wide), whole across the card
+    let word = widest(Array(words), bold, 15)
     #expect(word.1 <= Self.word, "\(word)")
+    let handoff = widest(Array(words), Self.display, 44)
     #expect(handoff.1 <= Self.handoffWord, "\(handoff)")
-    #expect(rail.1 <= Self.rail, "\(rail)")
+    let upright = widest(all, Self.display, 24), wide = widest(all, Self.display, 22)
+    print("header: upright \(upright) in \(Self.headerUpright), wide \(wide) in \(Self.headerWide)")
+    #expect(upright.1 * Self.headerScale <= Self.headerUpright, "\(upright)")
+    #expect(wide.1 * Self.headerScale <= Self.headerWide, "\(wide)")
   }
 }

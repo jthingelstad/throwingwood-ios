@@ -6,13 +6,16 @@ extension EnvironmentValues {
   @Entry var reportViewport: CGSize = .zero
 }
 
+/// SEND FEEDBACK (the practice menu), or FEEDBACK in a match menu's grid (the 1.0
+/// design's word there), filling its cell.
 struct ReportButton: View {
   let model: GameModel
+  var title = "SEND FEEDBACK"
   @Environment(\.reportViewport) private var size
   @Environment(\.displayScale) private var scale
 
   var body: some View {
-    Button("SEND FEEDBACK") {
+    Button {
       model.perform {
         guard let board = model.pitch else { return }
         model.report =
@@ -21,6 +24,8 @@ struct ReportButton: View {
         model.reportReturn = model.screen == .practice ? .practice : .match
         model.screen = .report
       }
+    } label: {
+      Text(title).frame(maxWidth: title == "FEEDBACK" ? .infinity : nil)
     }
   }
 }
@@ -70,16 +75,16 @@ struct ReportCard: View {
   }
 
   var body: some View {
-    ScrollView {
+    Group {
       VStack(alignment: .leading, spacing: 12) {
-        Text("Send feedback").font(displayFont(36))
+        Text("Send feedback").cardTitle()
         if sent {
           Text("Sent, thank you.")
           Button("BACK TO THE PITCH", action: close).buttonStyle(WoodButton())
         } else {
-          Picker("What is it about?", selection: $kind) {
-            ForEach(Kind.allCases) { Text($0.label).tag($0) }
-          }.pickerStyle(.segmented).disabled(sending)
+          Segmented(
+            label: "What is it about?", choices: Kind.allCases.map { ($0, $0.label) }, value: $kind, full: true
+          ).disabled(sending)
             .onChange(of: kind) { status = "" }
           if kind == .throw {
             if !report.candidates.isEmpty {
@@ -95,18 +100,17 @@ struct ReportCard: View {
               lines: 4...8,
               hint: "A problem, an idea, something you liked or did not. Anything.")
           }
-          Text(kind == .throw ? Self.throwNote : Self.feedbackNote).font(.footnote)
+          Text(kind == .throw ? Self.throwNote : Self.feedbackNote).font(bodyFont(14, relativeTo: .footnote))
           if !status.isEmpty { Text(status) }
           HStack {
             Button(sending ? "SENDING…" : "SEND", action: send).disabled(sending || !ready)
             Button("CANCEL", action: close).disabled(sending)
           }.buttonStyle(WoodButton())
         }
-      }.modifier(Plate())
-        // an iPad's: the web's .report, min(560px, 100%), centred; a phone keeps
-        // its whole width, as before
-        .frame(maxWidth: UIDevice.current.userInterfaceIdiom == .pad ? 560 : .infinity)
-        .padding(16).frame(maxWidth: .infinity)
+      }
+      // an iPad's: the web's .report, min(560px, 100%), centred; a phone keeps
+      // its whole width, as before
+      .cardScreen(width: UIDevice.current.userInterfaceIdiom == .pad ? 560 : 760)
     }.scrollDismissesKeyboard(.interactively)
   }
 
@@ -141,7 +145,7 @@ struct ReportCard: View {
   ) -> some View {
     VStack(alignment: .leading) {
       Text(label).font(.subheadline.bold())
-      if let hint { Text(hint).font(.footnote) }
+      if let hint { Text(hint).font(bodyFont(14, relativeTo: .footnote)) }
       TextField("", text: value, axis: .vertical).lineLimit(lines)
         .textFieldStyle(.roundedBorder).accessibilityLabel(label)
         .accessibilityHint(hint ?? "").disabled(sending)

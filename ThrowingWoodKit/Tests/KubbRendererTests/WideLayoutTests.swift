@@ -97,22 +97,28 @@ import Testing
     }
   }
 
-  /// The plate at the meter's top corner moves in beside it, `edge` off its
-  /// body; the other stays where it was.
-  @Test func menuOrTheRailMovesInBesideTheLinearMeter() throws {
+  /// What is at the meter's top corner moves in beside it, `edge` off its body: the
+  /// header (MENU inside it) with the meter at the left, SHOUT online with it at the
+  /// right; the other stays where it was. MENU never leaves the header (the 1.0
+  /// design's header: "MENU never leaves it").
+  @Test func theHeaderOrShoutMovesInBesideTheLinearMeter() throws {
     for p in Self.iPhones + Self.phones {
       let s = p.safe
       let right = try #require(make(.linear, .right, p.size, s).linear)
-      let menu = WideLayout.menu(size: p.size, safe: s, meter: .linear(right))
-      #expect(abs(menu.maxX - (right.cover.minX - WideLayout.edge)) < 0.001, "\(p.name)")
+      let shout = WideLayout.shout(size: p.size, safe: s, meter: .linear(right))
+      #expect(abs(shout.maxX - (right.cover.minX - WideLayout.edge)) < 0.001, "\(p.name)")
       #expect(WideLayout.rail(size: p.size, safe: s, meter: .linear(right)) == WideLayout.rail(size: p.size, safe: s))
       let left = try #require(make(.linear, .left, p.size, s).linear)
       let rail = WideLayout.rail(size: p.size, safe: s, meter: .linear(left))
       #expect(abs(rail.minX - (left.cover.maxX + WideLayout.edge)) < 0.001, "\(p.name)")
-      #expect(WideLayout.menu(size: p.size, safe: s, meter: .linear(left)) == WideLayout.menu(size: p.size, safe: s))
+      #expect(WideLayout.shout(size: p.size, safe: s, meter: .linear(left)) == WideLayout.shout(size: p.size, safe: s))
       // the clock moves nothing
       let clock = make(.clock, .right, p.size, s)
-      #expect(WideLayout.menu(size: p.size, safe: s, meter: clock) == WideLayout.menu(size: p.size, safe: s))
+      #expect(WideLayout.shout(size: p.size, safe: s, meter: clock) == WideLayout.shout(size: p.size, safe: s))
+      for meter in [MeterLayout.linear(right), .linear(left), clock] {
+        let r = WideLayout.rail(size: p.size, safe: s, meter: meter)
+        #expect(r.contains(WideLayout.menu(size: p.size, safe: s, meter: meter)), "\(p.name): MENU inside the header")
+      }
     }
   }
 
@@ -180,9 +186,11 @@ import Testing
             kind: kind, side: side, bounds: CGRect(origin: .zero, size: p.size), safeTop: s.top,
             safeBottom: s.bottom, safeLeft: s.left, safeRight: s.right)
          for online in [false, true] {
+          // MENU is inside the header's plate (checked there), not a frame of its own
+          #expect(
+            WideLayout.rail(size: p.size, safe: s, meter: meter).contains(WideLayout.menu(size: p.size, safe: s, meter: meter)))
           var frames: [(String, CGRect)] = [
             ("rail", WideLayout.rail(size: p.size, safe: s, meter: meter)),
-            ("menu", WideLayout.menu(size: p.size, safe: s, meter: meter)),
             // the room the caption stack may grow into, not only its line
             ("caption", WideLayout.captionRoom(
               size: p.size, safe: s, trayWidth: online ? WideLayout.trayWidth : 0, meter: meter, side: side)),
@@ -191,7 +199,7 @@ import Testing
             ("plans", WideLayout.plan(meter: meter, size: p.size, safe: s, side: side).block),
           ]
           if let m = meter.linear { frames.append(("tab", m.tab)) }
-          // online, SHOUT beside MENU (and with it beside a linear meter at the right)
+          // online, SHOUT top right (beside a linear meter at the right)
           if online { frames.append(("shout", WideLayout.shout(size: p.size, safe: s, meter: meter))) }
           let what = "\(p.name) \(kind) \(side)\(online ? " online" : "")"
           for (name, f) in frames {
@@ -206,7 +214,7 @@ import Testing
           }
           // the caption keeps room for a word: at its narrowest, the SE online
           // beside a linear meter, 112.6 pt (the verdict's flag shrinks to fit)
-          #expect(frames[2].1.width >= 112, "\(what): caption \(frames[2].1.width)")
+          #expect(frames[1].1.width >= 112, "\(what): caption \(frames[1].1.width)")
          }
           let what = "\(p.name) \(kind) \(side)"
           // the ring and its rim are on the screen, clear of the home indicator
@@ -282,9 +290,9 @@ import Testing
       // the stack (wind or a held slider's words over the verdict) is framed to
       // this room, from the caption's line down to the first frame under it
       let room = WideLayout.captionRoom(size: size, safe: s, trayWidth: tray, meter: meter, side: side)
+      #expect(WideLayout.rail(size: size, safe: s, meter: meter).contains(WideLayout.menu(size: size, safe: s, meter: meter)))
       var frames: [(String, CGRect)] = [
         ("rail", WideLayout.rail(size: size, safe: s, meter: meter)),
-        ("menu", WideLayout.menu(size: size, safe: s, meter: meter)),
         ("caption", room),
         ("meter", WideLayout.meterBox(meter, size: size, safe: s, side: side)),
         ("plans", plan.block),

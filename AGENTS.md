@@ -197,12 +197,14 @@ extend that to support iPhone rotated display?"). On its side the match is the
 web's wide arrangement from its layout.js, in `KubbRenderer/WideLayout.swift`:
 keep its numbers the web's, keep every frame inside the safe area (the
 `WideLayoutTests` check both review phones, both meters, both sides), and keep
-the thrower's camera. Linear chosen is the linear meter on its side too
+the thrower's camera. MENU is a word inside the header's plate there too (the 1.0
+design: "MENU never leaves it"); online SHOUT takes the top right. Linear chosen is the
+linear meter on its side too
 (Jamie, 2026-11-19: "Bug: On iPhone if I turn on linear and then rotate it goes
 back to the circular swing."): its box runs from 10 pt under the safe top to
 7 pt over the safe bottom (at most 450), its track at least 260 pt (265.3 on
-the 375 pt phones, 331.3 on the 17 Pro Max), and MENU or the rail moves in
-beside it, 10 pt off its body. The coach line hangs under its tab there. Two hands (Jamie, 2026-11-19: "in landscape the
+the 375 pt phones, 331.3 on the 17 Pro Max), and the header (meter at the left) or
+SHOUT (at the right) moves in beside it, 10 pt off its body. The coach line hangs under its tab there. Two hands (Jamie, 2026-11-19: "in landscape the
 tilt, arc, stand controls should be pushed to the left hand side of the screen
 so the user can control those with the left hand and the throw with the right
 hand"): the plan block sits at the edge away from the meter, 8 pt inside the
@@ -349,13 +351,16 @@ reference: keep its words, order and behaviour.
 - **The device's name** (`PlayerName`, `pitch.name`): the first run rolls one from the
   system's random source and keeps it; a kept text that is not a generated player name
   (a typed name from before, or a default) is replaced on load and never shown.
-- **The name row** (`NameRowModel`, drawn by `NameRowView`): the name and SHUFFLE, then
-  each word's menu picker (`names.choices`) and its KEEP (KEPT when on); SHUFFLE keeps
-  the kept words. VoiceOver: the group "Your name" ("Name on the reel", "Team A's name"),
-  "Your name, first word", "Shuffle your name", "Keep Mighty when shuffling", and a
-  change announced as "Your name: Mighty Maple" (`NameRowTests`). It is in Settings, the
-  solo card's and the lobby's You row, under a lobby side of several as PLAYS AS (the
-  host's row; others read the name) and on the share card.
+- **The name row** (`NameRowModel`, drawn by `NameRowView`; the 1.0 design): the name
+  and SHUFFLE on one line, and no KEEP anywhere (the owner, 2026-11-21: "KEEP goes from
+  the name row"); SHUFFLE rolls a whole new name. Settings alone adds a stepper per word
+  (`NameSteppers`: previous, the word, next, the engine's `names.step`). VoiceOver: the
+  group "Your name" ("Name on the reel", "Team A's name"), "Shuffle your name", each
+  stepper "First word" with "Previous first word", "Your name, first word" (adjustable,
+  the word its value) and "Next first word", and a change announced as "Your name:
+  Mighty Maple" (`NameRowTests`). It is in Settings, the solo card's and the lobby's You
+  row, under a lobby side of several as PLAYS AS (the host's row; others read the name)
+  and on the share card.
 - **What comes from someone else is judged by the engine, whole** (engine 0.13.4,
   `names.check`; never read a snapshot's or a replay's fields to judge its names): a
   pitch's snapshot through `restore`'s strict door (`{ snap, names: "check" }`, in
@@ -400,7 +405,9 @@ world on a grid of light (pieces edged in light, a ribbon and sparks; no film na
 The web (0.7.0) is the reference: keep its numbers and colours (`SceneRenderer.swift`,
 `SceneEffects.swift`, `SceneSkin.swift`). Scene and Surface stay two settings.
 
-- **The Scene row** (Day, Night, Neon, `SceneID.row`) is offered only where the
+- **The Scene row** (shown as Park, Camping and Techno for the ids `day`, `night`,
+  `neon`, the owner's 2026-11-22 names, from the one table `SceneID.shownNames`;
+  `SceneID.row`) is offered only where the
   match's engine takes a scene (0.9 on, `scene` in its OPTION_DEFAULTS): last in the
   solo options (kept as `solo.option.scene`), in the lobby for the host (the room's
   `settings.scene`, as the web writes it), and in the practice menu (kept as
@@ -412,11 +419,45 @@ The web (0.7.0) is the reference: keep its numbers and colours (`SceneRenderer.s
   online entry and Settings from home are the day.
 - **The skin.** Every control takes the scene's colours from `SceneSkin` through
   `SkinStore`; each pair of words and ground is 7:1 or better (`SceneSkinTests`).
-  The day is the app's own colours, unchanged; never move the day's pictures.
+  The day is the 1.0 system's tokens ("The 1.0 design" below, `DesignTests`); the
+  pitch's own day picture (`PitchRenderer`, its five snapshots) does not move.
 - **Reduce Motion** calms the effects: no trail or ribbon, fewer and shorter puffs,
   no hit flash.
 - Review pictures take `--scene night|neon` on the solo and online tools
   (`<phone>-<scene>-<shot>.png`). docs/RENDER.md "Scenes".
+
+## The 1.0 design
+
+The Throwing Wood 1.0 system (the owner's design review, 2026-11-21; its build list is
+the work order) is in `ThrowingWood/Design.swift` and the day's `SceneSkin`, whose
+values are the system's tokens: ink `#16130f`, paper (cards, plain buttons), baton
+(insides), field (a segmented bar's parts not chosen), wood (plate title bands), muted
+(helper text, no greys), marigold the one go colour (one per screen, last in its row;
+grass is never a button) and Team A, violet Team B; a 3 pt ink line, radius 6 on
+controls and 8 on cards, a hard shadow of 3 on controls and 5 on cards, chips 2 pt and
+no shadow. Londrina Solid Black for titles (sentence case), buttons, prompts and flags
+(capitals), never a body sentence; Inter (bundled, `Fonts/OFL-Inter.txt`) for the rest,
+row labels bold 14 capitals with 0.06 em tracking; nothing under 14 pt. A scene swaps
+the colours and nothing else (`SceneSkinTests` 7:1; the day 4.5:1, `DesignTests`).
+
+- **Three buttons**: go (`WoodButton(accent: true)`), plain (`WoodButton()`) and quiet
+  (`QuietButton`: underlined display capitals, a full touch target) for leaving: HOME,
+  RESIGN, NOT NOW. Every pressable thing is 48 pt on a phone, never under 44.
+- **One segmented bar** (`Segmented`) for every two to four way choice; VoiceOver reads
+  a part "Clock, selected, 1 of 2" (`SegmentWords`). Five or more is a plain button
+  that opens its list (`ChoiceList`, the lobby's Kubbs).
+- **Rows** (`FormRow`): the label left, its control right, 48 tall; from the largest
+  three text sizes, or where they do not fit, the control drops under its label.
+- **Cards** (`CardScreen`): one top edge (64 pt under the safe top upright), one dim
+  (ink at 50%), the rows scrolling where the card does not fit and the button row pinned
+  under them.
+- **The header**: "Turn 4 · baton 2 of 6" over the thrower's name in sentence case, the
+  base kubbs standing as two numbers on the team colours, MENU as a word inside the
+  plate, upright and on its side (`HeaderWords`).
+- **Play the computer**: the name row, Scene as three picture tiles from the app's own
+  renderer, Computer, Opening, Raising, Wind and Surface (`SoloOptions.cardRows`); no
+  Kubbs row, the scene decides the set (`SceneID.kubbs`). The names a player sees for
+  the scenes are one table, `SceneID.shownNames`.
 
 ## Sound and haptics
 

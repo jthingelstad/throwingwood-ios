@@ -6,11 +6,12 @@ import Foundation
 // arrangement (src/game/layout.js, its numbers): the clock lower right or lower
 // left by Meter side, the plan (TILT, STAND, ARC, SIDE VIEW) in one block at the
 // other edge with TILT and STAND at the screen's edge, the minimap on the
-// block's inner side (`plan`), the turn rail top left and MENU top right. The
+// block's inner side (`plan`), the header (the turn rail) top left with MENU inside
+// its plate (the 1.0 design: "MENU never leaves it"), and online SHOUT top right. The
 // player's choice of meter holds on a phone on its side: the linear meter goes
 // at its edge with the whole safe height (`LinearMeter.layout`, its track at
 // least `LinearMeter.Tune.wideMinTravel`, which every iPhone on its side has),
-// and the plate at that top corner, MENU or the rail, moves inward beside it.
+// and what is at that top corner, the header or SHOUT, moves inward beside it.
 // The camera is the thrower's view as ever: the projection's wide rule (the
 // 400 x 240 frame fitted whole).
 //
@@ -33,9 +34,11 @@ public enum WideLayout {
   public static let tallFrom: CGFloat = 1.05
   /// pt from the edges, plus the safe area (the web's `margin`).
   public static let margin: CGFloat = 14
-  /// The turn rail's plate at the top left, and MENU's at the top right.
+  /// The header's plate at the top left (the web's rail, 300 x 62), and MENU, the word,
+  /// inside it at its right end (`menuInset` in from the plate's outer edge).
   public static let railSize = CGSize(width: 300, height: 62)
-  public static let menuSize = CGSize(width: 50, height: 50)
+  public static let menuSize = CGSize(width: 72, height: 44)
+  public static let menuInset: CGFloat = 8
   /// pt from the safe area's top and sides to the rail and MENU (the web's 10).
   public static let edge: CGFloat = 10
   /// pt between the plan block and the meter's box, and above its foot (hud.js place).
@@ -96,31 +99,39 @@ public enum WideLayout {
     return r
   }
 
-  /// MENU, top right; beside the linear meter, `edge` off its body, where the
-  /// meter is at the right and would meet it there.
+  /// MENU, inside the header's plate at its right end, wherever the header is.
   public static func menu(size: CGSize, safe: ScreenInsets, meter: MeterLayout? = nil) -> CGRect {
-    var r = CGRect(
-      x: size.width - safe.right - edge - menuSize.width, y: safe.top + edge,
+    let r = rail(size: size, safe: safe, meter: meter)
+    return CGRect(
+      x: r.maxX - menuInset - menuSize.width, y: r.midY - menuSize.height / 2,
       width: menuSize.width, height: menuSize.height)
-    if let m = meter?.linear, m.side == .right, r.intersects(m.cover.insetBy(dx: -edge, dy: -edge)) {
-      r.origin.x = m.cover.minX - edge - menuSize.width
-    }
-    return r
   }
 
-  /// Online, SHOUT beside MENU: the button's plate (the app's WoodButton, about
-  /// 88 x 50 with its shadow) and the gap to MENU. The shouts hang under it.
+  /// The top row's right edge: `edge` in from the safe area, or `edge` off the linear
+  /// meter's body where the meter is at the right and would meet the top row there.
+  static func topRight(size: CGSize, safe: ScreenInsets, meter: MeterLayout?) -> CGFloat {
+    let x = size.width - safe.right - edge
+    let corner = CGRect(x: x - shoutSize.width, y: safe.top + edge, width: shoutSize.width, height: railSize.height)
+    if let m = meter?.linear, m.side == .right, corner.intersects(m.cover.insetBy(dx: -edge, dy: -edge)) {
+      return m.cover.minX - edge
+    }
+    return x
+  }
+
+  /// Online, SHOUT at the top right: the button's plate (the app's WoodButton, about
+  /// 88 x 50 with its shadow) and the gap the captions keep from it. The shouts hang
+  /// under it.
   public static let shoutSize = CGSize(width: 88, height: 50)
   public static let shoutGap: CGFloat = 8
   /// The width the caption gives up for it.
   public static var trayWidth: CGFloat { shoutSize.width + shoutGap }
 
-  /// SHOUT, `shoutGap` left of MENU wherever MENU is (moved in beside a linear
-  /// meter at the right, it goes with it), level with its top.
+  /// SHOUT, top right, level with the header's top (moved in beside a linear meter at
+  /// the right, `edge` off its body).
   public static func shout(size: CGSize, safe: ScreenInsets, meter: MeterLayout? = nil) -> CGRect {
-    let m = menu(size: size, safe: safe, meter: meter)
+    let x = topRight(size: size, safe: safe, meter: meter)
     return CGRect(
-      x: m.minX - shoutGap - shoutSize.width, y: m.minY, width: shoutSize.width, height: shoutSize.height)
+      x: x - shoutSize.width, y: safe.top + edge, width: shoutSize.width, height: shoutSize.height)
   }
 
   /// The caption strip's narrowest: a slider's caption plate, the wind words or
@@ -129,8 +140,8 @@ public enum WideLayout {
   public static let captionMin: CGFloat = 112
 
   /// Where a slider's or STAND's caption, the verdict and SLOW MOTION go: the
-  /// top between the rail and MENU (and any tray beside it), its top level with
-  /// theirs. Where that strip is narrower than `captionMin` (a narrow iPad
+  /// top between the header and the screen's right (and SHOUT there online), its top
+  /// level with theirs. Where that strip is narrower than `captionMin` (a narrow iPad
   /// window, Codex on PR #25: 0.4 pt online at 480 x 400 beside a linear meter)
   /// the captions take a line of their own `edge` under the header row, as
   /// wide as the meter, its tab and coach line, and the plan block leave.
@@ -141,7 +152,7 @@ public enum WideLayout {
     let r = rail(size: size, safe: safe, meter: meter)
     let m = menu(size: size, safe: safe, meter: meter)
     let left = r.maxX + edge
-    let right = m.minX - edge - trayWidth
+    let right = topRight(size: size, safe: safe, meter: meter) - trayWidth
     var strip = CGRect(x: left, y: r.minY, width: max(0, right - left), height: r.height)
     // a linear meter standing on the bottom margin whose top comes up beside
     // MENU (a window a little taller than its 450 pt): the strip stops short of it

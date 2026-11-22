@@ -7,9 +7,23 @@ import simd
 public enum SceneID {
   /// The scenes this build draws besides the day.
   public static let drawn: Set<String> = ["night", "neon"]
-  /// The Scene row, the web's SCENE_ROW: Day, Night, Neon.
+  /// The names a player sees for the scenes, in this one table and nowhere else: the
+  /// Scene row, the solo card's tiles, the lobby and the practice menu all read it. The
+  /// 1.0 design shows Day, Night and Neon as Park, Camping and Techno (the owner,
+  /// 2026-11-22: "Park camping and techno."), the web's SCENE_NAMES. The stored ids
+  /// (`day`, `night`, `neon`) never change, so nothing kept or shared breaks.
+  public static let shownNames: [(id: String, name: String)] = [
+    ("day", "Park"), ("night", "Camping"), ("neon", "Techno"),
+  ]
+  /// The Scene row, the web's SCENE_ROW, from `shownNames`.
   public static let row = MatchOption(
-    id: "scene", label: "Scene", choices: [["day", "Day"], ["night", "Night"], ["neon", "Neon"]])
+    id: "scene", label: "Scene", choices: shownNames.map { [$0.id, $0.name] })
+  /// The kubb set a scene plays with. The solo card has no Kubbs row (the 1.0 design:
+  /// the scene decides the set); until the engine has a scene catalogue, every scene
+  /// keeps the set a match had by default before (the engine's OPTION_DEFAULTS
+  /// `set`, Classic). An unknown scene is the day's.
+  public static let kubbs: [String: String] = ["day": "classic", "night": "classic", "neon": "classic"]
+  public static func kubbs(of id: String?) -> String { kubbs[shown(id)] ?? "classic" }
   /// The scene drawn for `id`: a scene this build knows, else the day. An unknown
   /// id is drawn as the day and passed through untouched wherever it is carried.
   public static func shown(_ id: String?) -> String {

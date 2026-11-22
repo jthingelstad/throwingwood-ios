@@ -16,6 +16,7 @@
 	<key>UIAppFonts</key>
 	<array>
 		<string>LondrinaSolid-Black.ttf</string>
+		<string>Inter.ttf</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict/>

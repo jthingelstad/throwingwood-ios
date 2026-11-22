@@ -24,18 +24,3 @@ extension Color {
 extension UIColor {
   convenience init(_ p: SkinPaint) { self.init(red: p.r, green: p.g, blue: p.b, alpha: p.a) }
 }
-
-extension View {
-  /// The skin's secondary words: the system's on the day, as before; the
-  /// scene's muted colour in a scene (7:1 on its paper).
-  func mutedText() -> some View { modifier(MutedText()) }
-}
-private struct MutedText: ViewModifier {
-  func body(content: Content) -> some View {
-    if skin.isDay {
-      content.foregroundStyle(.secondary)
-    } else {
-      content.foregroundStyle(Color(skin.muted))
-    }
-  }
-}
