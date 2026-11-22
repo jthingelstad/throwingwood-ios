@@ -66,9 +66,9 @@ public struct PitchScene: Decodable, Sendable {
   /// Not for a raise or punishment scene, which keeps its own close look. Never in the
   /// engine's view (optional, so a decoded scene leaves it off).
   var wideView: Bool? = nil
-  /// The side whose view frame the pieces are in (the thrower's, the raiser's): the
-  /// need's side, kept by `PitchSession.adopt` (never in the engine's view). The live
-  /// neighbours turn with the field while it is Team B's (Neighbours.swift).
+  /// The side whose view frame the pieces are in, from `PitchSession.viewFrame(of:)` at
+  /// every adopt (never in the engine's view). The live neighbours turn with the field
+  /// while it is Team B's (Neighbours.swift).
   var frameSide: String? = nil
   /// The neighbours are drawn turned half round: the thrower's view in Team B's frame
   /// (the watcher's wide view is the world frame, Team A's).
