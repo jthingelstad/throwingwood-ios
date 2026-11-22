@@ -178,9 +178,13 @@ SEND FEEDBACK sends a throw report (`kind: "throw"`) or anything else (`kind: "f
 The six option lists come from the pinned engine (Computer among them on 0.9). Store the raw snapshot after
 each action, including a release before the throw has finished playing.
 The solo host uses the pointer dial. The simulator-only card and HUD tests
-use synthetic checkpoints and both iOS 26.2 review phones. Run
-`python3 tools/solo-snapshots.py <simulator-app>` locally. Review changes to
-both the 16e and Pro Max pictures before replacing either set.
+use synthetic checkpoints and both iOS 26.2 review phones. The review set
+(docs/review) is retaken from a Release simulator build one group a command,
+`tools/review-set.sh <group>` (phones, phones-side, ipads, ipads-side, scenes,
+scenes-side, scenes-ipad, ax3, meters, share, reel, raises, tournament; docs/RENDER.md
+"Retaking the review set"), and the App Store pictures (docs/store) with
+`tools/store-snapshots.sh`. Look at every picture a retake changes, on both the 16e
+and the Pro Max, before committing it.
 
 ## The meter
 
@@ -309,7 +313,8 @@ reducer, and the web's share `g` byte for byte but for `client: "ios"`
 sent as the API's `POST share`. Nothing is sent before SHARE AND MAKE THE REEL, and
 nothing about the device beyond `client`. A sealed pitch shows its winner card from its
 kept replay. Pictures: `python3 tools/share-snapshots.py <simulator-app>`, upright,
-`--landscape left` and `--ipad` (docs/ONLINE.md "Sharing a match against the computer").
+`--landscape left` and `--ipad`, kept in docs/review/share (`tools/review-set.sh share`;
+docs/ONLINE.md "Sharing a match against the computer").
 Never send a real share.
 
 The Kit's tests run the real client and controller against `FakePitch`, an in-process
@@ -484,7 +489,8 @@ black world on a grid of light, no film names), Minnesota, Tournament and Black 
 - **Reduce Motion** calms the effects: no trail or ribbon, fewer and shorter puffs,
   no hit flash, rings that do not grow, no falling snow.
 - Review pictures take `--scene <id>` on the solo and online tools
-  (`<phone>-<scene>-<shot>.png`). docs/RENDER.md "Scenes".
+  (`<phone>-<scene>-<shot>.png`; the `scenes`, `scenes-side`, `scenes-ipad` and
+  `tournament` groups of `tools/review-set.sh`). docs/RENDER.md "Scenes".
 - **The app icon** is each scene's own king, drawn by the renderer (`AppIconArt`, the
   owner's direction of 2026-11-22): Park the primary with dark and tinted looks, the other six
   scenes alternates picked in Settings' App icon row (three a row), each on its scene's own ground and kubb set. Never edit the PNGs: change
