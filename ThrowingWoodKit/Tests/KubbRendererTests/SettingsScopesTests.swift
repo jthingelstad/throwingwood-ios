@@ -4,7 +4,7 @@ import Testing
 @testable import KubbRenderer
 
 /// Every setting lives where its scope says (the owner's sheet, 2026-11-20): the
-/// device's (name, sound, haptics, meter and its side) together in Settings,
+/// device's (name, sound, haptics, meter and its side, the app icon) together in Settings,
 /// reached from home and from inside a match; the game's on the match options (the
 /// solo options, the practice menu, the lobby) and nowhere else.
 @MainActor struct SettingsScopesTests {
@@ -37,7 +37,7 @@ import Testing
   /// name is the device's too, picked in its name row in Settings and in the You row of a
   /// set-up screen (the solo card, the lobby), as on the web; nothing types it.
   @Test func theDevicesSettingsAreTogetherInSettings() throws {
-    let controls = ["FeedbackSettings(", "MeterSettings("]
+    let controls = ["FeedbackSettings(", "MeterSettings(", "AppIconSettings("]
     let files = try FileManager.default.contentsOfDirectory(atPath: app.path).filter { $0.hasSuffix(".swift") }
     for name in files where name != "Settings.swift" {
       let text = try file(name)

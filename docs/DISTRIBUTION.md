@@ -16,7 +16,7 @@ submit it to Beta App Review for the Beta group whenever Jamie asks for one.
 - **Signing.** `Config/Signing.local.xcconfig` holds the team and
   `Config/AppStoreConnect.local` the API key's ids (both ignored by git; see
   `scripts/testflight.sh`).
-- **App icon.** The build includes the temporary king icon. The final icon is Jamie's call.
+- **App icon.** The final icon is Jamie's call. His direction (2026-11-22): the top third of a king in profile, the crown framed, with an alternate per scene. It is built (the Park king as the primary with dark and tinted looks, Camping and Techno as alternates picked in Settings, drawn by the game's renderer: docs/RENDER.md "The app icon") and awaits his look before it goes in an upload.
 
 ## Internal testers
 

@@ -19,6 +19,8 @@ MODES = {
     "raiseauto": "raise-many", "raiserest": "raise-many", "raisedrag": "raise",
     "raiserefused": "raise-refused", "punish": "punish", "computer": "computer",
     "winner": "over", "sheet": "over",
+    # Settings opened from a match's menu, in the match's scene (--scene)
+    "matchsettings": "aim",
 }
 # The match with the linear meter (and the nudge) beside the plan's sliders:
 # name: (MATCH_REVIEW mode, fixture, meter, side). The meter is a launch
