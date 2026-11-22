@@ -267,8 +267,9 @@ import UIKit
                 if pitch.raiseWatch == .engine { break }
                 try reviewSwing(back: nil)
               }
-              let at = Double(ProcessInfo.processInfo.environment["STOOD_AT"] ?? "") ?? 0.6
-              for _ in 0..<Int((at * 60).rounded()) where pitch.raiseWatch == .engine { try pitch.tick(1.0 / 60) }
+              // STOOD_AT: how far through the whole show, 0 to 1
+              let at = Double(ProcessInfo.processInfo.environment["STOOD_AT"] ?? "") ?? 0.5
+              for _ in 0..<600 where (pitch.engineRaiseProgress ?? 1) < at { try pitch.tick(1.0 / 60) }
             }
             if mode == "arc" || mode == "tilt" {
               // The plate open, a finger held on its slider three quarters along: the

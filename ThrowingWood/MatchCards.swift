@@ -604,16 +604,19 @@ struct MatchScreen: View {
     return HStack(spacing: 10) {
       VStack(alignment: .leading, spacing: 0) {
         Text(
-          HeaderWords.line(
-            turn: n.turn ?? 1, n: n.setup?.n, of: n.setup?.of, projectile: n.setup?.projectile, watching: watching,
-            at: n.kind == "throw" ? pitch.railAt : nil)
+          pitch.engineRaising.map { HeaderWords.engineRaise(turn: n.turn ?? 1, k: $0.k, of: $0.of, placed: $0.placed) }
+            ?? HeaderWords.line(
+              turn: n.turn ?? 1, n: n.setup?.n, of: n.setup?.of, projectile: n.setup?.projectile, watching: watching,
+              at: n.kind == "throw" ? pitch.railAt : nil)
         )
         // upright the line may take two lines at the largest text sizes; on its side
         // the header's plate has a fixed height
         .labelStyle().foregroundStyle(Color.woodMuted).lineLimit(fills ? 1 : 3).minimumScaleFactor(0.7)
         Text(
           (online && !playing && !pitch.raiseShowing && model.online?.turnLabel.isEmpty == false)
-            ? model.online!.turnLabel : (n.setup?.thrower?.name ?? n.team ?? "Match")
+            ? model.online!.turnLabel
+            : (pitch.engineRaising.flatMap { r in r.side.flatMap { n.teams?[$0] } }
+              ?? n.setup?.thrower?.name ?? n.team ?? "Match")
         )
         .font(displayFont(nameSize, relativeTo: .title2)).foregroundStyle(Color.woodInk)
         .lineLimit(1).minimumScaleFactor(0.6)  // the widest name fits (NameFitTests)
@@ -700,7 +703,10 @@ struct MatchScreen: View {
       } else if let wind = pitch.windText, n.kind == "throw" {
         Text(wind).font(bodyFont(14, .bold, relativeTo: .footnote)).modifier(Plate(inset: 5))
       }
-      if let cut, let result = model.result, n.kind == "throw" { Verdict(result: result, cut: cut, row: row) }
+      // the engine's own raise watched: the last throw's verdict waits (its time does not run)
+      if let cut, let result = model.result, n.kind == "throw", pitch.raiseWatch != .engine {
+        Verdict(result: result, cut: cut, row: row)
+      }
     }
   }
 
