@@ -95,7 +95,7 @@ struct TrayView: View {
 
   private func title(_ p: TrayPlate) -> String {
     switch p {
-    case .arc: PlanScale.arcLabel(loft: pitch.arcDegrees)
+    case .arc: pitch.arcTitle
     case .tilt: PlanScale.sideLabel(pitch.sideStep ?? 0, kubb: pitch.throwsKubb)
     case .stand: "STAND"
     }
@@ -109,7 +109,7 @@ struct TrayView: View {
   }
   private func spokenValue(_ p: TrayPlate) -> String {
     switch p {
-    case .arc: "\(pitch.arcDegrees ?? 0) degrees"
+    case .arc: PlanScale.arcValueText(loft: pitch.loft, drive: pitch.isDrive, name: "")
     case .tilt: PlanScale.sideAmountText(pitch.sideStep ?? 0, kubb: pitch.throwsKubb)
     case .stand: pitch.standValueText
     }
@@ -122,6 +122,19 @@ struct TrayView: View {
     let ink = Color.woodInk
     let w = s.width, h = s.height
     switch p {
+    case .arc where pitch.isDrive:
+      // a drive (engine 0.16; the web's platePicture): from the hand, high at the left,
+      // down into the kubb's face at the right, falling from the start when the loft is
+      // under 0; nothing assumes the arc rises first. The web's 70 by 32 picture, scaled.
+      let sx = w / 70, sy = h / 32
+      let loft = min(7, max(-15, pitch.loft ?? 0))
+      var path = Path()
+      path.move(to: CGPoint(x: 6 * sx, y: 10 * sy))
+      path.addQuadCurve(to: CGPoint(x: 60 * sx, y: 23 * sy), control: CGPoint(x: 35 * sx, y: (10 - loft * 0.9) * sy))
+      ctx.stroke(path, with: .color(ink), style: StrokeStyle(lineWidth: 3, lineCap: .round, dash: [5, 4]))
+      let kubb = Path(roundedRect: CGRect(x: 60 * sx, y: 16 * sy, width: 6 * sx, height: 14 * sy), cornerRadius: 1)
+      ctx.fill(kubb, with: .color(Color(skin.knob)))
+      ctx.stroke(kubb, with: .color(ink), lineWidth: 2)
     case .arc:
       let loft = Double(pitch.arcDegrees ?? 30)
       let k = min(1, max(0.2, loft / 45))
@@ -189,8 +202,11 @@ struct TrayView: View {
     switch p {
     case .arc:
       ArcSlider(
-        place: pitch.arcPlace, loft: pitch.arcDegrees,
-        held: pitch.held == .arc ? pitch.heldFraction : nil, marks: pitch.arcMarks(run:),
+        place: pitch.arcPlace, held: pitch.held == .arc ? pitch.heldFraction : nil,
+        title: pitch.arcTitle,
+        valueText: PlanScale.arcValueText(loft: pitch.loft, drive: pitch.isDrive, name: "Arc "),
+        hint: PlanScale.arcHint(kubb: pitch.throwsKubb), drive: pitch.driveFraction,
+        marks: pitch.arcMarks(run:),
         enabled: enabled,
         slide: { fr, phase in model.perform { pitch.slide(.arc, to: fr, phase: phase) } },
         step: { s in model.perform { try pitch.stepPlan(.arc, by: s) } },
