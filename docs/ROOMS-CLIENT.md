@@ -52,7 +52,7 @@ protocol's examples):
 - `join {member, role, me, v?, n?, seq?, create?}`: `role` is `player` or `observer`;
   `v` the document version held (the pitch leaves the document out when it is the
   same); `n` and `seq` the match and last action held, own actions in flight not
-  counted. `me` is the presence: name, level and `room.announce`'s engines
+  counted. `me` is the presence: name and `room.announce`'s engines (no level)
   (docs/ONLINE.md "Engines in one room").
 - `me {me}`; `set {id, base, doc}`, compare-and-set on `base`; `start {id, base, doc,
   n, h, snap, meta}`; `act {id, n, seq, a, h, snap, over?, c: "ios"}`; `cast {d, all?}`;

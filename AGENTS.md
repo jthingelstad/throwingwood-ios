@@ -328,12 +328,12 @@ per-game choice: the options card's Computer level and the lobby's Computer, the
 match's `computer` option (kubb-engine docs/SESSION.md `newMatch`), kept per game in
 `solo.option.computer` (read from the older `solo.option.level` once).
 
-The level the player last set stays kept (`ThrowLevel`, `pitch.throwLevel`), and is
-still passed where the engine takes one (the solo player's entry, `setLevel` for
-practice and a throw, the pitch member's `level`): 0.13 takes and keeps those fields
-and changes nothing with them, and a match on a carried engine before 0.13 (a kept
-0.9 match, a pitch with a peer on 0.9) plans a person's throw at it as it always did.
-Never drop the field from a stored setting, a kept match or a shared document.
+With only the newest engine carried (docs/ENGINES.md) nothing reads a person's level,
+so the app keeps none and sends none (2026-11-21): no `pitch.throwLevel`, no level on
+the solo player's entry, no `setLevel` for practice or a throw, no `level` in the pitch
+member's presence. The engine and the pitch server need none: a lineup takes "club"
+for a member that names none (pitch/lobby.lua `matchOptions`), and the pitch server's
+`me` is free-form. A stored `pitch.throwLevel` from an earlier build is left unread.
 
 ## Where a setting lives
 

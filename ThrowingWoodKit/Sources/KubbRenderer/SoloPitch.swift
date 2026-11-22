@@ -24,18 +24,14 @@ extension PitchSession {
           + (look.map { #","scene":"\#($0)""# } ?? "") + "}"))
   }
 
-  /// `level` is the player's kept level (ThrowLevel: 0.13 keeps it and throws every
-  /// person on one meter; an older carried engine throws by it); `selections["computer"]`
-  /// is the computer's, the set-up's per-game choice (and the player's when no
-  /// level is given). On 0.9 it is the match's `computer` option; on an older
-  /// engine it goes on the computer's player entry, as it always did.
-  public func startSolo(
-    name: String, level: String? = nil, selections: [String: String], save: MatchSave?
-  ) throws {
+  /// `selections["computer"]` is the computer's level, the set-up's per-game choice: the
+  /// match's `computer` option (on an engine before 0.9 it would go on the computer's
+  /// player entry). The person's entry names no level: from engine 0.13 every person
+  /// throws on one meter (kubb-engine docs/notes/throw.md "The person's meter").
+  public func startSolo(name: String, selections: [String: String], save: MatchSave?) throws {
     let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
     let player = trimmed.isEmpty ? "You" : String(trimmed.prefix(options.nameLimit))
     let computer = selections["computer"] ?? options.defaults["computer"]!
-    let level = level ?? computer
     let time = Calendar(identifier: .gregorian).dateComponents(in: .current, from: Date())
     var setup: [String: Any] = selections.filter { options.rows.map(\.id).contains($0.key) }
     var cpu: [String: Any] = ["name": "Computer"]
@@ -46,7 +42,7 @@ extension PitchSession {
     setup.merge([
       "mode": "match", "cpu": "B", "first": "A", "seed": Int.random(in: 0..<2_147_483_648),
       "teams": [
-        "A": ["name": player, "players": [["name": player, "level": level]]],
+        "A": ["name": player, "players": [["name": player]]],
         "B": ["name": "Computer", "players": [cpu]],
       ],
       "start": [
@@ -159,17 +155,6 @@ extension PitchSession {
 
   public func beginDial() {
     plan = false
-    revision += 1
-  }
-
-  public func useLevel(_ level: String) throws {
-    guard options.levels.contains(level) else { return }
-    levelOverride = level
-    // practice (no need) sets its level for good; a match, the throw in hand
-    if !playing, need == nil || (need?.kind == "throw" && need?.cpu == false) {
-      let args = try JSONEncoder().encode(["level": level])
-      try replan("setLevel", String(decoding: args, as: UTF8.self))
-    }
     revision += 1
   }
 

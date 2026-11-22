@@ -88,7 +88,6 @@ public struct PitchMember: Identifiable, Equatable {
   public var note = ""
   public private(set) var shouts: [String] = []
   public private(set) var name: String
-  public private(set) var level: String
   public var changed: (() -> Void)?
   public static let words = ["NICE!", "OOH!", "TOK!", "UNLUCKY"]
   private let create: Bool
@@ -158,7 +157,7 @@ public struct PitchMember: Identifiable, Equatable {
   }
 
   public init(
-    url: URL, link: PitchLink, create: Bool, name: String, level: String,
+    url: URL, link: PitchLink, create: Bool, name: String,
     appVersion: String, store: any MemberIDStore = DeviceMemberIDStore(),
     observerStore: any MemberIDStore = ObserverMemberIDStore.shared,
     timing: PitchClient.Timing = .init(), defaults: UserDefaults = .standard,
@@ -176,7 +175,6 @@ public struct PitchMember: Identifiable, Equatable {
     let clean = try JSONNode.parse(
       engine.call("room.cleanName", json: JS.object([("name", .string(name))]).ascii))
     self.name = clean["value"]?.string ?? ""
-    self.level = level
     let client = try PitchClient(
       url: url, pitch: link.code, appVersion: appVersion,
       // a watcher joins with an id of its own, never the player's: a member's role is
@@ -184,7 +182,7 @@ public struct PitchMember: Identifiable, Equatable {
       store: store.joining(observing: link.observe, observer: observerStore),
       observing: link.observe, create: create, timing: timing)
     controller = try PitchController(pitch: client, engines: engines)
-    try controller.setMe(name: self.name, level: level)
+    try controller.setMe(name: self.name)
     board.playerSide = { [weak controller] in controller?.playingSide }
     board.acceptsInput = false
     board.runsComputer = false
@@ -405,16 +403,14 @@ public struct PitchMember: Identifiable, Equatable {
     changed?()
   }
 
-  public func profile(name: String, level: String) throws {
+  /// The device's name (Settings), as the room knows it. A person has no level to send
+  /// (engine 0.13: the pitch takes "club" for a member that names none, and changes
+  /// nothing with it).
+  public func profile(name: String) throws {
     let clean = try controller.roomCall("cleanName", [("name", .string(name))]).string ?? ""
     if clean != self.name {
       pitch.setMe([("name", .string(clean))])
       self.name = clean
-    }
-    if level != self.level {
-      pitch.setMe([("level", .string(level))])
-      self.level = level
-      if board.acceptsInput && board.need?.cpu == false { try board.useLevel(level) }
     }
   }
   public func team(_ side: String?) async throws { try await controller.joinTeam(side) }
@@ -532,7 +528,6 @@ public struct PitchMember: Identifiable, Equatable {
     board.acceptsInput = caughtUp && controller.mayAct
     if wasActing && !board.acceptsInput {
       board.resetContact()
-      board.levelOverride = nil
     }
     let control = current ? controller.control : JSONText(#"{"sides":[],"cpu":false}"#)
     if board.need != nil, control != .null, control != displayControl {
@@ -548,7 +543,6 @@ public struct PitchMember: Identifiable, Equatable {
     // with no side in the match this board watches (the watcher's view and free camera)
     board.watching = stage == .match && (observing || controller.playingSide == nil)
     if current { turnLabel = controller.actorDescription }
-    if board.acceptsInput && !wasActing && board.need?.cpu == false { try board.useLevel(level) }
     // Someone else's turn: its card becomes a banner, so the dial shows under it.
     if caughtUp, !controller.mayAct, !board.acceptsInput, let c = board.handoff {
       watchHandoff = HandoffBanner(handoff: c, until: Self.now() + HandoffBanner.ms)

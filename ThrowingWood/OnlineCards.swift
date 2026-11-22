@@ -219,11 +219,10 @@ struct LobbyCard: View {
       if !m.connected { Text("Away").font(.caption) }
     }
   }
-  /// The device's name (Settings) and its kept level, as the room knows them: the
-  /// level is still sent for a match on a carried engine before 0.13 (ThrowLevel).
+  /// The device's name (Settings), as the room knows it.
   private func profile() {
     model.commitName()  // a name still in its field goes first
-    model.perform { try online.profile(name: model.name, level: model.throwLevel) }
+    model.perform { try online.profile(name: model.name) }
   }
 }
 

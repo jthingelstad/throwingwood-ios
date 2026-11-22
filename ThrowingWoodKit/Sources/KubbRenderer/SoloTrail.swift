@@ -47,8 +47,7 @@ public struct FinishedSoloMatch {
   public let winner: String
   /// Throw actions in the log.
   public let throwCount: Int
-  /// The level the match was set up with, and the name typed for the player's side.
-  public let level: String?
+  /// The name typed for the player's side.
   public let name: String?
   /// The first snapshot the log starts from, exactly as the engine wrote it.
   public let start: String
@@ -65,7 +64,7 @@ public struct FinishedSoloMatch {
     JS.object([
       ("v", .int(Self.version)), ("engine", .string(engine)), ("complete", .bool(complete)),
       ("winner", .string(winner)), ("throws", .int(throwCount)),
-      ("level", level.map(JS.string) ?? .null), ("name", name.map(JS.string) ?? .null),
+      ("name", name.map(JS.string) ?? .null),
       ("start", .string(start)),
       ("log", .array(entries.map { JS.object([("a", .raw($0.action)), ("h", .string($0.hash))]) })),
     ]).json
@@ -82,7 +81,6 @@ public struct FinishedSoloMatch {
     }
     let opts = try? JSONNode.parse(trail.start)["opts"]
     name = opts?["teams"]?["A"]?["name"]?.string
-    level = opts?["teams"]?["A"]?["players"]?.items.first?["level"]?.string
   }
 
   init?(json text: String) {
@@ -100,7 +98,6 @@ public struct FinishedSoloMatch {
     self.complete = complete
     self.winner = winner
     self.throwCount = throwCount
-    level = d["level"]?.string
     name = d["name"]?.string
     self.start = start
     self.entries = entries

@@ -96,7 +96,7 @@ import Testing
     let match = try #require(save.finishedMatch())
     #expect(match.complete && match.winner == winner)
     #expect(match.engine == app.engine.engineVersion)
-    #expect(match.name == "Ada" && match.level == "club")
+    #expect(match.name == "Ada")
     #expect(match.log.count == match.entries.count && match.throwCount > 10)
     #expect(match.start == (try JSONNode.parse(match.replay)["start"]?.string))
     // every kubb throw keeps its launch's `scatter` (engine 0.11 on): the trail holds
@@ -332,7 +332,7 @@ import Testing
     try first.resign()
     let one = try #require(save.finishedMatch())
     #expect(one.complete && one.winner == "B" && one.throwCount == 0 && one.entries.count == 1)
-    #expect(one.name == "Ada" && one.level == "pro")
+    #expect(one.name == "Ada")
     // the resignation replays too
     let replay = try Engine(appVersion: "test")
     _ = try replay.call("replayLoad", json: one.replay.text)

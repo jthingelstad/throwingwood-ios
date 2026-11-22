@@ -62,7 +62,7 @@ import Testing
   /// A match against the computer started with no name is "You", as before.
   @Test func noNameIsYouAgainstTheComputer() throws {
     let app = try PitchSession(appVersion: "test")
-    try app.startSolo(name: "", level: "club", selections: app.options.defaults, save: nil)
+    try app.startSolo(name: "", selections: app.options.defaults, save: nil)
     #expect(try app.engine.call("snapshot").contains(#""name":"You""#))
   }
 

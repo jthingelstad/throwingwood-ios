@@ -259,9 +259,11 @@ import KubbEngine
   private func call(_ name: String, _ args: JS? = nil) throws -> JSONNode {
     try JSONNode.parse(engine.call(name, json: args?.ascii ?? ""))
   }
-  public func setMe(name: String, level: String) throws {
+  /// This member's presence: its name. No level: a person throws on one meter (engine
+  /// 0.13), and the engine's lineup takes "club" for a member that names none.
+  public func setMe(name: String) throws {
     let clean = try roomCall("cleanName", [("name", .string(name))])
-    pitch.setMe([("name", .raw(clean.raw)), ("level", .string(level))])
+    pitch.setMe([("name", .raw(clean.raw))])
     try announce()
   }
 
