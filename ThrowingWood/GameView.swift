@@ -77,7 +77,8 @@ struct GameView: View {
           PitchBoard(
             pitch: pitch, model: model, active: live && phase == .active && model.error == nil,
             revision: model.revision + model.onlineRevision, screen: model.screen,
-            meter: model.meter.kind, side: model.meter.side, look: model.shownScene
+            meter: model.meter.kind, side: model.meter.side, look: model.shownScene,
+            headerBottom: model.headerBottom
           )
           .id(ObjectIdentifier(pitch)).ignoresSafeArea().allowsHitTesting(live)
           if let version = model.online?.versionCard {
@@ -410,8 +411,13 @@ private struct PitchBoard: UIViewRepresentable {
   let meter: MeterKind, side: MeterSide
   /// The scene on the screen: a change draws the pitch again.
   let look: String
+  /// The header's foot (upright): the minimap hangs under it, so a change draws again.
+  let headerBottom: CGFloat?
   func makeUIView(context: Context) -> BoardView { BoardView(pitch: pitch, model: model) }
   func updateUIView(_ view: BoardView, context: Context) {
+    // in a match the drawn controls are read through MatchScreen's readers, in order
+    view.isAccessibilityElement = screen != .match
+    view.accessibilityLabel = screen == .match ? nil : BoardView.practiceWords
     view.setActive(active)
     view.wake()
     view.setNeedsDisplay()

@@ -41,7 +41,7 @@ struct SliderPlate<Body: View>: View {
         .offset(x: TW.controlShadow, y: TW.controlShadow))
   }
   @ViewBuilder private var band: some View {
-    let words = Text(title).font(displayFont(17, relativeTo: .headline)).lineLimit(1).minimumScaleFactor(0.6)
+    let words = Text(title).font(displayFont(17, relativeTo: .headline)).lineLimit(1).minimumScaleFactor(0.4)
       .padding(.top, TW.line).padding(.horizontal, 4)
       .frame(maxWidth: .infinity, minHeight: Tray.band + TW.line).background(Color.woodHeader)
     if let close {

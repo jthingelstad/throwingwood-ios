@@ -32,6 +32,8 @@ struct TrayView: View {
       }
       if let p = pitch.openPlate, let f = open {
         opened(p, f)
+          // VoiceOver cannot tap outside: the open plate closes from its own actions
+          .accessibilityAction(named: "Close") { tap(nil) }
           .frame(width: f.width, height: f.height, alignment: .bottom)
           .offset(x: f.minX, y: f.minY)
           .accessibilitySortPriority(4)
@@ -52,7 +54,7 @@ struct TrayView: View {
       tap(p)
     } label: {
       VStack(spacing: 0) {
-        Text(title(p)).font(displayFont(17, relativeTo: .headline)).lineLimit(1).minimumScaleFactor(0.6)
+        Text(title(p)).font(displayFont(17, relativeTo: .headline)).lineLimit(1).minimumScaleFactor(0.4)
           .foregroundStyle(selected ? Color.woodPaper : Color.woodInk)
           .padding(.top, TW.line).padding(.horizontal, 4)
           .frame(maxWidth: .infinity, minHeight: Tray.band + TW.line)
@@ -74,7 +76,6 @@ struct TrayView: View {
     .accessibilityShowsLargeContentViewer {
       Text(title(p))
     }
-    .accessibilityElement(children: .ignore)
     .accessibilityLabel(spokenName(p))
     .accessibilityValue(spokenValue(p))
     .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
