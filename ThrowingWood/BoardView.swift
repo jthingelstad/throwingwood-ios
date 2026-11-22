@@ -469,7 +469,12 @@ import UIKit
           case "stand": pitch.standHeld
           case "raisemany", "raiseauto", "raiserest", "raisedrag", "raiserefused": pitch.need?.kind == "raise"
           case "flight": pitch.playing
-          case "handoff": pitch.handoff != nil
+          case "handoff", "kidhandoff": pitch.handoff != nil
+          case "kidaim": model.screen == .match && pitch.canAim
+          case "kidplan": pitch.plan
+          case "kidstand": pitch.standHeld
+          case "ring": reviewReady && !pitch.ringAges.isEmpty
+          case "spin": reviewReady && pitch.spinsFast
           case "raise", "punish": pitch.need?.kind == mode
           case "punishwhy": pitch.need?.kind == "punish" && pitch.placement?.ok == false
           case "computer": reviewReady && pitch.need?.cpu == true

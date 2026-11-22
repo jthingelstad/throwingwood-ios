@@ -158,12 +158,17 @@ enum Mono {
 extension Painter {
   // ---------- scenery helpers ----------
 
+  /// m: scenery nearer the eye than this is not drawn.
+  static let sceneryNear = 2.6
+
   /// Draws `body` standing on the ground at `p`, facing the eye, in metres with y up
   /// (one unit a metre at that depth), turned with the camera's roll. `u` is points per
   /// metre there, for line widths.
   func billboard(_ p: V3, _ body: (_ u: Double) -> Void) {
     let v = projection.view(p)
-    guard v.z > 0.4 else { return }
+    // scenery the camera has come right up to (the impact camera's close shots) is left
+    // out rather than filling the screen
+    guard v.z > Self.sceneryNear else { return }
     let up = projection.view(p + V3(0, 0, 1))
     guard up.z > 0.05 else { return }
     let base = projection.screen(v)
@@ -533,7 +538,8 @@ extension Painter {
     let top = 1.25
     let a = posts[0], b = posts[posts.count - 1], poles = posts.count
     let w = max(1, 0.04 * unit(max(0.5, dot((a + b) / 2 - projection.c.eye, projection.c.forward))))
-    for p in posts {
+    func near(_ q: V3) -> Bool { dot(q - projection.c.eye, projection.c.forward) < Self.sceneryNear }
+    for p in posts where !near(p) {
       stroke(line(p, p + V3(0, 0, top + 0.1)), ink, min(5, w * 1.2) + 2)
       stroke(line(p, p + V3(0, 0, top + 0.1)), 0xb98a52, min(5, w * 1.2))
     }
@@ -549,12 +555,25 @@ extension Painter {
         let t0 = (Double(k) + 0.15) / Double(n), t1 = (Double(k) + 0.85) / Double(n)
         let q0 = rope(t0), q1 = rope(t1)
         let tip = (q0 + q1) / 2 - V3(0, 0, 0.32)
+        if near(tip) {
+          flag += 1
+          continue
+        }
         let shape = poly([q0, q1, tip])
         fill(shape, Tournament.flags[flag % Tournament.flags.count])
         stroke(shape, ink, 1)
         flag += 1
       }
-      stroke(path(pts.compactMap(projection.project), closed: false), ink, 1)
+      var run: [CGPoint] = []
+      for q in pts {
+        if near(q) {
+          if run.count > 1 { stroke(path(run, closed: false), ink, 1) }
+          run = []
+        } else if let s = projection.project(q) {
+          run.append(s)
+        }
+      }
+      if run.count > 1 { stroke(path(run, closed: false), ink, 1) }
     }
   }
 
