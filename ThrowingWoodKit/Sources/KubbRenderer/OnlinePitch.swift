@@ -102,6 +102,9 @@ public struct PitchMember: Identifiable, Equatable {
   private var ended = false
   private var timeout: Task<Void, Never>?
   private var shownVersionKey: String?
+  /// The match (its `n`) whose snapshot the board refused through the strict door: shown
+  /// as "Cannot show this match" until another match or the lobby.
+  private var boardRefused: Int?
   private var shoutTimes: [Int] = []
   /// Actions to show, each with when it may play (this device's ms): a peer's throw waits
   /// for its aim to play out first (`AimBuffer.holdFor`).
@@ -167,7 +170,7 @@ public struct PitchMember: Identifiable, Equatable {
     appVersion: String, store: any MemberIDStore = DeviceMemberIDStore(),
     observerStore: any MemberIDStore = ObserverMemberIDStore.shared,
     timing: PitchClient.Timing = .init(), defaults: UserDefaults = .standard,
-    api: PitchAPI? = nil
+    api: PitchAPI? = nil, factory: PitchClient.Factory? = nil
   ) throws {
     self.link = link
     self.api = api
@@ -185,7 +188,8 @@ public struct PitchMember: Identifiable, Equatable {
       // a watcher joins with an id of its own, never the player's: a member's role is
       // fixed while it is on the pitch
       store: store.joining(observing: link.observe, observer: observerStore),
-      observing: link.observe, create: create, timing: timing)
+      observing: link.observe, create: create, timing: timing,
+      factory: factory ?? { WebSocketTransport(request: $0) })
     controller = try PitchController(pitch: client, engines: engines)
     try controller.setMe(name: self.name)
     board.playerSide = { [weak controller] in controller?.playingSide }
@@ -318,6 +322,13 @@ public struct PitchMember: Identifiable, Equatable {
       stage = .namesRefused
       return
     }
+    // the board refused this match's snapshot itself (a watch-only match on an engine
+    // this build lacks, which the controller hands over unchecked): the refusal stays
+    // with that match through every refresh, until another match or the lobby
+    if let m = controller.match, doc["started"]?.bool == true, let n = boardRefused, n == m["n"]?.int {
+      stage = .namesRefused
+      return
+    }
     if let m = controller.match, doc["started"]?.bool == true {
       stage = .match
       if controller.state == .versionMismatch {
@@ -334,6 +345,7 @@ public struct PitchMember: Identifiable, Equatable {
       return
     }
     stage = .lobby
+    boardRefused = nil
     queue.removeAll()
     displayedMatch = nil
     let l = try controller.pitchCall("lobbyOf", [("doc", .raw(pitch.document))])
@@ -545,9 +557,11 @@ public struct PitchMember: Identifiable, Equatable {
     // board changes when its names are not all the game's (a spectator's try of a match
     // on an engine this build lacks comes here unchecked by the controller)
     guard let view: ViewOutput = try? board.read("restore", Names.checkedRestore(snap)) else {
+      boardRefused = m["n"]?.int ?? -1
       stage = .namesRefused
       return
     }
+    boardRefused = nil
     board.resetPresentation()
     board.need = view.need
     try board.adopt(view)

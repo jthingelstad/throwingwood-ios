@@ -121,7 +121,9 @@ carry submitted text).
   refusal is `State.namesRefused` and `Stage.namesRefused`: "Cannot show this match" and
   "This match has a name the game did not make, so it cannot be shown.", with HOME; the
   match is never shown or played. The board adopts a snapshot through the strict door too
-  (`OnlinePitch.restore`).
+  (`OnlinePitch.restore`): a watch-only match on an engine this build lacks, which the
+  controller hands over unchecked, is refused there, and the refusal belongs to that
+  match (its `n`) through every refresh until another match or the lobby.
 - **A shared match opened by its code** (a sealed pitch): its kept replay whole,
   `names.check({ replay })`, and its last snapshot through the strict door
   (`PitchSession.restoreFromOutside`), the same card on refusal. The app has no replay
