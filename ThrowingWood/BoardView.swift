@@ -411,7 +411,6 @@ import UIKit
     guard bounds.size != laidOut else { return }
     let first = laidOut == .zero
     laidOut = bounds.size
-    model.boardWide = WideLayout.isWide(bounds.size)
     if !first {
       cancel()
       pitch.cancelHeld()

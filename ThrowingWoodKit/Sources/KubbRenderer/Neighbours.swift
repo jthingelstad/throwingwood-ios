@@ -403,10 +403,13 @@ private final class FieldEngine: @unchecked Sendable {
 /// the next frame comes is left to finish, the field stays as it is meanwhile, and a call
 /// that fails leaves the neighbours standing; the player's match never sees any of it.
 @MainActor public final class TournamentNeighbours {
-  /// What the screen wants: the match's seed and the row layout (a phone on its side).
+  /// What the screen wants: the match's seed and the layout. The app always asks for the
+  /// grid (the owner: "a grid of pitches that are all live"): the thrower's camera frames
+  /// the player's own pitch, so the engine's row for a phone on its side would leave every
+  /// neighbour out of the aim. `row` stays for a host that wants it.
   public struct Want: Equatable, Sendable {
     public let seed: Int, row: Bool
-    public init(seed: Int, row: Bool) {
+    public init(seed: Int, row: Bool = false) {
       self.seed = seed
       self.row = row
     }
@@ -438,10 +441,10 @@ private final class FieldEngine: @unchecked Sendable {
   /// only in the Tournament scene (`look`, the match's or practice's), only while a match,
   /// a practice or a watched match is on the screen or paused under its menu (`inMatch`),
   /// and never under Reduce Motion (`reduced`: the fixed pitches, and no second engine).
-  /// `row`: a wide window (a phone on its side).
-  public static func want(look: String?, inMatch: Bool, reduced: Bool, seed: @autoclosure () -> Int, row: Bool) -> Want? {
+  /// The grid in every layout, upright and on its side.
+  public static func want(look: String?, inMatch: Bool, reduced: Bool, seed: @autoclosure () -> Int) -> Want? {
     guard SceneID.shown(look) == "tournament", inMatch, !reduced else { return nil }
-    return Want(seed: seed(), row: row)
+    return Want(seed: seed())
   }
 
   /// The second engine has been made (it is made on the first open, never before).

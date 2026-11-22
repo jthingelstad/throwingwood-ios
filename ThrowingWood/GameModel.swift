@@ -59,10 +59,6 @@ import UIKit
   @ObservationIgnored var inBackground = false {
     didSet { syncNeighbours() }
   }
-  /// The board is a wide window (a phone on its side): the neighbours stand in a row.
-  @ObservationIgnored var boardWide = false {
-    didSet { if boardWide != oldValue { syncNeighbours() } }
-  }
   /// The screens a match, practice or watched match stays open under (its menu, its sheet,
   /// how to throw, settings from inside it, a throw report).
   private var inMatch: Bool {
@@ -82,7 +78,7 @@ import UIKit
     neighbours.want(
       TournamentNeighbours.want(
         look: pitch.scene.look, inMatch: inMatch && sealed == nil,
-        reduced: UIAccessibility.isReduceMotionEnabled, seed: pitch.neighbourSeed, row: boardWide))
+        reduced: UIAccessibility.isReduceMotionEnabled, seed: pitch.neighbourSeed))
   }
   var error: String?
   /// One sentence for the player, shown over the screen until closed: a kept match made

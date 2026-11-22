@@ -26,7 +26,7 @@ import QuartzCore
   @Test func theFieldOpensPlaysAThrowAndCloses() throws {
     let n = TournamentNeighbours()
     #expect(!n.engineStarted)
-    n.want(.init(seed: 5, row: false))
+    n.want(.init(seed: 5))
     Self.run(n, seconds: 1) { n.live }
     #expect(n.live)
     #expect(n.engineStarted)
@@ -76,20 +76,19 @@ import QuartzCore
   /// Motion; and a field that is never wanted never makes its engine.
   @Test func theFieldIsOnlyForTheTournament() throws {
     for look in SceneID.catalogue.map(\.id) + [nil, "moon"] {
-      let w = TournamentNeighbours.want(look: look, inMatch: true, reduced: false, seed: 3, row: false)
+      let w = TournamentNeighbours.want(look: look, inMatch: true, reduced: false, seed: 3)
       #expect((w != nil) == (look == "tournament"), "\(look ?? "nil")")
     }
-    #expect(TournamentNeighbours.want(look: "tournament", inMatch: false, reduced: false, seed: 3, row: false) == nil)
-    #expect(TournamentNeighbours.want(look: "tournament", inMatch: true, reduced: true, seed: 3, row: false) == nil)
-    #expect(
-      TournamentNeighbours.want(look: "tournament", inMatch: true, reduced: false, seed: 3, row: true)
-        == .init(seed: 3, row: true))
+    #expect(TournamentNeighbours.want(look: "tournament", inMatch: false, reduced: false, seed: 3) == nil)
+    #expect(TournamentNeighbours.want(look: "tournament", inMatch: true, reduced: true, seed: 3) == nil)
+    // the grid in every layout
+    #expect(TournamentNeighbours.want(look: "tournament", inMatch: true, reduced: false, seed: 3) == .init(seed: 3, row: false))
     let n = TournamentNeighbours()
     for look in ["day", "beach", "night", "neon", "minnesota", "bw"] {
-      n.want(TournamentNeighbours.want(look: look, inMatch: true, reduced: false, seed: 3, row: false))
+      n.want(TournamentNeighbours.want(look: look, inMatch: true, reduced: false, seed: 3))
       Self.run(n, seconds: 0.2)
     }
-    n.want(TournamentNeighbours.want(look: "tournament", inMatch: true, reduced: true, seed: 3, row: false))
+    n.want(TournamentNeighbours.want(look: "tournament", inMatch: true, reduced: true, seed: 3))
     Self.run(n, seconds: 0.2)
     #expect(!n.engineStarted)
     #expect(n.open == nil)
@@ -129,7 +128,7 @@ import QuartzCore
     }
     let alone = try play(beside: nil)
     let n = TournamentNeighbours()
-    n.want(.init(seed: 11, row: false))
+    n.want(.init(seed: 11))
     let beside = try play(beside: n)
     n.drain()
     #expect(n.live)
@@ -193,9 +192,9 @@ import QuartzCore
 /// `SCENE_LOOKS_OUT=<dir>` keeps each picture; the drawing's cost is printed.
 @MainActor struct NeighbourLooksTests {
   /// A field run until pitch 1 or 2 (beside the player's) has a throw half way.
-  static func field(row: Bool) -> TournamentNeighbours {
+  static func field() -> TournamentNeighbours {
     let n = TournamentNeighbours()
-    n.want(.init(seed: 5, row: row))
+    n.want(.init(seed: 5))
     NeighbourTests.run(n, seconds: 60) {
       n.field.pitches.prefix(2).contains { p in
         guard let (pb, at) = p.playing else { return false }
@@ -207,8 +206,9 @@ import QuartzCore
 
   @Test func theLiveFieldIsDrawn() throws {
     let app = try SceneLooksTests.match("tournament")
-    let grid = Self.field(row: false), row = Self.field(row: true)
-    #expect(grid.live && row.live)
+    // the grid in every layout, upright and on its side
+    let grid = Self.field()
+    #expect(grid.live)
     func draw(_ size: CGSize, _ n: TournamentNeighbours?, turned: Bool = false) -> CGContext {
       SceneLooksTests.picture(size) { ctx in
         PitchRenderer.draw(
@@ -218,8 +218,7 @@ import QuartzCore
     }
     let up = SceneLooksTests.upright, side = SceneLooksTests.side
     SceneLooksTests.keep(draw(up, grid), "tournament-live-aim")
-    SceneLooksTests.keep(draw(side, row), "tournament-live-aim-landscape")
-    SceneLooksTests.keep(draw(side, grid), "tournament-live-aim-landscape-grid")
+    SceneLooksTests.keep(draw(side, grid), "tournament-live-aim-landscape")
     SceneLooksTests.keep(draw(up, grid, turned: true), "tournament-live-aim-teamB")
     #expect(SceneLooksTests.pixels(draw(up, grid)) != SceneLooksTests.pixels(draw(up, nil)))
     // what the field adds to a frame's drawing, at the phone's 2x
@@ -234,11 +233,9 @@ import QuartzCore
       return best
     }
     print(String(format: "neighbours draw: upright %.2f ms (fixed %.2f), on its side %.2f ms (fixed %.2f)",
-      cost(up, grid), cost(up, nil), cost(side, row), cost(side, nil)))
+      cost(up, grid), cost(up, nil), cost(side, grid), cost(side, nil)))
     #expect(try app.watchWide(size: side, safe: ScreenInsets()))
     SceneLooksTests.keep(draw(side, grid), "tournament-live-wide")
-    SceneLooksTests.keep(draw(side, row), "tournament-live-wide-row")
     grid.close()
-    row.close()
   }
 }
