@@ -19,6 +19,7 @@ let package = Package(
     .library(name: "KubbEngine", targets: ["KubbEngine"]),
     .library(name: "KubbRenderer", targets: ["KubbRenderer"]),
     .library(name: "KubbPitch", targets: ["KubbPitch"]),
+    .executable(name: "make-app-icons", targets: ["MakeAppIcons"]),
   ],
   targets: [
     // musl 1.2.5's portable C maths (src/math, not the arch assembly), only
@@ -59,6 +60,8 @@ let package = Package(
     // supported again (OLDER in that script), Engines/ would be copied too.
     .target(name: "KubbEngine", dependencies: ["CLua"], resources: [.copy("Engine")]),
     .target(name: "KubbRenderer", dependencies: ["KubbEngine", "KubbPitch"], resources: [.copy("Sounds")]),
+    // The app's icons from the renderer's own king (scripts/make-app-icons.sh).
+    .executableTarget(name: "MakeAppIcons", dependencies: ["KubbRenderer"]),
     .testTarget(name: "KubbRendererTests", dependencies: ["KubbRenderer"], resources: [.copy("Fixtures")]),
     .target(name: "KubbPitch", dependencies: ["KubbEngine"]),
     .testTarget(
