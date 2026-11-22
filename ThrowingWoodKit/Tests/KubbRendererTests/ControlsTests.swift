@@ -378,23 +378,27 @@ import simd
     #expect(rest.on && rest.game)
   }
 
-  /// Half a second a kubb, quicker with many, so a whole raise never passes four seconds;
-  /// each step lies, tips and stands.
+  /// The web's lift.js pace: the first kubb lies 0.4 s, then half a second a kubb (its tip
+  /// 70% of it), quicker with many so a whole raise never passes four seconds, never under
+  /// 0.18 s a kubb.
   @Test func aWatchedRaiseKeepsItsPace() {
-    #expect(Pacing.raiseStep(1) == 0.5 && Pacing.raiseStep(8) == 0.5)
-    #expect(abs(Pacing.raiseStep(10) - 0.4) < 1e-12)
-    for n in 1...20 { #expect(Double(n) * Pacing.raiseStep(n) <= Pacing.autoRaiseMost + 1e-9) }
-    let s = RaiseShow(i: 0, pending: nil, step: 0.5)
-    #expect(abs(s.total - 0.5) < 1e-12 && s.lie > 0 && s.tip > s.lie && s.hold > 0)
-    var t = s
-    t.age = s.lie + s.tip / 2
-    #expect(abs(t.up(reduced: false) - 0.5) < 1e-9)
-    // Reduce Motion: no tip, but it still stands after its lying, one kubb at a time
-    #expect(t.up(reduced: true) == 1)
-    t.age = s.lie / 2
-    #expect(t.up(reduced: true) == 0)
-    // AUTO: the player is already looking at the kubb, so it tips at once
-    #expect(RaiseShow(i: 0, pending: nil, step: 0.5, lies: false).lie == 0)
+    #expect(Pacing.autoRaiseWait == 0.4)
+    #expect(Pacing.raiseBeat(1) == 0.5 && Pacing.raiseBeat(7) == 0.5)
+    #expect(abs(Pacing.raiseBeat(9) - 0.4) < 1e-12)
+    #expect(Pacing.raiseBeat(40) == 0.18)
+    for n in 1...20 { #expect(Pacing.autoRaiseWait + Double(n) * Pacing.raiseBeat(n) <= Pacing.autoRaiseMost + 1e-9) }
+    var s = RaiseShow(i: 0, pending: nil, lead: 0.4, beat: 0.5)
+    #expect(abs(s.total - 0.9) < 1e-12)
+    s.age = 0.3
+    #expect(s.up(reduced: false) == 0)  // still lying
+    s.age = 0.4 + 0.35 / 2
+    #expect(abs(s.up(reduced: false) - 0.5) < 1e-9)  // half way through its eased tip
+    // Reduce Motion: no tip; lying the first half of the beat, standing the second
+    #expect(s.up(reduced: true) == 0)
+    s.age = 0.4 + 0.3
+    #expect(s.up(reduced: true) == 1)
+    s.age = 0.4 + 0.35
+    #expect(s.up(reduced: false) == 1)
   }
 
   @Test func automaticRaisingIsForThisMatchOnly() throws {
@@ -421,7 +425,7 @@ import simd
       if mode == "setting" { app.raiseAutomatically = true } else { app.raiseRest() }
       #expect(app.raisingRest == (mode == "autoAll"))
       var raised = 0, clock = 0.0, lastAt = 0.0, tipped = 0
-      let step = Pacing.raiseStep(first.of ?? 1)
+      let beat = Pacing.raiseBeat(first.of ?? 1)
       for _ in 0..<800 where app.need?.kind == "raise" {
         let n = try #require(app.need)
         let end = app.defaultEnd(n)
@@ -440,6 +444,8 @@ import simd
         }
         if app.need?.n != n.n || app.need?.kind != "raise" {
           raised += 1
+          // the first lies 0.4 s first; each takes its beat
+          let step = beat + (raised == 1 ? Pacing.autoRaiseWait : 0)
           #expect(clock - lastAt >= step - 0.021, "\(clock - lastAt)")
           #expect(clock - lastAt <= step + 0.041, "\(clock - lastAt)")
           lastAt = clock

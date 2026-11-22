@@ -554,6 +554,7 @@ public struct PitchMember: Identifiable, Equatable {
       let isThrow = (try? JSONNode.parse(action))?["type"]?.string == "throw"
       let hold = isThrow ? aims.holdFor(ts: controller.remoteTs, now: now) : 0
       queue.append((action, m, now + hold))
+      if board.raiseShowing { board.actionsWaiting = queue.count }
       try drain()
     }
   }
@@ -629,6 +630,7 @@ public struct PitchMember: Identifiable, Equatable {
         return
       }
       let (action, m, _) = queue.removeFirst()
+      board.actionsWaiting = queue.count
       if (try? applyOnBoard(action)) == nil || displayedHash != m["hash"]?.string {
         displayCorrections += 1
         if let latest = controller.match { try restore(latest) } else { try restore(m) }
@@ -648,8 +650,10 @@ public struct PitchMember: Identifiable, Equatable {
     board.dismissHandoff()
     if let recording = out.recording {
       try board.beginPlayback(recording)
-    } else if board.need?.kind == "raise", (try? JSONNode.parse(action.text))?["type"]?.string == "raise" {
-      try board.watchRaise(end: raised)
+    } else if board.need?.kind == "raise", let node = try? JSONNode.parse(action.text), node["type"]?.string == "raise" {
+      // each action already waiting behind it makes it run faster (RaisePace.catchUp)
+      board.actionsWaiting = queue.count
+      try board.watchRaise(end: raised, choice: node["choice"]?.int)
     } else {
       try board.adopt(board.read("view"))
     }

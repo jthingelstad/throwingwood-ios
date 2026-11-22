@@ -13,9 +13,9 @@ import simd
 /// own Raising option.
 ///
 /// Every automatic raise is watched (the owner, 2026-11-22: "When you hit auto to raise
-/// kubbs you should watch the computer raise them."): each kubb lies a moment in the raise
-/// scene, tips up onto the end the engine chose with the hand drag's tip, stands a moment,
-/// and the next follows (`RaiseShow`, `Pacing.raiseStep`). The engine's actions and their
+/// kubbs you should watch the computer raise them."; the web's lift.js): the first kubb of
+/// the turn's lies a moment in the raise scene, then each tips up onto the end the engine
+/// chose with the hand drag's tip, stands a moment, and the next follows (`RaiseShow`, `RaisePace`, `Pacing.raiseBeat`). The engine's actions and their
 /// order do not change: each is the same `raise` action, sent as its kubb starts to tip.
 public struct AutoRaise: Sendable {
   /// For the rest of this match.
@@ -75,36 +75,62 @@ public struct AutoRaise: Sendable {
   mutating func hurryUp() { hurry = true }
 }
 
-/// One watched raise of the need on the screen: the kubb lies `lie` s, tips up onto end
-/// `i` over `tip` s (the hand drag's tip, `RaiseTouch.tilt`), stands `hold` s, then the
-/// board moves on. `pending`: the action not yet sent (this device's automatic raise),
-/// sent as the kubb starts to tip; nil when it is already applied (another member's raise
+/// The pace of a watched raise (the web's lift.js): the first kubb of a turn's automatic
+/// raise lies `lead` s, then each kubb takes a beat (its tip `tipOf` of it, eased, then it
+/// stands; a kubb a crowded raise moved slides to its spot in half the rest).
+enum RaisePace {
+  static let tipOf = 0.7
+  /// m: a kubb standing farther than this from the footprint it tipped onto slides there.
+  static let displaced = 0.3
+  /// Each waiting action makes an arriving raise run this much faster (online).
+  static let catchUp = 2.0
+
+  static func ease(_ u: Double) -> Double {
+    let t = max(0, min(1, u))
+    return t * t * (3 - 2 * t)
+  }
+
+  /// How far up at `age` s into a clip of `lead` and `beat`: 0 lying, 1 standing. Under
+  /// Reduce Motion: no tip, lying for the first half of the beat and standing for the second.
+  static func up(age: Double, lead: Double, beat: Double, reduced: Bool) -> Double {
+    if age < lead { return 0 }
+    if reduced { return age - lead < beat / 2 ? 0 : 1 }
+    let tip = beat * tipOf
+    return tip <= 0 ? 1 : ease((age - lead) / tip)
+  }
+
+  /// How far it has slid from the footprint to where the engine stood it (0 to 1).
+  static func slid(age: Double, lead: Double, beat: Double) -> Double {
+    let tip = beat * tipOf
+    let rest = (beat - tip) / 2
+    return rest <= 0 ? 1 : ease((age - lead - tip) / rest)
+  }
+}
+
+/// One watched raise of the need on the screen: the kubb lies `lead` s (the first of a
+/// turn's automatic raise), tips up onto end `i` (the hand drag's tip, `RaiseTouch.tilt`),
+/// stands and, if the engine put it elsewhere (`final`), slides there, then the board
+/// moves on. `pending`: the action not yet sent (this device's automatic raise), sent as
+/// the kubb starts to tip; nil when it is already applied (another member's raise
 /// arriving online).
 struct RaiseShow {
   let i: Int?
   var pending: String?
   var age = 0.0
-  let lie, tip, hold: Double
-  var total: Double { lie + tip + hold }
+  let lead, beat: Double
+  /// Where the engine stands it (the choice's pose), when that is away from the footprint.
+  let final: MatchNeed.Pose?
+  var total: Double { lead + beat }
 
-  /// The parts of a kubb's step: lying, tipping, standing.
-  static let parts = (lie: 0.3, tip: 0.5, hold: 0.2)
-
-  init(i: Int?, pending: String?, step: Double, lies: Bool = true) {
+  init(i: Int?, pending: String?, lead: Double, beat: Double, final: MatchNeed.Pose? = nil) {
     self.i = i
     self.pending = pending
-    lie = lies ? step * Self.parts.lie : 0
-    tip = step * Self.parts.tip
-    hold = step * Self.parts.hold
+    self.lead = lead
+    self.beat = beat
+    self.final = final
   }
 
-  /// How far up the kubb is: 0 lying, 1 standing; under Reduce Motion it stands at once
-  /// when its lying is done, with no tip between.
-  func up(reduced: Bool) -> Double {
-    if age < lie { return 0 }
-    if reduced || tip <= 0 { return 1 }
-    return min(1, (age - lie) / tip)
-  }
+  func up(reduced: Bool) -> Double { RaisePace.up(age: age, lead: lead, beat: beat, reduced: reduced) }
 }
 
 /// Kubbs the engine stood up with no raise of this device's to show (the computer's own
@@ -129,33 +155,45 @@ struct StoodShow {
   let after: ViewOutput
   var k = 0
   var age = 0.0
-  let lie, tip, hold: Double
+  /// The first kubb lies `Pacing.autoRaiseWait` s; each then takes `beat`.
+  let beat: Double
   /// Seen in place (the watcher's wide view): no camera of its own.
   let inPlace: Bool
-  var total: Double { lie + tip + hold }
+  var lead: Double { k == 0 ? Pacing.autoRaiseWait : 0 }
+  var total: Double { lead + beat }
 
   init(kubbs: [Kubb], before: [Piece], after: ViewOutput, inPlace: Bool) {
     self.kubbs = kubbs
     self.before = before
     self.after = after
     self.inPlace = inPlace
-    let step = Pacing.raiseStep(kubbs.count)
-    lie = step * RaiseShow.parts.lie
-    tip = step * RaiseShow.parts.tip
-    hold = step * RaiseShow.parts.hold
+    beat = Pacing.raiseBeat(kubbs.count)
   }
 
-  func up(reduced: Bool) -> Double {
-    if age < lie { return 0 }
-    if reduced || tip <= 0 { return 1 }
-    return min(1, (age - lie) / tip)
+  func up(reduced: Bool) -> Double { RaisePace.up(age: age, lead: lead, beat: beat, reduced: reduced) }
+
+  /// The kubb at this moment: lying, tipping onto its end, standing on the footprint, then
+  /// sliding to where the engine stood it when that is more than `RaisePace.displaced` away.
+  func shown(reduced: Bool) -> Piece {
+    let kb = kubbs[k]
+    let t = up(reduced: reduced)
+    guard t >= 1 else { return Self.tilt(kb, t: t) }
+    let top = Self.tilt(kb, t: 1)
+    if reduced || simd_distance(V2(top.x, top.y), V2(kb.standing.x, kb.standing.y)) <= RaisePace.displaced {
+      return kb.standing
+    }
+    let u = RaisePace.slid(age: age, lead: lead, beat: beat)
+    var p = kb.standing
+    p.x = top.x + (kb.standing.x - top.x) * u
+    p.y = top.y + (kb.standing.y - top.y) * u
+    return p
   }
 
   /// A lying kubb tipped `t` up onto the end `toward` points to, pivoting on that end's
-  /// bottom edge (RaiseTouch.tilt for a pose the engine gave as pieces).
+  /// bottom edge (RaiseTouch.tilt for a pose the engine gave as pieces); at 1 it stands
+  /// on that end's footprint.
   static func tilt(_ k: Kubb, t: Double) -> Piece {
     guard t > 0 else { return k.lying }
-    if t >= 1 { return k.standing }
     let u = k.toward
     let th = t * .pi / 2
     let q = simd_quatd(angle: th, axis: V3(-u.y, u.x, 0)) * k.lying.rotation
@@ -180,9 +218,9 @@ struct StoodShow {
     let byId = Dictionary(was.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
     var stood: [(lying: Piece, standing: Piece)] = []
     for q in after.items where q.kind == "kubb" && !Neon.lying(q) {
-      // a kubb stood where it lay (a raise; one put somewhere else, a punishment kubb the
-      // engine placed, just appears there)
-      guard let p = byId[q.id], Neon.lying(p), simd_distance(V2(p.x, p.y), V2(q.x, q.y)) < 0.5 else { continue }
+      // a kubb that lay and now stands within a metre of where it lay (a raise; one put
+      // somewhere else, a punishment kubb the engine placed, just appears there)
+      guard let p = byId[q.id], Neon.lying(p), simd_distance(V2(p.x, p.y), V2(q.x, q.y)) < 1 else { continue }
       stood.append((p, q))
     }
     guard !stood.isEmpty else { return nil }
@@ -293,26 +331,44 @@ extension PitchSession {
 
   private func startRaiseShow(lies: Bool) throws {
     guard let n = need else { return }
-    raiseShow = RaiseShow(
-      i: defaultEnd(n), pending: #"{"type":"raise"}"#, step: autoRaise.hurry ? 0 : Pacing.raiseStep(raisesLeft),
-      lies: lies)
-    // one line for the whole of it, not a line a kubb: once when this turn's automatic
-    // raising starts, or for AUTO's one kubb
+    // the first kubb of this turn's automatic raise lies a moment first, and its one line
+    // for VoiceOver is said then, not a line a kubb (AUTO's one kubb: no lying, one line)
     let run = "\(n.turn ?? 0):\(n.side ?? "")"
-    if !autoRaise.on || raiseRun != run {
+    let first = !autoRaise.on || raiseRun != run
+    if first {
       raiseRun = autoRaise.on ? run : nil
       announce(
         autoRaise.on && raisesLeft > 1 ? "Raising \(raisesLeft) kubbs automatically." : "Raising the kubb automatically.")
     }
+    let hurry = autoRaise.hurry
+    raiseCatchUp = 0
+    raiseShow = RaiseShow(
+      i: defaultEnd(n), pending: #"{"type":"raise"}"#,
+      lead: hurry || !lies || !first ? 0 : Pacing.autoRaiseWait,
+      beat: hurry ? 0 : Pacing.raiseBeat(n.of ?? 1), final: finalPose(n, choice: nil))
     _ = try raiseShowTick(0)
+  }
+
+  /// Where the engine stands the need's kubb for `choice` (one-based, nil: its default).
+  func finalPose(_ n: MatchNeed, choice: Int?) -> MatchNeed.Pose? {
+    guard let choices = n.choices, let c = choice ?? n.default, choices.indices.contains(c - 1) else { return nil }
+    return choices[c - 1].pose
   }
 
   /// Another member's raise, already applied to this board's engine (OnlinePitch): its
   /// kubb tips up onto end `i` before the board moves on, at the sender's pace with no
   /// lying first (it lay while the sender chose).
-  public func watchRaise(end i: Int?) throws {
-    raiseShow = RaiseShow(i: i, pending: nil, step: Pacing.raiseStep(raisesLeft), lies: false)
+  public func watchRaise(end i: Int?, choice: Int? = nil) throws {
+    let final = need.flatMap { finalPose($0, choice: choice) }
+    raiseShow = RaiseShow(i: i, pending: nil, lead: 0, beat: Pacing.raiseBeat(need?.of ?? 1), final: final)
     _ = try raiseShowTick(0)
+  }
+
+  /// Actions waiting behind a watched raise (OnlinePitch): each makes it run
+  /// `RaisePace.catchUp` times faster more, so a watcher keeps up.
+  public var actionsWaiting: Int {
+    get { raiseCatchUp }
+    set { raiseCatchUp = newValue }
   }
 
   /// A VoiceOver line for the app to say once.
@@ -323,8 +379,8 @@ extension PitchSession {
 
   func raiseShowTick(_ dt: Double) throws -> Bool {
     guard var s = raiseShow else { return false }
-    s.age += autoRaise.hurry ? s.total + 1 : dt
-    if let action = s.pending, s.age >= s.lie {
+    s.age += autoRaise.hurry ? s.total + 1 : dt * (1 + RaisePace.catchUp * Double(raiseCatchUp))
+    if let action = s.pending, s.age >= s.lead {
       s.pending = nil
       let response: PlacementCheck = try read("apply", action)
       guard response.ok else {
@@ -351,6 +407,18 @@ extension PitchSession {
       raiseSelected = i
     }
     try settleScene()
+    // standing: from the footprint it tipped onto to where the engine put it (a crowded
+    // raise's search moved it), in half the beat's rest
+    if t >= 1, !reduceMotion, let f = s.final, let n = need, let id = n.kubb, let i = s.i,
+      let lying = n.pose.map({ $0.piece(id: id) })
+    {
+      let top = RaiseTouch.tilt(n, lying: lying, i: i, t: 1)
+      if hypot(top.x - f.x, top.y - f.y) > RaisePace.displaced, let j = scene.items.lastIndex(where: { $0.id == id }) {
+        let u = RaisePace.slid(age: s.age, lead: s.lead, beat: s.beat)
+        scene.items[j].x = top.x + (f.x - top.x) * u
+        scene.items[j].y = top.y + (f.y - top.y) * u
+      }
+    }
     revision += 1
     return true
   }
@@ -383,9 +451,9 @@ extension PitchSession {
   func stoodShowTick(_ dt: Double) throws -> Bool {
     guard var s = stoodShow else { return false }
     s.age += dt
-    if s.age >= s.total, s.k < s.kubbs.count {
+    while s.k < s.kubbs.count, s.age >= s.total {
+      s.age -= s.total
       s.k += 1
-      s.age = 0
     }
     if s.k >= s.kubbs.count {
       stoodShow = nil
@@ -399,7 +467,7 @@ extension PitchSession {
     for (j, other) in s.kubbs.enumerated() where j != s.k {
       items.append(j < s.k ? other.standing : other.lying)
     }
-    items.append(StoodShow.tilt(k, t: t))
+    items.append(s.shown(reduced: reduceMotion))
     scene.items = items
     scene.arc = nil
     scene.marker = nil

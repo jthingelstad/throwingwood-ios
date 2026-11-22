@@ -16,9 +16,9 @@
     /// The neighbours' voices, panned, each with the gain it is sounding at.
     private var far: [Voice] = []
     private var farGain: [Double] = []
-    /// The knock takes at their own rate (the neighbours share them) and the landing's thud.
-    private var takes: [AVAudioPCMBuffer] = []
-    private var thud: AVAudioPCMBuffer?
+    /// The knock takes lower for the neighbours (NeighbourSounds.rate and landRate, each
+    /// at three rates of the player's ± 6% spread), made once.
+    private var farTakes: [AVAudioPCMBuffer] = [], landTakes: [AVAudioPCMBuffer] = []
 
     public init() throws {
       // Render the small rate variations before the pitch opens. Every voice can
@@ -36,13 +36,14 @@
           Self.resample(source, rate: 1 + Double(percent) / 100, format: format)
         }
         knocks.append(voice(buffers))
-        takes.append(buffers[6])
+        for spread in [0.94, 1.0, 1.06] {
+          farTakes.append(Self.resample(source, rate: NeighbourSounds.rate * spread, format: format))
+          landTakes.append(Self.resample(source, rate: NeighbourSounds.landRate * spread, format: format))
+        }
       }
       chord = voice([Self.kingChord(hz: hz)])
-      let thud = Self.thud(hz: hz)
-      self.thud = thud
       for _ in 0..<NeighbourSounds.voices {
-        far.append(voice([thud]))
+        far.append(voice([landTakes[0]]))
         farGain.append(0)
       }
       engine.prepare()
@@ -99,30 +100,6 @@
       return buffer
     }
 
-    /// A soft landing on grass, made once: a low knock (110 Hz falling to 70) under a puff
-    /// of filtered noise, gone in 0.14 s. Its peak is about 0.6.
-    private static func thud(hz: Double) -> AVAudioPCMBuffer {
-      let format = AVAudioFormat(standardFormatWithSampleRate: hz, channels: 1)!
-      let n = Int(0.14 * hz)
-      let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(n))!
-      buffer.frameLength = buffer.frameCapacity
-      let out = buffer.floatChannelData![0]
-      var seed: UInt32 = 0x9E37_79B9
-      var low = 0.0, phase = 0.0
-      for i in 0..<n {
-        let t = Double(i) / hz
-        seed = seed &* 1_664_525 &+ 1_013_904_223
-        let noise = Double(seed >> 8) / Double(1 << 24) * 2 - 1
-        low += (noise - low) * 0.08  // a one-pole low pass: the grass's hush
-        phase += 2 * .pi * (70 + 40 * exp(-t / 0.03)) / hz
-        let attack = min(1, t / 0.003)
-        let body = sin(phase) * exp(-t / 0.035)
-        let hush = low * 2.2 * exp(-t / 0.025)
-        out[i] = Float(attack * 0.6 * (0.75 * body + 0.25 * hush))
-      }
-      return buffer
-    }
-
     public func start() throws {
       if !engine.isRunning { try engine.start() }
       for v in far where !v.node.isPlaying { v.node.play() }
@@ -147,21 +124,15 @@
       }
     }
 
-    /// A neighbour's sound: on a free neighbour voice, else on the faintest one sounding if
-    /// this is louder (the faintest is dropped), else not at all.
+    /// A neighbour's sound (NeighbourSounds): a random lower take on a free neighbour
+    /// voice, else on the faintest one sounding when this is louder (it is dropped), else
+    /// not at all.
     public func play(_ sound: NeighbourSound) {
       guard engine.isRunning, !far.isEmpty else { return }
       let now = ProcessInfo.processInfo.systemUptime
-      let buffer: AVAudioPCMBuffer
-      switch sound.kind {
-      case .knock: buffer = takes.randomElement()!
-      case .thud: buffer = thud!
-      }
-      var pick = far.indices.first { far[$0].busyUntil <= now }
-      if pick == nil, let i = far.indices.min(by: { farGain[$0] < farGain[$1] }), farGain[i] < sound.gain {
-        pick = i
-      }
-      guard let i = pick else { return }
+      let buffer = (sound.kind == .land ? landTakes : farTakes).randomElement()!
+      let gains = far.indices.map { far[$0].busyUntil > now ? Optional(farGain[$0]) : nil }
+      guard let i = NeighbourSounds.voice(gains: gains, gain: sound.gain) else { return }
       far[i].busyUntil = now + Double(buffer.frameLength) / buffer.format.sampleRate
       farGain[i] = sound.gain
       far[i].node.pan = Float(sound.pan)
