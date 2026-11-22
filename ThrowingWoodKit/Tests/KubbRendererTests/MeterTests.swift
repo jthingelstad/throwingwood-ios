@@ -231,4 +231,40 @@ import Testing
     // clock. Since engine 0.9 the pull (PULLED LEFT or RIGHT) and so the flag can
     // follow those bits too; the same points on both give the same throw exactly.
   }
+
+  /// Since engine 0.13 a release past its bar pulls the baton off the line: late
+  /// (HIGH) pulls left, early (LOW) right, and the verdict says both. The words put
+  /// the misses first, so the side cell reads HIGH, PULLED LEFT before what was on.
+  @Test func aReleasePastItsBarIsPulledAndSaysSo() throws {
+    let dt = 1.0 / 60
+    for (past, release, side) in [(10.0, "HIGH", "PULLED LEFT"), (-10.0, "LOW", "PULLED RIGHT")] {
+      let pitch = try PracticePitch(appVersion: "test")
+      let d = pitch.dial
+      let back = try #require(d.powerLo.flatMap { lo in d.powerHi.map { (lo + $0) / 2 } })
+      let stop = try #require(past > 0 ? d.releaseHi : d.releaseLo) + past
+      let clock = ClockMeter(bounds: small, bottomInset: 34)
+      let layout = MeterLayout.clock(clock)
+      var arms = [0.0, -5]
+      var a = -5.0
+      while a > -back {
+        a = max(-back, a - 400 * dt)
+        arms.append(a)
+      }
+      while a < stop {
+        a = min(stop, a + 2400 * dt)
+        arms.append(a)
+      }
+      for arm in arms {
+        pitch.sample(layout.unit(clock.point(arm: arm, radius: clock.radius * 1.6), grab: 0))
+        try pitch.tick(dt)
+      }
+      pitch.sample(nil)
+      try pitch.tick(dt)
+      let result = try #require(pitch.playback).recording.result
+      #expect(result.verdicts?.release == release && result.verdicts?.side == side, "\(past)")
+      #expect(result.words.prefix(2).map(\.text) == [release, side])
+      let off = result.words.prefix(2).filter { $0.offTarget }.count
+      #expect(off == 2)
+    }
+  }
 }

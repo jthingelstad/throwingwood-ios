@@ -246,6 +246,38 @@ import simd
     }
   }
 
+  /// Since 0.13 the meter's bars go by the throw's distance, and since 0.10 the arc's
+  /// default does: both change as the circle or the stance moves, and the app has the
+  /// engine's own new numbers at once, with no frame from the dial (every meter draws
+  /// `dial` on each paint, so a moved plan is drawn with its own bars).
+  @Test func theBarsAndTheArcsDefaultFollowThePlan() throws {
+    let app = try aiming()
+    func engineDial() throws -> JSONNode { try #require(JSONNode.parse(app.engine.call("view"))["dial"]) }
+    func same(_ d: DialState, _ e: JSONNode) -> Bool {
+      d.powerLo == e["powerLo"]?.double && d.powerHi == e["powerHi"]?.double
+        && d.releaseLo == e["releaseLo"]?.double && d.releaseHi == e["releaseHi"]?.double
+    }
+    func width(_ d: DialState) -> Double { (d.powerHi ?? 0) - (d.powerLo ?? 0) }
+    let before = app.dial
+    let arcDefault = app.arcControl?.default
+    #expect(same(before, try engineDial()))
+    // the circle 2 m nearer: wider bars and a higher default arc, read with the move
+    try app.nudgeAim(by: CGVector(dx: 0, dy: 200))
+    let near = app.dial
+    #expect(same(near, try engineDial()))
+    #expect(width(near) > width(before))
+    #expect(near.releaseHi! - near.releaseLo! > before.releaseHi! - before.releaseLo!)
+    #expect(app.arcControl?.default != arcDefault)
+    // the thrower a metre back with STAND: narrower bars again, read on the next tick
+    let revision = app.revision
+    app.stand(fx: 0.5, fy: 1, phase: .down)
+    #expect(try app.tick(1.0 / 60))
+    #expect(same(app.dial, try engineDial()))
+    #expect(width(app.dial) < width(near))
+    #expect(app.revision > revision)
+    app.stand(fx: 0.5, fy: 1, phase: .up)
+  }
+
   @Test func aimDragFollowsTheSideViewsAxes() throws {
     let app = try aiming()
     try app.togglePlan()
