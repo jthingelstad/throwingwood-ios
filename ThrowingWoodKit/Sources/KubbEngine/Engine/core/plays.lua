@@ -34,6 +34,13 @@ local plays = {
 		levels = { "pro" },
 		say = "Stood off to the side so {lane} kubbs line up behind the front one.",
 	},
+	-- core/cpu decideBaton (0.18.0): a person's default line, the drive close in; named
+	-- when the arc is a drive at a field kubb; levels: cpu.tune.drive
+	["field.drive"] = {
+		phase = "field",
+		levels = { "club", "pro" },
+		say = "Driven low and hard into the field kubb, the way the line throws close in.",
+	},
 	-- core/cpu depthSpot (0.12.0); levels: cpu.tune.depth
 	["inkast.depth"] = {
 		phase = "inkast",

@@ -31,6 +31,8 @@
 --   o.turn, o.side, o.batons   the turn dealt (the engine's turn number)
 --   o.deal     player id per baton of that turn
 --   o.inkaster player id who throws that turn's kubbs
+--   o.A.rotateInk, o.A.ink   (0.17.0) the kubbs go round the team (a team with a
+--              computer player), and the index of the last turn's inkaster
 import "core/tw"
 import "core/rules"
 
@@ -110,6 +112,15 @@ function order.beginTurn(o, side, turn, batons)
 		for _ = 1, c do deal[#deal + 1] = pid end
 	end
 	o.turn, o.side, o.batons, o.deal, o.inkaster = turn, side, batons, deal, deal[1]
+	-- (0.17.0) a team holding a computer player (t.rotateInk, set by core/match) has its
+	-- kubbs thrown by each player in turn, turn by turn, so a computer partner takes its
+	-- share: with 1, 2, 3 or 6 players and six batons the deal opens every turn with the
+	-- same player, who would otherwise throw every turn's kubbs. A team without one keeps
+	-- the turn's first baton thrower, as before
+	if t.rotateInk then
+		t.ink = (t.ink or 0) % n + 1
+		o.inkaster = t.ids[t.ink]
+	end
 	-- move on past those who threw an extra baton, so the doubles go round
 	-- the team; past everyone dealt when all threw the same (in the
 	-- opening, whoever did not throw opens the team's next turn)

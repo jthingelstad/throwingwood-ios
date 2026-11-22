@@ -20,13 +20,20 @@
 --     setOptions, optionsOf and matchOptions hold the surface and the set to the scene's.
 --     A document that names none (every one the JavaScript or an engine before 0.14
 --     wrote) keeps its surface and set as written.
+--   * computer seats (since 0.17): a team's list may hold a computer player's seat id
+--     ("cpu:1"), its level and name in a top-level `computers`; the host adds, moves,
+--     re-levels and removes them (addComputer, moveComputer, setComputerLevel,
+--     removeComputer). A document without one (every one before 0.17) has no
+--     `computers` and reads, cleans and writes exactly as before.
 import "core/tw"
 import "version"
 import "session/json"
 import "pitch/js"
 import "core/scenes"
+import "core/namegen"
+import "core/throwplan"
 
-local json, js, scenes = tw.web.json, tw.shared.js, tw.scenes
+local json, js, scenes, namegen = tw.web.json, tw.shared.js, tw.scenes, tw.namegen
 local NULL, object = json.null, json.object
 local truthy, same, get, includes = js.truthy, js.same, js.get, js.includes
 
@@ -159,7 +166,9 @@ function lobby.startCheck(players, members, host, lenient)
 		if js.isTable(list) then
 			for _, p in ipairs(list) do
 				local id = get(p, "id")
-				if not same(id, host) then
+				-- a computer player has no engine of its own: the host's throws for it
+				if get(p, "cpu") == true then
+				elseif not same(id, host) then
 					local e = get(get(byId[id], "me"), "engine")
 					if e == nil or js.isNull(e) then
 						unknown[#unknown + 1] = id
@@ -170,8 +179,42 @@ function lobby.startCheck(players, members, host, lenient)
 			end
 		end
 	end
-	return object { ok = #differ == 0 and (lenient and true or #unknown == 0), engine = lobby.ENGINE,
+	local out = object { ok = #differ == 0 and (lenient and true or #unknown == 0), engine = lobby.ENGINE,
 		differ = differ, unknown = unknown }
+	-- the lineup itself (since 0.17), as the session would take it: refused with `why` and
+	-- `text`, which a client can show; fields there only on such a refusal
+	local why, text = lobby.lineupProblem(players)
+	if why then out.ok, out.why, out.text = false, why, text end
+	return out
+end
+
+-- What is wrong with a lineup's players ({ A: [...], B: [...] }) for START, or nil:
+--   "size"    a team holds more than TEAM_MAX players, people and computers together
+--   "level"   a computer player's level is not Beginner, Club or Pro
+--   "person"  no person plays: a match needs at least one (a team of computers only is
+--             fine, with people on the other team)
+-- and the sentence to show.
+function lobby.lineupProblem(players)
+	local people = 0
+	for _, s in ipairs(lobby.SIDES) do
+		local list = get(players, s)
+		if js.isTable(list) then
+			if #list > lobby.TEAM_MAX then
+				return "size", "Team " .. s .. " has more than " .. lobby.TEAM_MAX .. " players."
+			end
+			for _, p in ipairs(list) do
+				if get(p, "cpu") == true then
+					if not includes(lobby.SEAT_LEVELS, get(p, "level")) then
+						return "level", "A computer player's level is Beginner, Club or Pro."
+					end
+				else
+					people = people + 1
+				end
+			end
+		end
+	end
+	if people == 0 then return "person", "A match needs at least one person." end
+	return nil
 end
 
 -- ---------- options and names ----------
@@ -247,7 +290,34 @@ end
 -- ---------- the document ----------
 
 local KNOWN = { v = true, teams = true, options = true, open = true, started = true, n = true, match = true,
-	settings = true }
+	settings = true, computers = true }
+
+-- ---------- computer seats (since 0.17) ----------
+--
+-- A computer player sits in a team's list like a member, by a seat id no member can
+-- have: "cpu:" and a number (the pitch server's member ids are letters, digits, "_" and
+-- "-"). Its record is in the document's top-level `computers`, by seat id:
+--   computers: { "cpu:1": { level: "pro", name: "Bold Birch" }, ... }
+-- `level` is Beginner, Club or Pro (Kid is the match's: the Computer option, which makes
+-- every computer of a Kid match the Kid computer); `name` a generated player name, absent
+-- when none is kept (shown as "Computer"). A seat id in a team with no good record, or
+-- a record no team holds, is dropped by lobbyOf, so a document never half-holds one.
+lobby.SEAT_LEVELS = { "beginner", "club", "pro" }
+lobby.SEAT_MAX = 99
+
+function lobby.isSeat(id)
+	if type(id) ~= "string" then return false end
+	local k = id:match("^cpu:([1-9]%d?)$")
+	return k ~= nil
+end
+
+local function cleanComputer(r)
+	if not js.isObject(r) or not includes(lobby.SEAT_LEVELS, get(r, "level")) then return nil end
+	local out = object { level = get(r, "level") }
+	local name = get(r, "name")
+	if type(name) == "string" and namegen.valid("player", name) then out.name = name end
+	return out
+end
 
 -- The document as it stands, or a fresh lobby (a pitch's document is null until someone
 -- writes it; an expired pitch comes back empty too). Unlike the JavaScript, top-level keys
@@ -262,16 +332,32 @@ function lobby.lobbyOf(doc)
 	end
 	local teams = object { A = {}, B = {} }
 	local dt = get(d, "teams")
+	local dc = get(d, "computers")
+	local computers, anySeat = object {}, false
 	for _, s in ipairs(lobby.SIDES) do
 		local t = get(dt, s)
 		if js.isArray(t) then
 			local keep = {}
-			for _, x in ipairs(t) do if type(x) == "string" then keep[#keep + 1] = x end end
+			for _, x in ipairs(t) do
+				if type(x) == "string" then
+					if lobby.isSeat(x) then
+						-- a computer seat: kept with its record, once, on one team
+						local r = js.isObject(dc) and cleanComputer(get(dc, x)) or nil
+						if r and computers[x] == nil then
+							computers[x], anySeat = r, true
+							keep[#keep + 1] = x
+						end
+					else
+						keep[#keep + 1] = x
+					end
+				end
+			end
 			teams[s] = keep
 		end
 	end
 	l.v = lobby.DOC_VERSION
 	l.teams = teams
+	l.computers = anySeat and computers or nil
 	l.options = lobby.cleanOptions(get(d, "options"))
 	l.settings = cleanSettings(get(d, "settings"))
 	l.open = get(d, "open") == true
@@ -302,6 +388,8 @@ end
 function lobby.joinTeam(doc, id, side)
 	local l = lobby.lobbyOf(doc)
 	if l.started then return nil end
+	-- a computer seat moves by moveComputer, never as a member (since 0.17)
+	if lobby.isSeat(id) then return nil end
 	if not js.isNull(side) and not includes(lobby.SIDES, side) then return nil end
 	local on = truthy(side)
 	if on and includes(l.teams[side], id) then return nil end
@@ -401,9 +489,12 @@ function lobby.openListing(doc, members, over)
 	if not l.open then return nil end
 	local here = 0
 	for _, m in ipairs(members or {}) do if get(m, "connected") ~= false then here = here + 1 end end
+	-- (since 0.17) a computer seat is a place no one can take
+	local seats = lobby.SEATS
+	for _ in pairs(l.computers or {}) do seats = seats - 1 end
 	return object {
-		players = math.min(here, lobby.SEATS),
-		seats = lobby.SEATS,
+		players = math.min(here, seats),
+		seats = seats,
 		state = (not l.started) and "waiting" or (truthy(over) and "over" or "playing"),
 	}
 end
@@ -416,16 +507,110 @@ function lobby.pruneTeams(doc, present)
 	local changed = false
 	for _, s in ipairs(lobby.SIDES) do
 		local t = {}
-		for _, x in ipairs(l.teams[s]) do if includes(present, x) then t[#t + 1] = x end end
+		for _, x in ipairs(l.teams[s]) do if lobby.isSeat(x) or includes(present, x) then t[#t + 1] = x end end
 		if #t ~= #l.teams[s] then changed = true end
 		l.teams[s] = t
 	end
 	return changed and l or nil
 end
 
+-- ---------- the host's computer seats (since 0.17) ----------
+--
+-- Each takes the document and returns the new one, or nil to change nothing: while a
+-- match runs, for a seat the document does not hold, a side that is not "A" or "B", a
+-- level that is not Beginner, Club or Pro, a full side (six players, people and
+-- computers together), or when nothing would change. The host's client calls them, as
+-- it calls setOptions.
+
+local function seatCount(l)
+	local n = 0
+	for _ in pairs(l.computers or {}) do n = n + 1 end
+	return n
+end
+
+-- A computer player on `side` at `level`, at the end of the team's throwing order (move
+-- it with moveComputer). Its name: `name` when it is a generated player name, else one
+-- rolled from `seed` (a whole number, the host's own random draw; core/namegen through
+-- plan.rng, as names.roll), never one another computer seat holds. Its seat id is the
+-- lowest "cpu:<n>" free.
+function lobby.addComputer(doc, side, level, seed, name)
+	local l = lobby.lobbyOf(doc)
+	if l.started then return nil end
+	if not includes(lobby.SIDES, side) or not includes(lobby.SEAT_LEVELS, level) then return nil end
+	if #l.teams[side] >= lobby.TEAM_MAX then return nil end
+	local held = {}
+	for _, r in pairs(l.computers or {}) do if r.name then held[r.name] = true end end
+	if not (type(name) == "string" and namegen.valid("player", name)) then
+		if not (type(seed) == "number" and seed == math.floor(seed) and math.abs(seed) < 2 ^ 53) then return nil end
+		local r = tw.plan.rng(seed)
+		local function rand(n)
+			local k = math.floor(r.next() * n) + 1
+			if k > n then k = n end
+			return k
+		end
+		name = nil
+		for _ = 1, 50 do
+			local text = namegen.roll("player", rand)
+			if text and not held[text] then name = text break end
+		end
+		if not name then return nil end
+	end
+	local id
+	for k = 1, lobby.SEAT_MAX do
+		local c = "cpu:" .. k
+		if not (l.computers and l.computers[c]) then id = c break end
+	end
+	if not id then return nil end
+	l.computers = l.computers or object {}
+	l.computers[id] = object { level = level, name = name }
+	l.teams[side][#l.teams[side] + 1] = id
+	return l
+end
+
+-- A computer seat's level.
+function lobby.setComputerLevel(doc, id, level)
+	local l = lobby.lobbyOf(doc)
+	if l.started or not lobby.isSeat(id) or not (l.computers and l.computers[id]) then return nil end
+	if not includes(lobby.SEAT_LEVELS, level) or l.computers[id].level == level then return nil end
+	l.computers[id].level = level
+	return l
+end
+
+-- A computer seat to `side` at place `index` in its throwing order (0 first; absent,
+-- null or past the end: last). The same side reorders it.
+function lobby.moveComputer(doc, id, side, index)
+	local l = lobby.lobbyOf(doc)
+	if l.started or not lobby.isSeat(id) or not (l.computers and l.computers[id]) then return nil end
+	if not includes(lobby.SIDES, side) then return nil end
+	local from, at
+	for _, s in ipairs(lobby.SIDES) do
+		for i, x in ipairs(l.teams[s]) do if x == id then from, at = s, i end end
+	end
+	if from ~= side and #l.teams[side] >= lobby.TEAM_MAX then return nil end
+	table.remove(l.teams[from], at)
+	local list = l.teams[side]
+	local pos = #list + 1
+	if js.isInteger(index) and js.int(index) >= 0 and js.int(index) < #list then pos = js.int(index) + 1 end
+	table.insert(list, pos, id)
+	if from == side and pos == at then return nil end
+	return l
+end
+
+-- A computer seat taken off its team.
+function lobby.removeComputer(doc, id)
+	local l = lobby.lobbyOf(doc)
+	if l.started or not lobby.isSeat(id) or not (l.computers and l.computers[id]) then return nil end
+	for _, s in ipairs(lobby.SIDES) do l.teams[s] = without(l.teams[s], id) end
+	l.computers[id] = nil
+	if seatCount(l) == 0 then l.computers = nil end
+	return l
+end
+
 -- Who plays: the lobby's teams with each member's name, the computer on an empty side.
 -- `members`: the pitch's [{ id, me }]; members no longer in the pitch are left out.
--- Returns { players, cpu } or nil when nobody is on a team.
+-- Since 0.17 a team's computer seats are in it too, in their places, as { id, name,
+-- level, cpu: true }; a side with only computers is not empty. Returns { players, cpu }
+-- or nil when nobody is on a team.
 function lobby.lineup(doc, members)
 	local l = lobby.lobbyOf(doc)
 	local byId = {}
@@ -438,7 +623,11 @@ function lobby.lineup(doc, members)
 	for _, s in ipairs(lobby.SIDES) do
 		for _, id in ipairs(l.teams[s]) do
 			local m = byId[id]
-			if m then
+			if lobby.isSeat(id) then
+				-- a computer seat (since 0.17): its own name and level, cpu true
+				local r = l.computers[id]
+				players[s][#players[s] + 1] = object { id = id, name = r.name or "Computer", level = r.level, cpu = true }
+			elseif m then
 				local me = get(m, "me")
 				local name = lobby.cleanName(get(me, "name"))
 				if name == "" then name = "Player " .. (#players[s] + 1) end
@@ -467,6 +656,8 @@ function lobby.matchOptions(doc, lu, seed, start)
 			local level = get(p, "level")
 			list[i] = object { name = get(p, "name"), key = get(p, "id"),
 				level = includes(lobby.LEVELS, level) and level or "club" }
+			-- a computer player (since 0.17): the session throws for it at its level
+			if get(p, "cpu") == true then list[i].cpu = true end
 		end
 		return object { name = (#ps == 1) and get(ps[1], "name") or ("Team " .. s), players = list }
 	end
@@ -497,7 +688,11 @@ function lobby.startMatch(doc, a)
 	l.n = n
 	local function strip(list)
 		local out = {}
-		for i, p in ipairs(list) do out[i] = object { id = get(p, "id"), name = get(p, "name") } end
+		for i, p in ipairs(list) do
+			out[i] = object { id = get(p, "id"), name = get(p, "name") }
+			-- a computer player keeps what says so (since 0.17), for who acts (pitch/seats)
+			if get(p, "cpu") == true then out[i].cpu, out[i].level = true, get(p, "level") end
+		end
 		return out
 	end
 	local m = object {
