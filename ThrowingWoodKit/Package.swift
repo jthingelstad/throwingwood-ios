@@ -55,8 +55,9 @@ let package = Package(
       ]
     ),
     // The game engine: a kubb-engine release (Engine/, vendored byte for
-    // byte by scripts/vendor-engine.sh) behind kubbCall.
-    .target(name: "KubbEngine", dependencies: ["CLua"], resources: [.copy("Engine"), .copy("Engines")]),
+    // byte by scripts/vendor-engine.sh) behind kubbCall. Were an older engine
+    // supported again (OLDER in that script), Engines/ would be copied too.
+    .target(name: "KubbEngine", dependencies: ["CLua"], resources: [.copy("Engine")]),
     .target(name: "KubbRenderer", dependencies: ["KubbEngine", "KubbPitch"], resources: [.copy("Sounds")]),
     .testTarget(name: "KubbRendererTests", dependencies: ["KubbRenderer"], resources: [.copy("Fixtures")]),
     .target(name: "KubbPitch", dependencies: ["KubbEngine"]),

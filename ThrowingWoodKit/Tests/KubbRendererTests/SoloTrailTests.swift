@@ -211,84 +211,105 @@ import Testing
     #expect(!again.trailComplete && save.readTrail()?.trail.entries.count == 1)
   }
 
-  /// A kept match resumes on the engine its trail names (a match begun on 0.7 by an
-  /// earlier build plays on as it was), that engine's Lua state made only then; a new
-  /// match and practice go back to the newest.
-  @Test(.enabled(if: Engine.carried.count > 1)) func aKeptMatchResumesOnItsOwnEngine() throws {
-    let older = Engine.carried[1]
+  /// The engine's hash is FNV-1a of the snapshot, so the save names its engine through
+  /// the files beside it with no engine at all (MatchSave.engineNamed).
+  @Test func theSavesHashIsTheEnginesWithoutAnEngine() throws {
     let dir = folder()
     defer { try? FileManager.default.removeItem(at: dir) }
     let save = MatchSave(file: dir.appending(path: "solo-match.json"))
-    let first = try PitchSession(appVersion: "test")
-    try first.useEngine(minor: older)
-    try first.openMatch("new", json: Self.setup, save: save)
-    try first.checkpoint()
-    let planner = try Engine(minor: older, appVersion: "test")
-    for _ in 0..<6 { try step(first, planner: planner) }
-    #expect(Engine.majorMinor(save.readTrail()?.trail.engine) == older)
-    let hash = try first.engine.hash()
+    let app = try startSolo(save, name: "Ada")
+    #expect(try MatchSave.fnv(#require(try save.read())) == app.engine.hash())
+    #expect(try save.engineNamed(for: #require(try save.read())) == app.engine.engineVersion)
+    try computerOrResign(app)
+    #expect(try MatchSave.fnv(#require(try save.read())) == app.engine.hash())
+    #expect(try save.engineNamed(for: #require(try save.read())) == app.engine.engineVersion)
+    #expect(save.engineNamed(for: try fixture("aim")) == nil)
+  }
 
-    let again = try PitchSession(appVersion: "test")
-    #expect(again.loadedEngines == [Engine.newest])
-    try again.restore(#require(try save.read()), save: save)
-    #expect(again.engine.minor == older)
-    #expect(Set(again.loadedEngines) == Set([Engine.newest, older]))
-    #expect(try again.engine.hash() == hash && again.trailKept)
-    // the same snapshot named by its replay's engine, and with nothing to name it
-    let shown = try PitchSession(appVersion: "test")
-    try shown.restore(#require(try save.read()), save: nil, engine: older + ".9")
-    #expect(shown.engine.minor == older)
-    try shown.restore(#require(try save.read()), save: nil, engine: "0.6.0")
-    #expect(shown.engine.minor == Engine.newest)
+  private func computerOrResign(_ app: PitchSession) throws {
+    app.dismissHandoff()
+    try app.resign()
+  }
 
-    try again.practice()
-    #expect(again.engine.minor == Engine.newest)
-    var choices = again.options.defaults
+  /// A save, its trail and a finished match, all made on `engine` (an engine this build
+  /// does not carry): the save is the solo "computer" fixture, the files name its hash.
+  private func keptOn(_ engine: String, finished: Bool) throws -> (MatchSave, String, URL) {
+    let dir = folder()
+    let save = MatchSave(file: dir.appending(path: "solo-match.json"))
+    let snapshot = try fixture("computer")
+    try save.write(snapshot)
+    if finished {
+      let file = JS.object([
+        ("v", .int(1)), ("engine", .string(engine)), ("complete", .bool(true)),
+        ("winner", .string("B")), ("throws", .int(0)), ("start", .string(try fixture("aim"))),
+        ("log", .array([JS.object([("a", .raw(JSONText(#"{"type":"resign","side":"A"}"#))), ("h", .string(MatchSave.fnv(snapshot)))])])),
+      ])
+      try Data(file.ascii.utf8).write(to: save.finishedFile)
+    } else {
+      try save.beginTrail(start: snapshot, hash: MatchSave.fnv(snapshot), engine: engine, complete: true)
+    }
+    return (save, snapshot, dir)
+  }
+
+  /// A kept unfinished match made on an engine this build no longer carries (0.9, by an
+  /// earlier build) is never played on another engine: the restore refuses it, changing
+  /// nothing, so the app can drop it with VersionWords.oldMatch and start afresh.
+  @Test(arguments: ["0.9.0", "0.8.2", "0.7.4"]) func aKeptMatchOnAnOlderEngineIsRefused(_ engine: String)
+    throws
+  {
+    let (save, snapshot, dir) = try keptOn(engine, finished: false)
+    defer { try? FileManager.default.removeItem(at: dir) }
+    #expect(save.engineNamed(for: snapshot) == engine)
+    let app = try PitchSession(appVersion: "test")
+    let before = try app.engine.call("view")
+    #expect(throws: OldMatch(engine: Engine.majorMinor(engine)!)) { try app.restore(snapshot, save: save) }
+    // nothing broken: the session is the practice it was, on the newest
+    #expect(app.engine.minor == Engine.newest && app.need == nil)
+    #expect(try app.engine.call("view") == before)
+    #expect(app.loadedEngines == [Engine.newest])
+    // the app drops it, trail and all, and a new match starts on the newest
+    save.dropOld(engine: Engine.majorMinor(engine)!)
+    #expect(try save.read() == nil && save.readTrail() == nil)
+    var choices = app.options.defaults
     choices["computer"] = "pro"
-    try again.startSolo(name: "Bo", selections: choices, save: save)
-    #expect(again.engine.minor == Engine.newest)
+    try app.startSolo(name: "Bo", selections: choices, save: save)
     #expect(Engine.majorMinor(save.readTrail()?.trail.engine) == Engine.newest)
   }
 
-  /// A match finished on an older carried engine and reopened on its winner card: the
-  /// trail has become the finished-match file, which names the engine, so the save is
-  /// restored on it and the match may still be shared (a review finding on PR #30).
-  @Test(.enabled(if: Engine.carried.count > 1)) func aFinishedMatchReopensOnItsOwnEngine() throws {
-    let older = Engine.carried[1]
-    let dir = folder()
+  /// A match finished on an older engine and reopened on its winner card: its
+  /// finished-match file names the engine, so it is refused the same way, and the file
+  /// goes with the save. A finished file of the newest engine stays.
+  @Test func aFinishedMatchOnAnOlderEngineIsRefused() throws {
+    let (save, snapshot, dir) = try keptOn("0.9.0", finished: true)
     defer { try? FileManager.default.removeItem(at: dir) }
-    let save = MatchSave(file: dir.appending(path: "solo-match.json"))
-    let first = try PitchSession(appVersion: "test")
-    try first.useEngine(minor: older)
-    try first.openMatch("new", json: Self.setup, save: save)
-    try first.checkpoint()
-    first.dismissHandoff()
-    try first.resign()
-    #expect(first.need?.kind == "over")
-    #expect(save.readTrail() == nil)
-    #expect(Engine.majorMinor(save.finishedMatch()?.engine) == older)
+    #expect(save.engineNamed(for: snapshot) == "0.9.0")
+    let app = try PitchSession(appVersion: "test")
+    #expect(throws: OldMatch(engine: "0.9")) { try app.restore(snapshot, save: save) }
+    #expect(app.shareableMatch(save: save) == nil)
+    save.dropOld(engine: "0.9")
+    #expect(try save.read() == nil && save.finishedMatch() == nil)
 
-    let again = try PitchSession(appVersion: "test")
-    try again.restore(#require(try save.read()), save: save)
-    again.dismissHandoff()
-    #expect(again.engine.minor == older)
-    #expect(again.need?.kind == "over")
-    let m = try #require(again.shareableMatch(save: save))
-    guard case .message = try again.shareMessage(m.source, name: "Alder") else {
-      Issue.record("refused")
-      return
-    }
-    #expect(try again.sheet().text == first.sheet().text)
+    // a finished file of the newest is not an older match's, and stays
+    let (kept, keptSnapshot, keptDir) = try keptOn(Engine.carriedVersions[0], finished: true)
+    defer { try? FileManager.default.removeItem(at: keptDir) }
+    try app.restore(keptSnapshot, save: kept)
+    #expect(app.engine.minor == Engine.newest)
+    kept.dropOld(engine: "0.9")
+    #expect(kept.finishedMatch() != nil)
+  }
 
-    // a finished file of another match names nothing for this save
-    let other = MatchSave(file: dir.appending(path: "other.json"))
-    let next = try PitchSession(appVersion: "test")
-    try next.openMatch("new", json: Self.setup.replacingOccurrences(of: "1001", with: "1002"), save: nil)
-    try other.write(next.engine.call("snapshot"))
-    try FileManager.default.copyItem(at: save.finishedFile, to: other.finishedFile)
-    let shown = try PitchSession(appVersion: "test")
-    try shown.restore(#require(try other.read()), save: other)
-    #expect(shown.engine.minor == Engine.newest)
+  /// A shared match's kept replay names its engine: one this build does not carry is
+  /// refused, the newest's (any patch) is shown, and one naming none is shown on the newest.
+  @Test func aSharedReplayOnAnOlderEngineIsRefused() throws {
+    let snapshot = try fixture("computer")
+    let app = try PitchSession(appVersion: "test")
+    #expect(throws: OldMatch(engine: "0.9")) { try app.restore(snapshot, save: nil, engine: "0.9.0") }
+    #expect(throws: OldMatch(engine: "0.6")) { try app.restore(snapshot, save: nil, engine: "0.6") }
+    #expect(app.need == nil)
+    try app.restore(snapshot, save: nil, engine: Engine.newest + ".0")
+    #expect(app.engine.minor == Engine.newest && app.need != nil)
+    try app.restore(snapshot, save: nil, engine: nil)
+    #expect(app.engine.minor == Engine.newest)
   }
 
   private func startSolo(_ save: MatchSave, name: String) throws -> PitchSession {

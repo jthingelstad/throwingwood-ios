@@ -2,15 +2,17 @@
 # The game engines, vendored from tagged releases of kubb-engine
 # (jthingelstad/kubb-engine), byte for byte, as the engine's own docs ask
 # (its docs/VERSIONING.md "Releases and vendoring"). The newest engine, which
-# every new match plays on, and each older minor the app still carries so a
-# match keeps its own engine (docs/ENGINES.md):
+# every match plays on, and any older minor we decide to keep supporting
+# (docs/ENGINES.md: an engine is carried only while we decide it is supported,
+# never because it was once released; today none is):
 #
 #   ThrowingWoodKit/Sources/KubbEngine/Engine/   the newest (TAG): core/,
 #       pitch/ (room/ before 0.13), session/, tune/, version.lua, engine.json
 #       (the engine's manifest: its version and a sha256 for every Lua file)
 #       and LICENSE
 #   ThrowingWoodKit/Sources/KubbEngine/Engines/<major.minor>/   each of OLDER,
-#       laid out the same way
+#       laid out the same way (only while OLDER names one; Package.swift then
+#       copies Engines as a resource, which check makes sure of)
 #   ThrowingWoodKit/Tests/KubbEngineTests/Fixtures/golden/   the newest's
 #       golden driver and corpus (tests/golden/drive.lua and hashes.json),
 #       the hashes its reference platform gives, which the tests must match
@@ -33,17 +35,23 @@
 #                                    engine under Engines/ that OLDER does not
 #                                    name. Needs no kubb-engine checkout (CI runs it)
 #
-# To move to a new patch of the newest: change TAG, run sync, then the tests
-# (AGENTS.md). To move to a new minor and keep the last one: put the old TAG in
-# OLDER, the new one in TAG. To stop carrying an older minor: take it out of
-# OLDER and run sync.
+# To move to a new patch or a new minor: change TAG, run sync, then the tests
+# (AGENTS.md); the old minor goes with it. Only if we decide to keep supporting
+# the old minor: put its tag in OLDER, add .copy("Engines") to the KubbEngine
+# target in Package.swift and its corpus to GoldenTests' pinnedCorpora. To stop
+# carrying one: take it out of OLDER (and the resource when none is left) and
+# run sync.
 
 set -euo pipefail
 
-# The kubb-engine release new matches play on, and the older ones carried beside it,
-# one per major.minor, newest first.
+# The supported engines, decided here and nowhere else (docs/ENGINES.md): the
+# kubb-engine release every match plays on, and the older ones we decide to keep
+# supporting beside it, one per major.minor, newest first. None (the owner,
+# 2026-11-21: "We should only support engines that we decide are worth supporting
+# not just ones that have published so that we can push players to the new
+# engines.").
 TAG=v0.13.3
-OLDER=(v0.9.0 v0.8.2 v0.7.4)
+OLDER=()
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 source_dir=${KUBB_ENGINE_SOURCE:-$root/../kubb-engine}
@@ -161,6 +169,13 @@ case "${1:-}" in
       [[ $pinned == *" $(basename "$d") "* && $(basename "$d") != "$(minor_of "$TAG")" ]] ||
         fail "unpinned: ${d#"$root"/} (not in OLDER; run sync)"
     done
+    # The package copies Engines/ exactly when OLDER names an engine (SwiftPM refuses a
+    # resource folder that is not there, and an engine left out of the bundle is not carried).
+    if grep -q '\.copy("Engines")' "$root/ThrowingWoodKit/Package.swift"; then
+      [[ ${#OLDER[@]} -gt 0 ]] || fail "Package.swift copies Engines, but OLDER names no engine"
+    else
+      [[ ${#OLDER[@]} -eq 0 ]] || fail "OLDER names an engine: add .copy(\"Engines\") to the KubbEngine target in Package.swift"
+    fi
     exit $status
     ;;
   *)

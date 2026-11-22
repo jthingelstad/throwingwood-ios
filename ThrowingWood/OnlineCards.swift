@@ -231,11 +231,8 @@ struct VersionNotice: View {
   let version: OnlinePitch.VersionCard, watch: () -> Void
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
-      Text(version == .newer ? "A newer version" : "An older version").font(displayFont(36))
-      Text(
-        version == .newer
-          ? "This pitch is playing on a newer version of Throwing Wood. Update the app to join."
-          : "This pitch is playing on an older version of Throwing Wood. Ask the host to reload.")
+      Text(VersionWords.cardTitle(newer: version == .newer)).font(displayFont(36))
+      Text(VersionWords.cardText(newer: version == .newer)).fixedSize(horizontal: false, vertical: true)
       Button("WATCH", action: watch).buttonStyle(WoodButton(accent: true))
     }.frame(maxWidth: 340).modifier(Plate()).padding(20)
   }

@@ -30,7 +30,7 @@ const { Engine } = await fromWeb("src/engine/index.js");
 const { useRoomEngine, LOG_BUDGET } = await fromWeb("src/net/lobby.js");
 const { bundleLua, engineVersion } = await fromWeb("tools/lua-bundle.mjs");
 const { playSolo, soloSetup } = await fromWeb("tools/reel/solo.mjs");
-const { asciiJson } = await fromWeb("src/net/room.js");
+const { asciiJson } = await fromWeb("src/net/pitch-client.js");
 let webCommit = "unknown";
 try {
   webCommit = execFileSync("git", ["-C", web, "rev-parse", "HEAD"], {

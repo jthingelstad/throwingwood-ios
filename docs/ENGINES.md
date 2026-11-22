@@ -1,51 +1,90 @@
 # Engines the app carries
 
-A match belongs to the engine it was started on: its `match.engine` major.minor, for
-its whole life (kubb-engine docs/VERSIONING.md). A new minor can change how a throw
-goes (0.8.0 changed a person's baton planned under 2 m), so a match from an older minor
-only plays on, or back, as it was on that minor's engine. The app carries the newest
-engine and the older minors it still plays, one per major.minor, laid out as the web's
-`vendor/engine/` and `vendor/engines/` (the web's docs/ENGINES.md).
+## The rule
+
+An engine is carried only while we decide it is supported, never because it was once
+released (the owner, 2026-11-21: "Let's force all clients to the most recent engine. We
+should only support engines that we decide are worth supporting not just ones that have
+published so that we can push players to the new engines."). Today that is the newest
+alone: 0.13 (v0.13.3, golden corpus 0.13.0, 15 matches). Every match plays on it: solo,
+practice and every pitch.
+
+The decision is written in one place, `TAG` and `OLDER` in `scripts/vendor-engine.sh`:
+`TAG` is the newest and `OLDER` the older minors we have decided to keep supporting,
+one per major.minor. `OLDER` is empty. Moving to a new minor drops the last one unless
+we decide otherwise. 0.9, 0.8 and 0.7 went on 2026-11-21 (app 0.8); no client shipped
+0.10 to 0.12.
+
+A match still belongs to the engine it was started on, its `match.engine` major.minor,
+for its whole life (kubb-engine docs/VERSIONING.md), because a new minor can change how a
+throw goes. So a match made on an engine this build does not carry is never played,
+replayed or reopened on another one: the app says so in one sentence and nothing around
+it breaks ("Looking back at a match" below).
 
 ## Vendoring
 
 | Folder | What |
 | --- | --- |
-| `ThrowingWoodKit/Sources/KubbEngine/Engine/` | the newest (`TAG` in `scripts/vendor-engine.sh`) |
-| `ThrowingWoodKit/Sources/KubbEngine/Engines/<major.minor>/` | each of `OLDER`, laid out the same way |
-| `ThrowingWoodKit/Tests/KubbEngineTests/Fixtures/golden/` | the newest's golden driver and corpus |
-| `ThrowingWoodKit/Tests/KubbEngineTests/Fixtures/engines/<major.minor>/golden/` | each older one's |
+| `ThrowingWoodKit/Sources/KubbEngine/Engine/` | the newest (`TAG`) |
+| `ThrowingWoodKit/Tests/KubbEngineTests/Fixtures/golden/` | its golden driver and corpus |
+| `ThrowingWoodKit/Sources/KubbEngine/Engines/<major.minor>/` | each of `OLDER`, laid out the same way (none today) |
+| `ThrowingWoodKit/Tests/KubbEngineTests/Fixtures/engines/<major.minor>/golden/` | each older one's corpus (none today) |
 
 `scripts/vendor-engine.sh sync` writes every one from its own tag; `check` verifies each
-against its own `engine.json` and corpus, and fails on an engine folder `OLDER` does not
-name. None is ever edited. Today: 0.13 (v0.13.3, corpus 0.13.0, 15 matches), 0.9
-(v0.9.0, corpus 0.9.0, 13 matches), 0.8 (v0.8.2, corpus 0.8.0, 13 matches) and 0.7
-(v0.7.4, corpus 0.5.0, 12 matches). 0.9 stays for the builds on it (0.3 to 0.6), kept
-0.9 matches and a pitch with a peer that has only 0.9 (the web until it moves to 0.13);
-0.8 for testers on build 121 and kept 0.8 matches; 0.7 for build 113 and kept 0.7
-matches. No client shipped 0.10 to 0.12, so nothing carries them. 0.13 names the shared
-pitch's module `pitch/` (its calls `pitch.<name>`, and `room.<name>` as the old spelling);
-the carried engines have `room/`, and the app calls `room.` on every engine
-(kubb-engine docs/VERSIONING.md 0.13.0, "The pitch rename").
-Each older engine is about 0.8 MB and loads only when a match on it is met. `GoldenTests` plays every carried engine's corpus.
+against its own `engine.json` and corpus, fails on an engine folder `OLDER` does not
+name, and fails unless `Package.swift` copies `Engines` as a resource exactly when
+`OLDER` names an engine. None is ever edited. `GoldenTests` plays every carried engine's
+corpus (`pinnedCorpora`).
 
-## In the app
+## Carrying an older engine again
 
-`Engine.carried` lists them newest first (read from the bundle), `Engine(minor:)` makes
-one, and each is a Lua state of its own, made the first time something needs it: a
-session that never meets an older match never loads an older engine.
+The machinery stays, so supporting an older minor again is a decision and three edits,
+not new code: its tag in `OLDER`, `.copy("Engines")` on the KubbEngine target in
+`Package.swift` and its corpus in `pinnedCorpora`, then sync. The app already loads one:
 
-- **New play is on the newest**: a solo match, practice, and the engine a member
-  announces before the room is known.
-- **Online** (docs/ONLINE.md "Engines in one room"): the member announces every engine
-  it carries (`room.announce`), the room's engine is `room.engineFor` of the host and
-  the players, START stamps the match with it, and the pitch (`EngineShelf` in
-  `PitchController`, `PitchSession.useEngine` for the board) plays each match on its
-  own engine.
-- **A kept solo match** resumes on the engine its trail names (docs/MATCH.md "The
-  replay trail"), so its share, score sheet and report are that engine's.
-- **A shared match opened by its code** (a sealed pitch) is restored on the engine its
-  kept replay names (`engine`, `room.replayOf`'s copy of `match.engine`).
-- An engine this build does not carry is never guessed at: a match on it is refused
-  with the version card, and a kept one with nothing naming a carried engine plays on
-  the newest, as before there were several.
+- `Engine.carried` lists the bundle's engines newest first (`Engine/`, then any
+  `Engines/<major.minor>/`), `Engine(minor:)` makes one, and each is a Lua state of its
+  own, made the first time something needs it (`PitchSession.useEngine`, `EngineShelf`
+  in `PitchController`).
+- Online, the member announces every engine it carries (`room.announce`), the room's
+  engine is `room.engineFor` of the host and the players, START stamps the match with it,
+  and each match plays on its own engine (docs/ONLINE.md "Engines in one room").
+- A kept solo match resumes on the engine its own files name, and a shared match on the
+  engine its kept replay names.
+
+The session's older-engine fallbacks (no `aim.controls` before 0.9, no `optionsOf` or
+`computer` option before 0.9, no scene before 0.9) stay with it: they cost nothing while
+no older engine is carried.
+
+## Looking back at a match
+
+A match made on an engine this build does not carry cannot be replayed here. Every place
+one can be opened says it in the same sentence, `VersionWords.oldMatch` (the web's
+`OLD_REPLAY`): "This match was made on an older version of the game and can no longer be
+replayed."
+
+- **A kept unfinished solo match** (a cold launch, or PLAY THE COMPUTER): the save's own
+  files name its engine (`MatchSave.engineNamed`: the trail, then the finished-match
+  file, each only when it holds the save's hash, FNV-1a of the snapshot, so no engine is
+  needed to read it). On an engine not carried, `PitchSession.restore` throws `OldMatch`
+  and changes nothing; the app drops the save and its trail (`MatchSave.dropOld`), says
+  the sentence over the screen, and PLAY THE COMPUTER opens the options card for a fresh
+  match. A save nothing names (a build before the trail) plays on the newest, as it
+  always did.
+- **A finished solo match reopened on its winner card**: the same, through its
+  finished-match file, which goes with it. Its share is refused too
+  (`shareableMatch` needs the finished match's engine to be the session's).
+- **A shared match opened by its code or link** (a sealed pitch): the kept replay's
+  `engine`; one not carried shows the sealed card with the sentence and HOME, and no TRY
+  AGAIN (`SealedPitch.Phase.old`).
+- **A pitch's match on an engine not carried** (a rejoin, or a peer's START from an older
+  build): the controller refuses it (`mayPlay`, the version card); see
+  docs/ONLINE.md "Engines in one room".
+- **A highlight reel** is made by the server, which answers `engine` ("another version")
+  as before.
+
+The tests: `SoloTrailTests` (`aKeptMatchOnAnOlderEngineIsRefused`,
+`aFinishedMatchOnAnOlderEngineIsRefused`, `aSharedReplayOnAnOlderEngineIsRefused`,
+`theSavesHashIsTheEnginesWithoutAnEngine`), `EnginesTests`
+(`aPlayerOnAnOlderEngineIsNamedAndNothingStarts`, `aMatchOnAnOlderEngineIsNeverPlayedHere`)
+and `VersionWordsTests`.

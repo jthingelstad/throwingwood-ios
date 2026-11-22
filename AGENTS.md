@@ -24,8 +24,8 @@ physics and session that the Playdate and the web version
   `0.2 (0.8.1)`, built in one place, `VersionLabel` (KubbRenderer): `VERSION`
   (the marketing version) and the newest carried engine's `engineVersion`, read
   from the engine, never typed. Nothing else goes in the parentheses: the build
-  number is a detail line (`build 114`), and so is any older engine carried
-  (`Also plays 0.7.4`). It is at the foot of the match, pitch and practice menus
+  number is a detail line (`build 114`), and so would be any older engine carried
+  (`Also plays 0.7.4`; none today). It is at the foot of the match, pitch and practice menus
   and in a feedback report's `build.label`. It never goes on the room wire, a
   rider, a kept match or a shared replay, which name only the engine a match is
   played on. Bump `VERSION` and `MARKETING_VERSION` together; the build number
@@ -69,19 +69,24 @@ agrees. So:
   vendored files; a fix belongs
   in kubb-engine, then here by moving to its next tag. Never write in the
   kubb-engine checkout from here.
-- **Several engines.** A match belongs to the engine it was started on (its
-  `match.engine` major.minor), so the app carries the newest and each older
-  minor it still plays on, one per major.minor, as the web does
-  (docs/ENGINES.md): `OLDER` in `scripts/vendor-engine.sh` names their tags,
-  vendored the same way into `Sources/KubbEngine/Engines/<major.minor>/`, their
-  corpora into `Tests/KubbEngineTests/Fixtures/engines/<major.minor>/golden/`,
-  each checked by `check` against its own `engine.json` (an engine folder
-  `OLDER` does not name fails it). Each carried engine is a Lua state of its
-  own, made the first time a match on it needs it. New play (solo, practice,
-  a new pitch's own announcement) is on the newest. `GoldenTests` pins each
-  carried engine to its corpus (`pinnedCorpora`); carrying or dropping one
-  changes that on purpose. A new minor that keeps the last: move the old `TAG`
-  into `OLDER`, set the new `TAG`, sync.
+- **Only the engines we decide to support.** An engine is carried only while we
+  decide it is supported, never because it was once released (the owner,
+  2026-11-21: "We should only support engines that we decide are worth supporting
+  not just ones that have published so that we can push players to the new
+  engines."). Today that is the newest alone. The decision is written in one place,
+  `TAG` and `OLDER` in `scripts/vendor-engine.sh`: `OLDER` names any older minor we
+  keep (none; `check` fails on an engine folder it does not name, and unless
+  `Package.swift` copies `Engines` exactly when it names one). A match belongs to
+  the engine it was started on (its `match.engine` major.minor), so a match on an
+  engine this build does not carry is never played, replayed or reopened on another:
+  every place one can be opened says `VersionWords.oldMatch` and breaks nothing
+  around it, and a pitch with a player on an older or newer build says who must
+  update (`VersionWords`, the web's words; docs/ENGINES.md "Looking back at a
+  match", docs/ONLINE.md "Engines in one room"). The per-engine loader stays
+  (`Engine.carried`, `EngineShelf`, `PitchSession.useEngine`), so carrying an older
+  engine again is a decision and three edits (docs/ENGINES.md). `GoldenTests` pins
+  each carried engine to its corpus (`pinnedCorpora`). A new minor: set `TAG`, sync;
+  the old minor goes with it.
 - **Moving to a new engine release:** set `TAG`, run
   `scripts/vendor-engine.sh sync`, then all three test runs below (macOS
   Debug, release and the simulator). Every golden action must match on each.

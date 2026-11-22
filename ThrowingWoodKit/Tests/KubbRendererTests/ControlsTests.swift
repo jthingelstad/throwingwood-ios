@@ -90,28 +90,6 @@ import simd
     #expect(app.mix == 0 && !app.wantsFrames)
   }
 
-  /// On a 0.8 match (no `aim.controls`) the side keeps its steps, as before 0.9.
-  @Test func onAnOlderEngineTiltMovesByTheStepDifference() throws {
-    let app = try PitchSession(appVersion: "test")
-    try app.restore(fixture("aim"), save: nil, engine: "0.8")
-    app.dismissHandoff()
-    #expect(app.engine.minor == "0.8" && app.sideControl == nil && app.arcControl == nil)
-    #expect(!app.throwsKubb && app.sideSteps == 0)
-    app.slide(.side, to: 1, phase: .down)
-    #expect(app.heldFraction == 1)
-    try app.tick(1.0 / 60)
-    #expect(app.sideStep == 20 && app.sideSteps == 4)
-    app.slide(.side, to: 0.36, phase: .move)
-    try app.tick(1.0 / 60)
-    #expect(app.sideStep == -5)
-    app.slide(.side, to: 0.62, phase: .up)
-    try app.tick(1.0 / 60)
-    #expect(app.sideStep == 5 && app.heldFraction == nil)
-    try app.stepPlan(.side, by: 1)
-    #expect(app.sideStep == 10)
-    #expect(app.sideMarks(run: 64).count == 9)
-  }
-
   /// On 0.9 the slider sends where the finger is (`setTilt`): any value, no steps.
   @Test func tiltSliderTakesAnyValue() throws {
     let app = try aiming()

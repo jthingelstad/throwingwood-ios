@@ -4,7 +4,8 @@ review phones and iPads, for review by eye.
 The app shows the card over a finished match (the solo "over" fixture) with no
 network: SHARE_REVIEW names the state and every answer is a stand-in
 (ShareCard.swift). Only invented names. "shared" is the reel card for the returned
-code, making its reel; "sealed" is the winner card of a sealed pitch opened by code.
+code, making its reel; "sealed" is the winner card of a sealed pitch opened by code,
+"sealedold" the same match kept as made on an engine this build no longer carries.
 
   python3 tools/share-snapshots.py <simulator-app> [--landscape left|right] [--ipad]
 
@@ -29,7 +30,7 @@ from review_turn import is_ipad, turn as turn_device
 ROOT = Path(__file__).resolve().parents[1]
 STATES = ("winner sharedwinner card cardempty cardyou cardlong cardtried checking shared "
           "toolong engine doesnotreplay busy unavailable toomany failed notthistime offline "
-          "sealed sealedloading sealedfailed").split()
+          "sealed sealedloading sealedfailed sealedold").split()
 # The ones whose shape changes with the window, also turned and on iPads.
 SHAPES = ["winner", "card", "cardlong", "checking", "failed", "shared", "sealed"]
 APP = "com.throwingwood.app"
