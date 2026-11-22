@@ -64,7 +64,7 @@ agrees. So:
   `Tests/KubbEngineTests/Fixtures/golden/`. `check` (in CI, no checkout
   needed) verifies every file against the engine's own `engine.json`, and
   the version against the tag (v0.4.1 explicitly retains the 0.2.0
-  golden corpus, v0.5.1 and v0.7.1 to v0.7.4 the 0.5.0 one, v0.8.1 and v0.8.2 the 0.8.0 one;
+  golden corpus, v0.5.1 and v0.7.1 to v0.7.4 the 0.5.0 one, v0.8.1 and v0.8.2 the 0.8.0 one, v0.13.1 the 0.13.0 one;
   arbitrary older corpora are not accepted). Never edit the
   vendored files; a fix belongs
   in kubb-engine, then here by moving to its next tag. Never write in the

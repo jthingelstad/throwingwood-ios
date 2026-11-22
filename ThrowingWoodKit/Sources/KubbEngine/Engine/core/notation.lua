@@ -14,12 +14,18 @@
 --      per token (the grammar's limit).
 --   Y  never written: a failed rescue attempt is intent the game cannot see.
 --
--- Positions (optional in the notation, written by the game since
--- 2026-11-16): a comment that starts with @ straight after an inkast token
--- or a baton token, "j:2I (@ 1.32,5.87 1.40,6.02)". The sheet keeps them as
--- data beside the token in the engine's world frame (meters, x across
--- -2.5..2.5, y from Team A's baseline); turnLine converts them with
--- notation.pitchXY and never writes more than the token counts.
+-- The file is Planet Kubb Notation 2 in its canonical form (pk-kubb-score's
+-- docs/notation-2.md, edition 2026.11; the grammar's CanonicalGame): one
+-- spelling of each thing, [Notation "2"] first, the defined headers in their
+-- order and the engine's own after them, a bare A for the advantage line.
+--
+-- Positions: lines of their own under a turn line, in the notation's frame
+-- (notation.toPitch). The sheet keeps, in the engine's world frame (meters, x
+-- across -2.5..2.5, y from Team A's baseline), where each kubb thrown in stood
+-- as the batons began (t.inkastAt, per player) and where each kubb a baton's
+-- token counts stood before it (a baton's `at`). From those the file writes,
+-- for the half under attack, the pitch line @ when it can be whole and the
+-- felled line * (notation.positionLines says when, and what is left out).
 import "core/tw"
 
 local floor, concat, fmt = math.floor, table.concat, string.format
@@ -216,13 +222,14 @@ local function count(n, code)
 	return n .. code
 end
 
--- Inkast token body from { I, R, P, Q, N, E }: "5I2R", "2IRP", "3IQ", "4IE".
+-- Inkast token body from { I, R, P, Q, N, E }: "5I2R", "2IRP", "3IQ", "4IE"; "0I"
+-- for none (the canonical form's only zero).
 function notation.inkastBody(k)
 	local n = k.N or 0
 	if n > 5 then n = 5 end
 	local s = count(k.I or 0, "I") .. count(k.R or 0, "R") .. count(k.P or 0, "P")
 		.. count(k.Q or 0, "Q") .. count(n, "N")
-	if s == "" then s = "0" end
+	if s == "" then s = "0I" end
 	if k.E then s = s .. "E" end
 	return s
 end
@@ -236,52 +243,63 @@ function notation.hitToken(f, b, e)
 	return s
 end
 
--- ---------- positions ----------
+-- ---------- positions (Notation 2, "The pitch frame") ----------
 
--- The notation's frame from the engine's: the pitch seen from Team A's
--- baseline in every turn, x meters across from the left sideline (0 to 5),
--- y meters up from Team A's baseline (0 to 8). The engine's x runs across
--- with the sidelines at -2.5 and 2.5, +x on the right of someone on Team A's
--- baseline facing Team B (core/camera: a positive swivel aims toward +x, to
--- the right), and its y is already up from Team A's baseline (y = 0). So it
--- is a shift of x by half the width. Clamped to the pitch (a piece's centre
--- on a line is in; the grammar has no minus sign).
-function notation.pitchXY(x, y)
-	local nx, ny = x + 2.5, y
-	if nx <= 0 then nx = 0 elseif nx > 5 then nx = 5 end
-	if ny <= 0 then ny = 0 elseif ny > 8 then ny = 8 end
-	return nx, ny
+-- The notation's frame from the engine's, in this one place. The origin is the
+-- centre-line stake on Team A's left as Team A stands on its own baseline facing
+-- the king; across runs from it along the centre line, 0 to 5 (the king at 2.5);
+-- depth runs from the centre line toward a baseline, 0 to 4, the same in both
+-- halves; the half (a or b) says which. The engine's x runs across with the
+-- sidelines at -2.5 and 2.5, +x on the right of someone on Team A's baseline
+-- facing Team B (core/camera: a positive swivel aims toward +x), and its y runs
+-- from Team A's baseline (0) to Team B's (8), the centre line at 4. So across is
+-- x + 2.5 and depth is 4 - y in half a, y - 4 in half b. `half` is "A" or "B":
+-- the half a piece is in play for, which on the centre line is not y's to say.
+function notation.toPitch(x, y, half)
+	local across = x + 2.5
+	local depth = half == "A" and (4 - y) or (y - 4)
+	return across, depth
 end
 
--- " (@ 1.32,5.87 1.40,6.02)" for at most `most` world-frame points
--- { x, y } of list `at`; "" when there are none.
-function notation.positions(at, most)
-	if not at or #at == 0 or (most or 0) <= 0 then return "" end
-	local ps = {}
-	for i = 1, math.min(#at, most) do
-		local nx, ny = notation.pitchXY(at[i].x, at[i].y)
-		ps[i] = fmt("%.2f,%.2f", nx, ny)
-	end
-	return " (@ " .. concat(ps, " ") .. ")"
+-- And back: the engine's x, y of a notation point in `half`.
+function notation.fromPitch(across, depth, half)
+	return across - 2.5, half == "A" and (4 - depth) or (4 + depth)
 end
 
--- How many kubbs a token counts, as kubb.js reads it (its cap on positions):
--- an inkast's I + R + P + Q + N, a baton's F + B.
-local function inkastCount(k)
-	local n = k.N or 0
-	if n > 5 then n = 5 end
-	return (k.I or 0) + (k.R or 0) + (k.P or 0) + (k.Q or 0) + n
+-- A number of metres with two decimals, rounded to the nearest centimetre with a
+-- value exactly half way going to the even one (%.2f on the double's exact value,
+-- which every platform's C library rounds that way), never "-0.00"; nil when it
+-- is below 0.00 or above `most` once rounded.
+local function metres(v, most)
+	local s = fmt("%.2f", v)
+	if s == "-0.00" then s = "0.00" end
+	local c = tonumber((s:gsub("%.", "")))
+	if c < 0 or c > most * 100 then return nil end
+	return s, c
 end
 
-local function batonCount(token)
+-- A point of the engine's frame as the notation writes it ("4.48,0.11") and its
+-- across and depth in whole centimetres (for the canonical order), or nil when
+-- the point is not in `half` (an earlier baton can leave a kubb over the centre
+-- line, II.B.7, and a pitch or felled line has no minus sign).
+function notation.point(x, y, half)
+	local across, depth = notation.toPitch(x, y, half)
+	local a, ac = metres(across, 5)
+	local d, dc = metres(depth, 4)
+	if not (a and d) then return nil end
+	return a .. "," .. d, ac, dc
+end
+
+-- How many field and base kubbs a baton token counts: "2FB" 2, 1; "FE" 1, 0;
+-- "K", "-", "=" 0, 0.
+local function batonParts(token)
 	local f = token:match("^(%d*)F")
 	local b = token:match("(%d*)BE?$")
-	local c = 0
-	if f then c = c + (f == "" and 1 or tonumber(f)) end
-	if b then c = c + (b == "" and 1 or tonumber(b)) end
-	return c
+	f = f and (f == "" and 1 or tonumber(f)) or 0
+	b = b and (b == "" and 1 or tonumber(b)) or 0
+	return f, b
 end
-notation.batonCount = batonCount
+notation.batonParts = batonParts
 
 -- ---------- the score sheet ----------
 
@@ -341,9 +359,12 @@ function Sheet:note(text)
 	n[#n + 1] = text
 end
 
--- One turn's line, without the trailing newline. ids (optional, the prefix
--- table of notation.fileIds) says what each player's throws are written
--- with; without it every throw carries the player's full id.
+-- One turn's line, without the trailing newline and without its position
+-- lines (notation.positionLines). ids (optional, the prefix table of
+-- notation.fileIds) says what each player's throws are written with; without
+-- it every throw carries the player's full id. The advantage line is a bare A
+-- (the canonical form): the sheet keeps its whole metres (t.advantage), which
+-- Notation 2 says only through the pitch line of the thrower's own half.
 local function written(pid, token, ids)
 	if not pid then return token end
 	local w = pid
@@ -359,39 +380,155 @@ function notation.turnLine(t, ids)
 		local k = t.inkast[pid]
 		if (k.N or 0) > 5 then notes[#notes + 1] = k.N .. " kubbs came to rest on another (N is capped at 5)" end
 		parts[#parts + 1] = written(pid, notation.inkastBody(k), ids)
-			.. notation.positions(t.inkastAt and t.inkastAt[pid], inkastCount(k))
 	end
-	if t.advantage then parts[#parts + 1] = t.advantage .. "A" end
+	if t.advantage then parts[#parts + 1] = "A" end
 	for _, b in ipairs(t.batons) do
 		parts[#parts + 1] = written(b.player, b.token, ids)
-			.. notation.positions(b.at, batonCount(b.token))
 	end
 	for _, n in ipairs(t.notes) do notes[#notes + 1] = n end
 	local line = concat(parts, " ")
 	if #notes > 0 then
-		line = line .. " # " .. concat(notes, "; "):gsub("[\r\n#]", " ")
+		local note = concat(notes, "; "):gsub("[\r\n#]", " "):gsub("^%s+", ""):gsub("%s+$", "")
+		if note ~= "" then line = line .. " # " .. note end
 	end
 	return line
 end
 
+-- ---------- position lines ----------
+
+-- The inkast counts of a turn, every player's together.
+local function turnCounts(t)
+	local c = { I = 0, R = 0, P = 0, Q = 0, N = 0 }
+	for _, pid in ipairs(t.inkastOrder) do
+		local k = t.inkast[pid]
+		for code in pairs(c) do c[code] = c[code] + (k[code] or 0) end
+	end
+	return c
+end
+
+local function byPlace(a, b)
+	if a.ac ~= b.ac then return a.ac < b.ac end
+	return a.dc < b.dc
+end
+
+local function placed(list, half)
+	local out = {}
+	for i, p in ipairs(list) do
+		local text, ac, dc = notation.point(p.x, p.y, half)
+		if not text then return nil end
+		out[i] = { text = text, ac = ac, dc = dc }
+	end
+	return out
+end
+
+-- The position lines of turn t, a list of strings in the canonical order, for
+-- the half under attack (the defender's, which the kubbs are thrown into).
+-- `left` is how many field kubbs stood in that half from earlier turns as the
+-- turn began (notation.render counts them as kubb.js does).
+--
+--   @  the pitch line, in points, every entry unmarked: written only when it can
+--      be the whole half, that is when every field kubb standing there as the
+--      first baton is thrown was thrown in this turn (none left from earlier
+--      turns, `left` less the rescues is 0), no punishment kubb was placed (the
+--      sheet does not say which of its kubbs is the P), and the sheet has a place
+--      for every kubb thrown in. Otherwise there is none (the notation: "It is
+--      the whole half or it is left out").
+--   *  the felled line, a word a baton: where each kubb its token counts stood
+--      before it, field kubbs then base kubbs, each group by across and then
+--      depth; "-" for a baton that felled none, one the sheet has no places for,
+--      one whose kubb stood outside the half, and one whose field kubb is not
+--      where the pitch line has it (an earlier baton moved it), since a reader
+--      finds a felled field kubb on the pitch line. No line when every word is -.
+--
+-- Not written, for the sheet does not keep them: the thrower's own half (its
+-- kubbs are marked s), the lay line ~ (where each kubb lay before it was
+-- raised) and the stance line ^ (where each baton was thrown from).
+function notation.positionLines(t, left)
+	local def = t.side == "A" and "B" or "A"
+	local h = def:lower()
+	local out = {}
+	local c = turnCounts(t)
+	local pitch
+	if t.inkastAt and c.I > 0 and c.P == 0 and (left or 0) - c.Q == 0 then
+		local all = {}
+		for _, pid in ipairs(t.inkastOrder) do
+			for _, p in ipairs(t.inkastAt[pid] or {}) do all[#all + 1] = p end
+		end
+		if #all == c.I then pitch = placed(all, def) end
+	end
+	local onPitch
+	if pitch then
+		table.sort(pitch, byPlace)
+		local words = {}
+		onPitch = {}
+		for i, e in ipairs(pitch) do
+			words[i] = e.text
+			onPitch[e.text] = (onPitch[e.text] or 0) + 1
+		end
+		out[#out + 1] = "@" .. h .. " " .. concat(words, " ")
+	end
+	local words, any = {}, false
+	for i, b in ipairs(t.batons) do
+		local f, nb = batonParts(b.token)
+		local word = "-"
+		local at = (f + nb > 0 and b.at and #b.at == f + nb) and placed(b.at, def) or nil
+		if at then
+			local field, base = {}, {}
+			for j, e in ipairs(at) do
+				if j <= f then field[#field + 1] = e else base[#base + 1] = e end
+			end
+			local ok = true
+			if onPitch then
+				local need = {}
+				for _, e in ipairs(field) do need[e.text] = (need[e.text] or 0) + 1 end
+				for text, n in pairs(need) do
+					if (onPitch[text] or 0) < n then ok = false end
+				end
+				if ok then
+					for text, n in pairs(need) do onPitch[text] = onPitch[text] - n end
+				end
+			end
+			if ok then
+				table.sort(field, byPlace)
+				table.sort(base, byPlace)
+				local parts = {}
+				for _, e in ipairs(field) do parts[#parts + 1] = e.text end
+				for _, e in ipairs(base) do parts[#parts + 1] = e.text end
+				word, any = concat(parts, "+"), true
+			end
+		end
+		words[i] = word
+	end
+	if any then out[#out + 1] = "*" .. h .. " " .. concat(words, " ") end
+	return out
+end
+
 local function teamLabel(side) return "Team " .. side end
 
--- The game file. `game` is a rules game (tw.rules) that has ended; meta is
--- { start, finish (time tables), version, mode, event, location, levels }.
--- levels: { "kim pro", "sam club", ... } (player id and throw level), written
--- as [Throw Levels "..."] after [Mode] when given, each id as the header
--- names it (notation.fileIds: "k pro, s club").
+-- The game file: Planet Kubb Notation 2 in the canonical form. `game` is a
+-- rules game (tw.rules); meta is { start, finish (time tables), version, mode,
+-- event, location, levels }. levels: { "kim pro", "sam club", ... } (player id
+-- and throw level), written as [Throw Levels "..."], each id as the header names
+-- it (notation.fileIds: "k pro, s club"). The headers the notation defines come
+-- in its order; the engine's own ([Mode], [Throw Levels]) after them, by code
+-- point. Each turn line is followed by its position lines.
 function notation.render(game, meta)
 	meta = meta or {}
 	local prefix, header = notation.fileIds(game.teams)
 	local lines = {}
 	local function h(k, v) lines[#lines + 1] = fmt('[%s "%s"]', k, v) end
+	h("Notation", "2")
 	h("Event", notation.cleanName(meta.event or notation.event))
 	h("Location", notation.cleanName(meta.location or notation.location))
 	if meta.start then h("Start", notation.formatTime(meta.start)) end
 	if meta.finish then h("End", notation.formatTime(meta.finish)) end
 	if meta.start and meta.finish then h("Duration", notation.minutesBetween(meta.start, meta.finish) .. "m") end
 	h("Surface", game.surface)
+	local six = game.opening == "six"
+	h("Rules", six and "U.S. Championship 4.0, six from the start" or "U.S. Championship 4.0, 2-4-6")
+	h("Base kubbs", "5")
+	h("Batons", "6")
+	h("Opening", six and "6" or "2-4-6")
 	for _, side in ipairs { "A", "B" } do
 		local team = game.teams[side]
 		h("Team " .. side, notation.cleanName(team.name))
@@ -414,11 +551,22 @@ function notation.render(game, meta)
 		end
 		h("Throw Levels", concat(ls, ", "))
 	end
-	h("Rules", game.opening == "six" and "U.S. Championship 4.0, six from the start"
-		or "U.S. Championship 4.0, 2-4-6")
-	lines[#lines + 1] = ""
+	if #game.sheet.turns > 0 then lines[#lines + 1] = "" end
+	-- field kubbs standing in each half, counted as kubb.js counts them: a turn's
+	-- kubbs thrown in join the defender's half (less its rescues), each F felled
+	-- leaves it
+	local field = { A = 0, B = 0 }
 	for i = 1, #game.sheet.turns do
-		lines[#lines + 1] = notation.turnLine(game.sheet.turns[i], prefix)
+		local t = game.sheet.turns[i]
+		local def = t.side == "A" and "B" or "A"
+		local c = turnCounts(t)
+		field[def] = math.max(0, field[def] - c.Q) + c.I
+		lines[#lines + 1] = notation.turnLine(t, prefix)
+		for _, l in ipairs(notation.positionLines(t, field[def] - c.I + c.Q)) do lines[#lines + 1] = l end
+		for _, b in ipairs(t.batons) do
+			local f = batonParts(b.token)
+			field[def] = math.max(0, field[def] - f)
+		end
 	end
 	return concat(lines, "\n") .. "\n"
 end
