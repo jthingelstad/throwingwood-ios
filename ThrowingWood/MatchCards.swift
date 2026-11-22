@@ -664,7 +664,7 @@ struct MatchScreen: View {
           pitch.engineRaising.map { HeaderWords.engineRaise(turn: n.turn ?? 1, k: $0.k, of: $0.of, placed: $0.placed) }
             ?? HeaderWords.line(
               turn: n.turn ?? 1, n: n.setup?.n, of: n.setup?.of, projectile: n.setup?.projectile, watching: watching,
-              at: n.kind == "throw" ? pitch.railAt : nil)
+              at: n.kind == "throw" ? pitch.railAt : nil, thrower: n.kind == "throw" ? n.setup?.thrower : nil)
         )
         // upright the line may take two lines at the larger text sizes; on its side
         // the header's plate has a fixed height
@@ -984,6 +984,12 @@ struct MatchScreen: View {
         .lineLimit(1).minimumScaleFactor(0.6)
       Text(HandoffWords.line(c, at: pitch.railAt)).font(bodyFont(18, relativeTo: .body))
         .fixedSize(horizontal: false, vertical: true)
+      // a turn that opens with a computer player (engine 0.17): "Bold Birch throws first ·
+      // computer · Pro", the web's second line (Inter 16, muted)
+      if let first = SeatWords.handoffFirst(thrower: c.thrower, cpu: c.throwerCpu, level: c.throwerLevel) {
+        Text(first).font(bodyFont(16, relativeTo: .callout)).foregroundStyle(Color.woodMuted)
+          .fixedSize(horizontal: false, vertical: true)
+      }
     }
     let go = Button {
       model.perform { pitch.dismissHandoff() }
@@ -1038,6 +1044,9 @@ struct MatchScreen: View {
         Text("\(from) took \(took.field) field and \(took.base) base kubbs.").font(.subheadline)
       }
       Text(HandoffWords.throwLine(c, watcher: true)).font(.subheadline)
+      if let first = SeatWords.handoffFirst(thrower: c.thrower, cpu: c.throwerCpu, level: c.throwerLevel) {
+        Text(first).font(bodyFont(16, relativeTo: .callout)).foregroundStyle(Color.woodMuted)
+      }
     }
     .frame(maxWidth: 330, alignment: .leading)
     .modifier(Plate(inset: 12))

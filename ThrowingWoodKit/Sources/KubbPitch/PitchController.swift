@@ -251,7 +251,7 @@ import KubbEngine
   /// is counted too, carrying what this build carries.
   public func roomEngine(counting: Bool = false) throws -> JSONNode {
     var args: [(String, JS)] = [
-      ("doc", .raw(pitch.document)), ("members", pitch.membersJSON),
+      ("doc", .raw(withoutSeats(pitch.document))), ("members", pitch.membersJSON),
       ("host", pitch.host.map(JS.string) ?? .null),
     ]
     if counting { args += [("me", .string(pitch.you)), ("carries", carriesJS)] }
@@ -292,16 +292,19 @@ import KubbEngine
   {
     // An observer writes nothing to the document.
     if observing { throw PitchError("observer") }
-    // Only these host reducers are exposed; seat and sync decisions remain in Lua.
-    let hostOnly = ["setOptions", "setAccess", "pruneTeams", "backToLobby"]
+    // Only these host reducers are exposed; seat and sync decisions remain in Lua. The
+    // computer seats' four (engine 0.17, docs/PITCH.md "Computer seats") are the host's.
+    let hostOnly = Self.seatReducers + ["setOptions", "setAccess", "pruneTeams", "backToLobby"]
     if hostOnly.contains(name), !pitch.isHost { throw PitchError("not-host") }
-    guard ["joinTeam", "setOptions", "setAccess", "pruneTeams", "backToLobby"].contains(name) else {
+    guard (hostOnly + ["joinTeam"]).contains(name) else {
       throw PitchError("bad-reducer")
     }
     return try await pitch.update { [self] doc in
       if hostOnly.contains(name), !pitch.isHost { return nil }
       var args = fields.filter { $0.0 != "doc" && $0.0 != "id" }
       if name == "joinTeam" { args.append(("id", .string(pitch.you))) }
+      // a seat reducer's `id` is the seat's, never a member's (engine 0.17)
+      if Self.seatReducers.contains(name) { args = args.map { $0.0 == "seat" ? ("id", $0.1) : $0 } }
       // options are set on the engine they are offered from (`lobbyEngine`)
       let on = name == "setOptions" ? lobbyEngine() : engine
       let value = try Self.pitchCall(on, name, [("doc", .raw(doc))] + args)
@@ -312,6 +315,120 @@ import KubbEngine
     _ = try await reduce("joinTeam", fields: [("side", side.map(JS.string) ?? .null)])
   }
 
+  // MARK: - Computer seats (engine 0.17, docs/PITCH.md "Computer seats"; the web's pitch.js)
+
+  /// The host's seat reducers: a seat added, re-levelled, moved or removed is a document
+  /// write like a team change, through the engine's own reducer, which decides every rule
+  /// (the host's only, while no match runs, six a team, a level a seat may have).
+  static let seatReducers = ["addComputer", "setComputerLevel", "moveComputer", "removeComputer"]
+
+  /// Is `id` a computer seat's id (`pitch.isSeat`)? Never a member's.
+  public func isSeat(_ id: String?) -> Bool {
+    guard let id else { return false }
+    if let v = seatIds[id] { return v }
+    let v = (try? pitchCall("isSeat", [("id", .string(id))]))?.bool == true
+    seatIds[id] = v
+    return v
+  }
+  private var seatIds: [String: Bool] = [:]
+
+  /// The host adds a computer player last in `side`'s throwing order at `level`, named
+  /// with a generated player name nobody on the pitch has, from this device's own draw
+  /// (the engine rolls one from `seed` should none be found). The new seat's id, or nil
+  /// when the engine refused it (a full side, a match running, not the host).
+  @discardableResult public func addComputer(side: String, level: String = "club") async throws -> String? {
+    guard !observing, pitch.isHost else { return nil }
+    let seed = Int.random(in: 0..<2_147_483_648)
+    var added: String?
+    let landed =
+      try await pitch.update { [self] doc in
+        added = nil
+        guard pitch.isHost else { return nil }
+        var args: [(String, JS)] = [
+          ("doc", .raw(doc)), ("side", .string(side)), ("level", .string(level)), ("seed", .int(seed)),
+        ]
+        if let name = freshSeatName(doc) { args.append(("name", .string(name))) }
+        let before = Set(Self.computers(of: try pitchCall("lobbyOf", [("doc", .raw(doc))])).keys)
+        let value = try pitchCall("addComputer", args)
+        if value.isNull { return nil }
+        added = Self.computers(of: try pitchCall("lobbyOf", [("doc", .raw(value.raw))])).keys.first {
+          !before.contains($0)
+        }
+        return value.raw
+      } != nil
+    return landed ? added : nil
+  }
+  /// A seat's level (`setComputerLevel`). False when nothing changed.
+  @discardableResult public func setComputerLevel(_ id: String, _ level: String) async throws -> Bool {
+    try await reduce("setComputerLevel", fields: [("seat", .string(id)), ("level", .string(level))])
+  }
+  /// A seat to `side` at place `index` in its order (nil: last), the same side reorders
+  /// (`moveComputer`). False when it did not move.
+  @discardableResult public func moveComputer(_ id: String, side: String, index: Int?) async throws -> Bool {
+    try await reduce(
+      "moveComputer", fields: [("seat", .string(id)), ("side", .string(side)), ("index", index.map(JS.int) ?? .null)])
+  }
+  /// A seat off its team (`removeComputer`).
+  @discardableResult public func removeComputer(_ id: String) async throws -> Bool {
+    try await reduce("removeComputer", fields: [("seat", .string(id))])
+  }
+
+  /// A lobby's `computers` (`lobbyOf`'s: only seats with a good record on one team), by
+  /// seat id: its level and its name as kept.
+  public static func computers(of lobby: JSONNode) -> [String: (level: String, name: String?)] {
+    var out: [String: (level: String, name: String?)] = [:]
+    for (id, r) in lobby["computers"]?.members ?? [] {
+      out[id] = (r["level"]?.string ?? "club", r["name"]?.string)
+    }
+    return out
+  }
+
+  /// A seat's name as the lobby shows it: the document's when the engine passes it
+  /// (`names.check`'s `computers.<id>.name`), else "Computer" (the web's seatName).
+  public func seatName(_ id: String) -> String {
+    let n = (try? JSONNode.parse(pitch.document))?["computers"]?[id]?["name"]?.string
+    guard let n, !n.isEmpty, !lobbyCheck().refusedFrom.contains("computers.\(id).name") else {
+      return Names.computer
+    }
+    return n
+  }
+
+  /// A generated player name nobody on the pitch has (no member, no other seat, not this
+  /// device), or nil after twenty tries (the web's freshSeatName).
+  private func freshSeatName(_ doc: JSONText) -> String? {
+    let lobby = try? pitchCall("lobbyOf", [("doc", .raw(doc))])
+    var taken = Set(shownNames().plain.values)
+    if let lobby { for (_, c) in Self.computers(of: lobby) { if let n = c.name { taken.insert(n) } } }
+    if let mine = pitch.members.first(where: { $0["id"]?.string == pitch.you })?["me"]?["name"]?.string {
+      taken.insert(mine)
+    }
+    for _ in 0..<20 {
+      guard let t = (try? names.roll(.player))??.text else { return nil }
+      if !taken.contains(t) { return t }
+    }
+    return nil
+  }
+
+  /// The document as `pitch.engineFor` must see it: its teams without the computer seats.
+  /// Engine 0.18.0's `engineFor` counts every lineup entry as a member with an engine, so
+  /// a seat, which has none, would leave no engine every player carries (the web's
+  /// roomEngineFor does the same, by `pitch.isSeat`; an engine gap, reported to it).
+  func withoutSeats(_ doc: JSONText) -> JSONText {
+    guard let d = try? JSONNode.parse(doc), let teams = d["teams"], teams.kind == .object else { return doc }
+    let has = teams.members.contains { $0.value.items.contains { isSeat($0.string) } }
+    guard has else { return doc }
+    let cleaned: [(String, JS)] = teams.members.map { side, list in
+      guard list.kind == .array else { return (side, .raw(list.raw)) }
+      return (side, .array(list.items.filter { !isSeat($0.string) }.map { .raw($0.raw) }))
+    }
+    return Self.replacing(d, [("teams", .object(cleaned))]).json
+  }
+
+  /// Why START was refused for the lineup itself (`startCheck`'s `text`, engine 0.17: no
+  /// person plays, a team over six, a seat's level), the engine's own sentence; nil when
+  /// it was not, or the refusal was the engines'.
+  public private(set) var startRefusal: String?
+
   /// START: a fresh match built on the lobby as this member holds it, sent as one
   /// `start` (the lobby write and the match's first snapshot together). Tried again on
   /// the newer lobby when someone wrote first. Strict version checks: no unknown or
@@ -320,6 +437,7 @@ import KubbEngine
     guard !observing, pitch.isHost, state == .lobby || (state == .versionMismatch && head == nil),
       !starting
     else { return false }
+    startRefusal = nil
     starting = true
     defer { starting = false }
     for _ in 0...3 {  // the web's start: the first try and at most three more
@@ -367,7 +485,7 @@ import KubbEngine
     let chosen = try newestCall(
       "engineFor",
       [
-        ("doc", .raw(doc)), ("members", pitch.membersJSON), ("host", .string(pitch.you)),
+        ("doc", .raw(withoutSeats(doc))), ("members", pitch.membersJSON), ("host", .string(pitch.you)),
         ("me", .string(pitch.you)), ("carries", carriesJS),
       ])
     guard let mm = chosen["engine"]?.string, engines.carries(mm) else {
@@ -393,6 +511,12 @@ import KubbEngine
     let members = try newestCall("speakAs", [("members", pitch.membersJSON), ("engine", .string(mm))]).raw
     let check = try pitchCall(
       "startCheck", [("players", .raw(players)), ("members", .raw(members)), ("host", .string(pitch.you))])
+    // the lineup itself refused (engine 0.17: `why` and `text`): the engine's sentence,
+    // and the lobby stays as it is
+    if check["ok"]?.bool != true, check["why"] != nil, let text = check["text"]?.string {
+      startRefusal = text
+      return nil
+    }
     guard check["ok"]?.bool == true else {
       mismatch = check.raw
       state = .versionMismatch
@@ -546,7 +670,10 @@ import KubbEngine
     let ids = Set(pitch.members.compactMap { $0["id"]?.string })
     let picked = (try? JSONNode.parse(pitch.document))?["teamNames"]
     for side in ["A", "B"] {
-      let several = (lobby["teams"]?[side]?.items ?? []).filter { ids.contains($0.string ?? "") }.count > 1
+      // people and computer seats together (the web's rollTeamNames)
+      let several = (lobby["teams"]?[side]?.items ?? []).filter {
+        ids.contains($0.string ?? "") || isSeat($0.string)
+      }.count > 1
       guard several, !names.valid(.team, picked?[side]?.string).ok, let text = try names.roll(.team)?.text else { continue }
       rollingTeam = true
       teamRolls += 1
@@ -661,7 +788,12 @@ import KubbEngine
     guard let n = try? JSONNode.parse(need),
       let actor = try? pitchCall("shownActor", [("need", .raw(need)), ("ctx", context())]).string
     else { return "" }
-    if actor == "cpu" { return "Computer throws" }
+    if actor == "cpu" {
+      // a computer player in a team (engine 0.17): its name, generated by the match
+      let th = n["setup"]?["thrower"]
+      if th?["cpu"]?.bool == true, let name = th?["name"]?.string, !name.isEmpty { return "\(name) throws" }
+      return "Computer throws"
+    }
     if mayAct {
       switch n["kind"]?.string {
       case "raise": return "Your raise"

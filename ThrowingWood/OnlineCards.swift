@@ -126,6 +126,10 @@ struct LobbyCard: View {
   @State private var copied = false
   var body: some View {
     Text("Pitch lobby").cardTitle()
+      // each change the host makes to a seat is said once (SeatWords.says)
+      .onChange(of: online.seatNews?.count) {
+        if let text = online.seatNews?.text { AccessibilityNotification.Announcement(text).post() }
+      }
     Text(online.link.url.absoluteString).font(.system(size: 14, design: .monospaced)).textSelection(.enabled)
     HStack {
       ShareLink(item: online.link.url) { Label("SHARE", systemImage: "square.and.arrow.up") }
@@ -137,19 +141,22 @@ struct LobbyCard: View {
     // the name is the device's (Settings): the pitch hears a change at once
     PlayerLine(model: model)
     ForEach(["A", "B"], id: \.self) { side in
-      let players = online.members.filter { $0.side == side }
+      // the team in throwing order: its people and its computer seats (engine 0.17)
+      let players = online.players(side)
+      let other = side == "A" ? "B" : "A"
+      let full = players.count >= online.teamMax
       VStack(alignment: .leading, spacing: 3) {
         HStack {
           Text("Team \(side)").font(displayFont(25, relativeTo: .title2))
           Spacer()
-          Text("\(players.count) / \(online.teamMax)").font(bodyFont(14, .bold, relativeTo: .subheadline))
-          if !players.contains(where: \.you) {
+          Text(SeatWords.count(players.count, of: online.teamMax)).font(bodyFont(14, .bold, relativeTo: .subheadline))
+          if !players.contains(where: { $0.member?.you == true }) {
             Button("JOIN \(side)") {
               profile()
               model.runOnline { try await online.team(side) }
             }
             .buttonStyle(WoodButton())
-            .disabled(players.count >= online.teamMax)
+            .disabled(full)
           }
         }
         if players.count > 1 {
@@ -165,12 +172,28 @@ struct LobbyCard: View {
           }
         }
         if players.isEmpty {
-          Text(
-            online.members.contains { $0.side != nil }
-              ? "The computer plays this side." : "Nobody yet."
-          ).font(bodyFont(15))
+          Text(SeatWords.emptySide(otherHasPlayers: !online.players(other).isEmpty)).font(bodyFont(15))
         }
-        ForEach(players) { row($0) }
+        ForEach(players) { entry in
+          switch entry {
+          case .member(let m): row(m)
+          case .seat(let seat):
+            SeatRow(
+              model: model, online: online, seat: seat, other: other,
+              otherFull: online.players(other).count >= online.teamMax)
+          }
+        }
+        if online.kidPitch, players.contains(where: { $0.seat != nil }) {
+          Text(SeatWords.kidNote).helperText()
+        }
+        if online.isHost {
+          // the host's: a computer player last in this team's order, at Club
+          Button(SeatWords.add) { model.runOnline { try await online.addComputer(side) } }
+            .buttonStyle(WoodButton())
+            .disabled(full)
+            .accessibilityLabel(SeatWords.addLabel(side))
+            .padding(.top, 4)
+        }
       }
     }
     let watching = online.members.filter { $0.side == nil }
@@ -195,7 +218,7 @@ struct LobbyCard: View {
         Text(online.isOpen ? "Open" : "Invite only").font(bodyFont(15, .bold))
       }
     }
-    ForEach(online.optionRows) { option in
+    ForEach(online.optionRows.filter { $0.id != "computer" || online.computerRow != nil }) { option in
       // a scene this build does not draw shows as the day it is drawn as, and is
       // kept in the room until the host picks another
       let value = option.id == "scene" ? SceneID.shown(online.options["scene"]) : online.options[option.id] ?? ""
@@ -204,6 +227,8 @@ struct LobbyCard: View {
         // the host's Scene: the seven picture tiles, as on the solo card (the web's lobby)
         Text(option.label).labelStyle().accessibilityHidden(true)
         SceneTiles(scenery: online.board.scene.scenery, row: option, value: pick)
+      } else if option.id == "computer", let form = online.computerRow {
+        ComputerRow(model: model, online: online, option: option, form: form)
       } else {
       FormRow(option.label) { full in
         if !online.isHost {
@@ -235,6 +260,95 @@ struct LobbyCard: View {
   /// The device's name (Settings), as the room knows it.
   private func profile() {
     model.perform { try online.profile(name: model.name) }
+  }
+}
+
+/// A computer seat's row in the lobby (engine 0.17; the web's lobby.js seatRow and
+/// docs/SYSTEM.md "Computer seats"). The host's: under a 2 pt ink rule, the name and
+/// " · computer", the level as a segmented bar (Kid, as a word, on a Kid pitch), then up
+/// and down in the team's order, across to the other team, and REMOVE quiet at the right.
+/// Everyone else's: one line, "Bold Birch · computer · Pro". Either way one group to
+/// VoiceOver, "Bold Birch, computer, Pro, 2 of 3 in Team A".
+struct SeatRow: View {
+  let model: GameModel, online: OnlinePitch, seat: LobbySeat, other: String, otherFull: Bool
+  var body: some View {
+    if online.isHost {
+      VStack(alignment: .leading, spacing: 6) {
+        Rule()
+        (Text(seat.name).font(bodyFont(16, .bold))
+          + Text(SeatWords.computerTag).font(bodyFont(14, .bold)).foregroundStyle(Color.woodMuted))
+          .fixedSize(horizontal: false, vertical: true)
+        if seat.shownLevel == "kid" {
+          Text(SeatWords.level("kid")).font(bodyFont(15, .bold)).frame(minHeight: TW.touch)
+        } else {
+          Segmented(
+            label: SeatWords.levelLabel(seat.name),
+            choices: SeatWords.seatLevels.map { ($0, SeatWords.level($0)) },
+            value: Binding(
+              get: { seat.level },
+              set: { v in model.runOnline { try await online.seatLevel(seat.id, v) } }))
+        }
+        HStack(spacing: 8) {
+          move("↑", SeatWords.upLabel(seat.name), off: seat.first, .up)
+          move("↓", SeatWords.downLabel(seat.name), off: seat.last, .down)
+          Button(SeatWords.across(other)) { run(.across(other)) }
+            .buttonStyle(WoodButton()).disabled(otherFull)
+            .accessibilityLabel(SeatWords.acrossLabel(seat.name, to: other))
+          Spacer(minLength: 4)
+          QuietButton(SeatWords.remove) { model.runOnline { try await online.removeSeat(seat) } }
+            .accessibilityLabel(SeatWords.removeLabel(seat.name))
+        }
+      }
+      .padding(.vertical, 4)
+      .accessibilityElement(children: .contain)
+      .accessibilityLabel(seat.spoken)
+    } else {
+      Text(SeatWords.line(seat.name, seat.shownLevel)).font(bodyFont(16, .semibold))
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(minHeight: 28, alignment: .leading)
+        .accessibilityLabel(seat.spoken)
+    }
+  }
+  private func move(_ title: String, _ label: String, off: Bool, _ change: SeatWords.Change) -> some View {
+    Button { run(change) } label: { Text(title).frame(minWidth: TW.touch - 28) }
+      .buttonStyle(WoodButton()).disabled(off)
+      .accessibilityLabel(label)
+  }
+  private func run(_ change: SeatWords.Change) {
+    model.runOnline { try await online.moveSeat(seat, change) }
+  }
+}
+
+/// The Computer row beside computer seats (the web's lobby.js computerRow): "An empty side
+/// plays as" with the engine's levels while a side has nobody and no seat; with no empty
+/// side and a seat on the pitch, "Kid match" Off / On (On is the Computer setting Kid, Off
+/// sets it back to Club).
+struct ComputerRow: View {
+  let model: GameModel, online: OnlinePitch, option: MatchOption, form: SeatWords.ComputerRow
+  var body: some View {
+    let label = SeatWords.label(form)
+    let value = online.options["computer"] ?? ""
+    FormRow(label) { full in
+      if form == .empty {
+        if online.isHost {
+          Segmented(
+            label: label, choices: option.choices.map { ($0[0], $0[1]) },
+            value: Binding(get: { value }, set: { v in model.runOnline { try await online.option("computer", v) } }),
+            full: full)
+        } else {
+          Text(option.choices.first { $0[0] == value }?.last ?? "").font(bodyFont(15, .bold))
+        }
+      } else if online.isHost {
+        Segmented(
+          label: label, choices: SeatWords.kidSwitch,
+          value: Binding(
+            get: { value == "kid" ? "on" : "off" },
+            set: { v in model.runOnline { try await online.option("computer", SeatWords.kidValue(on: v == "on")) } }),
+          full: full)
+      } else {
+        Text(value == "kid" ? "On" : "Off").font(bodyFont(15, .bold))
+      }
+    }
   }
 }
 

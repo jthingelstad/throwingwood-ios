@@ -65,6 +65,9 @@ public enum NameKind: String, Sendable { case player, team }
   /// The engine's names for no name (its names.words `defaults`): "Player n" for a
   /// member, n its place on its side (1 to 6), and "Team A" / "Team B" for a side.
   nonisolated public static func playerDefault(_ n: Int) -> String { "Player \(max(1, min(6, n)))" }
+  /// A computer seat with no name the engine passes (the engine's docs/PITCH.md: "shown as
+  /// `Computer`").
+  nonisolated public static let computer = "Computer"
   nonisolated public static func teamDefault(_ side: String) -> String { "Team \(side == "B" ? "B" : "A")" }
 
   private func call(_ name: String, _ args: [(String, JS)]) throws -> JSONNode {

@@ -134,6 +134,63 @@ carry submitted text).
   (`renameStart`), and judges the renamed start and log (`names.check({ replay })`); a
   refusal is "This match did not pass the check, so it cannot be shared."
 
+### Computer players
+
+Engine 0.17 (kubb-engine docs/PITCH.md "Computer seats"; the owner, 2026-11-22: "in online
+play we should be able to add computer players to the match, with a specified level. I may
+have three friends and we want to play a team of three computers (two at club and one at
+pro). Or we want to play 2 v 2 where Tyler and I each have a pro computer player as a
+partner."). A team holds people and computer players together, six at most, each computer
+at its own level. The web is the reference for every number and word (its docs/SYSTEM.md
+"Computer seats", src/ui/lobby.js); the words are `SeatWords`.
+
+- **The rules are the engine's.** The host's ADD COMPUTER (under each team, plain) calls
+  `pitch.addComputer` with a generated player name nobody on the pitch has, from this
+  device's own draw (`PitchController.addComputer`, the web's freshSeatName), at Club and
+  last in the team's order; a seat's level bar (Beginner | Club | Pro) calls
+  `setComputerLevel`, ↑ and ↓ and TO A / TO B call `moveComputer` (up and down to the
+  document's place of the row beside it, across last in the other team's order) and REMOVE
+  (quiet) `removeComputer`. Every refusal (a full side, a match running, not the host, a
+  level a seat may not have) is the reducer's, which changes nothing. ADD COMPUTER and JOIN
+  are off for a side of six, people and seats together, and the head counts both ("3 of 6").
+- **The rows** (`OnlinePitch.roster`, from `lobbyOf`'s teams, in throwing order): a member
+  as before, a seat as `SeatRow`: the host's three lines under a 2 pt ink rule (the name and
+  " · computer", the level bar, the moves and REMOVE), everyone else's one line, "Bold Birch
+  · computer · Pro". A seat's name shows only where `names.check({ document, members })`
+  passes its `computers.<id>.name`, else "Computer" (`PitchController.seatName`). VoiceOver
+  reads a seat as one group, "Bold Birch, computer, Pro, 2 of 3 in Team A", its controls
+  "Bold Birch's level", "Move Bold Birch up", "Move Bold Birch down", "Move Bold Birch to
+  Team B" and "Remove Bold Birch", ADD COMPUTER "Add a computer player to Team A", and each
+  change the host makes is said once ("Bold Birch joins Team A at Club.", "Bold Birch now
+  plays at Pro.", "Bold Birch moves up.", "Bold Birch moves to Team B.", "Bold Birch is off
+  the team."; `OnlinePitch.seatNews`).
+- **Kid.** With the Computer setting Kid every seat reads Kid in place of its level (its
+  own level kept for when Kid goes) and the team says "Kid match: every computer plays as
+  Kid." The Computer row is "An empty side plays as" (the engine's levels) while a side has
+  nobody and no seat; with no empty side and a seat on the pitch it is "Kid match", Off |
+  On (On is Kid, Off sets it back to Club); with neither it is not shown.
+- **START.** `startCheck`'s refusals of the lineup itself (`why`: `person`, `size`,
+  `level`) show the engine's `text` in the lobby's note (`PitchController.startRefusal`);
+  the lobby stays a lobby. The engine's `engineFor` is asked with the document's teams
+  less their seats (`PitchController.withoutSeats`, as the web's roomEngineFor): engine
+  0.18.0 counts a seat as a player who carries no engine, so a pitch with a seat would
+  otherwise never have an engine every player carries (an engine gap, pinned by
+  `ComputerSeatTests`). A side of several, seats counted, plays under a team name.
+- **The match.** Who acts is the engine's (`controlFor`, `mayAct`): the host's device runs
+  every computer, a side's or a seat's, through its board's frames, and everyone else
+  holds at the release and draws the action when it arrives; a person never acts for a
+  computer partner. A team with a person raises and places by its people, a team of
+  computers by itself at its strongest level. While a computer player throws, the header's
+  line ends "· computer · pro" (the web's hud.js, its line lower case after the first word)
+  and the name under it is "Bold Birch throws" (`actorDescription`; a side the computer
+  plays whole still says "Computer throws"); a turn that opens with one says "Bold Birch
+  throws first · computer · Pro" under the hand-off's line and on the watched turn's banner
+  (`card.handoff.throwerCpu`). A computer's throw has no hand-off card, only the WATCH tab.
+  `ComputerSeatTests` (the reducers, six a team, a lineup of computers refused, a 2 v 2
+  with a pro partner each side in step between two controllers, every action stamped) and
+  `ComputerSeatLobbyTests` (the phone host's lobby, and a phone joining a pitch that
+  already holds seats, through to a computer player's throw).
+
 ## One match, two clocks
 
 PitchController owns the authoritative native session, room version and
