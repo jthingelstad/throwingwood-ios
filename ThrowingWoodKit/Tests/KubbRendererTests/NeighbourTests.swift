@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import KubbEngine
+import KubbPitch
 import Testing
 import simd
 import QuartzCore
@@ -353,5 +354,66 @@ import QuartzCore
     try app.restore(over, save: nil)
     #expect(try app.watchWide(size: CGSize(width: 844, height: 390), safe: ScreenInsets()))
     #expect(!app.scene.neighboursTurned)
+  }
+}
+
+extension NeighbourFrameTests {
+  /// A watcher (no side, the wide view on) at Team B's raise and punishment kubb: those
+  /// scenes keep their close camera on the need's poses, which the engine gives in the
+  /// defender's frame in every view, so the field turns with them; the rest of the wide
+  /// view is the world frame.
+  @Test func aWatchedRaiseTurnsWithTheDefender() throws {
+    func options(_ cpu: String, _ raising: String) -> String {
+      #"{"mode":"match","seed":5,"cpu":\#(cpu),"raising":"\#(raising)","first":"A","start":{"year":2026,"month":11,"day":19,"hour":9,"min":0},"teams":{"A":{"name":"North","players":[{"name":"North"}]},"B":{"name":"South","players":[{"name":"South"}]}}}"#
+    }
+    // the computer's throws for both sides, then a match that raises by hand played with them
+    let cpu = try Engine(appVersion: "test")
+    _ = try cpu.call("new", json: options(#""both""#, "auto"))
+    var acts: [String] = []
+    for _ in 0..<200_000 where acts.count < 80 {
+      let out = try JSONNode.parse(cpu.call("frame", json: #"{"dt":0.05}"#))
+      if let a = out["action"], !a.isNull { acts.append(a.raw.text) }
+      if out["need"]?["kind"]?.string == "over" { break }
+    }
+    let prep = try Engine(appVersion: "test")
+    _ = try prep.call("new", json: options("[]", "hand"))
+    var k = 0
+    var watched = Set<String>()
+    let side = CGSize(width: 844, height: 390)
+    for _ in 0..<800 where watched.count < 2 {
+      let need = try JSONNode.parse(prep.call("view"))["need"]
+      let kind = need?["kind"]?.string, who = need?["side"]?.string
+      if (kind == "raise" || kind == "punish"), who == "B", !watched.contains(kind!) {
+        // a watcher's board at this moment: no side, the wide view on
+        let app = try PitchSession(appVersion: "test")
+        try app.restore(prep.call("snapshot"), save: nil)
+        _ = try app.engine.call("setControl", json: #"{"sides":[],"cpu":false}"#)
+        app.watching = true
+        _ = try app.watchWide(size: side, safe: ScreenInsets())
+        try app.adopt(app.read("view"))
+        #expect(app.scene.wide && app.scene.stillZoom != nil, "\(kind!)")
+        #expect(app.scene.frameSide == "B" && app.scene.neighboursTurned, "watched \(kind!)")
+        try Self.agree(app, "watched \(kind!) B")
+        watched.insert(kind!)
+      }
+      switch kind {
+      case "throw":
+        guard k < acts.count else { break }
+        _ = try prep.call("apply", json: acts[k])
+        k += 1
+      case "raise": _ = try prep.call("apply", json: #"{"type":"raise"}"#)
+      case "punish":
+        let c = try #require(need?["cursor"])
+        _ = try prep.call("apply", json: #"{"type":"punish","x":\#(c["x"]!.double!),"y":\#(c["y"]!.double!)}"#)
+      default: break
+      }
+    }
+    #expect(watched.contains("raise"), "\(watched)")
+    // a watched aim in the wide view is the world frame, never turned
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(prep.call("snapshot"), save: nil)
+    app.watching = true
+    _ = try app.watchWide(size: side, safe: ScreenInsets())
+    if app.need?.kind == "throw" { #expect(!app.scene.neighboursTurned) }
   }
 }
