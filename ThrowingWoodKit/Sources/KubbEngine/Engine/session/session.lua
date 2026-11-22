@@ -500,14 +500,8 @@ function Session:sheet()
 		text, name = self.overInfo.file.text, self.overInfo.file.name
 	else
 		local m = self.m
-		local levels = {}
-		for _, side in ipairs { "A", "B" } do
-			for _, e in ipairs(m.lineup and m.lineup[side] or {}) do
-				if e.level then levels[#levels + 1] = e.id .. " " .. e.level end
-			end
-		end
 		text = notation.render(m.game, { start = m.start, version = session.client, mode = m.mode,
-			levels = levels, location = session.location })
+			levels = cmatch.fileLevels(m), location = session.location })
 		local start = m.start or self.opts.start
 		name = start and notation.filename(start, m.game.teams.A.name, m.game.teams.B.name) or "kubb-game.txt"
 	end

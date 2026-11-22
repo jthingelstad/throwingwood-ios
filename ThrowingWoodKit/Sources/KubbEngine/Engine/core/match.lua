@@ -602,20 +602,38 @@ function match.howText(m)
 	return g.how or ""
 end
 
+-- The game file's [Throw Levels] (notation.render's meta.levels): the computer's
+-- players only (0.13.2), each "id level" in the order they are written, Team A's
+-- then Team B's. A level is the computer's standard: since 0.13.0 every person throws
+-- on one meter and a person's level changes nothing (docs/notes/throw.md "The
+-- person's meter"), so a person is not listed. Which sides the computer plays is
+-- match.cpuSides (match.new's `cpu`, or the "Vs Playdate" mode's Team B); a match that
+-- says neither (pass and play, a match from a caller before 0.12) lists no one, and
+-- the file has no [Throw Levels]. A computer player's level is the one it throws at
+-- (cpu.levelName: its lineup's level, else autothrow.tune.level).
+function match.fileLevels(m)
+	local levels = {}
+	local sides = match.cpuSides(m)
+	if not sides then return levels end
+	for _, side in ipairs { "A", "B" } do
+		if sides[side] then
+			for _, p in ipairs(m.game.teams[side].players) do
+				local e = match.member(m, side, p.id)
+				levels[#levels + 1] = p.id .. " " .. tw.cpu.levelName { thrower = e }
+			end
+		end
+	end
+	return levels
+end
+
 -- The game file (DESIGN 7): text and file name. finish = {year, month, day,
 -- hour, min}; the start is m.start (finish when it was not given). location: the
 -- Location line (nil: notation.location).
 function match.file(m, finish, version, location)
 	local start = m.start or finish
 	local g = m.game
-	local levels = {}
-	for _, side in ipairs { "A", "B" } do
-		for _, e in ipairs(m.lineup and m.lineup[side] or {}) do
-			if e.level then levels[#levels + 1] = e.id .. " " .. e.level end
-		end
-	end
 	local text = notation.render(g, { start = start, finish = finish, version = version, mode = m.mode,
-		levels = levels, location = location })
+		levels = match.fileLevels(m), location = location })
 	return text, notation.filename(start, g.teams.A.name, g.teams.B.name)
 end
 

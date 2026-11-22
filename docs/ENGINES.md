@@ -18,7 +18,7 @@ engine and the older minors it still plays, one per major.minor, laid out as the
 
 `scripts/vendor-engine.sh sync` writes every one from its own tag; `check` verifies each
 against its own `engine.json` and corpus, and fails on an engine folder `OLDER` does not
-name. None is ever edited. Today: 0.13 (v0.13.1, corpus 0.13.0, 15 matches), 0.9
+name. None is ever edited. Today: 0.13 (v0.13.3, corpus 0.13.0, 15 matches), 0.9
 (v0.9.0, corpus 0.9.0, 13 matches), 0.8 (v0.8.2, corpus 0.8.0, 13 matches) and 0.7
 (v0.7.4, corpus 0.5.0, 12 matches). 0.9 stays for the builds on it (0.3 to 0.6), kept
 0.9 matches and a pitch with a peer that has only 0.9 (the web until it moves to 0.13);

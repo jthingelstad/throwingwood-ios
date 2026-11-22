@@ -4,6 +4,7 @@
 -- throws as a JavaScript Error. snapshot returns the snapshot text itself;
 -- restore takes it as its argument. "pitch.<name>" calls are the pitch's (pitch/api.lua);
 -- "room.<name>" is their old spelling (before 0.13) and reaches the same calls.
+-- "names.<name>" are generated names' (session/names.lua, docs/SESSION.md "Names").
 import "core/tw"
 import "version"
 import "session/json"
@@ -11,6 +12,7 @@ import "session/session"
 import "session/wide"
 import "session/replay"
 import "session/check"
+import "session/names"
 import "pitch/api"
 
 local json, session, wide, replay, check = tw.web.json, tw.web.session, tw.web.wide, tw.web.replay, tw.web.check
@@ -214,6 +216,8 @@ local function call(method, arg)
 	if type(method) == "string" then
 		if method:sub(1, 6) == "pitch." then return tw.shared.api.call(method:sub(7), arg, "pitch") end
 		if method:sub(1, 5) == "room." then return tw.shared.api.call(method:sub(6), arg, "room") end
+		-- generated names (session/names.lua, docs/SESSION.md "Names"): no session needed
+		if method:sub(1, 6) == "names." then return tw.web.names.call(method:sub(7), arg) end
 	end
 	local f = M[method]
 	if not f then error("unknown call " .. tostring(method), 0) end
