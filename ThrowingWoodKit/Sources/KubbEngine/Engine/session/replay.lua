@@ -26,6 +26,8 @@
 --                       `outOfBoundsAt` and `outOfBoundsWhy`
 --   document = true     build the pitch document as it goes (r:document; or { ids, host });
 --                       also keeps the hash after each action (r.hashes)
+--   names = "check"     refuse a replay whose names session/namecheck does not allow
+--                       (since 0.13.4; absent, no check, as before)
 -- A refused action sets `refusedAt` (the first one's index) as well as `differs`.
 --
 -- The session it plays in belongs to nobody: no side and not the computer, so nothing in
@@ -38,6 +40,7 @@ import "session/json"
 import "session/session"
 import "session/check"
 import "pitch/lobby"
+import "session/namecheck"
 
 local session, check, json, lobby = tw.web.session, tw.web.check, tw.web.json, tw.shared.lobby
 local NULL = json.null
@@ -61,6 +64,12 @@ end
 function replay.new(d)
 	assert(type(d) == "table" and (type(d.setup) == "table" or type(d.start) == "string")
 		and type(d.log) == "table", "a replay needs its setup (or its start) and its log")
+	-- names = "check" (since 0.13.4): refused, before anything is set out, when a name
+	-- in it (its setup or start, its snap and players if given, a thrower's id) is not
+	-- one session/namecheck allows: for a replay that came from someone else
+	if d.names ~= nil then
+		tw.web.namecheck.strict(d.names, "replayLoad", function() return tw.web.namecheck.replay(d) end)
+	end
 	local r = setmetatable({}, Replay)
 	r.setup, r.h0, r.log = d.setup, d.h0, d.log
 	r.total = #d.log
