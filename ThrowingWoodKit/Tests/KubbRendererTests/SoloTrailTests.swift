@@ -99,6 +99,11 @@ import Testing
     #expect(match.name == "Ada" && match.level == "club")
     #expect(match.log.count == match.entries.count && match.throwCount > 10)
     #expect(match.start == (try JSONNode.parse(match.replay)["start"]?.string))
+    // every kubb throw keeps its launch's `scatter` (engine 0.11 on): the trail holds
+    // the session's action as it came, so the replay below checks it too
+    let kubbThrows = try match.entries.map { try JSONNode.parse($0.action.text) }
+      .filter { $0["type"]?.string == "throw" && $0["how"]?.string == "drill" }
+    #expect(!kubbThrows.isEmpty && kubbThrows.allSatisfy { $0["launch"]?["scatter"]?.double != nil })
 
     // the replay's own form: { start, log = [{ a }] }, no hashes
     let replay = try Engine(appVersion: "test")
