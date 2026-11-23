@@ -186,8 +186,9 @@ use synthetic checkpoints and both iOS 26.2 review phones. The review set
 (docs/review) is retaken from a Release simulator build one group a command,
 `tools/review-set.sh <group>` (phones, phones-side, ipads, ipads-side, scenes,
 scenes-side, scenes-ipad, ax3, meters, share, reel, raises, tournament; docs/RENDER.md
-"Retaking the review set"), and the App Store pictures (docs/store) with
-`tools/store-snapshots.sh`. Look at every picture a retake changes, on both the 16e
+"Retaking the review set"), the App Store pictures (docs/store) with
+`tools/store-snapshots.sh`, and the App Store preview, real play filmed in the app with
+no review mode, with `tools/store-previews.py` (docs/DISTRIBUTION.md "App previews"). Look at every picture a retake changes, on both the 16e
 and the Pro Max, before committing it.
 
 ## The meter
