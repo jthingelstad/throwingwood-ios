@@ -4,7 +4,7 @@ import Testing
 
 @testable import KubbPitch
 
-/// Sharing a match against the computer (the web's docs/ROOMS.md section 13 and
+/// Sharing a match against the computer (the web's backend/api/API.md "share" and
 /// docs/REEL.md "The share card"), against vectors the web's own code made
 /// (`node tools/share-vectors.mjs --web <web checkout>`).
 /// The web made the vectors on its engine; a match is renamed only on its own.

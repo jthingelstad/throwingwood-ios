@@ -1,8 +1,8 @@
-// JSON as the room's wire carries it (the web's docs/ROOMS.md section 2): the text
-// JavaScript's `JSON.stringify` writes, with every UTF-16 code unit above "~" written
-// as a backslash-u escape (`asciiJson` in the web's src/net/room.js and
-// backend/rooms/core.mjs). The text is then pure ASCII, so its length in characters is
-// its size in bytes and a message can be cut anywhere.
+// JSON as the pitch's wire and the API carry it (the web's backend/api/API.md "share"):
+// the text JavaScript's `JSON.stringify` writes, with every UTF-16 code unit above "~"
+// written as a backslash-u escape (`asciiJson` in the web's src/net/pitch-client.js,
+// src/net/api.js and backend/api/checks.mjs). The text is then pure ASCII, so its length
+// in characters is its size in bytes and a message can be cut anywhere.
 //
 // Swift's JSONEncoder does neither (it writes UTF-8, escapes "/", orders keys its own
 // way and formats numbers its own way), so this is written out here, and checked against
