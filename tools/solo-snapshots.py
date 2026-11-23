@@ -5,9 +5,11 @@ import json
 import os
 from pathlib import Path
 import shutil
+import struct
 import subprocess
 import sys
 import time
+import zlib
 
 sys.dont_write_bytecode = True  # no __pycache__ in tools/
 from review_turn import is_ipad, turn as turn_device
@@ -121,8 +123,16 @@ DRIVE_SHOTS["inkast-meter"] = ("aim", "inkast", "clock", "right", {})
 DRIVE_SHOTS["inkast-meter-linear"] = ("aim", "inkast", "linear", "right", {})
 for i, at in enumerate([0.05, 0.3, 0.42, 0.55, 0.68, 0.8, 0.9, 0.98]):
     DRIVE_SHOTS[f"cpu-raise-{i:02d}"] = ("cpuraise", "inkast", "clock", "right", {"STOOD_AT": str(at)})
-ENV = {shot: v[4] for shot, v in DRIVE_SHOTS.items()}
-ON_REQUEST |= set(DRIVE_SHOTS)
+# The App Store's own two (tools/store-snapshots.sh), asked for by name: the clock wound
+# to its band, aimed at the advantage fixture's group from the baseline (DRIVE_AT 6
+# stands the thrower back there, about 4 m off, ARC over the knee), and one kubb of two
+# tipped up by a finger, its end lit.
+STORE_SHOTS = {
+    "wound": ("drivemeterwound", "advantage", "clock", "right", {"DRIVE_AT": "6"}),
+    "raisemanydrag": ("raisedrag", "raise-many", "clock", "right", {}),
+}
+ENV = {shot: v[4] for shot, v in {**DRIVE_SHOTS, **STORE_SHOTS}.items()}
+ON_REQUEST |= set(DRIVE_SHOTS) | set(STORE_SHOTS)
 # Shots taken only on a phone on its side: STAND held with the clock at the left
 # (the plan block at the right edge), and the punishment bar with a refused
 # spot's reason.
@@ -134,7 +144,8 @@ LANDSCAPE += list(LANDSCAPE_ONLY)
 # every other shot is a device that has learned the throw (no coach line)
 LEARNING = {"coach", "coachslow"}
 SHOTS = {**{m: (m, f, "clock", "right") for m, f in MODES.items()}, **METER_SHOTS, **LANDSCAPE_ONLY,
-         **{k: v[:4] for k, v in DRIVE_SHOTS.items()}, "appicon": ("settings", None, "clock", "right")}
+         **{k: v[:4] for k, v in {**DRIVE_SHOTS, **STORE_SHOTS}.items()},
+         "appicon": ("settings", None, "clock", "right")}
 # the scene's own shots on its side (the ring, the neighbours upright and in the wide view)
 SCENE_OWN_LANDSCAPE = {"ring", "neighbours", "neighbourswide"}
 APP = "com.throwingwood.app"
@@ -146,10 +157,65 @@ DEVICES = {
 }
 PHONES = ["iPhone 16e", "iPhone 17 Pro Max"]
 IPADS = ["iPad mini (A17 Pro)", "iPad Pro 13-inch (M5)"]
+# Where the simulator now and then draws the Dynamic Island into an unmasked capture (a
+# black pill, in about one launch of twenty), in pixels: x, y, w, h. A device's own
+# screenshot never has it, so --unmasked takes such a shot again.
+ISLAND = {"iPhone 17 Pro Max": (473, 41, 374, 110)}
 
 
 def sim(*args, **kwargs):
     return subprocess.run(["xcrun", "simctl", *args], check=True, **kwargs)
+
+
+def png_rows(file, count):
+    """The first `count` rows of an 8-bit RGB or RGBA PNG, each a list of pixels."""
+    data = Path(file).read_bytes()
+    at, chunks, head = 8, [], None
+    while at < len(data):
+        size, kind = struct.unpack(">I4s", data[at:at + 8])
+        if kind == b"IHDR":
+            head = struct.unpack(">IIBBBBB", data[at + 8:at + 21])
+        if kind == b"IDAT":
+            chunks.append(data[at + 8:at + 8 + size])
+        at += 12 + size
+    width, _, depth, colour, _, _, interlace = head
+    if depth != 8 or colour not in (2, 6) or interlace:
+        raise RuntimeError(f"{file}: not an 8-bit RGB PNG")
+    n = 4 if colour == 6 else 3
+    stride = width * n
+    raw = zlib.decompressobj().decompress(b"".join(chunks), (stride + 1) * count)
+    rows, before = [], bytearray(stride)
+    for y in range(count):
+        kind, line = raw[y * (stride + 1)], bytearray(raw[y * (stride + 1) + 1:(y + 1) * (stride + 1)])
+        for i in range(stride):
+            a = line[i - n] if i >= n else 0
+            b, c = before[i], before[i - n] if i >= n else 0
+            if kind == 1:
+                line[i] = (line[i] + a) & 255
+            elif kind == 2:
+                line[i] = (line[i] + b) & 255
+            elif kind == 3:
+                line[i] = (line[i] + (a + b) // 2) & 255
+            elif kind == 4:
+                p = a + b - c
+                pa, pb, pc = abs(p - a), abs(p - b), abs(p - c)
+                line[i] = (line[i] + (a if pa <= pb and pa <= pc else b if pb <= pc else c)) & 255
+        rows.append([tuple(line[x * n:x * n + 3]) for x in range(width)])
+        before = line
+    return rows
+
+
+def island_drawn(file, phone):
+    """Has the simulator drawn the Dynamic Island into this unmasked capture? Black
+    across the pill's middle with something that is not black just outside its ends."""
+    if phone not in ISLAND:
+        return False
+    x, y, w, h = ISLAND[phone]
+    rows = png_rows(file, y + h)
+    middle = rows[y + h // 2]
+    inside = all(max(p) < 8 for p in middle[x + 30:x + w - 30])
+    outside = any(max(p) >= 8 for p in middle[x - 40:x - 10] + middle[x + w + 10:x + w + 40])
+    return inside and outside
 
 
 def capture(phone, args):
@@ -184,8 +250,9 @@ def capture(phone, args):
                 src = ROOT / "ThrowingWoodKit/Tests/KubbRendererTests/Fixtures/solo" / (fixture + ".json")
                 text = src.read_text()
                 if args.player:
-                    # the fixtures' own side A is "You": a generated name for the store's pictures
-                    text = text.replace('"You"', json.dumps(args.player))
+                    # the fixtures' own side A is "You" ("Team A" in the advantage fixture): a
+                    # generated name for the store's pictures
+                    text = text.replace('"You"', json.dumps(args.player)).replace('"Team A"', json.dumps(args.player))
                 if args.finish and fixture == "over":
                     # the fixtures predate a match's length (engine 0.18.0): stamp the finished
                     # match's last action that many minutes after its start, as a played match
@@ -207,23 +274,30 @@ def capture(phone, args):
                 (tmp / "review-solo.json").write_text(text)
             scene = {"SIMCTL_CHILD_REVIEW_SCENE": args.scene} if args.scene else {}
             scene.update({f"SIMCTL_CHILD_{k}": v for k, v in ENV.get(shot, {}).items()})
-            sim("launch", "--terminate-running-process", udid, APP,
-                "-pitch.meter", meter, "-pitch.meterSide", side,
-                "-pitch.throwsMade", "0" if mode in LEARNING else "9",
-                env={**os.environ, **turn, **scene, "SIMCTL_CHILD_MATCH_REVIEW": mode,
-                     **{"SIMCTL_CHILD_" + k: v for k, v in EXTRA_ENV.get(shot, {}).items()}},
-                stdout=subprocess.DEVNULL)
-            deadline = time.monotonic() + 30
-            while not ready.exists() or ready.read_text() != mode:
-                if time.monotonic() > deadline:
-                    raise RuntimeError(f"{phone} did not reach {mode}")
-                time.sleep(0.1)
-            time.sleep(0.7)  # allow the launch transition and SwiftUI transaction to finish
             file = args.out / f"{prefix}-{shot}.png"
-            # --unmasked: the whole framebuffer, square corners and nothing drawn where the
-            # Dynamic Island is (the store's pictures, as a device's own screenshot is)
-            sim("io", udid, "screenshot", *(["--mask=ignored"] if args.unmasked else []), str(file),
-                capture_output=True)
+            for take in range(6):
+                ready.unlink(missing_ok=True)
+                sim("launch", "--terminate-running-process", udid, APP,
+                    "-pitch.meter", meter, "-pitch.meterSide", side,
+                    "-pitch.throwsMade", "0" if mode in LEARNING else "9",
+                    env={**os.environ, **turn, **scene, "SIMCTL_CHILD_MATCH_REVIEW": mode,
+                         **{"SIMCTL_CHILD_" + k: v for k, v in EXTRA_ENV.get(shot, {}).items()}},
+                    stdout=subprocess.DEVNULL)
+                deadline = time.monotonic() + 30
+                while not ready.exists() or ready.read_text() != mode:
+                    if time.monotonic() > deadline:
+                        raise RuntimeError(f"{phone} did not reach {mode}")
+                    time.sleep(0.1)
+                time.sleep(0.7)  # allow the launch transition and SwiftUI transaction to finish
+                # --unmasked: the whole framebuffer, square corners and nothing drawn where the
+                # Dynamic Island is (the store's pictures, as a device's own screenshot is)
+                sim("io", udid, "screenshot", *(["--mask=ignored"] if args.unmasked else []), str(file),
+                    capture_output=True)
+                if not (args.unmasked and not args.landscape and island_drawn(file, phone)):
+                    break
+                print(f"{phone} {shot}: the island was drawn, taking it again", flush=True)
+            else:
+                raise RuntimeError(f"{phone} {shot}: the Dynamic Island is drawn in every take")
             if args.landscape:
                 upright(file, args.landscape)
                 # the app's frames and the safe area it was given (not compared)

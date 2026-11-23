@@ -195,23 +195,36 @@ medium class) is no longer needed. An app that runs on iPad needs one set in the
 13-inch class (2064 x 2752 or 2048 x 2732, portrait or landscape); the 11-inch and
 smaller are scaled from it. One to ten pictures a size, PNG or JPEG, no alpha channel.
 
-The sixteen portrait PNGs under `docs/store/` (and an alternate for picture 8 on each) come from the Release simulator app on the
+The sixteen portrait PNGs under `docs/store/` come from the Release simulator app on the
 iPhone 17 Pro Max (1320 x 2868) and the iPad Pro 13-inch (M5, 2064 x 2752), status bar
 at 9:41 with a full battery (the iPad's shows the simulator's date; its status bar takes
 no date), the whole framebuffer (no Dynamic Island or rounded corners drawn, as a
-device's own screenshot), real screens with invented names and no words added
+device's own screenshot; the simulator now and then draws the island into a capture, and
+the tool takes that one again), real screens with invented names and no words added
 (`tools/store-snapshots.sh`, which flattens the alpha the simulator leaves on an iPad's
 PNG). An iPad keeps the phone's control sizes, so its pictures are mostly pitch; that is
-the app as it is, not a framing choice. In order:
+the app as it is, not a framing choice.
 
-1. `1-aim`: aiming in Park, the set-up tray, the clock and the target.
-2. `2-hit`: the moment after a hit, the verdict with its chips.
-3. `3-scenes`: Play the computer, the seven scene tiles.
-4. `4-techno`: a throw on Techno's grid with an impact ring.
-5. `5-camping`: Camping at night, the aim under the full moon in the scene's dark skin.
-6. `6-tournament`: the Tournament with a neighbouring pitch in play.
-7. `7-kid`: a Kid match, STAND open on the Kid line ("Stand anywhere from behind your line up to the Kid line"), three kubbs a side.
-8. `8-winner`: the winner card at the end of a match, its length on it; `8-sheet-alternate` is the score sheet of the same match, for the owner to choose between. Both are the review fixture's finished match stamped 24 minutes long (`--finish 24`): the fixtures predate a match's length, and a card with no time looks unfinished.
+Every one is play on a pitch (the owner, 2026-11-22: "i want to make sure we highlight
+some of the different scenes in the screenshots. no scoresheet -- show gameplay."): all
+seven scenes, no menu, no scene tiles, no winner card and no score sheet. The first three
+are the ones a search result shows, so they are the throw itself and the two scenes that
+look least like it. The set as retaken on 2026-11-22 from build 260 (commit `991223e`).
+In order:
+
+1. `1-aim`: Park. The clock wound back to its band, FLICK!, the circle on a group of four field kubbs 4 m off.
+2. `2-techno`: Techno. A baton down on the grid, its impact rings spreading past the lit kubbs.
+3. `3-camping`: Camping. A baton in the air under the full moon, stardust behind it, the king glowing.
+4. `4-kid`: Beach. A Kid match, STAND open on the Kid line ("Stand anywhere from behind your line up to the Kid line"), three kubbs a side, the sea behind.
+5. `5-tournament`: Tournament. The player's baton in flight under the bunting, the pitch ahead in play, scoreboards and a tent.
+6. `6-raise`: Minnesota. Raising field kubbs in the snow: one of two tipped up by a finger, its end lit.
+7. `7-drive`: Black & White. A low drive in slow motion, the baton at a row of field kubbs, one bit.
+8. `8-hit`: Park. The hit: a field kubb down beside the baton, the verdict and its chips.
+
+Six of the shots are the review tool's own (`ring`, `flight`, `kidstand`,
+`neighboursflight`, `drive-flight-5`, `drive-verdict`); `wound` and `raisemanydrag` are two
+more in `tools/solo-snapshots.py` for this set (`STORE_SHOTS`), from review modes the app
+already has (`drivemeterwound`, `raisedrag`). `--player` names side A in every fixture.
 
 Each is `iphone-17-pro-max-<n>-<name>.png` and `ipad-pro-13-<n>-<name>.png`.
 
