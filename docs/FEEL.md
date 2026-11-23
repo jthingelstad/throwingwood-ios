@@ -1,8 +1,9 @@
 # Sound and haptics on the pitch
 
 Practice, solo, both online seats and watchers use the same presentation clock.
-SOUND and HAPTICS start on. The practice surface menu and both match menus
-store the two switches independently in device preferences. The app requests
+SOUND and HAPTICS start on. The Settings card (from home and from every
+match's and practice's menu) stores the two switches independently in device
+preferences. The app requests
 an ambient audio session that mixes with music or podcasts and obeys the
 silent switch. [Apple's ambient audio category](https://developer.apple.com/documentation/avfaudio/avaudiosession/category-swift.struct/ambient).
 

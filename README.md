@@ -7,7 +7,7 @@ iPhone version, which plays on an iPad too: the same game on a bigger screen.
 
 ## What's here
 
-Choose **Play online**, **Practice** or **Play the computer**. In practice, pick a surface and tap
+Choose **Play online**, **Practice** or **Play the computer**. In practice, pick a scene and tap
 a kubb, or drag anywhere to move the circle onto it. Wind back on the left of the dial, flick through six and
 lift inside the blue release range. The solo match adds the full turn order,
 plan and stance controls, raising, punishment placement and the computer's throws.
@@ -17,8 +17,8 @@ by link or code. Pick a team or watch from the same lobby as friends playing on 
 
 The dial ticks as your arm crosses a target band. Wood knocks on impact and
 the king rings when it falls. Sound follows the silent switch and mixes with
-other audio. Sound and haptics have independent switches in the match menu
-and the practice surface menu. Both start on. [Sound and haptics](docs/FEEL.md).
+other audio. Sound and haptics have independent switches in Settings, reached
+from home and from the match and practice menus. Both start on. [Sound and haptics](docs/FEEL.md).
 
 [Online pitches](docs/ONLINE.md) · [How the match works](docs/MATCH.md) · [iPhone and iPad review pictures](docs/RENDER.md)
 
@@ -35,7 +35,8 @@ and the practice surface menu. Both start on. [Sound and haptics](docs/FEEL.md).
   [docs/ROOMS-CLIENT.md](docs/ROOMS-CLIENT.md).
 - `ThrowingWood/` is the SwiftUI app (iOS 26, iPhone and iPad).
 - `scripts/` vendors the engine and the C sources, checks the C never calls
-  Apple's libm, stamps the version, and uploads to TestFlight.
+  Apple's libm, stamps the version, draws the app icons, watches a stalled test
+  run, and uploads to TestFlight.
 
 ## The engine
 
