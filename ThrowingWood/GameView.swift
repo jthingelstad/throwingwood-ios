@@ -63,6 +63,7 @@ struct FitOrScroll: ViewModifier {
     ViewThatFits(in: .vertical) {
       content
       ScrollView { content }.scrollBounceBehavior(.basedOnSize).defaultScrollAnchor(.top)
+        .scrollIndicatorsFlash(onAppear: true)
     }
   }
 }

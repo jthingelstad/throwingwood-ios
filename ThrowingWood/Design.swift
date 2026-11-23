@@ -28,6 +28,8 @@ enum TW {
   static let cardTop: CGFloat = 64
   /// pt from the screen's sides to a card on a phone held upright.
   static let cardSide: CGFloat = 16
+  /// How far a card's scrolling rows fade at the cut while more rows are below.
+  static let moreBelowFade: CGFloat = 36
 }
 
 @MainActor extension Color {
@@ -226,6 +228,7 @@ struct CardScreen<Rows: View, Buttons: View>: View {
               rows().fixedSize(horizontal: false, vertical: true)
             }
             .scrollBounceBehavior(.basedOnSize).defaultScrollAnchor(Self.anchor)
+            .modifier(MoreBelow())
           }
           // the rows are offered all the height the button row leaves (a VStack
           // would offer them a share), so a card that fits is shown whole
@@ -271,6 +274,28 @@ extension View {
   /// shared shell: the top edge, the dim, the face, scrolling where it does not fit.
   func cardScreen(width: CGFloat = 400) -> some View {
     CardScreen(width: width) { self }
+  }
+}
+
+/// Rows that scroll say so: the indicator flashes when they open, and while rows are
+/// still below the cut the last few points fade into the paper, so a cut row (a phone
+/// on its side shows a card's first rows only) reads as more to come, not as the end.
+struct MoreBelow: ViewModifier {
+  @State private var below = false
+  func body(content: Content) -> some View {
+    content
+      .scrollIndicatorsFlash(onAppear: true)
+      .onScrollGeometryChange(for: Bool.self) { g in
+        g.contentOffset.y + g.containerSize.height < g.contentSize.height - 1
+      } action: { _, more in below = more }
+      .mask {
+        VStack(spacing: 0) {
+          Color.black
+          LinearGradient(colors: [.black, below ? .black.opacity(0.15) : .black],
+                         startPoint: .top, endPoint: .bottom)
+            .frame(height: TW.moreBelowFade)
+        }
+      }
   }
 }
 
