@@ -228,6 +228,59 @@ already has (`drivemeterwound`, `raisedrag`). `--player` names side A in every f
 
 Each is `iphone-17-pro-max-<n>-<name>.png` and `ipad-pro-13-<n>-<name>.png`.
 
+## App previews
+
+Apple's specification (read 2026-11-22,
+[App preview specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/app-preview-specifications/)):
+15 to 30 seconds, at most 30 frames a second and 500 MB, up to three previews a device
+size and language, shown before the screenshots. H.264 (`.mov`, `.m4v`, `.mp4`),
+progressive, up to High Profile level 4.0, a target of 10 to 12 Mbps (or ProRes 422 HQ
+in a `.mov`); stereo AAC at 256 kbps, 44.1 or 48 kHz, one two-channel track or two
+one-channel tracks, every track enabled. Portrait 886 x 1920 is accepted for every
+iPhone class with Face ID or a Dynamic Island, and 1200 x 1600 for the 13-inch iPad; a
+class without its own is scaled from a related one. The default poster frame is the one
+at 5 seconds.
+
+One preview is made here, for the iPhone, as real play (the owner, 2026-11-22: "focus on
+game play.. and show 3 or 4 diff scenes"); the owner's first choice for the store's
+previews is the game's own highlight reels, so this one is the fallback. No iPad preview
+is made. `python3 tools/store-previews.py <simulator app>` films and cuts it into
+`build/store-previews/` (not committed): `iphone-17-pro-max-preview-1.mp4`, 886 x 1920,
+about 20.5 s, with `iphone-17-pro-max-preview-1-poster.png`, its frame at 5 s. Three
+scenes, plain cuts, no titles, captions or added graphics:
+
+| From | Scene | What happens |
+| --- | --- | --- |
+| 0.0 s | Park | The opening throw: the aim dragged to the next base kubb, the clock wound and flicked, the baton in slow motion, TOK!, the kubb down, the verdict. The frame at 5.0 s is the TOK! |
+| 6.9 s | Techno | Two batons into a knot of six field kubbs 5 m off: rings on the grid, 1 down, then KLAK! KLAK!, 2 down |
+| 16.3 s | Camping | At the king under the moon: wound, flicked, KING!, the king down |
+
+How it is made:
+
+- **The app is the build as it is.** It is launched as a player launches it, with no
+  review mode. Each scene starts from a kept match the app resumes (`solo-match.json` in
+  its Application Support, the file `MatchSave` writes), and what a throw does is what
+  the engine does with the touches it is given.
+- **The positions** (`tools/store-previews/park.json`, `techno.json`, `camping.json`)
+  are matches started as `startSolo` starts them, each in its scene, and played on from
+  a fixed seed by the engine's own computer player on both sides until the throw wanted:
+  `node tools/preview-positions.mjs` (this repository's engine on the web client's host,
+  the web checkout read only). Never a saved or recorded game.
+- **The touches** are a UI-testing bundle's (`tools/review-turn`, `Play`): a tap on
+  THROW, a drag of the aim, a swing round the clock to the middle of the power band and
+  of the release band, as a finger makes them. XCTest's public gestures are one straight
+  stroke, so the swing's path is built with the event classes those gestures use.
+- **The recording** is `xcrun simctl io recordVideo`, cut by the times the touches were
+  made and encoded with ffmpeg to the specification (High Profile level 4.0, 30 frames a
+  second, held at 11 Mbps). **There is no sound**: the simulator's recording has none,
+  and none is added; the file carries a silent stereo AAC track (48 kHz) so it has the
+  track the specification names. Sound from a phone would need a capture of its own.
+- **The phone is the iPhone 16e's simulator**, not the 17 Pro Max the pictures use: a
+  recording of a Dynamic Island simulator has the island drawn into every frame as a
+  black pill, which a phone's own screen recording never has. The 16e's screen is the
+  same shape (1170 x 2532, scaled to 888 x 1920 and a pixel trimmed from each side); the
+  file keeps the store slot's name.
+
 ## First signed iPhone checklist
 
 - Run the KubbEngineTests golden suite from Xcode against the connected iPhone. Match every action hash in every reference match (engine 1.0: 880 in 21). Record device model, OS and commit with the result.
