@@ -75,12 +75,14 @@ struct ReportCard: View {
   }
 
   var body: some View {
-    Group {
+    // an iPad's: the web's .report, min(560px, 100%), centred; a phone keeps its whole
+    // width, as before. SEND and CANCEL are the card's pinned button row, so on a phone
+    // on its side (about 390 pt tall) they stay in view while the rows above them scroll
+    CardScreen(width: UIDevice.current.userInterfaceIdiom == .pad ? 560 : 760) {
       VStack(alignment: .leading, spacing: 12) {
         Text("Send feedback").cardTitle()
         if sent {
           Text("Sent, thank you.")
-          Button("BACK TO THE PITCH", action: close).buttonStyle(WoodButton())
         } else {
           Segmented(
             label: "What is it about?", choices: Kind.allCases.map { ($0, $0.label) }, value: $kind, full: true
@@ -102,16 +104,19 @@ struct ReportCard: View {
           }
           Text(kind == .throw ? Self.throwNote : Self.feedbackNote).font(bodyFont(14, relativeTo: .footnote))
           if !status.isEmpty { Text(status) }
-          HStack {
-            Button(sending ? "SENDING…" : "SEND", action: send).disabled(sending || !ready)
-            Button("CANCEL", action: close).disabled(sending)
-          }.buttonStyle(WoodButton())
         }
       }
-      // an iPad's: the web's .report, min(560px, 100%), centred; a phone keeps
-      // its whole width, as before
-      .cardScreen(width: UIDevice.current.userInterfaceIdiom == .pad ? 560 : 760)
-    }.scrollDismissesKeyboard(.interactively)
+    } buttons: {
+      if sent {
+        Button("BACK TO THE PITCH", action: close).buttonStyle(WoodButton())
+      } else {
+        HStack {
+          Button(sending ? "SENDING…" : "SEND", action: send).disabled(sending || !ready)
+          Button("CANCEL", action: close).disabled(sending)
+        }.buttonStyle(WoodButton())
+      }
+    }
+    .scrollDismissesKeyboard(.interactively)
   }
 
   private func send() {

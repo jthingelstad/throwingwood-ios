@@ -151,14 +151,28 @@ struct ShareCard: View {
 
   var body: some View {
     let v = share.view
-    VStack(alignment: .leading, spacing: 12) {
-      Text(ShareWords.title).cardTitle()
+    // the buttons are the card's pinned row, so on a phone on its side (about 390 pt
+    // tall) SHARE stays in view while the words above it scroll
+    CardScreen(width: ipad ? 520 : 400) {
+      VStack(alignment: .leading, spacing: 12) {
+        Text(ShareWords.title).cardTitle()
+        if v.form {
+          form
+        } else {
+          if !v.line.isEmpty { Text(v.line).font(displayFont(24)) }
+          if v.bar { SlowBar(since: since) }
+          if !v.text.isEmpty { Text(v.text).fixedSize(horizontal: false, vertical: true) }
+        }
+      }
+    } buttons: {
       if v.form {
-        form
+        // side by side at the stack's own spacing, which a 375 pt phone needs (ButtonRow's
+        // 12 would stack them there), one under the other where even that does not fit
+        ViewThatFits(in: .horizontal) {
+          HStack { formButtons }
+          VStack(alignment: .leading) { formButtons }
+        }
       } else {
-        if !v.line.isEmpty { Text(v.line).font(displayFont(24)) }
-        if v.bar { SlowBar(since: since) }
-        if !v.text.isEmpty { Text(v.text).fixedSize(horizontal: false, vertical: true) }
         HStack {
           if v.retry {
             Button(ShareWords.tryAgain) { share.send() }.buttonStyle(WoodButton(accent: true))
@@ -168,7 +182,20 @@ struct ShareCard: View {
         }
       }
     }
-    .cardScreen(width: ipad ? 520 : 400)
+  }
+
+  /// NOT NOW quiet at the left (leaving), SHARE AND MAKE THE REEL go, last.
+  @ViewBuilder private var formButtons: some View {
+    QuietButton(ShareWords.notNow) {
+      model.closeShare()
+    }
+    Spacer(minLength: 0)
+    Button(ShareWords.share) {
+      since = Date()
+      share.send()
+    }
+    .buttonStyle(WoodButton(accent: true)).disabled(share.problem != nil)
+    .lineLimit(1)
   }
 
   private var form: some View {
@@ -184,25 +211,7 @@ struct ShareCard: View {
       if let say = share.say {
         Text(say).font(.subheadline.bold()).accessibilityAddTraits(.updatesFrequently)
       }
-      ViewThatFits(in: .horizontal) {
-        HStack { buttons }
-        VStack(alignment: .leading) { buttons }
-      }
     }
-  }
-
-  /// NOT NOW quiet at the left (leaving), SHARE AND MAKE THE REEL go, last.
-  @ViewBuilder private var buttons: some View {
-    QuietButton(ShareWords.notNow) {
-      model.closeShare()
-    }
-    Spacer(minLength: 0)
-    Button(ShareWords.share) {
-      since = Date()
-      share.send()
-    }
-    .buttonStyle(WoodButton(accent: true)).disabled(share.problem != nil)
-    .lineLimit(1)
   }
 }
 

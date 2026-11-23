@@ -617,8 +617,10 @@ struct MatchScreen: View {
         let bar = WideLayout.bar(height: 0, size: size, safe: safe)
         placementBar(n)
           .frame(width: bar.width)
-          .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { h in
-            pitch.stillFloor = Double(safe.bottom + WideLayout.barLift + h)
+          // the floor itself is the measured value, so a turn that moves the safe area
+          // but leaves the bar's height alone still moves the floor
+          .onGeometryChange(for: CGFloat.self) { safe.bottom + WideLayout.barLift + $0.size.height } action: { floor in
+            pitch.stillFloor = Double(floor)
             model.refresh()
           }
           .onDisappear { pitch.stillFloor = nil; model.refresh() }
