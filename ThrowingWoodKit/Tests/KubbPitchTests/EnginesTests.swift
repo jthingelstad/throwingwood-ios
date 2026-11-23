@@ -4,7 +4,7 @@ import Testing
 
 @testable import KubbPitch
 
-/// Several engines on one pitch (kubb-engine docs/ROOM.md "Engines in one match",
+/// Several engines on one pitch (kubb-engine docs/PITCH.md "Engines in one match",
 /// "The room's engine", "Speaking down"), as the controller speaks it.
 @Suite @MainActor struct EnginesTests {
   func setup() async throws -> (PitchController, FakePitch) {

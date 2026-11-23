@@ -20,7 +20,7 @@ import KubbEngine
   /// The engines this pitch can run (one Lua state per major.minor, made lazily).
   public let engines: EngineShelf
   /// The engine the pitch runs on now: the match's own (`meta.engine`) once there is
-  /// one this build carries, else the newest (kubb-engine docs/ROOM.md "Speaking down").
+  /// one this build carries, else the newest (kubb-engine docs/PITCH.md "Speaking down").
   public private(set) var engine: Engine
   /// The presence fields last announced (`pitch.announce`: `engine` and `engines`).
   public private(set) var announced: JSONText?
@@ -171,7 +171,7 @@ import KubbEngine
 
   /// Every match option the room holds, defaults filled in, on the lobby's engine:
   /// `pitch.optionsOf` (since 0.9: `options`' five and the engine's own from the
-  /// document's `settings`, kubb-engine docs/ROOM.md difference 9), or on an older
+  /// document's `settings`, kubb-engine docs/PITCH.md difference 9), or on an older
   /// engine, which has no such call, `lobbyOf`'s `options`.
   public func roomOptions(_ doc: JSONText) throws -> [String: String] {
     let on = lobbyEngine()
@@ -264,7 +264,7 @@ import KubbEngine
     return try newestCall("carried", [("me", .raw(me))]).items.compactMap(\.string)
   }
 
-  /// Speak down (kubb-engine docs/ROOM.md "Speaking down"): announce every engine this
+  /// Speak down (kubb-engine docs/PITCH.md "Speaking down"): announce every engine this
   /// build carries, with `engine` the room's engine counting this member, marked
   /// `+engines`, so a client that carries one sees a match. Sent again only when it
   /// changes; before the room is known it is the newest.
@@ -911,7 +911,7 @@ import KubbEngine
     awaitingState = false
     control = .null
     lastAim = nil
-    // A match plays only on its own engine (kubb-engine docs/ROOM.md "Engines in one
+    // A match plays only on its own engine (kubb-engine docs/PITCH.md "Engines in one
     // match"): this build's engine of that major.minor when it carries one, checked by
     // that engine's own mayPlay; else the engine it has, which refuses it.
     let theirs = m["engine"]?.string

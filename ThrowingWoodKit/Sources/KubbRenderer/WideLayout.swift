@@ -321,8 +321,6 @@ public enum WideLayout {
     return TrayFrames(
       column: column, edge: edge, ceiling: ceiling, wide: true, sideWidth: max(plate.width, sideW), plate: plate)
   }
-  /// pt from the safe top to the header row (the web's railTop).
-  static let edgeGap: CGFloat = 10
 
   /// The minimap's place under the header's right end before the captions are placed;
   /// where that end stands over the throwing line (the header moved in beside a linear

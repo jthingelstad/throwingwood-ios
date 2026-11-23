@@ -13,7 +13,6 @@ enum NudgePaint {
   static let fingerFill: CGFloat = 0.82
   static let lift: CGFloat = 0.7  // the fingertip's rise before it presses, of its radius
   static let shadow: CGFloat = 0.22  // its hard shadow when down, of its radius
-  static let zoneGap: CGFloat = LinearMeter.nudgeZoneGap  // pt between the prompt tab and the fingertip's path
   static let beside: CGFloat = 1.6  // the clock's fingertip: radii out, beside the ring
   static let onKnob: CGFloat = 0.82  // the clock's fingertip on the knob, where the sliders cover the band
 }

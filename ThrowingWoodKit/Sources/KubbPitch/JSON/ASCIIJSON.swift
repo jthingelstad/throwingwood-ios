@@ -72,10 +72,6 @@ public enum ASCIIJSON {
     return String(decoding: out, as: UTF8.self)
   }
 
-  /// A JavaScript string's length (UTF-16 code units): what the room's size rules
-  /// count. For ASCII JSON it is the size in bytes.
-  public static func jsLength(_ text: String) -> Int { text.utf16.count }
-
   /// `JSON.stringify(string)` made ASCII: the quoted string.
   public static func quote(_ s: String) -> String {
     var out: [UInt8] = []
