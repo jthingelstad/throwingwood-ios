@@ -8,6 +8,30 @@ submit it to Beta App Review for the Beta group whenever Jamie asks for one.
 Build 256, `1.0.0 (1.0.0)`, went to the Internal group on 2026-11-22, the first
 build of 1.0.0 in TestFlight.
 
+## The App Store submission
+
+Version 1.0.0 with build 260 was submitted for App Review on 2026-11-22 at 9:12 PM
+Central (the owner: "Approved: submit Kubb: Throwing Wood 1.0.0 (build 260) for App
+Review"), to release as soon as it is approved. What the record holds:
+
+- **The listing**: the 1.0 words and keywords below, the subtitle "The lawn game, in
+  your hand", Games with Sports and Family, free in every territory, rated 4+.
+- **Support and privacy**: `https://throwingwood.com/support/` and
+  `https://throwingwood.com/privacy/` (the web repository's pages).
+- **App Privacy**: published as the worksheet below.
+- **Pictures**: the sixteen under `docs/store/` ("Screenshots"), eight a device.
+- **Previews**: three highlight reels a device ("App previews").
+- **App Compliance** (China mainland; the owner's answers): no feature that needs a
+  security assessment, and no AI-generated or synthetic content service. A new app
+  cannot be submitted until both are answered.
+- **Review notes**: no sign-in, how to see an online match on one device, nothing a
+  player types that others see, and why the app asks for add-only photo access.
+
+`scripts/asc.swift` made the record and the submission (a review submission, its item
+for the version, then `submitted`), `tools/asc-upload-media.py` the pictures and
+previews; App Privacy and App Compliance are on the web only. After Apple approves it,
+change the App Store row in the web repository's docs/ENGINES.md the same day.
+
 ## Once, before the first upload (done 2026-11-18)
 
 - **The bundle id** `com.throwingwood.app` must be registered with Apple. An
@@ -106,7 +130,7 @@ which go privately to the developer and are never shown to anyone else.
 
 ## App Privacy worksheet
 
-Proposed for the next submission (nothing is changed in App Store Connect from here).
+Published in App Store Connect on 2026-11-22 as written here.
 Answer **Yes** to data collection and **No** to tracking. There are no ad or analytics SDKs. Practice and solo stay on the phone unless the player sends feedback or shares a finished solo match for its highlight reel. Sound and haptic preferences stay on the phone. Multiplayer retains identifiable gameplay on the first-party service. The developer also uses the private game records to study throws and improve play. Apple's Analytics purpose covers that use of gameplay data.
 
 | App Store Connect type | Purpose | What travels or is kept |
@@ -128,9 +152,9 @@ The bundled `PrivacyInfo.xcprivacy` declares two required-reason categories. `CA
 
 | Question group | Proposed response and basis |
 | --- | --- |
-| User-generated content | Proposed: No (from 0.9). A player authors nothing free-form that others see: names and team names are generated from the game's own word lists and picked from them (the pitch server refuses any other), shouts are four presets, options come from fixed lists. Free-text feedback goes privately to the developer. Apple has not ruled on picked-from-list names that we know of (kubb-engine docs/NAMES.md section 6), so this is defensible, not certain. |
-| Messaging and chat | Proposed: No. Players cannot write to each other: the only thing sent between them beyond play is one of four preset shouts (NICE!, OOH!, TOK!, UNLUCKY). Answer Yes instead if Apple counts preset emotes as chat. Feedback goes privately to the developer. |
-| Contests | Frequent. Playing a scored game against another player is central to the app. There are no stakes or prizes. |
+| User-generated content | No (from 0.9). A player authors nothing free-form that others see: names and team names are generated from the game's own word lists and picked from them (the pitch server refuses any other), shouts are four presets, options come from fixed lists. Free-text feedback goes privately to the developer. Apple has not ruled on picked-from-list names that we know of (kubb-engine docs/NAMES.md section 6), so this is defensible, not certain. |
+| Messaging and chat | No. Players cannot write to each other: the only thing sent between them beyond play is one of four preset shouts (NICE!, OOH!, TOK!, UNLUCKY). Answer Yes instead if Apple counts preset emotes as chat. Feedback goes privately to the developer. |
+| Contests | None. Apple's contests are events where users compete for rankings, rewards or personal goals, and the game has none: a match is a game between players, with no stakes, prizes or standings. (The first draft said Frequent, which would have rated the app 13+.) |
 | In-app controls | No parental controls or age assurance. |
 | Other capabilities | No social media feed, unrestricted web access or advertising. Sharing uses the system share sheet. |
 | Mature themes, fear, profanity, substance references, sexual content and nudity | None in authored content. |
@@ -154,10 +178,10 @@ Find your range in practice, play a match against the computer, or send a pitch 
 
 **Keywords** — kubb,lawn,baton,king,wood,backyard,throw,toss,pitch,multiplayer,Viking,chess
 
-### Proposed listing for 1.0 (for the owner to settle)
+### The 1.0 listing (in App Store Connect)
 
-The draft above predates scenes and Kid matches. This one is true of the app today; the
-words are the owner's to keep, change or drop.
+The draft above predates scenes and Kid matches. This one is the listing submitted with
+1.0.0 on 2026-11-22.
 
 **Kubb: Throwing Wood**
 
@@ -240,6 +264,19 @@ one-channel tracks, every track enabled. Portrait 886 x 1920 is accepted for eve
 iPhone class with Face ID or a Dynamic Island, and 1200 x 1600 for the 13-inch iPad; a
 class without its own is scaled from a related one. The default poster frame is the one
 at 5 seconds.
+
+**What is in the store** is three of the game's own highlight reels a device (the
+owner, 2026-11-22: "highlight reels of three different scenes are the ideal things"):
+Park, Techno and Camping, each a match of a generated name against the computer that
+ends on the king, 25 to 29 s, with the reel's captions and sound, a one second title and
+no end card. They are drawn by the web repository's reel renderer at the store's sizes
+(886 x 1920 and 1200 x 1600; the change that adds those sizes is the web repository's
+pull request 135, open as this is written), kept in
+`build/store-previews/reels/` (not committed) with the commands that made them, and
+went up with `tools/asc-upload-media.py preview IPHONE_67` and `preview
+IPAD_PRO_3GEN_129`. A reel is the engine's picture of a match, not a recording of the
+phone's screen; App Review's guideline 2.3.4 asks for screen captures of the app, so if a
+reviewer refuses them the captured preview below takes their place.
 
 One preview is made here, for the iPhone, as real play (the owner, 2026-11-22: "focus on
 game play.. and show 3 or 4 diff scenes"); the owner's first choice for the store's
