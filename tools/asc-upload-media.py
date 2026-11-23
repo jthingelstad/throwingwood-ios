@@ -68,7 +68,10 @@ def find_or_make_set(kind, type_attr, type_value):
 
 def shots(display, files):
     set_id = find_or_make_set("appScreenshotSets", "screenshotDisplayType", display)
-    ids = []
+    # The ordering call at the end replaces the set's whole list, so it must
+    # name what the set already holds, in its order, before the new ones.
+    held = asc("GET", f"/v1/appScreenshotSets/{set_id}/relationships/appScreenshots?limit=200")
+    ids = [s["id"] for s in held["data"]]
     for f in files:
         made = asc("POST", "/v1/appScreenshots", {"data": {
             "type": "appScreenshots",
