@@ -26,7 +26,7 @@ physics and session that the Playdate and the web version
   from the engine, never typed. Nothing else goes in the parentheses: the build
   number is a detail line (`build 114`), and so would be any older engine carried
   (`Also plays 0.7.4`; none today). It is at the foot of the match, pitch and practice menus
-  and in a feedback report's `build.label`. It never goes on the room wire, a
+  and in a feedback report's `build.label`. It never goes on the pitch wire, a
   rider, a kept match or a shared replay, which name only the engine a match is
   played on. Bump `VERSION` and `MARKETING_VERSION` together; the build number
   is the TestFlight script's.
@@ -118,7 +118,11 @@ agrees. So:
 - The app: `xcodebuild -project ThrowingWood.xcodeproj -scheme ThrowingWood
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build`.
 - `scripts/check-libm.sh`: no Apple libm in the engine's C, Debug and release.
-- CI (`.github/workflows/test.yml`) runs these on `macos-26`. Add jobs only for a reason.
+- CI (`.github/workflows/test.yml`) runs these on `macos-26`, all but the simulator's
+  test run, with `scripts/vendor-engine.sh check` and `scripts/version.sh test` before
+  them; both `swift test` runs go through `scripts/test-watch.sh`, which fails a run
+  still going after `WATCH_SECONDS` (480) and prints where each test process is stuck.
+  Add jobs only for a reason.
 
 ## Proving Apple's libm fails (manual, not CI)
 
@@ -163,8 +167,8 @@ change. The raises the engine makes itself (the computer's, a match started with
 Automatic) and the punishment kubbs it places are watched too, from engine 0.16.0's list on
 the next throw need, `need.setup.settled` (`StoodShow.engineRaised`): in its order, with the
 watched raise's tip and pace, in the frame it gives (the raiser's view frame; the world frame
-in the wide view), the king alone round them in the thrower's view until the engine gives each
-entry its `others` and `king` (its next release). Each such raise ends on its entry's `seat`
+in the wide view), round each its entry's own `others` and `king` (engine 0.17 on; the king
+alone in the thrower's view for an entry without them). Each such raise ends on its entry's `seat`
 (engine 1.0.0: a standing kubb leans up to 3 degrees in the turf), settling into it as it
 slides to its spot, so the kubb does not step at the next throw's first frame; a raise the app
 sends itself ends plumb and takes its seat on the next throw. Never compare pieces before and
@@ -278,7 +282,7 @@ iPads upright and on their side as well as the phones. docs/RENDER.md "An iPad".
 `KubbPitch` is the main-actor pitch server client (`PitchClient`), the HTTPS API
 client (`PitchAPI`) and the headless pitch controller (`PitchController`); its contract
 is `docs/ROOMS-CLIENT.md`. The references are the web repository's
-`backend/pitch-server/PROTOCOL.md` and `API.md`, and its docs/MULTIPLAYER.md section
+`backend/pitch-server/PROTOCOL.md` and `backend/api/API.md`, and its docs/MULTIPLAYER.md section
 "What the iPhone app mirrors": keep those the same as the web (the message flow, the
 start `meta` and document header, the reconnect timings, the aim rules, the pace). New
 code says "pitch", and so does the bridge: the engine's `pitch.*` calls (`room.` was
@@ -450,7 +454,7 @@ black world on a grid of light, no film names), Minnesota, Tournament and Black 
 
 - **The catalogue** is the engine's; `SceneID.catalogue` is the app's copy for the
   renderer, held to the engine's `scenes()` by a test. `SceneID.drawn` lists the scenes
-  this build draws (all seven).
+  this build draws besides the day (the other six: all seven are drawn).
 - **The options cards are scene first** (the engine's `pitch.optionRows({ scene })`):
   the solo card (`SoloOptions.cardRows`), the practice menu and the lobby (the room's
   `settings.scene`) show Scene first, Surface only where the scene leaves one (Black &
