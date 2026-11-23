@@ -5,7 +5,7 @@ the headless pitch controller. No screens, accounts, analytics, third-party Swif
 packages or task groups. The local practice screen runs its own engine session.
 
 The references, read-only, are the web repository's `backend/pitch-server/PROTOCOL.md`
-(the wire), `backend/pitch-server/API.md` (the HTTPS API) and `docs/MULTIPLAYER.md`,
+(the wire), `backend/api/API.md` (the HTTPS API) and `docs/MULTIPLAYER.md`,
 whose section "What the iPhone app mirrors" lists what the two clients must keep the
 same. The web's own client is `src/net/pitch-client.js`, `src/net/aim.js` and
 `src/net/pitch.js`; where this doc gives a number, it is theirs. New code says "pitch",
@@ -154,7 +154,7 @@ host ownership again inside the compare-and-set reducer.
 
 `PitchController` takes an `EngineShelf`: the engines this build carries, one Lua state
 per major.minor, the newest made at once and any other the first time a match needs it.
-`engine` is the one the pitch runs on now (the match's own, else the newest), and room
+`engine` is the one the pitch runs on now (the match's own, else the newest), and `pitch.*`
 calls go to it; `engineFor`, `carried`, `announce`, `speakAs` and `compareEngines` go to
 the newest. `announce()` runs after every presence, host and document event and sends
 `me` only when the answer changes. START runs lineup, engineFor, speakAs, startCheck,

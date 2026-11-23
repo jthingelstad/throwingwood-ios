@@ -17,13 +17,13 @@ computer. The options offered are the `MATCH_OPTIONS` of the engine the next mat
 would run on (`PitchController.lobbyEngine`, the room's engine counting this member),
 and every option is read through that engine's `optionsOf` (since 0.9: the five in
 `options` and the engine's own `computer` and `scene` from the document's `settings`,
-kubb-engine docs/ROOM.md difference 9), or `lobbyOf`'s `options` on an older engine,
+kubb-engine docs/PITCH.md difference 9), or `lobbyOf`'s `options` on an older engine,
 which has no such call. The Kubbs row is not offered (`OnlinePitch.hiddenRows`, the web's HIDDEN_ROWS: the 1.0
 design's scene decides the set); the room's stored set is left as it is, Classic unless an
 older client chose another, and the match plays it. So on 0.9 the host sets Computer (the computer's level,
 Beginner, Club or Pro) for the match; once a tester on 0.8 takes a seat, the row goes,
 since a 0.8 match would not take it, and a 0.8 client's own writes keep the host's
-setting. Scene (shown as Park, Camping and Techno, ids day, night and neon, `SceneID.row`, last) is the host's too, written to
+setting. Scene (the engine's seven, first, from the lobby engine's `pitch.optionRows({ scene })`) is the host's too, written to
 the document's `settings.scene` through the same `option` call the web makes; every
 seat sees the lobby and the match in it, and the match's start carries it. It is
 offered only while the next match's engine takes a scene, like Computer: on 0.8 or
@@ -44,19 +44,19 @@ on `GET /open` while the host is there.
 ### Engines in one room
 
 A match belongs to the engine major.minor it started on, for its whole life
-(kubb-engine docs/ROOM.md "Engines in one match"), and the app carries only the
+(kubb-engine docs/PITCH.md "Engines in one match"), and the app carries only the
 engines we decide to support, today the newest alone (docs/ENGINES.md). It still
-speaks the engine's contract for clients that carry several ("The room's engine",
+speaks the engine's contract for clients that carry several ("The pitch's engine",
 "Speaking down"), so an older build or a web tab that carries several agrees with it:
 
 - Presence is `pitch.announce`: `engines`, every major.minor this build carries, and
   the legacy `engine` written as the room's engine with the `+engines` mark
-  (`"0.13+engines"`). The room's engine is `pitch.engineFor` counting this member;
+  (`"1.0+engines"`). The room's engine is `pitch.engineFor` counting this member;
   before the room is known it is the newest. It is announced again whenever the
   answer changes.
 - The lobby asks `engineFor` (the host and the lineup; watchers do not count) and
   shows nothing about versions while there is an engine everyone carries. When there
-  is none (a player on an older build, which carries no 0.13, or on a newer one) the
+  is none (a player on an older build, which carries no 1.0, or on a newer one) the
   lobby says who must update in the web's plain words (`VersionWords.lobby`), never
   naming a version, and START is disabled:
   - this device is the one without the room's engine: "This pitch needs the newest
@@ -199,7 +199,7 @@ separate presentation session. That separation lets the network advance while
 the board is still showing the preceding throw. The display clock only advances
 the dial or computer while the room grants that seat control. A player can
 choose a legal end for a raise or place a punishment kubb using the same board
-controls as solo, including AUTO ALL and the device's Raising setting (in the
+controls as solo, including AUTO ALL and the match's Raising (in the
 online menu too); automatic raising acts only while this seat holds control. The host runs the computer. Spectators see the thrower's
 camera. Someone else's turn shows its hand-off as a banner over the top
 (`HandoffBanner`, `MatchCards.watchBanner`, 2.5 seconds) instead of the modal card, so
@@ -268,8 +268,8 @@ When the finished match has a kept replay (`PitchController.finishedReplay`:
 the engine's `pitch.replayOf` is not null, the same test as the web's WATCH
 REPLAY), the winner card adds a button, MAKE A HIGHLIGHT REEL. It opens the reel
 card (`ReelCard.swift`), which holds a pitch code and, optionally, the match it
-is for (`HighlightReel` in KubbRenderer), so a solo match can use it once a solo
-match has a code; solo has no button yet. The web's docs/REEL.md "The iPhone" is
+is for (`HighlightReel` in KubbRenderer), so a solo match uses it once a share has
+given it a code ("Sharing a match against the computer" below). The web's docs/REEL.md "The iPhone" is
 the contract, and the card's words (`ReelWords`) are the web's, word for word.
 The card's title is "Highlight reel" in every state.
 
@@ -565,7 +565,7 @@ web's widths and centred, e.g. [the lobby](review/online/ipad-mini-host.png),
 | Pitch not found | [16e](review/online/iphone-16e-landscape-notFound.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-notFound.png) |
 
 The phone uses the pointer dial, native sharing, pickers and a HUD for the phone upright or on its side.
-Open-pitch discovery, archived replay playback, embeds, browser shortcuts,
+Archived replay playback, embeds, browser shortcuts,
 and the browser's full menu are outside this screen. The phone does
 not resume a room after process termination. A player can rejoin by link or
 code with the same member ID. An incoming pitch link uses the same join flow
