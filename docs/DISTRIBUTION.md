@@ -18,7 +18,7 @@ build of 1.0.0 in TestFlight.
 - **Signing.** `Config/Signing.local.xcconfig` holds the team and
   `Config/AppStoreConnect.local` the API key's ids (both ignored by git; see
   `scripts/testflight.sh`).
-- **App icon.** The final icon is Jamie's call. His direction (2026-11-22): the top third of a king in profile, the crown framed, with an alternate per scene. It is built (the Park king as the primary with dark and tinted looks, the other six scenes as alternates picked in Settings, drawn by the game's renderer: docs/RENDER.md "The app icon") and awaits his look before it goes in an upload.
+- **App icon.** The final icon is Jamie's call. His direction (2026-11-22): the top third of a king in profile, the crown framed, with an alternate per scene. It is built (the Park king as the primary with dark and tinted looks, the other six scenes as alternates picked in Settings, drawn by the game's renderer: docs/RENDER.md "The app icon"). It shipped in build 260, and Jamie approved it on 2026-11-22: "260 is great. icon is lovely. even alternative icons are amazing".
 
 ## The web plays with the builds people have
 
