@@ -1,7 +1,7 @@
 import Foundation
 
 /// A finished pitch's highlight reel as the API answers `POST reel` (the web's
-/// backend/api/API.md "reel", docs/ROOMS.md section 12). Every
+/// backend/api/API.md "reel", the whole contract). Every
 /// state and every why code has its own case; anything newer than this build knows
 /// is kept in an `other` case, never guessed into a known one.
 public enum ReelAnswer: Equatable, Sendable {

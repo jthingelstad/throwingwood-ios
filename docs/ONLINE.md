@@ -378,7 +378,7 @@ The web's docs/REEL.md "The share card" is the contract: its words are `ShareWor
   REEL and NOT NOW. A name that does not pass (none can come from the row) fades SHARE
   and, once pressed, says "Pick a name for your side.", as does the server's refusal
   `why: "name"`. NOT NOW closes the card and sends nothing.
-- **The message** (`ShareMessage.make`, section 13 of the web's docs/ROOMS.md): one
+- **The message** (`ShareMessage.make`, the web's `backend/api/API.md` "share"): one
   `g: {client, engine, start, log, end}` sent to the API as `POST share {g}`
   (`PitchAPI.share`), with a 45 s wait for the answer. `start` and `log` come from the engine's `renameStart`
   with the name picked, as on the web; `engine` is the version the match was played on,

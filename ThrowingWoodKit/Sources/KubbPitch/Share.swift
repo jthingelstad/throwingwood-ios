@@ -2,7 +2,7 @@ import Foundation
 import KubbEngine
 
 // Sharing a match against the computer (the web's docs/REEL.md "Sharing a match against
-// the computer", docs/ROOMS.md section 13, and its src/net/share.js, which this follows
+// the computer", backend/api/API.md "share", and its src/net/share.js, which this follows
 // line for line): the name the share card allows, the `share` message made with the
 // engine's own calls, what can be known before sending, and the card's states as a pure
 // reducer. The card is the app's ShareCard.swift; once a code comes back the reel card

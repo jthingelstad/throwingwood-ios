@@ -79,7 +79,8 @@ public enum LobbyEntry: Identifiable, Equatable {
     /// nothing. "No game here".
     case noGame
     /// A shared match against the computer (the API's replay says `sealed`): watched and
-    /// never joined (the web's docs/ROOMS.md 13.5). The app shows it from its replay.
+    /// never joined (the web's backend/api/API.md "share", "The sealed pitch"). The app
+    /// shows it from its replay.
     case sealed
     /// The match on the pitch holds a name the game did not make (a forged start): not
     /// shown, "Cannot show this match" (NameWords).
