@@ -212,7 +212,7 @@ Each is `iphone-17-pro-max-<n>-<name>.png` and `ipad-pro-13-<n>-<name>.png`.
 
 ## First signed iPhone checklist
 
-- Run the KubbEngineTests golden suite from Xcode against the connected iPhone. Match every action hash in every reference match (engine 0.18: 854 in 21). Record device model, OS and commit with the result.
+- Run the KubbEngineTests golden suite from Xcode against the connected iPhone. Match every action hash in every reference match (engine 1.0: 880 in 21). Record device model, OS and commit with the result.
 - On a ProMotion phone, enable the full refresh rate and profile an optimized build in Instruments. Measure frame intervals and update/draw time through aim, release, flight, impact and rest. Record median, p95, p99 and longest frame against the 8.33 ms budget at 120 Hz. Check input-to-knock timing through the speaker and Bluetooth.
 - Feel band entry and exit, release, light and heavy contact, the three surface landings, king-down, win and hand-off. Check spectator cues, slow motion, SKIP and the HAPTICS switch. Use the provisional values in [FEEL.md](FEEL.md) as the comparison.
 - Test the silent switch, other music, audio interruption and route changes. Check independent SOUND and HAPTICS settings after relaunch, and that leaving a pitch stops both.
