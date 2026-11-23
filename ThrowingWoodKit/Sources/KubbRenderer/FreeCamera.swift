@@ -226,9 +226,6 @@ public final class FreeCamera {
   public func zoomBy(_ factor: Double) {
     if let o = begin() { orbit = FreeCam.zoom(o, factor) }
   }
-  public func moveBy(right: Double, ahead: Double) {
-    if let o = begin() { orbit = FreeCam.move(o, right: right, ahead: ahead) }
-  }
   /// A drag of the ground by pt.
   public func dragBy(_ dx: Double, _ dy: Double) {
     if let o = begin(), let lens { orbit = FreeCam.drag(o, dx: dx / k, dy: dy / k, f: lens.f) }

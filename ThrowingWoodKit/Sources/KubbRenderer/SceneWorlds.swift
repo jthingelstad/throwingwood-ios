@@ -123,8 +123,6 @@ enum Mono {
     .snow: [0xFF, 0xFF, 0xFF, 0xEF, 0xFF, 0xFF, 0xFF, 0xFF],
     .grid: [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF],
   ]
-  /// A 50% checker, the Playdate's grey (a spinning piece's ghost, the dimming).
-  static let grey: [UInt8] = [0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55, 0xAA, 0x55]
   nonisolated(unsafe) private static var images: [[UInt8]: CGImage] = [:]
   private static let lock = NSLock()
   /// The pattern as an 8 x 8 image, white where a bit is set and clear where it is not

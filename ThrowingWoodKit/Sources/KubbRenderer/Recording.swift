@@ -21,8 +21,6 @@ public struct ThrowResult: Decodable, Equatable, Sendable {
     var codes: [String] { (parts?.compactMap(\.code)).flatMap { $0.isEmpty ? nil : $0 } ?? (code.map { [$0] } ?? []) }
   }
   let ruling: Ruling?
-  /// The rulings of a Kid match (engine 0.15) that the flag must say in their own words.
-  public static let kidCodes = ["kingUp", "placed", "helicopterCounts"]
   /// The flag over the pitch after the throw (the web's rulings.js flagFor): the
   /// recording's `flag`, except where a Kid match's ruling says what happened better. A
   /// Kid match has no punishments and no losing throws, so the flag never says one: a king
