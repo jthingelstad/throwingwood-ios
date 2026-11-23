@@ -5,6 +5,8 @@ Throwing Wood is in TestFlight: build 20 (0.1) went to the Internal group on
 Review passes them. Every upload, every tester group and the App Store are
 Jamie's call. Jamie has given a standing go to upload an external build and
 submit it to Beta App Review for the Beta group whenever Jamie asks for one.
+Build 256, `1.0.0 (1.0.0)`, went to the Internal group on 2026-11-22, the first
+build of 1.0.0 in TestFlight.
 
 ## Once, before the first upload (done 2026-11-18)
 
@@ -35,7 +37,10 @@ names it.
 `scripts/testflight.sh` archives a clean commit on main and uploads it,
 internal only (`testFlightInternalTestingOnly` in
 `Config/ExportOptions-TestFlight.plist`). The version is `VERSION`, set by
-hand; the build number is the commit count, so a commit uploads once. A player sees
+hand; the build number is the commit count, so a commit uploads once. An
+internal-only build can never join the Beta group or go to the App Store, so a
+commit meant for outside testers is uploaded with `--external` and nothing else
+(the Internal group sees every build either way). A player sees
 the version as `<app version> (<engine version>)`, `0.2 (0.8.1)` for the first build on
 engine 0.8, `0.3 (0.9.0)` for the first on engine 0.9, `0.4 (0.9.0)` for the first
 with scenes, `0.7 (0.13.1)` for the first on engine 0.13, `0.8 (0.13.3)` for the first
