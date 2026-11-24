@@ -1,6 +1,6 @@
 # Distribution
 
-Throwing Wood is in TestFlight: build 20 (0.1) went to the Internal group on
+Throwing Wood is in the App Store (1.0.0, 2026-11-24) and in TestFlight: build 20 (0.1) went to the Internal group on
 2026-11-18, and the Beta group takes external builds once Apple's Beta App
 Review passes them. Every upload, every tester group and the App Store are
 Jamie's call. Jamie has given a standing go to upload an external build and
@@ -9,6 +9,12 @@ Build 256, `1.0.0 (1.0.0)`, went to the Internal group on 2026-11-22, the first
 build of 1.0.0 in TestFlight.
 
 ## The App Store submission
+
+**1.0.0 is in the App Store** since 2026-11-24: Apple approved it and it went live that
+day at <https://apps.apple.com/us/app/kubb-throwing-wood/id6836326990> (app id
+6836326990). throwingwood.com shows Apple's badge on `/` and `/ios/`, and keeps the public
+TestFlight link on `/ios/` for testing new versions (the web repository's
+`APP_STORE_URL` and `TESTFLIGHT_URL`).
 
 Version 1.0.0 with build 260 was submitted for App Review on 2026-11-22 at 9:12 PM
 Central (the owner: "Approved: submit Kubb: Throwing Wood 1.0.0 (build 260) for App
@@ -29,8 +35,9 @@ Review"), to release as soon as it is approved. What the record holds:
 
 `scripts/asc.swift` made the record and the submission (a review submission, its item
 for the version, then `submitted`), `tools/asc-upload-media.py` the pictures and
-previews; App Privacy and App Compliance are on the web only. After Apple approves it,
-change the App Store row in the web repository's docs/ENGINES.md the same day.
+previews; App Privacy and App Compliance are on the web only. The App Store row in the
+web repository's docs/ENGINES.md was changed on 2026-11-24, the day it went live; change
+it again the day any later version does.
 
 ## Once, before the first upload (done 2026-11-18)
 
