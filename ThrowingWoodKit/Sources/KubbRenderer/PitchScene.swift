@@ -68,6 +68,10 @@ public struct PitchScene: Decodable, Sendable {
   /// A raise or punishment scene's lowest point the player works on: a frame y
   /// and the screen points below it (WideLayout.stillLift).
   var stillLowest: Double? = nil, stillPad: Double? = nil
+  /// Under the held raise camera, whose fit is the engine's box and not the 400 x 240
+  /// frame: the ground points of the whole lying group and its ends, measured on the
+  /// screen itself for the same lift (every lying kubb stays visible and touchable).
+  var stillPoints: [V3]? = nil
   /// On a phone on its side, the top of the raise and punishment bar, in pt
   /// above the screen's foot (set by the app once it has measured the bar).
   var stillFloor: Double? = nil
@@ -98,6 +102,13 @@ public struct PitchScene: Decodable, Sendable {
     var lift = 0.0
     if let low = stillLowest, let floor = stillFloor {
       lift = WideLayout.stillLift(size: size, lowest: low, pad: stillPad ?? 0, floor: floor)
+    } else if camera.fitted, let points = stillPoints, let floor = stillFloor, WideLayout.isShort(size) {
+      let ys = points.compactMap { PitchProjection(size: size, camera: camera, letterbox: true).project($0).map { Double($0.y) } }
+      if let low = ys.max(), let high = ys.min() {
+        let over = low + (stillPad ?? 0) - (Double(size.height) - floor - Double(WideLayout.stillClear))
+        // up by the shortfall, never so far the group's top leaves the screen
+        lift = max(0, min(over, high - (stillPad ?? 0)))
+      }
     }
     // the engine's end and raise cameras are fitted to the box it was given, in the
     // letterbox frame (engine 1.4.0, `setView`)

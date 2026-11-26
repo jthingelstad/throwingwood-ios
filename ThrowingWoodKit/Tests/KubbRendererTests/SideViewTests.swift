@@ -108,6 +108,29 @@ import Testing
     }
   }
 
+  /// The held raise camera on a phone on its side with a tall bar (the largest text sizes):
+  /// the scene moves up by any shortfall, so every lying kubb, the one picked and its ends
+  /// stay above the bar, visible and touchable (WideLayout.stillLift).
+  @Test func aTallBarNeverCoversTheHeldRaise() throws {
+    let size = CGSize(width: 844, height: 390), safe = ScreenInsets(left: 47, bottom: 21, right: 47)
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(fixture("raise-many"), save: nil)
+    _ = try app.engine.call("setControl", json: #"{"sides":["A","B"],"cpu":false}"#)
+    try app.adopt(app.read("view"))
+    app.sideView(size: size, safe: safe)
+    try #require(app.scene.heldRaise == true)
+    for floor in [96.0, 140, 170, 280] {
+      app.stillFloor = floor
+      let top = size.height - floor
+      let shapes = app.lyingShapes(in: size).map(\.shape)
+      let picked = try #require(app.raiseGeometry(in: size))
+      for s in shapes + [picked] {
+        for p in s.outline { #expect(p.y <= top + 0.5, "bar \(floor): \(p.y) under \(top)") }
+      }
+      for e in app.raiseEnds(in: size) { #expect(e.label.y + RaiseTouch.numberR <= top + 0.5, "bar \(floor)") }
+    }
+  }
+
   /// A raise in any order: the other lying kubbs are drawn to pick, a tap on one picks
   /// it (its ends and numbers move to it), and VoiceOver can pick each by name.
   @Test func anyLyingKubbMayBeRaisedNext() throws {

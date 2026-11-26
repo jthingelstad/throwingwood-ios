@@ -122,6 +122,29 @@ public enum RaiseTouch {
     return points.compactMap { frame.project($0).map { Double($0.y) } }.max()
   }
 
+  /// The held raise camera's working parts (engine 1.4.0), whose whole group is on
+  /// screen and touchable: every lying kubb's corners (the one picked among them) and
+  /// the picked kubb's ends, in metres (PitchScene.stillPoints).
+  static func groupPoints(_ need: MatchNeed) -> [V3] {
+    var points: [V3] = []
+    var pieces = (need.others ?? []).map { $0.pose.piece(id: $0.id) }
+    if let pose = need.pose, let id = need.kubb { pieces.append(pose.piece(id: id)) }
+    for piece in pieces {
+      let r = piece.rotation
+      let x = r.act(V3(1, 0, 0)), y = r.act(V3(0, 1, 0)), z = r.act(V3(0, 0, 1))
+      points += (0..<8).map { corner($0, of: piece, x: x, y: y, z: z) }
+    }
+    if let pose = need.pose {
+      for e in need.ends ?? [] {
+        let d = V2(e.pose.x - pose.x, e.pose.y - pose.y)
+        let l = simd_length(d) == 0 ? 1 : simd_length(d)
+        points.append(V3(e.pose.x, e.pose.y, 0))
+        points.append(V3(e.pose.x + d.x / l * 0.07, e.pose.y + d.y / l * 0.07, 0))
+      }
+    }
+    return points
+  }
+
   /// How far `p` is outside a convex polygon: 0 inside.
   static func outside(_ poly: [CGPoint], _ p: CGPoint) -> CGFloat {
     var inside = true

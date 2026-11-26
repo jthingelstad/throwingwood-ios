@@ -104,6 +104,7 @@ extension PitchSession {
     scene.kidY = nil
     scene.focusX = nil
     scene.stillLowest = nil
+    scene.stillPoints = nil
     scene.stillPad = nil
     scene.stillFloor = stillFloor
     guard n.kind == "raise" || n.kind == "punish", let first = n.kubb else { return }
@@ -129,8 +130,10 @@ extension PitchSession {
       }
       // on a phone on its side: the lowest of the kubb, its footprints and its
       // numbers stays above the bar (WideLayout.stillLift), with the press's
-      // margin round the kubb below it, which also covers a number's circle
-      scene.stillLowest = n.camera == nil ? RaiseTouch.lowest(r, camera: camera) : nil
+      // margin round the kubb below it, which also covers a number's circle; under the
+      // held camera the whole lying group, so a tall bar never covers one
+      scene.stillLowest = scene.heldRaise == true ? nil : RaiseTouch.lowest(r, camera: camera)
+      scene.stillPoints = scene.heldRaise == true ? RaiseTouch.groupPoints(r) : nil
       scene.stillPad = Double(max(RaiseTouch.margin, RaiseTouch.numberR))
       // the kubb: tipped part way up while it is dragged (RaiseTouch), else lying
       let lying = p.piece(id: id)
