@@ -5,16 +5,23 @@
 An engine is carried only while we decide it is supported, never because it was once
 released (the owner, 2026-11-21: "Let's force all clients to the most recent engine. We
 should only support engines that we decide are worth supporting not just ones that have
-published so that we can push players to the new engines."). Today that is the newest
-alone: 1.0 (v1.0.0, the released engine, golden corpus 1.0.0, 21 matches and 880 actions:
-two on the Techno grid, two Kid matches and two with computer players in teams among them;
-the seat, pairRoll from the first step and propped pieces coming to rest, kubb-engine
-docs/VERSIONING.md 1.0.0). Every match plays on it: solo,
-practice and every pitch.
+published so that we can push players to the new engines."). Today that is two:
+
+- **1.4** (v1.4.0, the newest, golden corpus 1.3.0, 21 matches and 886 actions: a person's
+  throw level, the throw to go, raising in any order, the view from one side and the
+  computer's turn fast; kubb-engine docs/VERSIONING.md 1.1.0 to 1.4.0). Every new match
+  plays on it: solo, practice and every pitch whose players all carry it.
+- **1.0** (v1.0.0, golden corpus 1.0.0, 21 matches and 880 actions), kept with app 1.1.0 on
+  2026-11-26 because the App Store's 1.0.0 carries 1.0 alone: a pitch with a 1.0.0 player
+  in it plays on 1.0 (`pitch.engineFor`, the newest every player carries), and a solo match
+  kept on 1.0.0 resumes on 1.0. On a 1.0 match none of 1.4's controls show: no Throw row,
+  no throw to go, no picking a kubb to raise, the thrower's camera for every throw and no
+  speed button or skip on the computer's turn (each is gated on the engine's own fields or
+  its version). It goes once 1.0.0 players have moved on.
 
 The decision is written in one place, `TAG` and `OLDER` in `scripts/vendor-engine.sh`:
 `TAG` is the newest and `OLDER` the older minors we have decided to keep supporting,
-one per major.minor. `OLDER` is empty. Moving to a new minor drops the last one unless
+one per major.minor. `OLDER` is `(v1.0.0)`. Moving to a new minor drops the last one unless
 we decide otherwise. 0.9, 0.8 and 0.7 went on 2026-11-21 (app 0.8); 0.13 went with app 0.10, which moved
 straight to 0.15; no iPhone build shipped 0.10 to 0.12 or 0.14. 0.15 went with app 0.11 on
 2026-11-22: 0.16 shares no match with it (a person's default throws and the drive move the
@@ -25,7 +32,8 @@ kept 0.16 match says `VersionWords.oldMatch` too. 0.18 went with app 1.0.0 on 20
 (the owner: "lets move all four projects to version 1.0.0 and tag those releases. We will
 use that version to submit to the App Store as well."): 1.0 shares no match with 0.18 (the
 seat and pairRoll move every golden hash), so a kept 0.18 match says
-`VersionWords.oldMatch` (`SoloTrailTests`).
+`VersionWords.oldMatch` (`SoloTrailTests`). 1.4 came with app 1.1.0 on 2026-11-26 and 1.0
+stayed beside it (above).
 
 A match still belongs to the engine it was started on, its `match.engine` major.minor,
 for its whole life (kubb-engine docs/VERSIONING.md), because a new minor can change how a
@@ -39,8 +47,8 @@ it breaks ("Looking back at a match" below).
 | --- | --- |
 | `ThrowingWoodKit/Sources/KubbEngine/Engine/` | the newest (`TAG`) |
 | `ThrowingWoodKit/Tests/KubbEngineTests/Fixtures/golden/` | its golden driver and corpus |
-| `ThrowingWoodKit/Sources/KubbEngine/Engines/<major.minor>/` | each of `OLDER`, laid out the same way (none today) |
-| `ThrowingWoodKit/Tests/KubbEngineTests/Fixtures/engines/<major.minor>/golden/` | each older one's corpus (none today) |
+| `ThrowingWoodKit/Sources/KubbEngine/Engines/<major.minor>/` | each of `OLDER`, laid out the same way (1.0) |
+| `ThrowingWoodKit/Tests/KubbEngineTests/Fixtures/engines/<major.minor>/golden/` | each older one's corpus (1.0's) |
 
 `scripts/vendor-engine.sh sync` writes every one from its own tag; `check` verifies each
 against its own `engine.json` and corpus, fails on an engine folder `OLDER` does not
@@ -75,8 +83,9 @@ not new code: its tag in `OLDER`, `.copy("Engines")` on the KubbEngine target in
   engine its kept replay names.
 
 The session's older-engine fallbacks (no `aim.controls` before 0.9, no `optionsOf` or
-`computer` option before 0.9, no scene before 0.9) stay with it: they cost nothing while
-no older engine is carried. The bridge says `pitch.`, which only 0.13 on answer, so an
+`computer` option before 0.9, no scene before 0.9) stay with it, as do 1.0's: no
+`THROW_LEVELS`, no `togo` option, no `need.lying` or `need.camera`, no `setView`, `cpuPlay`
+or `frame {speed}`. The bridge says `pitch.`, which only 0.13 on answer, so an
 older engine carried again would need its old spelling, `room.` (kubb-engine
 docs/VERSIONING.md 0.13.0, "The pitch rename").
 

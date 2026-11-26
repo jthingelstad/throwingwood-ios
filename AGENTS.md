@@ -25,7 +25,7 @@ physics and session that the Playdate and the web version
   (the marketing version) and the newest carried engine's `engineVersion`, read
   from the engine, never typed. Nothing else goes in the parentheses: the build
   number is a detail line (`build 114`), and so would be any older engine carried
-  (`Also plays 0.7.4`; none today). It is at the foot of the match, pitch and practice menus
+  (`Also plays 1.0.0`). It is at the foot of the match, pitch and practice menus
   and in a feedback report's `build.label`. It never goes on the pitch wire, a
   rider, a kept match or a shared replay, which name only the engine a match is
   played on. Bump `VERSION` and `MARKETING_VERSION` together; the build number
@@ -67,7 +67,8 @@ agrees. So:
   golden corpus, v0.5.1 and v0.7.1 to v0.7.4 the 0.5.0 one, v0.8.1 and v0.8.2 the 0.8.0 one, v0.13.1 to v0.13.4 the 0.13.0 one;
   v0.15.0 carries its own, 19 matches, and v0.15.1 keeps it; v0.16.0 its own, 19
   matches and 724 actions; v0.18.0 its own, 21 matches and 854 actions; v1.0.0, the
-  released engine, its own, 21 matches and 880 actions;
+  released engine, its own, 21 matches and 880 actions; v1.4.0 keeps v1.3.0's, 21
+  matches and 886 actions;
   arbitrary older corpora are not accepted). Never edit the
   vendored files; a fix belongs
   in kubb-engine, then here by moving to its next tag. Never write in the
@@ -76,9 +77,11 @@ agrees. So:
   decide it is supported, never because it was once released (the owner,
   2026-11-21: "We should only support engines that we decide are worth supporting
   not just ones that have published so that we can push players to the new
-  engines."). Today that is the newest alone. The decision is written in one place,
+  engines."). Today that is 1.4 and 1.0: 1.0 stays (app 1.1.0, 2026-11-26) for a pitch
+  with an App Store 1.0.0 player in it and a kept 1.0 match, and every control 1.4 brings
+  is absent on a 1.0 match (docs/ENGINES.md). The decision is written in one place,
   `TAG` and `OLDER` in `scripts/vendor-engine.sh`: `OLDER` names any older minor we
-  keep (none; `check` fails on an engine folder it does not name, and unless
+  keep (`v1.0.0`; `check` fails on an engine folder it does not name, and unless
   `Package.swift` copies `Engines` exactly when it names one; `sync` writes it as
   compiled code too, `Supported.swift`, so a stale bundle never adds an engine). A match belongs to
   the engine it was started on (its `match.engine` major.minor), so a match on an
@@ -172,8 +175,25 @@ alone in the thrower's view for an entry without them). Each such raise ends on 
 (engine 1.0.0: a standing kubb leans up to 3 degrees in the turf), settling into it as it
 slides to its spot, so the kubb does not step at the next throw's first frame; a raise the app
 sends itself ends plumb and takes its seat on the next throw. Never compare pieces before and
-after or turn a pose between frames in Swift to find them. The raise
-camera stands twice as far back as it did (`RaiseCamera`, the web's numbers). The last
+after or turn a pose between frames in Swift to find them. From engine 1.4.0 a raise
+takes its kubbs in any order (`need.lying`): one held camera for the whole raise
+(`need.camera`, kind "raise", fitted to the `SideView` box), every lying kubb outlined to
+pick, a tap on one picks it and a drag on it tips it toward either end; the two numbers
+are kept apart where the kubb is drawn small (`RaiseTouch.apart`), and VoiceOver picks
+another with "Pick the kubb to the left". Online any player on the raising side may raise,
+and a "not lying" refusal redraws from the need. A watched raise and a 1.0 match keep the
+per-kubb raise camera, which stands twice as far back as it did (`RaiseCamera`, the web's
+numbers). The player's side (engine 1.4.0, `setView {side, box}`, `PitchSession.sideView`):
+solo and online the view is from the player's own side, the other team's throws from the
+engine's end camera at the player's end; a watcher keeps the wide view. The throw to go
+(engine 1.4.0, `need.kind == "togo"`, the `togo` option, on by default; never in a Kid
+match): each team throws one baton at the king, blind (nothing of this device's baton
+shows before the verdict, "Waiting for <team>" while the other's is to come), and
+`TogoWords` says the verdict; docs/MATCH.md "The throw to go". The computer's turn against
+the computer (engine 1.4.0): a speed button (1x, 2x, 4x, the device's, `CpuSpeed`,
+`frame {speed}` and the playback and stood show sped the same) and a skip (`cpuPlay`,
+`skipComputer`, each action kept in the trail with its own hash) take the place of SKIP;
+never on a pitch. The last
 throw's verdict never stops a player aiming: it takes no touches, goes at the first press
 of the aim or after `Pacing.verdictShown`, and stands clear of the target
 (`WideLayout.verdictBand`, `verdictClear`); a tall screen puts the far baseline at 41% of
@@ -366,26 +386,24 @@ opengames), from the old rooms harness until a pitch server one is made (above).
 docs/ONLINE.md "Observers and open games",
 docs/RENDER.md "The watcher's wide view".
 
-## Levels are the computer's
+## Levels are the computer's; a person has a throw
 
-From engine 0.13 a level (Beginner, Club, Pro) is the computer's standard only and
-every person throws on one meter, its bars going by the throw's distance (the owner,
-2026-11-21: "player level really should only mean for the computer opponent. It
-doesn't mean anything for the human player."; kubb-engine docs/notes/throw.md "The
-person's meter"). So the app has no level of the player's own on any screen: no
-Your level in Settings, no level on the solo options card's or the lobby's line
-(`PlayerLine`: the name row), and no words that present a level
-as the player's difficulty (`ThrowLevelTests`). The computer's level stays a
-per-game choice: the options card's Computer level and the lobby's Computer, the
-match's `computer` option (kubb-engine docs/SESSION.md `newMatch`), kept per game in
-`solo.option.computer` (read from the older `solo.option.level` once).
+A level (Beginner, Club, Pro) is the computer's standard only (the owner, 2026-11-21:
+"player level really should only mean for the computer opponent."): the options card's
+Computer and the lobby's Computer, the match's `computer` option (kubb-engine
+docs/SESSION.md `newMatch`), kept per game in `solo.option.computer` (read from the older
+`solo.option.level` once). No screen words a level as the player's difficulty.
 
-With only the newest engine carried (docs/ENGINES.md) nothing reads a person's level,
-so the app keeps none and sends none (2026-11-21): no `pitch.throwLevel`, no level on
-the solo player's entry, no `setLevel` for practice or a throw, no `level` in the pitch
-member's presence. The engine and the pitch server need none: a lineup takes "club"
-for a member that names none (pitch/lobby.lua `matchOptions`), and the pitch server's
-`me` is free-form. A stored `pitch.throwLevel` from an earlier build is left unread.
+A person's throw (engine 1.3, `ThrowChoice`, the engine's `THROW_LEVELS`): Easy, Standard
+or Hard, the width of the meter's bars and never a hidden miss (the owner, 2026-11-26: what
+you do shows; kubb-engine docs/notes/throw.md "The person's meter"). The row is "Throw", a
+`Segmented` bar, on the solo card under the name row, in the practice menu and on the
+lobby's You row; the lobby shows each player's beside the name (" · Hard"). It is the
+device's (`pitch.throw`), Standard by default, and goes as the solo player's entry
+`throw`, the practice's `throw` and the pitch member's `me.throw`, which the lineup gives
+its player entry; Standard goes as nothing (the engine's absent). Not in Settings: the web
+also has it there. A 1.0 engine has no throw levels, so a pitch on 1.0 shows no Throw row.
+A stored `pitch.throwLevel` from a build before 0.8 is left unread. `ThrowLevelTests`.
 
 ## Names are generated
 
@@ -596,7 +614,8 @@ the colours and nothing else (`SceneSkinTests` 7:1; the day 4.5:1, `DesignTests`
   with its arrow (`VerdictWords`); the hand-off is a short card at the foot with one
   line (`HandoffWords.line`, from the engine's rail; on a wide screen its words beside
   THROW); the computer's turn has no card,
-  only the WATCH tab on its team's colour over the faded meter. The coach is one
+  only the WATCH tab on its team's colour over the faded meter, and against the computer
+  its speed (1x, 2x, 4x) and the skip glyph. The coach is one
   inverted chip naming the marks by shape. VoiceOver reads the header, the prompt and
   distance, the meter, the tray, then the minimap (`MatchReaders.swift`). `TrayTests`.
 - **Play the computer**: the name row, Scene as seven picture tiles from the app's own
