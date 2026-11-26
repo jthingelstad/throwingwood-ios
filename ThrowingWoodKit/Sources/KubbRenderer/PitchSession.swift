@@ -261,13 +261,13 @@ public final class PitchSession {
   public var togoToThrow: Bool { need?.kind == "togo" && need?.side != nil && need?.cpu != true }
   /// Waiting for the other team's baton to go: this device's is in (nothing of it shows).
   public var togoWaiting: Bool { need?.kind == "togo" && need?.side == nil }
-  /// The name of the team the throw to go waits for ("Waiting for Bold Birch").
-  public var togoWaitingFor: String? {
+  /// The names of the teams the throw to go waits for ("Waiting for Bold Birch"): every
+  /// team that owes its baton, as the web's togoWaiting.
+  public var togoWaitingFor: [String]? {
     guard togoWaiting, let n = need else { return nil }
-    // the other team's first (a team-mate who throws none waits for whoever owes one)
-    let mine = watching ? nil : playerSide()
-    let side = n.owe?.first { $0 != mine } ?? n.owe?.first ?? (n.thrown?["A"] == true ? "B" : "A")
-    return n.teams?[side] ?? "Team \(side)"
+    let owe = n.owe ?? [n.thrown?["A"] == true ? "B" : "A"]
+    guard !owe.isEmpty else { return nil }
+    return owe.map { n.teams?[$0] ?? "Team \($0)" }
   }
   public private(set) var windText: String?, advantageText: String?, slow = false
   /// What the thrower aims at, the engine's rail (`rail.r1`: "FIELD 2", "BASE 5", "KING").
@@ -465,7 +465,8 @@ public final class PitchSession {
 
   /// The view from the player's own side (engine 1.4.0 `setView`; the owner's brief: "stay on
   /// the player's side"): in a match this device plays (solo, and a pitch where it has a
-  /// seat), every output is in its side's frame, whoever throws. Its own throws keep the
+  /// seat), every output is in its side's frame, whoever throws, but for a throw this
+  /// device aims for the other side (standing in), seen from that thrower's end. Its own throws keep the
   /// thrower's camera; the other side's throws, inkasts and raises come from the camera at
   /// its own end (kind "end"), fitted to the box `SideView.box` gives, clear of the header
   /// and the meter. Off in practice and for a watcher (who keeps the wide view, which wins
@@ -474,7 +475,15 @@ public final class PitchSession {
   public func sideView(size: CGSize, safe: ScreenInsets) {
     sideScreen = (size, safe)
     guard size.width > 0, size.height > 0, playback == nil, stoodShow == nil, raiseShow == nil else { return }
-    let side = need != nil && !watching ? playerSide() : nil
+    var side = need != nil && !watching ? playerSide() : nil
+    // aiming for the other side (a host standing in for a player who left): the aim calls
+    // take the thrower's frame, so that throw is seen from the thrower's end, and the view
+    // goes back to the player's own after it (the web's applySideView)
+    if let own = side, let n = need, n.kind == "throw" || n.kind == "togo", let s = n.side,
+      s == "A" || s == "B", s != own, n.cpu != true, acceptsInput
+    {
+      side = s
+    }
     let args: String
     if let side, side == "A" || side == "B" {
       let b = SideView.box(size: size, safe: safe)

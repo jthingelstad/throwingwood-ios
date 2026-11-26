@@ -467,6 +467,11 @@ public enum LobbyEntry: Identifiable, Equatable {
     // the host rolls a team name for a side that has come to several players, once, so
     // everyone sees what it will play as (the web's rollTeamNames)
     if isHost, !observing { Task { [weak self] in _ = try? await self?.controller.rollTeamNames() } }
+    // and keeps the throw to go's setting in a document that lacks it (the web's keepTogo)
+    if isHost, !observing {
+      let kept = Self.keptOptions(defaults)
+      Task { [weak self] in _ = try? await self?.controller.keepTogo(kept: kept) }
+    }
     if !isHost, members.contains(where: { $0.you && $0.side != nil }) {
       let host = try controller.carried(by: pitch.host)
       try checkVersion(host, key: pitch.host ?? "")
