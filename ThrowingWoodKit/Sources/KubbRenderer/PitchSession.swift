@@ -520,6 +520,11 @@ public final class PitchSession {
     freeCamera.setLens(out.camera)
   }
 
+  /// The need read again after a change of control (`setControl`), the camera and the
+  /// cards left as they are: online, the throw to go's baton passes to whoever the
+  /// control now names.
+  public func controlChanged() throws { try reread(keep: true) }
+
   private func reread(keep: Bool = false) throws {
     guard playback == nil, need != nil else { return }
     try adopt(read("view"), keep: keep)

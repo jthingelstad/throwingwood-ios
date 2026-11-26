@@ -204,7 +204,10 @@ at its own level. The web is the reference for every number and word (its docs/S
   release is sent at once and nothing of it shows; the header reads "Throw to go" over
   "Waiting for <team>" while the other's is to come, and the verdict plays when the second
   baton lands (the recording comes with it). No aim is cast or shown during it. Never in a
-  Kid match or with no person on a side.
+  Kid match or with no person on a side. A change of control (a stand-in for a team-mate
+  who left) reads the need again, so the baton handed on can be thrown at once
+  (`PitchSession.controlChanged`). A baton the pitch refused is thrown again from the
+  pitch's head in the same match, after a resume and after a full `state` alike.
 - **Raising in any order**: any player on the raising side may raise any lying kubb; a
   refusal "not lying" (a team-mate's raise landed first) draws the need again.
 - **The view from one side**: a player's board sees its own team's throws from alongside
