@@ -565,6 +565,7 @@ extension PitchSession {
     scene.stillZoom = RaiseCamera.zoom
     scene.focusX = nil
     scene.stillLowest = nil
+    scene.stillPoints = nil
     // no footprints: nothing is chosen, it is watched (the web's settledClips)
     scene.footprints = nil
     revision += 1
