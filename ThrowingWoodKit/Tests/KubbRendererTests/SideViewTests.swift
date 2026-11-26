@@ -111,6 +111,27 @@ import Testing
     #expect(try app.engine.hash() != hash)
   }
 
+  /// A team-mate's AUTO (a raise naming no kubb) is watched on the engine's first kubb,
+  /// not the one this device had picked (Codex on PR #61).
+  @Test func anArrivingRaiseNamingNoKubbIsTheEnginesFirst() throws {
+    let size = CGSize(width: 390, height: 844), safe = ScreenInsets(top: 47, bottom: 34)
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(fixture("raise-many"), save: nil)
+    _ = try app.engine.call("setControl", json: #"{"sides":["A","B"],"cpu":false}"#)
+    try app.adopt(app.read("view"))
+    app.sideView(size: size, safe: safe)
+    app.acceptsInput = true
+    let first = try #require(app.need?.kubb)
+    let other = try #require(app.lyingShapes(in: size).first)
+    try app.pickLying(id: other.id)
+    #expect(app.raiseNeed?.kubb == other.id)
+    _ = app.raiseEnd(of: JSONText(#"{"type":"raise"}"#))
+    #expect(app.raiseNeed?.kubb == first)
+    // one naming its kubb is watched on that kubb
+    _ = app.raiseEnd(of: JSONText(#"{"type":"raise","kubb":"\#(other.id)"}"#))
+    #expect(app.raiseNeed?.kubb == other.id)
+  }
+
   /// A watched raise (AUTO here) keeps the per-kubb camera, close enough to see the kubb
   /// tip up: the held camera is for raising by hand (Codex on PR #61).
   @Test func aWatchedRaiseKeepsTheCloseCamera() throws {
