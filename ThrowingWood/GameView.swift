@@ -34,21 +34,24 @@ struct Plate: ViewModifier {
 /// screen, last in its row): display capitals at 20, 48 pt tall.
 struct WoodButton: ButtonStyle {
   var accent = false
+  /// pt each side of the words (a button that must keep to a frame takes less)
+  var side: CGFloat = 14
   func makeBody(configuration: Configuration) -> some View {
-    Face(configuration: configuration, accent: accent)
+    Face(configuration: configuration, accent: accent, side: side)
   }
   /// A style cannot read the environment itself, and a button that will not act
   /// must not look as if it will (the web's .btn:disabled).
   private struct Face: View {
     let configuration: Configuration
     let accent: Bool
+    let side: CGFloat
     @Environment(\.isEnabled) private var enabled
     var body: some View {
       configuration.label.font(.custom("LondrinaSolid-Black", size: 20, relativeTo: .headline))
         // one line, shrinking where the larger text sizes would not fit it: never a word
         // broken across lines (START as STAR / T at AX3, the 2026-11-22 review pictures)
         .lineLimit(1).minimumScaleFactor(0.5)
-        .frame(minHeight: TW.touch - 8).padding(.horizontal, 14)
+        .frame(minHeight: TW.touch - 8).padding(.horizontal, side)
         .modifier(Plate(accent: accent, inset: 4))
         .offset(y: configuration.isPressed && enabled ? 2 : 0)
         .opacity(enabled ? 1 : 0.55)
@@ -210,7 +213,7 @@ struct GameView: View {
     #if targetEnvironment(simulator)
       let env = ProcessInfo.processInfo.environment
       return switch env["ONLINE_REVIEW"] ?? env["MATCH_REVIEW"] {
-      case "report": .throw  // the review's match has no last throw yet
+      case "report", "painted": .throw  // the review's match has no last throw yet
       case "feedback": .feedback
       default: nil
       }

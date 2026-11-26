@@ -112,10 +112,10 @@ other name it is sent and refuses a document or a start that names one.
   actions, scores, snapshots and game history travel in the shared document and
   actions. The pitch server keeps the match record, generated names included, and an
   eligible finished replay for people with the pitch link.
-- Current aim and the four preset shouts are relayed to the other members. An open
+- Current aim and HOLLER's preset phrases and emoji are relayed to the other members. An open
   pitch publishes its code and an aggregate listing (seats and state, never a name).
-- Choosing Send in practice, solo or online play transmits the answers, marked
-  pieces, timing, build, viewport, engine version and replayable game state.
+- Choosing Send in practice, solo or online play transmits the answers, any paint
+  over the picture of the pitch, timing, build, viewport, engine version and replayable game state.
   Online reports also include the pitch code and document version. Reports can contain
   the match's generated names. The report replaces member identifiers in the captured
   state. The server stores reports privately.
@@ -130,8 +130,8 @@ other name it is sent and refuses a document or a start that names one.
   in it.
 
 **What a player authors that others see**: nothing free-form. Others see the player's
-generated name and team name (picked from the game's word lists), the four preset
-shouts (NICE!, OOH!, TOK!, UNLUCKY), match options from fixed lists, and the play
+generated name and team name (picked from the game's word lists), HOLLER's fixed
+set of 24 phrases (NICE!, OOH!, TOK!, ...) and 12 emoji, which a receiver shows only when they are exactly on the list, match options from fixed lists, and the play
 itself (aim, throws, raises). The only free text in the app is Send feedback's answers,
 which go privately to the developer and are never shown to anyone else.
 
@@ -151,7 +151,7 @@ Answer **Yes** to data collection and **No** to tracking. There are no ad or ana
 **Contact Info — Name** comes off: no name the person types is collected; a generated
 name is made from the game's words and holds nothing about the person. Mark the five
 types **linked to the user**: records connect the installation, the pitch and its
-generated names. Even a report with substituted member IDs can be joined back to the game by pitch and document version. Mark tracking **No** for each type. Ordinary aim and preset shouts are transient. The app requests no contacts, location, photos, microphone, advertising identifier or payments. Its add-only `NSPhotoLibraryAddUsageDescription` is there for the share sheet's Save Video on a highlight reel; iOS asks then, and the app never reads the library. A reel request sends only the pitch code and the version number of its kept match, and the video is downloaded from the site. Review the public privacy-policy URL and these answers against the submitted build. [Apple's privacy definitions](https://developer.apple.com/app-store/app-privacy-details/)
+generated names. Even a report with substituted member IDs can be joined back to the game by pitch and document version. Mark tracking **No** for each type. Ordinary aim and HOLLER's preset phrases and emoji are transient. The app requests no contacts, location, photos, microphone, advertising identifier or payments. Its add-only `NSPhotoLibraryAddUsageDescription` is there for the share sheet's Save Video on a highlight reel; iOS asks then, and the app never reads the library. A reel request sends only the pitch code and the version number of its kept match, and the video is downloaded from the site. Review the public privacy-policy URL and these answers against the submitted build. [Apple's privacy definitions](https://developer.apple.com/app-store/app-privacy-details/)
 
 The bundled `PrivacyInfo.xcprivacy` declares two required-reason categories. `CA92.1` covers the app's own UserDefaults for settings and its random member key in GameModel, GameFeedback and DeviceMemberIDStore. `35F9.1` covers elapsed time within the app. PitchAudio compares systemUptime to each sound voice's busy-until time. That clock stays on device. The report's wall-clock timestamp comes from Date. The core, Lua and musl supply game logic and math. [Apple's required reasons](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype)
 
@@ -159,8 +159,8 @@ The bundled `PrivacyInfo.xcprivacy` declares two required-reason categories. `CA
 
 | Question group | Proposed response and basis |
 | --- | --- |
-| User-generated content | No (from 0.9). A player authors nothing free-form that others see: names and team names are generated from the game's own word lists and picked from them (the pitch server refuses any other), shouts are four presets, options come from fixed lists. Free-text feedback goes privately to the developer. Apple has not ruled on picked-from-list names that we know of (kubb-engine docs/NAMES.md section 6), so this is defensible, not certain. |
-| Messaging and chat | No. Players cannot write to each other: the only thing sent between them beyond play is one of four preset shouts (NICE!, OOH!, TOK!, UNLUCKY). Answer Yes instead if Apple counts preset emotes as chat. Feedback goes privately to the developer. |
+| User-generated content | No (from 0.9). A player authors nothing free-form that others see: names and team names are generated from the game's own word lists and picked from them (the pitch server refuses any other), hollers are a fixed set of phrases and emoji (a receiver drops anything else), options come from fixed lists. Free-text feedback goes privately to the developer. Apple has not ruled on picked-from-list names that we know of (kubb-engine docs/NAMES.md section 6), so this is defensible, not certain. |
+| Messaging and chat | No. Players cannot write to each other: the only thing sent between them beyond play is a HOLLER, one of a fixed set of 24 phrases and 12 emoji (NICE!, OOH!, TOK!, ...), and a receiver shows only an exact member of that set. Answer Yes instead if Apple counts preset emotes as chat. Feedback goes privately to the developer. |
 | Contests | None. Apple's contests are events where users compete for rankings, rewards or personal goals, and the game has none: a match is a game between players, with no stakes, prizes or standings. (The first draft said Frequent, which would have rated the app 13+.) |
 | In-app controls | No parental controls or age assurance. |
 | Other capabilities | No social media feed, unrestricted web access or advertising. Sharing uses the system share sheet. |

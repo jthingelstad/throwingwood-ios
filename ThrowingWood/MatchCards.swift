@@ -496,7 +496,8 @@ struct HowToCard: View {
 
 struct MatchScreen: View {
   let model: GameModel, pitch: PitchSession, revision: Int, playing: Bool
-  @Environment(\.meterRoom) private var meterRoom
+  /// HOLLER's foot upright (screen points): the panel hangs under it.
+  @State private var hollerBottom: CGFloat?
   @Environment(\.screenGeometry) private var screen
   var body: some View {
     if let n = pitch.need {
@@ -528,6 +529,9 @@ struct MatchScreen: View {
         if pitch.freeOn && pitch.handoff == nil && n.winner == nil {
           FreeViewControls(model: model, pitch: pitch, revision: revision)
         }
+        if let holler = model.holler, model.hollerOpen, !holler.observing, pitch.handoff == nil, n.winner == nil {
+          hollerLayer(holler).accessibilitySortPriority(30)
+        }
         if let c = pitch.handoff {
           handoffCard(c).accessibilitySortPriority(20)
         } else if let w = n.winner {
@@ -556,20 +560,28 @@ struct MatchScreen: View {
         .frame(maxWidth: .infinity, maxHeight: band.height, alignment: .top)
         .clipShape(Rectangle().inset(by: -4))
         .padding(.trailing, WideLayout.uprightMinimap(size: screen.size, safe: screen.safe).width + 8)
+        // HOLLER stands at the left under the header (the web's place), the hollers
+        // under it, over the sky and the far ground, never the meter or the tray
+        .padding(.leading, model.holler.map { $0.observing ? 0 : 118 } ?? 0)
+        .overlay(alignment: .topLeading) {
+          if let holler = model.holler {
+            VStack(alignment: .leading, spacing: 6) {
+              hollerButton(holler)
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxY } action: { hollerBottom = $0 }
+              // over the sky: the newest that fit above the far baseline (41% of the height)
+              HollerFeed(
+                source: holler, alignment: .leading,
+                height: screen.size.height * 0.41 - (hollerBottom ?? screen.size.height * 0.2) - 12)
+            }
+          }
+        }
       Spacer()
-      if let online = model.online {
-        HStack {
-          shoutButton(online)
-          Spacer()
-          shouts(online)
-        }.padding(meterRoom.edge, !playing && pitch.canAim ? meterRoom.width : 0)
-      }
       bottom(n)
     }.padding(.horizontal, 12)
   }
 
   /// A phone on its side (WideLayout, the web's wide screen): the header top
-  /// left with MENU inside it, SHOUT top right (moved in beside a linear meter at that
+  /// left with MENU inside it, HOLLER top right (moved in beside a linear meter at that
   /// edge), the captions between them, the plan in one
   /// block at the screen's edge away from the clock (WideLayout.plan), the
   /// panels and SKIP in the clock's corner.
@@ -579,11 +591,11 @@ struct MatchScreen: View {
     let meter = model.meter.layout(
       bounds: CGRect(origin: .zero, size: size),
       safe: UIEdgeInsets(top: safe.top, left: safe.left, bottom: safe.bottom, right: safe.right))
-    // the linear meter takes its edge's whole height: the header or SHOUT moves in beside it
+    // the linear meter takes its edge's whole height: the header or HOLLER moves in beside it
     let railBox = WideLayout.rail(size: size, safe: safe, meter: meter)
     let shoutBox = WideLayout.shout(size: size, safe: safe, meter: meter)
-    let tray: CGFloat = model.online == nil ? 0 : WideLayout.trayWidth
-    // under the floor beside SHOUT (a narrow window), a line of their own under
+    let tray: CGFloat = model.holler == nil ? 0 : WideLayout.trayWidth
+    // under the floor beside HOLLER (a narrow window), a line of their own under
     // the header row; the stack may grow down to the first frame under it
     let captionBox = WideLayout.verdictClear(
       WideLayout.captionRoom(size: size, safe: safe, trayWidth: tray, meter: meter, side: side),
@@ -602,14 +614,18 @@ struct MatchScreen: View {
         .frame(width: captionBox.width, height: captionBox.height, alignment: .top)
         .clipShape(Rectangle().inset(by: -4))  // the plates' shadows, inside captionGap
         .offset(x: captionBox.minX, y: captionBox.minY)
-      if let online = model.online {
-        // SHOUT top right, the shouts under it
+      if let holler = model.holler {
+        // HOLLER top right, the hollers under it
         VStack(alignment: .trailing, spacing: 6) {
-          shoutButton(online)
-          shouts(online)
+          hollerButton(holler, wide: true)
+          HollerFeed(
+            source: holler,
+            height: HollerLayout.feedHeight(
+              size: size, safe: safe, button: shoutBox, meter: meter, side: model.meter.side, width: 240),
+            emojiSize: 32)
         }
-        .frame(width: 220, alignment: .trailing)
-        .offset(x: shoutBox.maxX - 220, y: shoutBox.minY)
+        .frame(width: 240, alignment: .trailing)
+        .offset(x: shoutBox.maxX - 240, y: shoutBox.minY)
       }
       if (n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput && WideLayout.isShort(size) {
         // a bar along the bottom (WideLayout.bar); its measured height keeps the
@@ -773,22 +789,47 @@ struct MatchScreen: View {
     }
   }
 
-  /// An observer has no SHOUT (the web's docs/OBSERVER.md): it watches.
-  @ViewBuilder private func shoutButton(_ online: OnlinePitch) -> some View {
-    if !online.observing {
-      Menu("SHOUT") {
-        ForEach(OnlinePitch.words, id: \.self) { w in Button(w) { online.shout(w) } }
-      }
-      .buttonStyle(WoodButton())
+  /// An observer has no HOLLER (the web's docs/OBSERVER.md): it watches.
+  @ViewBuilder private func hollerButton(_ holler: any HollerSource, wide: Bool = false) -> some View {
+    if !holler.observing {
+      HollerButton(model: model, wide: wide)
+        .simultaneousGesture(TapGesture().onEnded {
+          // an open plate closes, so the panel's room is the tray's closed column's
+          if pitch.openPlate != nil { model.perform { try pitch.tapPlate(nil) } }
+        })
     }
   }
 
-  private func shouts(_ online: OnlinePitch) -> some View {
-    VStack(alignment: .trailing) {
-      ForEach(Array(online.shouts.enumerated()), id: \.offset) { _, s in
-        Text(s).font(displayFont(20)).modifier(Plate(inset: 5))
+  /// The open panel, in screen points: under HOLLER, clear of the meter and the tray
+  /// (HollerLayout). A press
+  /// outside it closes it: the meter and the tray show, and the first press there only
+  /// closes the panel.
+  private func hollerLayer(_ holler: any HollerSource) -> some View {
+    let size = screen.size, safe = screen.safe
+    let meter = model.meter.layout(
+      bounds: CGRect(origin: .zero, size: size),
+      safe: UIEdgeInsets(top: safe.top, left: safe.left, bottom: safe.bottom, right: safe.right))
+    let free =
+      screen.wide
+      ? HollerLayout.wide(
+        size: size, safe: safe, button: WideLayout.shout(size: size, safe: safe, meter: meter), meter: meter,
+        side: model.meter.side, trayWidth: WideLayout.trayWidth)
+      : HollerLayout.upright(
+        size: size, safe: safe, buttonBottom: hollerBottom ?? ((model.headerBottom ?? (safe.top + 66)) + 58),
+        meter: meter, side: model.meter.side)
+    let box = HollerLayout.panel(in: free, height: free.height)
+    return ZStack(alignment: .topLeading) {
+      Color.clear.contentShape(Rectangle())
+        .onTapGesture { model.hollerOpen = false }
+        .accessibilityHidden(true)
+      if !free.isNull {
+        HollerPanel(model: model, source: holler, room: box.size)
+          .frame(width: box.width, alignment: .top)
+          .offset(x: box.minX, y: box.minY)
       }
     }
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    .ignoresSafeArea()
   }
 
   @ViewBuilder private func bottom(_ n: MatchNeed) -> some View {

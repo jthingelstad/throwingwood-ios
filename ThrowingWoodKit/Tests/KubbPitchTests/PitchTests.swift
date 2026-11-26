@@ -266,17 +266,24 @@ let startAt = JSONText(#"{"year":2026,"month":11,"day":17,"hour":12,"min":0}"#)
     try p.castAim(JSONText(#"{"seq":0,"x":0}"#), now: 1_100)  // unchanged
     try p.castAim(JSONText(#"{"seq":0,"x":2}"#), now: 1_166)
     try p.castAim(JSONText(#"{"seq":0,"x":2}"#), final: true, now: 1_170)
-    #expect(p.shout("TOK!", now: 1_200) && !p.shout("TOK!", now: 1_500) && !p.shout("HELLO", now: 3_000))
+    #expect(p.shout(.phrase("TOK!"), now: 1_200) && !p.shout(.phrase("TOK!"), now: 1_500))
+    // only the list goes out: not a word of the player's, not an emoji sent as a phrase
+    #expect(!p.shout(.phrase("HELLO"), now: 3_000) && !p.shout(.phrase("🔥"), now: 3_000))
+    #expect(!p.shout(.emoji("NICE!"), now: 3_000) && !p.shout(.emoji("🐐"), now: 3_000))
     // a shout spent the slot: an aim 40 ms after it waits
     try p.castAim(JSONText(#"{"seq":0,"x":3}"#), now: 1_240)
-    try await eventually { link.sent("cast").count == 4 }
+    #expect(p.shout(.emoji("🔥"), now: 3_000))
+    try await eventually { link.sent("cast").count == 5 }
     let casts = link.sent("cast")
-    #expect(casts.map { $0["d"]?["s"]?["x"]?.int } == [0, 2, 2, nil])
-    #expect(casts.map { $0["d"]?["k"]?.int } == [1, 2, 3, nil])
-    #expect(casts.map { $0["d"]?["c"]?.int } == [1_000, 1_166, 1_170, nil])
+    #expect(casts.map { $0["d"]?["s"]?["x"]?.int } == [0, 2, 2, nil, nil])
+    #expect(casts.map { $0["d"]?["k"]?.int } == [1, 2, 3, nil, nil])
+    #expect(casts.map { $0["d"]?["c"]?.int } == [1_000, 1_166, 1_170, nil, nil])
     #expect(casts[0]["d"]?.members.map(\.key) == ["t", "s", "k", "c"])
-    #expect(casts.map { $0["all"]?.bool } == [nil, nil, true, true])
-    #expect(casts[3]["d"]?["w"]?.string == "TOK!")
+    #expect(casts.map { $0["all"]?.bool } == [nil, nil, true, true, true])
+    // a phrase is { t: "shout", w }, an emoji { t: "shout", e } with no w
+    #expect(casts[3]["d"]?.raw.text == #"{"t":"shout","w":"TOK!"}"#)
+    #expect(casts[4]["d"]?.members.map(\.key) == ["t", "e"])
+    #expect(casts[4]["d"]?["e"]?.string == "🔥")
     #expect(PitchController.aimEvery == 66)
   }
 

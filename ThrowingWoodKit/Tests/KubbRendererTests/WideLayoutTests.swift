@@ -98,7 +98,7 @@ import Testing
   }
 
   /// What is at the meter's top corner moves in beside it, `edge` off its body: the
-  /// header (MENU inside it) with the meter at the left, SHOUT online with it at the
+  /// header (MENU inside it) with the meter at the left, HOLLER online with it at the
   /// right; the other stays where it was. MENU never leaves the header (the 1.0
   /// design's header: "MENU never leaves it").
   @Test func theHeaderOrShoutMovesInBesideTheLinearMeter() throws {
@@ -204,7 +204,7 @@ import Testing
           // all an open plate may take, beside and over the column, meets nothing else
           frames[4] = ("tray", plan.reach)
           if let m = meter.linear { frames.append(("tab", m.tab)) }
-          // online, SHOUT top right (beside a linear meter at the right)
+          // online, HOLLER top right (beside a linear meter at the right)
           if online { frames.append(("shout", WideLayout.shout(size: p.size, safe: s, meter: meter))) }
           let what = "\(p.name) \(kind) \(side)\(online ? " online" : "")"
           #expect(!plan.minimap.isNull, "\(what): no minimap")

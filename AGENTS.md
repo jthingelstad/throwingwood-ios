@@ -178,7 +178,7 @@ throw's verdict never stops a player aiming: it takes no touches, goes at the fi
 of the aim or after `Pacing.verdictShown`, and stands clear of the target
 (`WideLayout.verdictBand`, `verdictClear`); a tall screen puts the far baseline at 41% of
 its height (`PitchProjection.anchorAt`). docs/MATCH.md, docs/RENDER.md.
-SEND FEEDBACK sends a throw report (`kind: "throw"`) or anything else (`kind: "feedback"`), the web's wire.
+SEND FEEDBACK sends a throw report (`kind: "throw"`) or anything else (`kind: "feedback"`), the web's wire. Either may carry `paint`, strokes the player paints over a picture of the pitch from above (`PaintPicture.swift`, `ReportPicture` and `ReportPaint`, the web's src/net/paint.js and src/ui/paint.js); no piece is picked by name (no `selectedPieces`). docs/MATCH.md "Send feedback".
 The six option lists come from the pinned engine (Computer among them on 0.9). Store the raw snapshot after
 each action, including a release before the throw has finished playing.
 The solo host uses the pointer dial. The simulator-only card and HUD tests
@@ -230,13 +230,13 @@ web's wide arrangement from its layout.js, in `KubbRenderer/WideLayout.swift`:
 keep its numbers the web's, keep every frame inside the safe area (the
 `WideLayoutTests` check both review phones, both meters, both sides), and keep
 the thrower's camera. MENU is a word inside the header's plate there too (the 1.0
-design: "MENU never leaves it"); online SHOUT takes the top right. Linear chosen is the
+design: "MENU never leaves it"); online HOLLER takes the top right. Linear chosen is the
 linear meter on its side too
 (Jamie, 2026-11-19: "Bug: On iPhone if I turn on linear and then rotate it goes
 back to the circular swing."): its box runs from 10 pt under the safe top to
 7 pt over the safe bottom (at most 450), its track at least 260 pt (265.3 on
 the 375 pt phones, 331.3 on the 17 Pro Max), and the header (meter at the left) or
-SHOUT (at the right) moves in beside it, 10 pt off its body. The coach line hangs under its tab there. Two hands (Jamie, 2026-11-19: "in landscape the
+HOLLER (at the right) moves in beside it, 10 pt off its body. The coach line hangs under its tab there. Two hands (Jamie, 2026-11-19: "in landscape the
 tilt, arc, stand controls should be pushed to the left hand side of the screen
 so the user can control those with the left hand and the throw with the right
 hand"): the set-up tray sits at the edge away from the meter, 12 pt inside the
@@ -244,7 +244,7 @@ safe area, its foot 10 pt above the meter box's foot, and the minimap under the
 header's right end (`WideLayout.plan`, the web's trayAt; the 1.0 tray, "The 1.0 design"
 below). The header takes the web's width there (0.4 W, at least min(300, 0.4 W), at
 most 400, short of the throwing line where it can), so the minimap stays off it. The caption strip
-never goes under 112 pt (`WideLayout.captionMin`): where the strip beside SHOUT
+never goes under 112 pt (`WideLayout.captionMin`): where the strip beside HOLLER
 cannot give that, the captions take a line of their own under the header row,
 clear of the meter, the tray (and all an open plate may take), tab and coach line, never the clock instead. The raise and punishment panel is a bar along the bottom
 (`WideLayout.bar`, the web's game.css panel): it must never cover the kubb
@@ -290,6 +290,9 @@ code says "pitch", and so does the bridge: the engine's `pitch.*` calls (`room.`
 their old spelling, which only engines before 0.13 needed). Lobby, seat and sync rules
 are exclusively the engine's `pitch.*` API. Keep engine JSON as raw text. Use the
 tagged record/report helpers. Close the controller/client when its owner ends.
+HOLLER (on the wire still `shout`) sends one of a fixed set of phrases and emoji: their one
+copy is `Holler` in KubbPitch, the web's docs/MULTIPLAYER.md "What the iPhone app mirrors",
+pinned by `HollerTests`; a receiver shows only exact list members. docs/ONLINE.md "HOLLER".
 
 The addresses are `PitchConfiguration`, one value each (pitch server, API, site), with a
 Debug override (`PITCH_SERVER_URL`, `PITCH_API_URL`, `REELS_URL`) and 127.0.0.1 on the

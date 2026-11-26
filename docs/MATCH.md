@@ -55,14 +55,26 @@ A match against the computer is kept so it can be played again from its start, f
 
 Practice and solo both offer SEND FEEDBACK in the menu (the web's src/ui/report.js).
 The card asks what it is about: "A throw looked wrong" (first when the game has a
-last throw) or "Something else". A throw report has the two answers and the pieces
-to mark: the player can tap several pieces on the overhead pitch or choose their
-names when pieces overlap, and the card freezes the last throw's rest positions,
-including pieces collected at the end of a turn. Something else is one box of up to
-2000 characters. Both send the game as it stood when the card opened, with no name or
-contact field. The wire is the web's: `kind: "throw"` with the answers, selected IDs
-and poses, or `kind: "feedback"` with a trimmed `text` and no answers; both carry the
-replay state. A failed send keeps the draft open. Resuming a solo save starts its
+last throw) or "Something else". A throw report has the two answers; Something else is
+one box of up to 2000 characters. Under them, in both kinds, "If it helps, paint where it
+happened on the pitch." over a picture of the pitch from above (`PaintPicture`, the web's
+src/ui/paint.js; the owner, 2026-11-26: "show an image of the pitch and allow the user to
+paint over the area where the issue occurred instead of selecting individual pieces"): the
+pieces the report froze, the last throw's rest when there is one (pieces collected at the
+end of a turn included), else the pitch as it stands, at their real places, standing solid
+and lying pale, the far baseline at the top (or at the right where the card is wide and
+short). A finger paints with a translucent brush and never scrolls the card; a drag
+outside the picture scrolls it. UNDO takes back a stroke and CLEAR all of them; at 32
+strokes or 800 points it says "That is as much paint as one report can carry." VoiceOver
+reads the picture as one image with a description and skips the painting: the answers are
+the accessible way to say what happened. Both kinds send the game as it stood when the
+card opened, with no name or contact field. The wire is the web's: `kind: "throw"` with the
+answers, or `kind: "feedback"` with a trimmed `text` and no answers; both carry the replay
+state and, when anything is painted, `paint: { brush, strokes: [[[x, y], ...]] }` in the
+pitch's metres (2 decimals, x within -6..6 and y -4..12, brush 0.05 to 1; `ReportPaint`).
+With `paint`, `pieces` are the pieces the picture showed, and they and `paint` are never
+dropped to fit the size limit. No piece is picked by name (no `selectedPieces`).
+A failed send keeps the draft open. Resuming a solo save starts its
 report history at that checkpoint.
 When practice history exceeds the report size limit, the report keeps the engine's
 pre-throw checkpoint and the action. Replaying the checkpoint restores the surface,

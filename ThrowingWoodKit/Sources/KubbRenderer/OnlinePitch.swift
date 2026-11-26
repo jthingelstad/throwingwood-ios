@@ -138,10 +138,10 @@ public enum LobbyEntry: Identifiable, Equatable {
   /// of behind a card. The thrower's own card stays the modal THROW card.
   public private(set) var watchHandoff: HandoffBanner?
   public var note = ""
-  public private(set) var shouts: [String] = []
+  /// The hollers on screen, newest last, each for 2.6 s (at most 4).
+  public private(set) var shouts: [ShownHoller] = []
   public private(set) var name: String
   public var changed: (() -> Void)?
-  public static let words = ["NICE!", "OOH!", "TOK!", "UNLUCKY"]
   private let create: Bool
   private var firstJoin = true
   private var suspended = false
@@ -345,8 +345,10 @@ public enum LobbyEntry: Identifiable, Equatable {
           }
         case "cast":
           guard let d = m["d"] else { return }
-          if d["t"]?.string == "shout", let w = d["w"]?.string, Self.words.contains(w) {
-            showShout(w, from: m["m"]?.string)
+          if d["t"]?.string == "shout" {
+            // only a listed phrase or emoji is ever drawn; anything else is dropped
+            guard let piece = Holler.read(d) else { return }
+            showShout(piece, from: m["m"]?.string)
           } else if d["t"]?.string == "aim", let aim = d["s"], let ts = m["ts"]?.int {
             aims.add(aim, from: m["m"]?.string, ts: ts, k: d["k"]?.int, now: Self.now())
             return
@@ -652,12 +654,12 @@ public enum LobbyEntry: Identifiable, Equatable {
       }
     } catch { fail(error) }
   }
-  public func shout(_ word: String) {
+  public func shout(_ piece: Holler.Piece) {
     guard !observing else { return }
-    if controller.shout(word) { showShout(word, from: pitch.you) }
+    if controller.shout(piece) { showShout(piece, from: pitch.you) }
   }
-  private func showShout(_ word: String, from: String?) {
-    shouts.append(controller.nameOf(from) + "  " + word)
+  private func showShout(_ piece: Holler.Piece, from: String?) {
+    shouts.append(ShownHoller(name: controller.nameOf(from), piece: piece))
     shoutTimes.append(Int(Date().timeIntervalSince1970 * 1000))
     if shouts.count > 4 {
       shouts.removeFirst()
@@ -965,5 +967,19 @@ struct Seat: Equatable {
       caughtUp: caughtUp, acceptsInput: accepts,
       dropUnsentRaise: watch.holdsUnsentAction && !accepts,
       banner: caughtUp && watch.showsBanner && !mayAct)
+  }
+}
+
+/// A holler as it is drawn: the sender's name and the phrase, or the emoji drawn large.
+public struct ShownHoller: Equatable, Sendable {
+  public let name: String
+  public let piece: Holler.Piece
+  public init(name: String, piece: Holler.Piece) {
+    self.name = name
+    self.piece = piece
+  }
+  /// What VoiceOver reads: "Mighty Maple: NICE!", "Mighty Maple: Fire".
+  public var spoken: String {
+    "\(name): " + (piece.isEmoji ? Holler.emojiNames[piece.text] ?? piece.text : piece.text)
   }
 }

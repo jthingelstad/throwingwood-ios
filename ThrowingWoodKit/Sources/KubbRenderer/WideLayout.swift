@@ -7,11 +7,11 @@ import Foundation
 // left by Meter side, the set-up tray (ARC, TILT and STAND, three plates in a
 // column, the 1.0 design) at the other edge, the minimap under the header's right
 // end (`plan`), the header (the turn rail) top left with MENU inside
-// its plate (the 1.0 design: "MENU never leaves it"), and online SHOUT top right. The
+// its plate (the 1.0 design: "MENU never leaves it"), and online HOLLER top right. The
 // player's choice of meter holds on a phone on its side: the linear meter goes
 // at its edge with the whole safe height (`LinearMeter.layout`, its track at
 // least `LinearMeter.Tune.wideMinTravel`, which every iPhone on its side has),
-// and what is at that top corner, the header or SHOUT, moves inward beside it.
+// and what is at that top corner, the header or HOLLER, moves inward beside it.
 // The camera is the thrower's view as ever: the projection's wide rule (the
 // 400 x 240 frame fitted whole).
 //
@@ -121,7 +121,7 @@ public enum WideLayout {
     return x
   }
 
-  /// Online, SHOUT at the top right: the button's plate (the app's WoodButton, about
+  /// Online, HOLLER at the top right: the button's plate (the app's WoodButton, about
   /// 88 x 50 with its shadow) and the gap the captions keep from it. The shouts hang
   /// under it.
   public static let shoutSize = CGSize(width: 88, height: 50)
@@ -129,7 +129,7 @@ public enum WideLayout {
   /// The width the caption gives up for it.
   public static var trayWidth: CGFloat { shoutSize.width + shoutGap }
 
-  /// SHOUT, top right, level with the header's top (moved in beside a linear meter at
+  /// HOLLER, top right, level with the header's top (moved in beside a linear meter at
   /// the right, `edge` off its body).
   public static func shout(size: CGSize, safe: ScreenInsets, meter: MeterLayout? = nil) -> CGRect {
     let x = topRight(size: size, safe: safe, meter: meter)
@@ -143,7 +143,7 @@ public enum WideLayout {
   public static let captionMin: CGFloat = 112
 
   /// Where a slider's or STAND's caption, the verdict and SLOW MOTION go: the
-  /// top between the header and the screen's right (and SHOUT there online), its top
+  /// top between the header and the screen's right (and HOLLER there online), its top
   /// level with theirs. Where that strip is narrower than `captionMin` (a narrow iPad
   /// window, Codex on PR #25: 0.4 pt online at 480 x 400 beside a linear meter)
   /// the captions take a line of their own `edge` under the header row, as
@@ -297,7 +297,7 @@ public enum WideLayout {
     let over = [r, m, map]
     func across(_ f: CGRect, _ x0: CGFloat, _ w: CGFloat) -> Bool { f.minX < x0 + w && x0 < f.maxX }
     // under the header row across the screen (the header, the captions' strip,
-    // SHOUT), and under the minimap where it stands over the column
+    // HOLLER), and under the minimap where it stands over the column
     var ceiling = max(r.maxY, m.maxY) + Tray.ceilingGap
     for f in over where across(f, x, plate.width + Tray.shadow) { ceiling = max(ceiling, f.maxY + Tray.ceilingGap) }
     if foot - colH < ceiling { foot = min(size.height - safe.bottom - 6, ceiling + colH) }
@@ -340,7 +340,7 @@ public enum WideLayout {
   /// away from the meter, the header top left, the minimap under the header's right
   /// end).
   ///
-  /// `trayWidth`: SHOUT's online, which can push the captions to a line of their own
+  /// `trayWidth`: HOLLER's online, which can push the captions to a line of their own
   /// under the header row: the minimap goes under that line.
   public static func plan(
     meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide, trayWidth: CGFloat = 0

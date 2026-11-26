@@ -102,7 +102,7 @@ import Testing
     let text = try #require(try save.read())
     #expect(try live.engine.call("snapshot") == text)
     let capture = try live.captureReport(size: CGSize(width: 390, height: 844), scale: 3)
-    let report = try JSONNode.parse(capture.message(happened: "Stopped", should: "", selected: ["king"]))
+    let report = try JSONNode.parse(capture.message(happened: "Stopped", should: ""))
     let replay = try Engine(appVersion: "test")
     _ = try replay.call("restore", json: #require(report["snapshots"]?["before"]?.string))
     _ = try replay.call("apply", json: #require(report["last"]?.raw.text))
