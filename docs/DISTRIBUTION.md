@@ -7,6 +7,11 @@ Jamie's call. Jamie has given a standing go to upload an external build and
 submit it to Beta App Review for the Beta group whenever Jamie asks for one.
 Build 256, `1.0.0 (1.0.0)`, went to the Internal group on 2026-11-22, the first
 build of 1.0.0 in TestFlight.
+Build 284, `1.1.0 (1.4.0)`, went to the Internal group on 2026-11-26 and was
+submitted to Beta App Review for the Beta group the same day, at 4:30 PM Central (the
+owner asked for the TestFlight builds for dev and beta to be brought up to the current
+build). It is the first build on engine 1.4, and it carries 1.0 as well for a pitch with
+someone on the App Store version. Until Apple passes it, outside testers have build 260.
 
 ## The App Store submission
 
@@ -82,7 +87,9 @@ matches, `0.11 (0.16.0)` for the first with the drive and the engine's own raise
 `0.12 (0.18.0)` for the first with a match's length and computer players in the lobby,
 `1.0.0 (1.0.0)` for the released game on the released engine, the build submitted to the
 App Store (the owner, 2026-11-22: "lets move all four projects to version 1.0.0 and tag
-those releases. We will use that version to submit to the App Store as well.")
+those releases. We will use that version to submit to the App Store as well."),
+`1.1.0 (1.4.0)` for the first on engine 1.4, with the throw to go, a person's throw
+level, the view from your own end, the computer's speed and tip-up in any order
 (AGENTS.md "The version a player sees").
 `scripts/asc.swift` calls the App Store Connect API for the rest (groups,
 What to Test, review submissions).
