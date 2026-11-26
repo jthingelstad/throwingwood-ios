@@ -402,9 +402,11 @@ extension PitchSession {
       node["type"]?.string == "raise"
     else { return nil }
     // engine 1.4.0: the raise names its kubb (any order) and the end by `which`; the
-    // watched raise is drawn on that kubb
-    let n = n0.picking(node["kubb"]?.string)
-    if let id = node["kubb"]?.string, n.kubb == id { raisePicked = id }
+    // watched raise is drawn on that kubb; one that names none (AUTO, AUTO ALL) is the
+    // engine's first, whatever this device had picked (Codex on PR #61)
+    let id = node["kubb"]?.string
+    let n = n0.picking(id)
+    if id == nil || n.kubb == id { raisePicked = n.kubb }
     if let which = node["which"]?.int { return n.ends?.firstIndex { $0.which == which } }
     if let c = node["choice"]?.int, let choices = n.choices, choices.indices.contains(c - 1) {
       let which = choices[c - 1].which
