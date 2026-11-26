@@ -694,6 +694,23 @@ struct MatchScreen: View {
   /// says them, "Kubbs standing: Mighty Maple 5, Computer 5"), and MENU as a word inside the plate, upright and on
   /// its side. VoiceOver reads it in that order: the turn, the name, the counts, Menu.
   /// `fills`: on its side the plate fills the header's frame (WideLayout.rail).
+  /// The header's name line, split out of `header` so the type checker has one
+  /// expression at a time.
+  private func headerName(_ n: MatchNeed, online: Bool) -> String {
+    let fallback: String = n.setup?.thrower?.name ?? n.team ?? "Match"
+    if n.kind == "togo" {
+      // the throw to go: who throws this baton, or whose is still to come (nothing
+      // of this device's own baton shows while it waits)
+      if let waiting = pitch.togoWaitingFor { return TogoWords.waiting(for: waiting) }
+      return fallback
+    }
+    if online, !playing, !pitch.raiseShowing, let label = model.online?.turnLabel, !label.isEmpty {
+      return label
+    }
+    if let r = pitch.engineRaising, let side = r.side, let team = n.teams?[side] { return team }
+    return fallback
+  }
+
   private func header(_ n: MatchNeed, nameSize: CGFloat, fills: Bool = false) -> some View {
     let online = model.online != nil
     // where the WATCH tab says so (a throw this device watches, its meter drawn), the
@@ -712,16 +729,7 @@ struct MatchScreen: View {
         // upright the line may take two lines at the larger text sizes; on its side
         // the header's plate has a fixed height
         .labelStyle().foregroundStyle(Color.woodMuted).lineLimit(fills ? 1 : 2).minimumScaleFactor(0.7)
-        Text(
-          n.kind == "togo"
-            // the throw to go: who throws this baton, or whose is still to come (nothing
-            // of this device's own baton shows while it waits)
-            ? (pitch.togoWaitingFor.map(TogoWords.waiting(for:)) ?? n.setup?.thrower?.name ?? n.team ?? "Match")
-            : (online && !playing && !pitch.raiseShowing && model.online?.turnLabel.isEmpty == false)
-            ? model.online!.turnLabel
-            : (pitch.engineRaising.flatMap { r in r.side.flatMap { n.teams?[$0] } }
-              ?? n.setup?.thrower?.name ?? n.team ?? "Match")
-        )
+        Text(headerName(n, online: online))
         .font(displayFont(nameSize, relativeTo: .title2)).foregroundStyle(Color.woodInk)
         .lineLimit(1).minimumScaleFactor(0.6)  // the widest name fits (NameFitTests)
       }
