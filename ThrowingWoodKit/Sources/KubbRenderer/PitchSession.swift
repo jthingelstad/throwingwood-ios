@@ -293,7 +293,9 @@ public final class PitchSession {
   public var wideOn: Bool { scene.wide }
   /// The free camera takes the pitch: the wide view, and not a raise or punishment
   /// scene (those keep their own close look, as the thrower's view does).
-  public var freeOn: Bool { scene.wide && scene.stillZoom == nil && !camera.fitted && freeCamera.lens != nil }
+  /// (A watcher's wide camera on a tall screen is of kind "end" too, framed from the end:
+  /// only the held raise camera keeps the free camera off.)
+  public var freeOn: Bool { scene.wide && scene.stillZoom == nil && camera.kind != "raise" && freeCamera.lens != nil }
   /// The camera the pitch is drawn through: the free camera's in the wide view.
   public var shownCamera: Camera { freeOn ? freeCamera.camera(camera) : camera }
   /// This board shows a match it has no side in (OnlinePitch sets it): it watches, in

@@ -113,13 +113,16 @@ extension PitchSession {
     scene.items = (r.others ?? []).map { $0.pose.piece(id: $0.id) }
     if let king = n.king { scene.items.append(king.piece(id: "king", king: true)) }
     if let p = r.pose, n.kind == "raise" {
-      if let held = n.camera {
+      // a watched raise (AUTO, AUTO ALL, a team-mate's: `raiseShow`) keeps the per-kubb
+      // camera, close enough to see each tip up; the held camera is for raising by hand
+      if let held = n.camera, raiseShow == nil {
         // engine 1.4.0: one camera for the whole raise, the whole group in it, never
         // moving from kubb to kubb (fitted to the screen as the engine's box says)
         camera = held
         scene.stillZoom = nil
         scene.heldRaise = true
       } else {
+        scene.heldRaise = nil
         let a = p.angle ?? 0
         camera = RaiseCamera.camera(x: p.x, y: p.y, axis: V2(cos(a), sin(a)))
         scene.stillZoom = RaiseCamera.zoom
