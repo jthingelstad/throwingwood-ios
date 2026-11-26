@@ -185,12 +185,13 @@ and a "not lying" refusal redraws from the need. A watched raise and a 1.0 match
 per-kubb raise camera, which stands twice as far back as it did (`RaiseCamera`, the web's
 numbers). The player's side (engine 1.4.0, `setView {side, box}`, `PitchSession.sideView`):
 solo and online the view is from the player's own side, the other team's throws from the
-engine's end camera at the player's end; a watcher keeps the wide view. The throw to go
+engine's end camera at the player's end (a stand-in throw for the other side from the
+thrower's end), drawn from `showAt`'s pieces; a watcher keeps the wide view. The throw to go
 (engine 1.4.0, `need.kind == "togo"`, the `togo` option, on by default; never in a Kid
 match): each team throws one baton at the king, blind (nothing of this device's baton
-shows before the verdict, "Waiting for <team>" while the other's is to come), and
-`TogoWords` says the verdict; docs/MATCH.md "The throw to go". The computer's turn against
-the computer (engine 1.4.0): a speed button (1x, 2x, 4x, the device's, `CpuSpeed`,
+shows before the verdict, "Your throw to go", then "Waiting for <team>" while the other's
+is to come), and `TogoWords` says the verdict in the web's words ("<TEAM> GOES FIRST"); docs/MATCH.md "The throw to go". The computer's turn against
+the computer (engine 1.4.0): a speed button (1X, 2X, 4X, the device's, `CpuSpeed`,
 `frame {speed}` and the playback and stood show sped the same) and a skip (`cpuPlay`,
 `skipComputer`, each action kept in the trail with its own hash) take the place of SKIP;
 never on a pitch. The last
@@ -398,7 +399,7 @@ A person's throw (engine 1.3, `ThrowChoice`, the engine's `THROW_LEVELS`): Easy,
 or Hard, the width of the meter's bars and never a hidden miss (the owner, 2026-11-26: what
 you do shows; kubb-engine docs/notes/throw.md "The person's meter"). The row is "Throw", a
 `Segmented` bar, on the solo card under the name row, in the practice menu and on the
-lobby's You row; the lobby shows each player's beside the name (" · Hard"). It is the
+lobby's You row; the lobby shows each player's beside the name (" · Hard throw"). It is the
 device's (`pitch.throw`), Standard by default, and goes as the solo player's entry
 `throw`, the practice's `throw` and the pitch member's `me.throw`, which the lineup gives
 its player entry; Standard goes as nothing (the engine's absent). Not in Settings: the web
@@ -615,7 +616,7 @@ the colours and nothing else (`SceneSkinTests` 7:1; the day 4.5:1, `DesignTests`
   line (`HandoffWords.line`, from the engine's rail; on a wide screen its words beside
   THROW); the computer's turn has no card,
   only the WATCH tab on its team's colour over the faded meter, and against the computer
-  its speed (1x, 2x, 4x) and the skip glyph. The coach is one
+  its speed (1X, 2X, 4X) and the skip glyph. The coach is one
   inverted chip naming the marks by shape. VoiceOver reads the header, the prompt and
   distance, the meter, the tray, then the minimap (`MatchReaders.swift`). `TrayTests`.
 - **Play the computer**: the name row, Scene as seven picture tiles from the app's own

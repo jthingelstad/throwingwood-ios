@@ -23,8 +23,8 @@ public enum CpuSpeed {
     let i = choices.firstIndex(of: v) ?? 0
     return choices[(i + 1) % choices.count]
   }
-  /// "1x", "2x", "4x": the button's words.
-  public static func label(_ v: Int) -> String { "\(v)x" }
+  /// "1X", "2X", "4X": the button's words (the web's).
+  public static func label(_ v: Int) -> String { "\(v)X" }
   /// VoiceOver: "Computer's speed, 2 times".
   public static func spoken(_ v: Int) -> String { v == 1 ? "Normal" : "\(v) times" }
 }

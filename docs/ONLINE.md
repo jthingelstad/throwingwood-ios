@@ -11,7 +11,7 @@ The socket opens when the player starts or joins a pitch. The host initializes
 the lobby document. Presence sends the device's name, a generated one, as it is, and
 the engines this build carries (`pitch.announce`, below). The lobby shows names, sides,
 watchers, host and connection state. A member can join either team or sit out.
-The player's name is the device's (`PlayerName`), picked in the lobby's You row (the name row, "Names" below) or in Settings; a change goes to the room at once (`profile`). A member sends no level (the computer's alone), but from engine 1.3 its throw, `me.throw` (Easy, Standard or Hard, the device's, `ThrowChoice`), which the lineup gives its player entry; the You row has the Throw row where the room's engine has throw levels, a change goes to the room at once (`profile(throw:)`), and each player's line shows theirs beside the name (" · Hard"; AGENTS.md "Levels are the computer's; a person has a throw"). Team capacity, the computer's levels and match options come from the engine. The host sets
+The player's name is the device's (`PlayerName`), picked in the lobby's You row (the name row, "Names" below) or in Settings; a change goes to the room at once (`profile`). A member sends no level (the computer's alone), but from engine 1.3 its throw, `me.throw` (Easy, Standard or Hard, the device's, `ThrowChoice`), which the lineup gives its player entry; the You row has the Throw row where the room's engine has throw levels, a change goes to the room at once (`profile(throw:)`), and each player's line shows theirs beside the name (" · Hard throw", Standard too, the web's; AGENTS.md "Levels are the computer's; a person has a throw"). Team capacity, the computer's levels and match options come from the engine. The host sets
 options, invite-only or open access, and starts. An empty side plays as the
 computer. The options offered are the `MATCH_OPTIONS` of the engine the next match
 would run on (`PitchController.lobbyEngine`, the room's engine counting this member),
@@ -198,22 +198,30 @@ at its own level. The web is the reference for every number and word (its docs/S
 
 - **The throw to go** (kubb-engine docs/PITCH.md "The throw to go"): a new pitch's host
   writes `togo: "on"` with the kept options when it makes the lobby
-  (`PitchController.prepareLobby`; a host who last turned it off keeps it off), and the
-  lobby shows the engine's Throw to go row. In the match each team throws its baton at
+  (`PitchController.prepareLobby`; a host who last turned it off keeps it off), and writes
+  it once more into a document that lacks it before START (a write by an App Store 1.0.0
+  host drops it; `keepTogo`, the web's), never on a 1.0 lobby; the lobby shows the
+  engine's Throw to go row. In the match each team throws its baton at
   once, blind: `controlFor {ctx, me, need}` names the batons this member throws, the
-  release is sent at once and nothing of it shows; the header reads "Throw to go" over
-  "Waiting for <team>" while the other's is to come, and the verdict plays when the second
+  release is sent at once and nothing of it shows; the header reads "Your throw to go" while
+  this device's baton is to throw, and "Throw to go" over "Waiting for <team>" (every team
+  that owes one, joined by "and"; the web's "WAITING FOR <TEAM>") while the other's is to come, and the verdict plays when the second
   baton lands (the recording comes with it). No aim is cast or shown during it. Never in a
   Kid match or with no person on a side. A change of control (a stand-in for a team-mate
   who left) reads the need again, so the baton handed on can be thrown at once
   (`PitchSession.controlChanged`). A baton the pitch refused is thrown again from the
   pitch's head in the same match, after a resume and after a full `state` alike.
 - **Raising in any order**: any player on the raising side may raise any lying kubb; a
-  refusal "not lying" (a team-mate's raise landed first) draws the need again.
+  refusal "not lying" (a team-mate's raise landed first) draws the need again. AUTO sends
+  `{type: "raise", kubb}` for the kubb picked, on the engine's end (a raise naming no kubb
+  would stand the engine's first instead; the web's game.raise).
 - **The view from one side**: a player's board sees its own team's throws from alongside
   (the thrower's camera) and the other team's from the end camera at its own end
-  (`setView {side}` with this member's side). Watchers keep the wide view and the free
-  camera.
+  (`setView {side}` with this member's side), but for a throw it aims for the other side
+  (a host standing in for a player who left), which is seen from the thrower's end, since
+  the aim calls take the thrower's frame; the view goes back after it. The other side's
+  throw is drawn from the engine's `showAt` pieces, in this side's frame. Watchers keep the
+  wide view and the free camera.
 - **The computer's speed** is solo only: on a pitch every member watches the same pace.
 
 ## One match, two clocks
