@@ -237,7 +237,10 @@ extension PitchSession {
       need?[k].flatMap { $0.isNull ? nil : (k, .raw($0.raw)) }
     }
     if let last = need?["last"]?["text"] { summary.append(("last", .raw(last.raw))) }
-    let rec = try JSONNode.parse(engine.call("reportThrow"))
+    // the last throw's record, when there is one: after the throw to go and before the
+    // first throw the engine has none to give (it errors), and the report goes without it,
+    // as the web's report.js
+    let rec = try (try? JSONNode.parse(engine.call("reportThrow"))) ?? JSONNode.parse("{}")
     let lastThrow = trail.actions.last { (try? JSONNode.parse($0)["type"]?.string) == "throw" }
     let phase =
       playing

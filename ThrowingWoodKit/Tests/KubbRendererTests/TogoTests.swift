@@ -96,6 +96,10 @@ extension SoloOptions {
     // the decided side throws first (`first` of the last verdict)
     let last = try #require(verdicts.last)
     if last.how != "again" { #expect(app.need?.side == last.first) }
+    // FEEDBACK opens before the first throw: the engine has no throw record yet (Codex on
+    // PR #61), and the report goes without one
+    let report = try app.captureReport(size: CGSize(width: 390, height: 844), scale: 3)
+    #expect(!report.fields.isEmpty)
   }
 
   /// The verdict's words, the screen's own: each baton's distance, the king knocked over,
