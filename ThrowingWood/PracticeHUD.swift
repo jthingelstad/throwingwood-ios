@@ -200,6 +200,34 @@ import UIKit
 
   /// An end's number beside its footprint on the raise screen (the web's drawEndLabels):
   /// gold when lit (a drag past half way, or the allowed end's hint), grey when refused.
+  /// A lying kubb that may be picked to raise next (engine 1.4.0): a dashed ink outline a
+  /// little outside its drawn shape, on a paper halo so it reads on every ground.
+  func pickOutline(_ outline: [CGPoint]) {
+    guard outline.count >= 3 else { return }
+    let c = CGPoint(
+      x: outline.map(\.x).reduce(0, +) / CGFloat(outline.count), y: outline.map(\.y).reduce(0, +) / CGFloat(outline.count))
+    let path = CGMutablePath()
+    let grown = outline.map { p -> CGPoint in
+      let dx = p.x - c.x, dy = p.y - c.y
+      let l = max(1, hypot(dx, dy))
+      return CGPoint(x: p.x + dx / l * 6, y: p.y + dy / l * 6)
+    }
+    path.addLines(between: grown)
+    path.closeSubpath()
+    context.saveGState()
+    context.setLineJoin(.round)
+    context.addPath(path)
+    context.setStrokeColor(paper.cgColor)
+    context.setLineWidth(5)
+    context.strokePath()
+    context.addPath(path)
+    context.setStrokeColor(ink.cgColor)
+    context.setLineWidth(2.5)
+    context.setLineDash(phase: 0, lengths: [6, 4])
+    context.strokePath()
+    context.restoreGState()
+  }
+
   func endLabel(_ e: RaiseEndPoint) {
     let r = RaiseTouch.numberR
     let p = e.label

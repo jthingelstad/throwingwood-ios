@@ -39,7 +39,7 @@ import Testing
   /// A match in `scene` with its first hand-off closed, at the aim.
   static func match(_ scene: String, surface: String? = nil) throws -> PitchSession {
     let app = try PitchSession(appVersion: "test")
-    var chosen = app.options.choosing(scene: scene, app.options.defaults)
+    var chosen = app.options.choosing(scene: scene, app.options.withoutTogo)
     if let surface { chosen["surface"] = surface }
     try app.startSolo(name: "Mighty Maple", selections: chosen, save: nil)
     app.dismissHandoff()

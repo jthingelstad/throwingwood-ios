@@ -748,6 +748,25 @@ import simd
       let feet = app.raiseEnds(in: size)
       return feet[0].footprint.distance(to: p) < feet[1].footprint.distance(to: p) ? 0 : 1
     }
+    // the rules refuse one end: a tap on its number sends nothing and lights the other
+    func refusedTap(_ app: PitchSession, _ need: MatchNeed) throws {
+      let oks = need.ends?.map { $0.ok != false } ?? []
+      let refused = try #require(oks.firstIndex(of: false))
+      let ends = app.raiseEnds(in: size)
+      let hash = try app.engine.hash()
+      let i = try #require(app.raisePick(at: ends[refused].label, size: size))
+      #expect(i == refused)
+      #expect(try !app.raiseTap(i))
+      #expect(try app.engine.hash() == hash)
+      #expect(app.raiseEnds(in: size).first { $0.lit }?.index == 1 - refused)
+      #expect(app.wantsFrames)
+      for _ in 0..<25 { try app.tick(0.05) }
+      #expect(!app.raiseEnds(in: size).contains { $0.lit })  // lit for a second
+      let j = try #require(app.raisePick(at: ends[1 - refused].label, size: size))
+      #expect(j == 1 - refused)
+      #expect(try app.raiseTap(j))
+      #expect(try standsOn(app, need, 1 - refused))
+    }
     var picked: [String: Set<Int>] = [:]
     var refusedSeen = false, dragged = false
     for nth in 0..<16 {
@@ -794,27 +813,21 @@ import simd
           #expect(try standsOn(app, need, want), "the drag's end")
         }
       } else if oks.contains(false) && oks.contains(true) && !refusedSeen {
-        // the rules refuse one end: a tap nearer it sends nothing and lights the other
         refusedSeen = true
-        let app = probe
-        let g = try #require(app.raiseGeometry(in: size))
-        let refused = try #require(oks.firstIndex(of: false))
-        let near = try #require([0.2, 0.8].first {
-          nearestFoot(app, .between(g.caps[0], g.caps[1], $0)) == refused
-        })
-        let hash = try app.engine.hash()
-        let i = try #require(app.raisePick(at: .between(g.caps[0], g.caps[1], near), size: size))
-        #expect(i == refused)
-        #expect(try !app.raiseTap(i))
-        #expect(try app.engine.hash() == hash)
-        #expect(app.raiseEnds(in: size).first { $0.lit }?.index == 1 - refused)
-        #expect(app.wantsFrames)
-        for _ in 0..<25 { try app.tick(0.05) }
-        #expect(!app.raiseEnds(in: size).contains { $0.lit })  // lit for a second
-        let j = try #require(app.raisePick(at: .between(g.caps[0], g.caps[1], 1 - near), size: size))
-        #expect(try app.raiseTap(j))
-        #expect(try standsOn(app, need, 1 - refused))
+        try refusedTap(probe, need)
       }
+    }
+    if !refusedSeen {
+      // the 1.4 match raises all its kubbs on ends the rules allow: the kept refused raise
+      let app = try PitchSession(appVersion: "test")
+      try app.restore(fixture("raise-refused"), save: nil)
+      _ = try app.engine.call("setControl", json: #"{"sides":["A","B"],"cpu":false}"#)
+      try app.adopt(app.read("view"))
+      let need = try #require(app.need)
+      let oks = need.ends?.map { $0.ok != false } ?? []
+      #expect(oks.contains(false) && oks.contains(true))
+      refusedSeen = true
+      try refusedTap(app, need)
     }
     #expect(picked["A"] == [0, 1] && picked["B"] == [0, 1], "both teams' frames, each half its own end")
     #expect(dragged && refusedSeen)

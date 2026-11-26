@@ -222,7 +222,7 @@ import Testing
   /// its snapshot (so a reopened or shared match shows it too).
   @Test func aSoloMatchKeepsItsScene() throws {
     let app = try PitchSession(appVersion: "test")
-    var choices = app.options.defaults
+    var choices = app.options.withoutTogo
     choices["scene"] = "neon"
     try app.startSolo(name: "You", selections: choices, save: nil)
     #expect(app.scene.look == "neon")
@@ -239,8 +239,8 @@ import Testing
   @Test func optionsAndLocalStart() throws {
     let app = try PitchSession(appVersion: "test")
     #expect(
-      app.options.rows.map(\.id) == ["scene", "surface", "opening", "raising", "wind", "set", "computer"])
-    var choices = app.options.defaults
+      app.options.rows.map(\.id) == ["scene", "surface", "opening", "raising", "wind", "set", "togo", "computer"])
+    var choices = app.options.withoutTogo
     // a surface stands only where the scene allows it (engine 0.14): Black & White's
     choices["scene"] = "bw"
     choices["surface"] = "sand"

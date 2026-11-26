@@ -35,6 +35,10 @@ import KubbEngine
   public private(set) var head: (n: Int, seq: Int, h: String, over: Bool)?
   /// This member's actions sent and not yet answered, in order.
   public private(set) var outstanding: [Outstanding] = []
+  /// This member's batons to go dropped by a rollback (two at once, the peer's first):
+  /// each is taken again on top of the peer's (engine 1.4.0: a baton has no place in the
+  /// order, and one already in is refused as "thrown", so a retry is harmless).
+  private var droppedTogo: [JSONText] = []
   public struct Outstanding: Sendable {
     public let id: String
     public let n, seq: Int
@@ -206,6 +210,11 @@ import KubbEngine
   public func lobbyTakesScene() -> Bool {
     (try? Self.pitchCall(lobbyEngine(), "constants", [])["OPTION_DEFAULTS"]?["scene"]) != nil
   }
+  /// Whether the lobby's engine gives a person a throw of their own (engine 1.3's
+  /// `THROW_LEVELS`): the lobby shows each player's beside the name only then.
+  public func lobbyTakesThrow() -> Bool {
+    (try? Self.pitchCall(lobbyEngine(), "constants", [])["THROW_LEVELS"]) != nil
+  }
 
   /// A new pitch this member hosts (version 0, no document yet): its lobby, and in it
   /// the options the host last picked in a lobby (the web's `pitchOptions`, set on a new
@@ -218,6 +227,10 @@ import KubbEngine
     return try await pitch.update { [self] doc in
       guard doc == .null, pitch.isHost else { return nil }
       let lobby = try pitchCall("lobbyOf", [("doc", .raw(doc))])
+      // the throw to go is on by default (the product's call, 2026-11-26): the engine's
+      // absent is off, so a new pitch says on unless the host last turned it off
+      var kept = kept
+      if kept["togo"] == nil { kept["togo"] = "on" }
       let taken = try takenOptions(kept)
       guard !taken.isEmpty else { return lobby.raw }
       let set = try Self.pitchCall(
@@ -279,12 +292,19 @@ import KubbEngine
     try JSONNode.parse(engine.call(name, json: args?.ascii ?? ""))
   }
   /// This member's presence: its name, a generated one (the device's), sent as it is;
-  /// anything else is never sent (the pitch server would drop it). No level: a person
-  /// throws on one meter (engine 0.13), and the lineup takes "club" for a member that
-  /// names none.
-  public func setMe(name: String) throws {
+  /// anything else is never sent (the pitch server would drop it), and its throw (engine
+  /// 1.3, `me.throw`: easy, standard or hard, which the lineup gives its player entry;
+  /// pitch/lobby.lua). An engine before 1.3 reads no `throw` and changes nothing with it.
+  public func setMe(name: String, throw level: String? = nil) throws {
     if names.valid(.player, name).ok { pitch.setMe([("name", .string(name))]) }
+    if let level, ["easy", "standard", "hard"].contains(level) {
+      pitch.setMe([("throw", .string(level))])
+    }
     try announce()
+  }
+  /// The member's throw as its presence says (absent: Standard), for the lobby's line.
+  public func throwOf(_ id: String?) -> String? {
+    pitch.members.first { $0["id"]?.string == id }?["me"]?["throw"]?.string
   }
 
   @discardableResult public func reduce(_ name: String, fields: [(String, JS)] = []) async throws
@@ -798,11 +818,14 @@ import KubbEngine
       return
     }
     let ctx = context()
-    // an observer's seat has no side and no computer, whatever the room says
+    // an observer's seat has no side and no computer, whatever the room says. With a
+    // `togo` need (engine 1.4.0) the control names the batons this member throws, so a
+    // host who may stand in for both sets up only its own (docs/PITCH.md "The throw to go")
+    let now = try engine.call("need").asJSON
     let next =
       observing
       ? try JSONNode.parse(Self.noSeat)
-      : try pitchCall("controlFor", [("ctx", ctx), ("me", .string(pitch.you))])
+      : try pitchCall("controlFor", [("ctx", ctx), ("me", .string(pitch.you)), ("need", .raw(now))])
     let same = try pitchCall("sameControl", [("a", .raw(control)), ("b", .raw(next.raw))])
     if same.bool != true {
       let gainedCPU =
@@ -1018,6 +1041,24 @@ import KubbEngine
     try remake()
     try refreshSeat()
     if let match { try present?(.apply(action: a.raw, match: match)) }
+    try retakeTogo()
+  }
+
+  public static func isTogo(_ a: JSONText) -> Bool { (try? JSONNode.parse(a))?["type"]?.string == "togo" }
+
+  /// The batons to go a rollback dropped, taken again while the match still waits for
+  /// them, each applied, sent and shown on the board as this member's own.
+  private func retakeTogo() throws {
+    guard !droppedTogo.isEmpty, !awaitingState, state == .match else { return }
+    let batons = droppedTogo
+    droppedTogo = []
+    for a in batons {
+      guard (try call("need"))["kind"]?.string == "togo" else { return }
+      let out = try call("apply", .raw(a))
+      guard out["ok"]?.bool != false else { continue }
+      try commit(a)
+      if let match { try present?(.apply(action: a, match: match)) }
+    }
   }
 
   /// The pitch stored this member's oldest outstanding action: it is the head now.
@@ -1040,6 +1081,7 @@ import KubbEngine
   }
   /// Back to the confirmed head: outstanding actions dropped, the board told.
   private func rollback() throws {
+    droppedTogo += outstanding.map(\.a).filter(Self.isTogo)
     outstanding.removeAll()
     pitch.dropActs()
     guard let headSnap, state == .match else { return }
@@ -1079,6 +1121,7 @@ import KubbEngine
         corrections += 1
         resync()
       }
+      try retakeTogo()
       return
     }
     guard let meta = m["meta"], let snap = m["snap"]?.string else { return }
@@ -1127,6 +1170,10 @@ import KubbEngine
     let out = try call("apply", .raw(action))
     if out["ok"]?.bool == false { return false }
     try commit(action)
+    // a baton to go is shown on the board only once it is in the controller's order
+    // (OnlinePitch.submit put the board back to the head), so the board plays the two
+    // batons in the order every member does and its hashes agree
+    if Self.isTogo(action), let match { try present?(.apply(action: action, match: match)) }
     return true
   }
 

@@ -101,7 +101,11 @@ import Testing
           // a drag along the kubb as drawn, its whole travel from either cap
           let a = g.caps[0], b = g.caps[1]
           let L = a.distance(to: b)
-          let travel = max(RaiseTouch.travelMin, L * RaiseTouch.travelK)
+          // the held raise camera (engine 1.4, `need.camera`) draws the kubb small, so its
+          // whole travel is the 90 pt floor: a drag needs only past half of it to stand the
+          // kubb, so that much stays on the screen and over the bar
+          let full = max(RaiseTouch.travelMin, L * RaiseTouch.travelK)
+          let travel = app.need?.camera == nil ? full : full * 0.6
           for (from, d) in [(a, CGPoint(x: (a.x - b.x) / L, y: (a.y - b.y) / L)), (b, CGPoint(x: (b.x - a.x) / L, y: (b.y - a.y) / L))] {
             let end = CGPoint(x: from.x + d.x * travel, y: from.y + d.y * travel)
             #expect(end.y + RaiseTouch.margin <= top && end.x > 0 && end.x < p.size.width, "\(name) \(p.name) drag")

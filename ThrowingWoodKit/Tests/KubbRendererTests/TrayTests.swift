@@ -166,7 +166,7 @@ import Testing
   /// Nothing opens while the player cannot aim (the hand-off up).
   @Test func noPlateOpensUnderTheHandOff() throws {
     let app = try PitchSession(appVersion: "test")
-    try app.startSolo(name: "You", selections: app.options.defaults, save: nil)
+    try app.startSolo(name: "You", selections: app.options.withoutTogo, save: nil)
     #expect(app.handoff != nil)
     try app.tapPlate(.arc)
     #expect(app.openPlate == nil && !app.plan)
@@ -323,7 +323,7 @@ import Testing
     // ending in s: the card's title is then known
     let name = "Mighty Maple"
     #expect(app.names.valid(.player, name).ok)
-    try app.startSolo(name: name, selections: app.options.defaults, save: nil)
+    try app.startSolo(name: name, selections: app.options.withoutTogo, save: nil)
     let c = try #require(app.handoff)
     #expect(c.toName == name)
     #expect(HandoffWords.title(c, own: true) == "Your turn")

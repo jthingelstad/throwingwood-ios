@@ -118,8 +118,32 @@ import UIKit
       // same surface where the scene allows it, else the scene's own
       practiceSurface = SceneID.entry(practiceScene).resolve(practiceSurface)
       perform {
-        try offline?.practice(scene: practiceScene, surface: practiceSurface)
+        try offline?.practice(scene: practiceScene, surface: practiceSurface, throw: throwLevel)
       }
+    }
+  }
+  /// The person's throw (engine 1.3, `ThrowChoice`): Easy, Standard or Hard, the width
+  /// of the meter's bars, chosen on the solo card, the practice menu and the lobby's You
+  /// row, and kept on the device. A change starts a new practice (the engine keeps a
+  /// practice's throw from its start) and is told to the pitch (`me.throw`).
+  var throwLevel = ThrowChoice.load(.standard) {
+    didSet {
+      guard throwLevel != oldValue else { return }
+      ThrowChoice.keep(throwLevel, in: .standard)
+      if let online { online.profile(throw: throwLevel) }
+      if screen == .practiceMenu || screen == .practice {
+        perform {
+          try offline?.practice(scene: practiceScene, surface: practiceSurface, throw: throwLevel)
+        }
+      }
+    }
+  }
+  /// The computer's turn against the computer watched at 1x, 2x or 4x (`CpuSpeed`), kept
+  /// on the device across turns and matches. Solo only: the session ignores it on a pitch.
+  var cpuSpeed = CpuSpeed.load(.standard) {
+    didSet {
+      CpuSpeed.keep(cpuSpeed, in: .standard)
+      offline?.cpuSpeed = cpuSpeed
     }
   }
   /// The practice pitch's surface (its menu's Surface), kept on the device as the
@@ -142,8 +166,9 @@ import UIKit
       practiceSurface = SceneID.entry(practiceScene).resolve(practiceSurface)
       if let offline,
         (offline.scene.look ?? "day") != practiceScene || offline.scene.surface != practiceSurface
+          || offline.practiceThrow != offline.sentThrowLevel(throwLevel)
       {
-        try offline.practice(scene: practiceScene, surface: practiceSurface)
+        try offline.practice(scene: practiceScene, surface: practiceSurface, throw: throwLevel)
       }
       screen = .practice
     }
@@ -220,6 +245,7 @@ import UIKit
     defer { feedback.onPitch = screen.usesFeedback }
     _ = NetworkPath.shared  // a reel asked for offline knows at once
     guard let pitch = offline else { return }
+    pitch.cpuSpeed = cpuSpeed
     feedback.attach(pitch)
     let defaults = UserDefaults.standard
     selections = pitch.options.load(defaults)
@@ -368,7 +394,7 @@ import UIKit
     perform {
       let pitch = try OnlinePitch(
         url: PitchConfiguration.server, link: link, create: create,
-        name: name, appVersion: Self.version, api: PitchConfiguration.client)
+        name: name, throw: throwLevel, appVersion: Self.version, api: PitchConfiguration.client)
       if online != nil { leaveOnline() }
       sealed = nil
       feedback.silence()
@@ -454,7 +480,7 @@ import UIKit
     }
     perform {
       if pitch?.need?.kind == "over" { try save.clear() }
-      try pitch?.practice(scene: practiceScene, surface: practiceSurface)
+      try pitch?.practice(scene: practiceScene, surface: practiceSurface, throw: throwLevel)
       screen = .home
     }
   }
@@ -472,7 +498,7 @@ import UIKit
     perform {
       // the match plays the scene's set (startSolo), and that is what is kept
       guard let pitch else { return }
-      try pitch.startSolo(name: name, selections: selections, save: save)
+      try pitch.startSolo(name: name, selections: selections, throw: throwLevel, save: save)
       pitch.options.keep(selections, in: .standard)
       selections = pitch.options.starting(selections)
       screen = .match

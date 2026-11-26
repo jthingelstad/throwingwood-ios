@@ -115,7 +115,7 @@ public struct HitBurst {
   /// The far baseline's frame y the pitch is fitted by (PitchScene.farFrameY).
   var anchorY: Double? = nil
   public func point(size: CGSize, camera: Camera) -> CGPoint? {
-    PitchProjection(size: size, camera: camera, focusX: focusX ?? 200, letterbox: wide, anchorY: anchorY).project(anchor)
+    PitchProjection(size: size, camera: camera, focusX: focusX ?? 200, letterbox: wide || camera.fitted, anchorY: anchorY).project(anchor)
   }
 }
 
@@ -159,6 +159,10 @@ public final class PitchSession {
   /// ... and this player's own last throw was a drive that fell SHORT (Coach.swift).
   public internal(set) var coachShort = false
   private var playbackLocal = false
+  /// The recording playing is the computer's, in a solo match (watched at `cpuSpeed`).
+  private(set) var playbackCpu = false
+  /// The engine's raises being watched are the computer's turn's (watched at `cpuSpeed`).
+  var stoodFast = false
   /// The throw playing was planned as a drive (engine 0.16, ARC under its knee).
   private var playbackDrive = false
   /// The shown scene's effects (`useLook`): fed by the playback, drawn after the pieces.
@@ -211,6 +215,11 @@ public final class PitchSession {
   /// past half way, and the allowed end lit (for `left` seconds) after a refused one.
   public internal(set) var raiseDragging: RaiseTouch.Drag?
   var raiseSelected: Int?
+  /// The lying kubb picked to raise next (engine 1.4.0: any order); nil is the engine's
+  /// first. A kubb no longer lying (a team-mate raised it) falls back to the first.
+  public internal(set) var raisePicked: String?
+  /// The raise need for the picked kubb (`MatchNeed.picking`).
+  var raiseNeed: MatchNeed? { need?.picking(raisePicked) }
   var raiseHint: (i: Int, left: Double)?
   /// On a phone on its side, the raise and punishment bar's top in pt above the
   /// screen's foot, as the app measured it; nil while no bar shows. The scene
@@ -228,6 +237,11 @@ public final class PitchSession {
   var trailKept = false
   /// The kept trail begins at this match's first snapshot, so it could be replayed.
   public internal(set) var trailComplete = false
+  /// The computer's turn against the computer watched at 1x, 2x or 4x (`CpuSpeed`, the
+  /// device's choice; the app sets it).
+  public var cpuSpeed = 1
+  /// The person's throw the practice was started with (`ThrowChoice`; nil for Standard).
+  public internal(set) var practiceThrow: String?
   var cursor: GroundMark?
   var onlineAction: ((JSONText) throws -> Void)?
   public internal(set) var acceptsInput = true
@@ -240,7 +254,20 @@ public final class PitchSession {
   public var cancelFeedback: (() -> Void)?
   public var canAim: Bool {
     acceptsInput && !playing && handoff == nil && !raiseShowing
-      && (need == nil || (need?.kind == "throw" && need?.cpu == false))
+      && (need == nil || (need?.kind == "throw" && need?.cpu == false) || togoToThrow)
+  }
+  /// A baton to go this device throws now (engine 1.4.0): the need names the side whose
+  /// baton is set up here; nil while this device's is in and the other team's is not.
+  public var togoToThrow: Bool { need?.kind == "togo" && need?.side != nil && need?.cpu != true }
+  /// Waiting for the other team's baton to go: this device's is in (nothing of it shows).
+  public var togoWaiting: Bool { need?.kind == "togo" && need?.side == nil }
+  /// The name of the team the throw to go waits for ("Waiting for Bold Birch").
+  public var togoWaitingFor: String? {
+    guard togoWaiting, let n = need else { return nil }
+    // the other team's first (a team-mate who throws none waits for whoever owes one)
+    let mine = watching ? nil : playerSide()
+    let side = n.owe?.first { $0 != mine } ?? n.owe?.first ?? (n.thrown?["A"] == true ? "B" : "A")
+    return n.teams?[side] ?? "Team \(side)"
   }
   public private(set) var windText: String?, advantageText: String?, slow = false
   /// What the thrower aims at, the engine's rail (`rail.r1`: "FIELD 2", "BASE 5", "KING").
@@ -258,11 +285,15 @@ public final class PitchSession {
   /// The `setWide` box this session's engine has (nil: the wide view is off), re-sent
   /// to another engine's Lua state when the match moves to it.
   private var wideBox: String?
+  /// What each engine's Lua state was last told by `setView` (it outlasts `new`), and the
+  /// screen it was for.
+  private var sideArgs: [String: String] = [:]
+  private var sideScreen: (size: CGSize, safe: ScreenInsets)?
   /// The watcher's wide view is on (`watchWide`).
   public var wideOn: Bool { scene.wide }
   /// The free camera takes the pitch: the wide view, and not a raise or punishment
   /// scene (those keep their own close look, as the thrower's view does).
-  public var freeOn: Bool { scene.wide && scene.stillZoom == nil && freeCamera.lens != nil }
+  public var freeOn: Bool { scene.wide && scene.stillZoom == nil && !camera.fitted && freeCamera.lens != nil }
   /// The camera the pitch is drawn through: the free camera's in the wide view.
   public var shownCamera: Camera { freeOn ? freeCamera.camera(camera) : camera }
   /// This board shows a match it has no side in (OnlinePitch sets it): it watches, in
@@ -317,7 +348,10 @@ public final class PitchSession {
   public func useEngine(minor: String?) throws {
     let mm = minor ?? Engine.newest
     if engine.minor == mm { return }
-    defer { try? carryWide() }
+    defer {
+      try? carryWide()
+      carrySideView()
+    }
     if let e = engines[mm] {
       engine = e
       return
@@ -425,6 +459,43 @@ public final class PitchSession {
     return true
   }
 
+  /// The view from the player's own side (engine 1.4.0 `setView`; the owner's brief: "stay on
+  /// the player's side"): in a match this device plays (solo, and a pitch where it has a
+  /// seat), every output is in its side's frame, whoever throws. Its own throws keep the
+  /// thrower's camera; the other side's throws, inkasts and raises come from the camera at
+  /// its own end (kind "end"), fitted to the box `SideView.box` gives, clear of the header
+  /// and the meter. Off in practice and for a watcher (who keeps the wide view, which wins
+  /// over it in the engine too). An engine before 1.4 has no side view: its match is drawn
+  /// as it always was. Sent again only when the side or the box changes, never mid-throw.
+  public func sideView(size: CGSize, safe: ScreenInsets) {
+    sideScreen = (size, safe)
+    guard size.width > 0, size.height > 0, playback == nil, stoodShow == nil, raiseShow == nil else { return }
+    let side = need != nil && !watching ? playerSide() : nil
+    let args: String
+    if let side, side == "A" || side == "B" {
+      let b = SideView.box(size: size, safe: safe)
+      args = JS.object([
+        ("side", .string(side)),
+        ("box", .object([("left", .number(b.left)), ("top", .number(b.top)), ("right", .number(b.right)), ("bottom", .number(b.bottom))])),
+      ]).ascii
+    } else {
+      args = "{}"
+    }
+    guard args != sideArgs[engine.minor] else { return }
+    guard Engine.majorMinor(engine.engineVersion) != "1.0" else { return }
+    guard (try? engine.call("setView", json: args)) != nil else { return }
+    sideArgs[engine.minor] = args
+    // only the camera moved: the card already put away stays away, and a punishment
+    // kubb's cursor stays where the player left it
+    try? reread(keep: true)
+  }
+
+  /// The side view on the engine a match moved to (`useEngine`), as this screen has it.
+  func carrySideView() {
+    guard let s = sideScreen else { return }
+    sideView(size: s.size, safe: s.safe)
+  }
+
   /// The wide view off: the thrower's view again, the free camera let go.
   public func endWide() throws {
     freeCamera.setLens(nil)
@@ -449,9 +520,9 @@ public final class PitchSession {
     freeCamera.setLens(out.camera)
   }
 
-  private func reread() throws {
+  private func reread(keep: Bool = false) throws {
     guard playback == nil, need != nil else { return }
-    try adopt(read("view"))
+    try adopt(read("view"), keep: keep)
   }
 
   /// The major.minors this session has a Lua state for (a test sees the lazy one).
@@ -511,18 +582,24 @@ public final class PitchSession {
   /// a need, so a watcher's raise or punishment scene is the defender's frame too
   /// (`PitchScene.neighboursTurned` leaves the rest of the wide view unturned).
   func viewFrame(of n: MatchNeed) -> String? {
-    if ["throw", "raise", "punish"].contains(n.kind) { return n.side }
+    // engine 1.4.0 names the frame its poses are in (the viewer's with `setView`)
+    if let f = n.frame { return f }
+    if ["throw", "raise", "punish", "togo"].contains(n.kind), let side = n.side { return side }
     struct Snap: Decodable { let side: String? }
     guard let text = try? engine.call("snapshot") else { return nil }
     return (try? decoder.decode(Snap.self, from: Data(text.utf8)))?.side
   }
 
-  func adopt(_ v: ViewOutput) throws {
+  /// `keep`: the same need seen again from another camera (`sideView`), whose hand-off
+  /// card, if put away, stays away, with no second haptic, and whose punishment cursor
+  /// stays.
+  func adopt(_ v: ViewOutput, keep: Bool = false) throws {
     let wide = scene.wide, far = scene.farFrameY
     scene = PitchScene(surface: v.surface, set: v.set, items: v.items, look: v.scene)
     scene.wide = wide
     // a throw's aim camera fits the tall screen by its far baseline until the next throw
-    scene.farFrameY = v.need.kind == "throw" ? (PitchProjection.farFrame(v.camera) ?? far) : far
+    scene.farFrameY =
+      (v.need.kind == "throw" || v.need.kind == "togo") ? (PitchProjection.farFrame(v.camera) ?? far) : far
     scene.frameSide = viewFrame(of: v.need)
     dial = v.dial
     aim(v.aim, camera: v.camera)
@@ -532,17 +609,28 @@ public final class PitchSession {
       need = v.need
       // A resignation can retain the preceding informative card in the engine view.
       handoff = v.need.kind == "throw" ? v.need.card?.handoff : nil
-      if let handoff, handoff.turn != previousHandoff?.turn || handoff.toName != previousHandoff?.toName {
+      if keep, previous?.kind == v.need.kind, previous?.side == v.need.side, previous?.n == v.need.n {
+        handoff = previousHandoff
+      }
+      if !keep, let handoff, handoff.turn != previousHandoff?.turn || handoff.toName != previousHandoff?.toName {
         onFeedback?(PitchFeedback(haptic: .handoff))
       }
       if v.need.kind == "over", previous?.kind != "over",
         let winner = v.need.winner?.winner, winner == playerSide() {
         onFeedback?(PitchFeedback(haptic: .win))
       }
-      placement = nil
-      cursor = v.need.cursor
+      let keepCursor = keep && previous?.kind == "punish" && v.need.kind == "punish" && cursor != nil
+      if !keepCursor {
+        placement = nil
+        cursor = v.need.cursor
+      }
       if previous?.kind != v.need.kind || previous?.kubb != v.need.kubb || previous?.n != v.need.n {
         resetRaiseTouch()
+      }
+      // the picked kubb stays picked while it is still lying (a team-mate's raise of
+      // another changes the need's first), and goes once it is up
+      if v.need.kind != "raise" || !(v.need.lying ?? []).contains(where: { $0.id == raisePicked }) {
+        raisePicked = nil
       }
       try settleScene()
       revision += 1
@@ -654,7 +742,8 @@ public final class PitchSession {
       if was != freeCamera.moved { revision += 1 }
     }
     if playback != nil {
-      try play(dt)
+      // the computer's throw, against the computer, at the speed button's pace
+      try play(playbackCpu ? dt * Double(fastFactor) : dt)
       return true
     }
     // the dust of the last throw settles while the next is aimed
@@ -677,7 +766,7 @@ public final class PitchSession {
     }
     if try raiseHintTick(dt) { changed = true }
     // a watched raise: nothing else moves until it ends
-    if try raiseShowTick(dt) || stoodShowTick(dt) { return true }
+    if try raiseShowTick(dt) || stoodShowTick(stoodFast ? dt * Double(fastFactor) : dt) { return true }
     if try autoRaiseTick(dt) { return true }
     if result != nil {
       resultAge += dt
@@ -687,7 +776,7 @@ public final class PitchSession {
       }
     }
     guard acceptsInput || (need?.cpu == true && runsComputer) else { return changed }
-    guard handoff == nil, need == nil || need?.kind == "throw" else { return changed }
+    guard handoff == nil, need == nil || need?.kind == "throw" || togoToThrow else { return changed }
     let args: String
     var inputFrame = false
     let side = showsSide
@@ -695,7 +784,9 @@ public final class PitchSession {
       args = sample
       inputFrame = canAim
     } else if (side && mix < 1) || (!side && mix > 0) || need?.cpu == true {
-      args = #"{"dt":\#(dt),"plan":\#(side)}"#
+      // the computer's think and swing at 2x or 4x (engine 1.4.0; it throws the same)
+      let fast = need?.cpu == true && fastFactor > 1 ? #","speed":\#(fastFactor)"# : ""
+      args = #"{"dt":\#(dt),"plan":\#(side)\#(fast)}"#
     } else {
       return changed
     }
@@ -721,6 +812,13 @@ public final class PitchSession {
     if let recording = a.recording {
       try beginPlayback(recording, local: own, drive: own && wasDrive)
       if let action = try JSONNode.parse(text)["action"] { try committed(action.raw) }
+    } else if need?.kind == "togo", let action = try JSONNode.parse(text)["action"]
+    {
+      // a baton to go with the other team's still to come (engine 1.4.0): sent at once,
+      // and nothing of it shows; the recording comes with the second baton
+      input.reset()
+      try committed(action.raw)
+      try adopt(read("view"))
     }
     return true
   }
@@ -730,6 +828,7 @@ public final class PitchSession {
   /// drive's SHORT verdict is coached).
   func beginPlayback(_ recording: Recording, local: Bool = false, drive: Bool = false) throws {
     playbackLocal = local
+    playbackCpu = !local && need?.cpu == true && soloComputer
     playbackDrive = drive
     plan = false
     openPlate = nil
@@ -748,7 +847,7 @@ public final class PitchSession {
   public func skipPlayback() throws {
     guard let p = playback else { return }
     cancelFeedback?()
-    result = p.recording.result
+    result = shownResult(p.recording.result)
     resultAge = 0
     noteOwnResult()
     bursts = []
@@ -757,6 +856,7 @@ public final class PitchSession {
     // the engine's own raises before the next throw are still watched (the web's skip
     // runs on to its endPlayback)
     let view: ViewOutput = try read("view")
+    stoodFast = soloComputer && (playbackCpu || view.need.cpu == true)
     if !beginStoodShow(view: view) { try adopt(view) }
   }
 
@@ -769,6 +869,15 @@ public final class PitchSession {
     if effects?.look == shown && effects?.reduced == reduced { return }
     if effects == nil && shown == "day" { return }
     effects = SceneEffects(look: shown, reduced: reduced)
+  }
+
+  /// A recording's verdict as this board shows it: a throw to go's carries the teams'
+  /// names and the viewer's side (TogoWords: "YOU THROW FIRST").
+  func shownResult(_ r: ThrowResult?) -> ThrowResult? {
+    guard var r, r.togo == true else { return r }
+    r.togoTeams = need?.teams
+    r.togoViewer = watching ? nil : playerSide()
+    return r
   }
 
   private func noteOwnResult() {
@@ -804,7 +913,7 @@ public final class PitchSession {
       }
       if shown.done {
         p.finished = true
-        result = p.recording.result
+        result = shownResult(p.recording.result)
         resultAge = 0
         noteOwnResult()
       }
@@ -832,9 +941,38 @@ public final class PitchSession {
       // match raising automatically, a punishment kubb) are watched first, from the
       // engine's own list (AutoRaise.swift, engine 0.16.0's `setup.settled`)
       let view: ViewOutput = try read("view")
+      stoodFast = soloComputer && (playbackCpu || view.need.cpu == true)
       if !beginStoodShow(view: view) { try adopt(view) }
     } else {
       playback = p
     }
+  }
+}
+
+extension PitchSession {
+  /// Skips the rest of the computer's turn (the engine's `cpuPlay`): every throw it still
+  /// has, and the raises between them, made at once and kept as the watched ones would be
+  /// (each action into the trail and the save, with the hash after it), then the person's
+  /// need. A throw already playing ends where it rests.
+  public func skipComputer() throws {
+    guard computerTurn else { return }
+    cancelFeedback?()
+    input.reset()
+    bursts = []
+    playback = nil
+    playbackCpu = false
+    stoodShow = nil
+    stoodFast = false
+    effects?.clear()
+    result = nil
+    let now: MatchNeed = try read("need")
+    if now.kind == "throw" && now.cpu == true {
+      let text = try engine.call("cpuPlay", json: stamped(#"{"recordings":false}"#))
+      let steps = try JSONNode.parse(text)["steps"]?.items ?? []
+      var made: [(action: JSONText, hash: String?)] = []
+      for st in steps { if let a = st["a"] { made.append((a.raw, st["h"]?.string)) } }
+      try committedSteps(made)
+    }
+    try adopt(read("view"))
   }
 }

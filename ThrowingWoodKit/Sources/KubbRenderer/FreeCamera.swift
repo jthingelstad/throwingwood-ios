@@ -306,3 +306,31 @@ public enum WatchView {
     )
   }
 }
+
+/// The box the engine's end and raise cameras are fitted to in the view from one side
+/// (`PitchSession.sideView`, engine 1.4.0), in frame px as `WatchView.box`: inside the safe
+/// area, under the header, and over the raise panel (`panelRoom`: upright the panel at the
+/// foot, on a short wide screen the bar along the bottom), so the kubbs to raise, their
+/// numbers and a press round them are never under it (`RaiseFramingTests`). The other side's
+/// throws come into the same box; the faded meter stands under its foot.
+public enum SideView {
+  /// pt kept clear at the foot for the raise panel, upright (its tallest, about 190 pt, and
+  /// more at the largest text sizes) and on a short wide screen (the bar, `WideLayout.bar`).
+  public static let panelRoom: CGFloat = 238
+  public static let barRoom: CGFloat = 96
+  /// pt under the safe top: the header (and on its side the header row).
+  public static let headerRoom: CGFloat = 86
+  public static func box(size: CGSize, safe: ScreenInsets) -> (left: Double, top: Double, right: Double, bottom: Double) {
+    let w = size.width, h = size.height
+    let k = min(w / 400, h / 240)
+    let ox = (w - 400 * k) / 2, oy = (h - 240 * k) / 2
+    let m = WatchView.margin
+    let foot: CGFloat =
+      !WideLayout.isWide(size) ? panelRoom : WideLayout.isShort(size) ? barRoom : m
+    let top = safe.top + headerRoom, bottom = h - safe.bottom - foot
+    return (
+      Double((safe.left + m - ox) / k), Double((top - oy) / k),
+      Double((w - safe.right - m - ox) / k), Double((bottom - oy) / k)
+    )
+  }
+}

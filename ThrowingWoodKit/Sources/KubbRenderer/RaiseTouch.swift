@@ -137,6 +137,63 @@ public enum RaiseTouch {
     return inside ? 0 : best
   }
 
+  /// The ends' numbers at least `2 * numberR + 4` apart, each moved out from the pair's
+  /// middle along the line between them (engine 1.4.0's held raise camera draws the whole
+  /// half, so a kubb near the far end is a few points long and its numbers would overlap).
+  static func apart(_ ends: [RaiseEndPoint]) -> [RaiseEndPoint] {
+    guard ends.count == 2 else { return ends }
+    let a = ends[0].label, b = ends[1].label
+    let gap = numberR * 2 + 4.5
+    let d = hypot(b.x - a.x, b.y - a.y)
+    guard d < gap else { return ends }
+    let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
+    // along the kubb as drawn (footprint to footprint) when the labels coincide
+    var ux = b.x - a.x, uy = b.y - a.y
+    if d < 0.5 {
+      ux = ends[1].footprint.x - ends[0].footprint.x
+      uy = ends[1].footprint.y - ends[0].footprint.y
+    }
+    let l = max(0.001, hypot(ux, uy))
+    ux /= l
+    uy /= l
+    if !ux.isFinite || !uy.isFinite || (ux == 0 && uy == 0) { ux = 1; uy = 0 }
+    var out = ends
+    out[0].label = CGPoint(x: mid.x - ux * gap / 2, y: mid.y - uy * gap / 2)
+    out[1].label = CGPoint(x: mid.x + ux * gap / 2, y: mid.y + uy * gap / 2)
+    return out
+  }
+
+  /// The numbers moved together off their line, square to it, until neither covers another
+  /// lying kubb (engine 1.4.0, any order: under the held camera a kubb is a few points long
+  /// and the next one may lie where a number goes), so each stays in sight to pick. Both
+  /// move the same way and as far, so their order along the kubb, and which is nearer a
+  /// tap on it, stay as they were. Unmoved when no step up to 64 pt clears them.
+  static func clear(_ ends: [RaiseEndPoint], of others: [CGPoint]) -> [RaiseEndPoint] {
+    guard ends.count == 2, !others.isEmpty else { return ends }
+    let r = numberR + 8
+    func clear(_ e: [RaiseEndPoint]) -> Bool {
+      others.allSatisfy { c in e.allSatisfy { $0.label.distance(to: c) >= r } }
+    }
+    if clear(ends) { return ends }
+    var ux = ends[1].label.x - ends[0].label.x, uy = ends[1].label.y - ends[0].label.y
+    let l = hypot(ux, uy)
+    guard l > 0.001 else { return ends }
+    ux /= l
+    uy /= l
+    for d in stride(from: CGFloat(4), through: 64, by: 4) {
+      // up the screen first, where a number covers less of the near pitch
+      let up: CGFloat = ux > 0 ? -1 : 1
+      for s in [up, -up] {
+        var out = ends
+        for k in 0..<2 {
+          out[k].label = CGPoint(x: out[k].label.x - uy * d * s, y: out[k].label.y + ux * d * s)
+        }
+        if clear(out) { return out }
+      }
+    }
+    return ends
+  }
+
   /// A press on the drawn kubb, or within `margin` of it.
   public static func on(_ g: Geometry?, _ p: CGPoint, margin: CGFloat = margin) -> Bool {
     guard let g else { return false }
@@ -197,7 +254,8 @@ public enum RaiseTouch {
 /// One end of the kubb on the raise screen: its footprint and its numbered label.
 public struct RaiseEndPoint: Sendable {
   public let index: Int, which: Int
-  public let footprint: CGPoint, label: CGPoint
+  public let footprint: CGPoint
+  public internal(set) var label: CGPoint
   public let ok: Bool, lit: Bool
   public let why: String?
 }
@@ -205,7 +263,7 @@ public struct RaiseEndPoint: Sendable {
 extension PitchSession {
   /// The lying kubb as drawn on the raise screen, or nil.
   public func raiseGeometry(in size: CGSize) -> RaiseTouch.Geometry? {
-    guard let n = need, n.kind == "raise", let pose = n.pose, let id = n.kubb else { return nil }
+    guard let n = raiseNeed, n.kind == "raise", let pose = n.pose, let id = n.kubb else { return nil }
     return RaiseTouch.geometry(
       n, piece: pose.piece(id: id), projection: scene.projection(size, camera))
   }
@@ -216,9 +274,9 @@ extension PitchSession {
   /// Where the ends' footprints and their numbers sit on the screen. A number sits a
   /// little beyond its footprint, along the kubb from its middle.
   public func raiseEnds(in size: CGSize) -> [RaiseEndPoint] {
-    guard let n = need, n.kind == "raise", let pose = n.pose else { return [] }
+    guard let n = raiseNeed, n.kind == "raise", let pose = n.pose else { return [] }
     let p = scene.projection(size, camera)
-    return (n.ends ?? []).enumerated().compactMap { i, e in
+    let points: [RaiseEndPoint] = (n.ends ?? []).enumerated().compactMap { i, e in
       let d = V2(e.pose.x - pose.x, e.pose.y - pose.y)
       let l = simd_length(d) == 0 ? 1 : simd_length(d)
       guard let f = p.project(V3(e.pose.x, e.pose.y, 0)),
@@ -228,20 +286,25 @@ extension PitchSession {
         index: i, which: e.which, footprint: f, label: q, ok: e.ok != false, lit: i == raiseLit,
         why: e.why)
     }
+    let others = lyingShapes(in: size).map { l in
+      CGPoint(
+        x: l.shape.outline.map(\.x).reduce(0, +) / CGFloat(max(1, l.shape.outline.count)),
+        y: l.shape.outline.map(\.y).reduce(0, +) / CGFloat(max(1, l.shape.outline.count)))
+    }
+    return RaiseTouch.clear(RaiseTouch.apart(points), of: others)
   }
 
   /// Which end a tap means: an end's number, anywhere on the drawn kubb (the nearer end),
   /// or near an end's footprint on the ground. nil for none of them.
   public func raisePick(at point: CGPoint, size: CGSize) -> Int? {
-    var pick: Int?
-    for e in raiseEnds(in: size) where e.label.distance(to: point) < RaiseTouch.labelR {
-      pick = e.index
-    }
-    if let pick { return pick }
+    // the nearest number within reach (engine 1.4.0's held camera draws the kubb small, so
+    // the two numbers' reaches may overlap)
+    let near = raiseEnds(in: size).filter { $0.label.distance(to: point) < RaiseTouch.labelR }
+    if let pick = near.min(by: { $0.label.distance(to: point) < $1.label.distance(to: point) }) { return pick.index }
     if let g = raiseGeometry(in: size), RaiseTouch.on(g, point) {
       return RaiseTouch.nearerEnd(g, point)
     }
-    guard let n = need, let ground = scene.projection(size, camera).ground(point) else {
+    guard let n = raiseNeed, let ground = scene.projection(size, camera).ground(point) else {
       return nil
     }
     var best: Int?
@@ -259,7 +322,7 @@ extension PitchSession {
   /// A tap, or a drag let go, on end i: stand it there, or, when the rules refuse that
   /// end, light the one they allow for a moment and send nothing. True when it stood.
   @discardableResult public func raiseTap(_ i: Int) throws -> Bool {
-    guard let n = need, n.kind == "raise" else { return false }
+    guard let n = raiseNeed, n.kind == "raise" else { return false }
     let pick = RaiseTouch.allowed(n, i)
     if pick.ok, let e = n.ends?[i] { return try raise(end: e.which) }
     if let j = pick.i { try showRaiseHint(j) }
@@ -269,7 +332,7 @@ extension PitchSession {
   /// A drag that started on the kubb (`geometry`, kept from the press): tip it up toward
   /// the end the finger moves to, never toward a refused end (that lights the allowed one).
   public func raiseDrag(_ g: RaiseTouch.Geometry, from: CGPoint, to: CGPoint) throws {
-    guard let n = need, n.kind == "raise", acceptsInput else { return }
+    guard let n = raiseNeed, n.kind == "raise", acceptsInput else { return }
     let d = RaiseTouch.drag(g, from: from, to: to)
     if n.ends?[d.i].ok == false {
       let was = raiseDragging != nil
@@ -335,6 +398,61 @@ extension PitchSession {
     raiseDragging = nil
     raiseSelected = nil
     raiseHint = nil
+  }
+
+  /// The other kubbs still lying (engine 1.4.0, any order), as drawn: each may be picked
+  /// to raise next. Empty on an engine that raises them in its own order.
+  public func lyingShapes(in size: CGSize) -> [(id: String, shape: RaiseTouch.Geometry)] {
+    guard let n = need, n.kind == "raise", acceptsInput, let lying = n.lying, lying.count > 1 else { return [] }
+    let picked = raiseNeed?.kubb
+    let pr = scene.projection(size, camera)
+    return lying.compactMap { e in
+      guard e.id != picked else { return nil }
+      let m = n.picking(e.id)
+      guard let pose = m.pose, let g = RaiseTouch.geometry(m, piece: pose.piece(id: e.id), projection: pr) else {
+        return nil
+      }
+      return (e.id, g)
+    }
+  }
+
+  /// A press on another lying kubb picks it (its ends and numbers move to it). Not when
+  /// the press is on the picked kubb itself. The picked kubb's shape, or nil when the
+  /// press picked nothing.
+  @discardableResult public func pickLying(at point: CGPoint, size: CGSize) throws -> RaiseTouch.Geometry? {
+    if RaiseTouch.on(raiseGeometry(in: size), point, margin: 8) { return nil }
+    // a press on an end's number is that end's, not a pick
+    if raiseEnds(in: size).contains(where: { $0.label.distance(to: point) <= RaiseTouch.numberR + 2 }) { return nil }
+    let hits = lyingShapes(in: size).filter { RaiseTouch.on($0.shape, point, margin: 12) }
+    guard let hit = hits.min(by: { RaiseTouch.outside($0.shape.outline, point) < RaiseTouch.outside($1.shape.outline, point) })
+    else { return nil }
+    raisePicked = hit.id
+    resetRaiseTouch()
+    try settleScene()
+    revision += 1
+    return raiseGeometry(in: size)
+  }
+
+  /// The other lying kubbs a screen reader may pick instead (engine 1.4.0, any order):
+  /// each with where it lies as drawn, "the kubb on the left", nearest first.
+  public func otherLyingNames() -> [(id: String, name: String)] {
+    let size = CGSize(width: 400, height: 800)
+    guard let picked = raiseGeometry(in: size)?.outline, !picked.isEmpty else { return [] }
+    let px = picked.map(\.x).reduce(0, +) / CGFloat(picked.count)
+    return lyingShapes(in: size).map { l in
+      let x = l.shape.outline.map(\.x).reduce(0, +) / CGFloat(max(1, l.shape.outline.count))
+      return (l.id, x < px ? "the kubb to the left" : "the kubb to the right")
+    }
+  }
+
+  /// Picks the lying kubb `id` to raise next (VoiceOver's action; a touch picks with
+  /// `pickLying`).
+  public func pickLying(id: String) throws {
+    guard raiseNeed?.lying?.contains(where: { $0.id == id }) == true else { return }
+    raisePicked = id
+    resetRaiseTouch()
+    try settleScene()
+    revision += 1
   }
 }
 

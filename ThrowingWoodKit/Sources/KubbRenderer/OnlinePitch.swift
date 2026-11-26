@@ -44,6 +44,9 @@ public struct PitchMember: Identifiable, Equatable {
   public let id, name: String
   public let connected, host, you: Bool
   public let side: String?
+  /// The member's throw (engine 1.3, `me.throw`), nil where the lobby's engine has none;
+  /// Standard when the member names none.
+  public var throwLevel: String? = nil
 }
 
 /// A computer seat in the lobby (engine 0.17, docs/PITCH.md "Computer seats"): its id
@@ -141,6 +144,8 @@ public enum LobbyEntry: Identifiable, Equatable {
   /// The hollers on screen, newest last, each for 2.6 s (at most 4).
   public private(set) var shouts: [ShownHoller] = []
   public private(set) var name: String
+  /// The person's throw, the device's (`ThrowChoice`), sent as `me.throw`.
+  public private(set) var throwLevel: String
   public var changed: (() -> Void)?
   private let create: Bool
   private var firstJoin = true
@@ -215,7 +220,7 @@ public enum LobbyEntry: Identifiable, Equatable {
   }
 
   public init(
-    url: URL, link: PitchLink, create: Bool, name: String,
+    url: URL, link: PitchLink, create: Bool, name: String, throw level: String = ThrowChoice.standard,
     appVersion: String, store: any MemberIDStore = DeviceMemberIDStore(),
     observerStore: any MemberIDStore = ObserverMemberIDStore.shared,
     timing: PitchClient.Timing = .init(), defaults: UserDefaults = .standard,
@@ -232,6 +237,7 @@ public enum LobbyEntry: Identifiable, Equatable {
     teamMax = try JSONNode.parse(engine.call("pitch.constants"))["value"]!["TEAM_MAX"]!.int!
     // the device's name, a generated one (PlayerName): sent as it is
     self.name = name
+    throwLevel = level
     let client = try PitchClient(
       url: url, pitch: link.code, appVersion: appVersion,
       // a watcher joins with an id of its own, never the player's: a member's role is
@@ -240,7 +246,7 @@ public enum LobbyEntry: Identifiable, Equatable {
       observing: link.observe, create: create, timing: timing,
       factory: factory ?? { WebSocketTransport(request: $0) })
     controller = try PitchController(pitch: client, engines: engines)
-    try controller.setMe(name: self.name)
+    try controller.setMe(name: self.name, throw: level)
     board.playerSide = { [weak controller] in controller?.playingSide }
     board.acceptsInput = false
     board.runsComputer = false
@@ -410,12 +416,15 @@ public enum LobbyEntry: Identifiable, Equatable {
     // told apart ("II"): never the text that failed (docs/ONLINE.md "Names")
     let shown = controller.shownNames().apart
     teamNames = ["A": controller.teamNameOf("A"), "B": controller.teamNameOf("B")]
+    let takesThrow = controller.lobbyTakesThrow()
     members = pitch.members.compactMap { m in
       guard let id = m["id"]?.string else { return nil }
       return PitchMember(
         id: id, name: shown[id] ?? "Someone",
         connected: m["connected"]?.bool == true, host: pitch.host == id, you: id == pitch.you,
-        side: a.contains(id) ? "A" : b.contains(id) ? "B" : nil)
+        side: a.contains(id) ? "A" : b.contains(id) ? "B" : nil,
+        throwLevel: takesThrow
+          ? (id == pitch.you ? throwLevel : (m["me"]?["throw"]?.string ?? ThrowChoice.standard)) : nil)
     }
     isOpen = l["open"]?.bool == true
     // every option, the engine's own (computer, scene) too, on the engine the next
@@ -513,6 +522,20 @@ public enum LobbyEntry: Identifiable, Equatable {
       pitch.setMe([("name", .string(name))])
       self.name = name
     }
+  }
+  /// The person's throw (engine 1.3, `ThrowChoice`), as the room knows it (`me.throw`,
+  /// which the lineup gives this member's player entry at START).
+  public func profile(throw level: String) {
+    guard level != throwLevel, ThrowChoice.choices.contains(where: { $0.id == level }) else { return }
+    throwLevel = level
+    pitch.setMe([("throw", .string(level))])
+    members = members.map { m in
+      guard m.you, m.throwLevel != nil else { return m }
+      var m = m
+      m.throwLevel = level
+      return m
+    }
+    changed?()
   }
   /// The host picks a side's team name in the lobby (its name row).
   public func teamName(_ side: String, _ text: String) async throws {
@@ -780,7 +803,7 @@ public enum LobbyEntry: Identifiable, Equatable {
     } else if board.need?.kind == "raise", let node = try? JSONNode.parse(action.text), node["type"]?.string == "raise" {
       // each action already waiting behind it makes it run faster (RaisePace.catchUp)
       board.actionsWaiting = queue.count
-      try board.watchRaise(end: raised, choice: node["choice"]?.int)
+      try board.watchRaise(end: raised, choice: node["choice"]?.int, which: node["which"]?.int)
     } else {
       try board.adopt(board.read("view"))
     }
@@ -798,6 +821,33 @@ public enum LobbyEntry: Identifiable, Equatable {
     let cpu = board.need?.cpu == true && board.runsComputer
     guard board.acceptsInput || cpu, !writing, let n = displayedMatch else {
       throw PitchError("not-acting")
+    }
+    if PitchController.isTogo(action) {
+      // a baton to go (engine 1.4.0) has no place in the order and both teams throw at
+      // once: the board goes back to the pitch's state and is shown the baton once the
+      // controller has it in order (PitchController.take), after a peer's that came first
+      writing = true
+      board.acceptsInput = false
+      Task { [weak self] in
+        guard let self else { return }
+        do {
+          guard controller.matchNumber == n else { writing = false; return }
+          if let head = controller.match { try restore(head) }
+          let landed = try await controller.take(action)
+          writing = false
+          guard !ended && !suspended else { return }
+          if !landed, let latest = controller.match { try restore(latest) }
+          try seat()
+          changed?()
+        } catch {
+          writing = false
+          guard !ended && !suspended else { return }
+          if let latest = controller.match { try? restore(latest) }
+          try? seat()
+          changed?()
+        }
+      }
+      return
     }
     writing = true
     released = !cpu
@@ -846,7 +896,9 @@ public enum LobbyEntry: Identifiable, Equatable {
   private var boardBusy: Bool { board.playing || board.raiseWatch != .none }
   @discardableResult public func tick(_ dt: Double) throws -> Bool {
     // this member's aim as it stands before the frame: a release in this frame sends it
-    let aim = stage == .match && board.canAim && !writing ? JSONText(try board.engine.call("aimState")) : nil
+    // a baton to go is blind (engine 1.4.0): its aim is never cast
+    let blind = board.need?.kind == "togo"
+    let aim = stage == .match && board.canAim && !writing && !blind ? JSONText(try board.engine.call("aimState")) : nil
     released = false
     let drew = try board.tick(dt)
     // the queue drains whenever the board is free and the last frame left it busy or
@@ -881,6 +933,7 @@ public enum LobbyEntry: Identifiable, Equatable {
     // already, and an aim shown then would take the raise view's camera mid-raise; the
     // newest aim is sampled again on the first frame after it, so the watcher is not behind
     guard stage == .match, !board.acceptsInput, !board.playing, board.raiseWatch.drawsRemoteAim, waiting,
+      board.need?.kind != "togo",
       let aim = aims.sample(now: now), aim != shownAim,
       let output: AimOutput = try? board.read("showAim", aim.text)
     else { return false }

@@ -73,7 +73,7 @@ import Testing
   @Test func aSoloMatchHasItsLength() throws {
     let app = try PitchSession(appVersion: "test")
     app.clockNow = { Self.noon }
-    try app.startSolo(name: "Mighty Maple", selections: app.options.defaults, save: nil)
+    try app.startSolo(name: "Mighty Maple", selections: app.options.withoutTogo, save: nil)
     let start = try JSONNode.parse(app.engine.call("snapshot"))["opts"]?["start"]
     #expect(start?["utcOffset"]?.int == TimeZone.current.secondsFromGMT(for: Self.noon) / 60)
     app.dismissHandoff()
