@@ -37,9 +37,13 @@ import simd
     return Double(a.distance(to: b))
   }
 
+  /// The app's own raise camera (`RaiseCamera`): a raise with no camera of the engine's, as
+  /// engine 1.0's matches (still carried) give.
   @Test func theRaiseShowsTwiceAsMuch() throws {
     let app = try PitchSession(appVersion: "test")
     try app.restore(fixture("raise"), save: nil)
+    app.need = try JSONDecoder().decode(MatchNeed.self, from: Data(Self.sideline.utf8))
+    try app.settleScene()
     let p = try #require(app.need?.pose)
     let a = p.angle ?? 0
     // the camera it had before 2026-11-22: 1.15 m back, 1.05 up, looking 0.12 toward it
@@ -87,13 +91,19 @@ import simd
       }
       for s in Self.screens {
         let tag = "\(name), \(s.name)"
+        // engine 1.4.0's held raise camera is fitted to the screen's side view box
+        app.sideView(size: s.size, safe: s.safe)
+        try app.settleScene()
         let g = try #require(app.raiseGeometry(in: s.size), "\(tag)")
         let xs = g.outline.map(\.x), ys = g.outline.map(\.y)
         let w = xs.max()! - xs.min()!, h = ys.max()! - ys.min()!
         // drawn smaller, but its target (the outline and the press margin round it) is
         // at least 44 pt across every way
         #expect(min(w, h) + 2 * RaiseTouch.margin >= 44, "\(tag)")
-        #expect(max(w, h) >= 24, "\(tag): \(max(w, h))")
+        // drawn at least 24 pt long in the app's own raise camera; engine 1.4.0's held
+        // camera shows the whole half from the raiser's end (the web's too), so a kubb near
+        // the king is a few points long and only its target (above) and numbers keep size
+        if app.need?.camera == nil { #expect(max(w, h) >= 24, "\(tag): \(max(w, h))") }
         // the ends' numbers: apart, clear of the kubb, on the screen
         let ends = app.raiseEnds(in: s.size)
         #expect(ends.count == 2, "\(tag)")

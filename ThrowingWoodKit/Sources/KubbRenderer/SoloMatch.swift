@@ -36,6 +36,9 @@ public struct SoloOptions {
   /// The throw levels (`LEVELS`): the computer's, Kid first since 0.15. A person has
   /// none (engine 0.13).
   public let levels: [String]
+  /// A person's throw levels (engine 1.3's `THROW_LEVELS`: easy, standard, hard); empty
+  /// on an engine before it, which has one meter for everyone.
+  public let throwLevels: [String]
   /// The engine takes the computer's level as a match option (`computer`, since 0.9).
   public let takesComputer: Bool
   /// The engine takes a scene (`scene` in OPTION_DEFAULTS, since 0.9): the Scene row shows.
@@ -46,6 +49,7 @@ public struct SoloOptions {
     struct Constants: Decodable {
       let MATCH_OPTIONS: [MatchOption], LEVELS: [String], OPTION_DEFAULTS: [String: String],
         NAME_MAX: Int
+      let THROW_LEVELS: [String]?
     }
     struct Reply<T: Decodable>: Decodable { let value: T }
     struct Card: Decodable {
@@ -57,8 +61,12 @@ public struct SoloOptions {
     takesComputer = c.MATCH_OPTIONS.contains { $0.id == "computer" }
     takesScene = SceneID.taken(by: c.OPTION_DEFAULTS)
     rows = c.MATCH_OPTIONS
+    // the throw to go is on by default (the product's default; the engine's is off, so
+    // its older matches and hashes stay as they were: kubb-engine docs/SESSION.md)
     defaults = c.OPTION_DEFAULTS.filter { d in c.MATCH_OPTIONS.contains { $0.id == d.key } }
       .merging(["computer": "club", "scene": "day"]) { old, _ in old }
+      .merging(c.MATCH_OPTIONS.contains { $0.id == "togo" } ? ["togo": "on"] : [:]) { _, new in new }
+    throwLevels = c.THROW_LEVELS ?? []
     nameLimit = c.NAME_MAX
     var cards = [String: SceneCard]()
     for scene in c.MATCH_OPTIONS.first(where: { $0.id == "scene" })?.choices.map({ $0[0] }) ?? [] {
@@ -78,16 +86,22 @@ public struct SoloOptions {
 
   /// The order of the rows on an options card (the 1.0 design, direction A, scene first):
   /// Scene (its picture tiles), Surface right under it where the scene leaves one (it is
-  /// part of the scene's choice), then Computer, Opening, Raising and Wind. A row the
-  /// engine adds that is not named here goes last; there is no Kubbs row while no scene
-  /// allows two sets.
-  public static let cardOrder = ["scene", "surface", "computer", "opening", "raising", "wind", "set"]
+  /// part of the scene's choice), then Throw to go (engine 1.4.0, the engine's place for it,
+  /// just before Computer), Computer, Opening, Raising and Wind. A row the engine adds that
+  /// is not named here goes last; there is no Kubbs row while no scene allows two sets.
+  /// Throw to go (engine 1.4.0) beside Opening, both say how the match begins; under
+  /// Computer, so picking Kid (which takes it away) never moves the row being touched.
+  public static let cardOrder = ["scene", "surface", "computer", "opening", "togo", "raising", "wind", "set"]
   public static func ordered(_ rows: [MatchOption]) -> [MatchOption] {
     rows.sorted { (cardOrder.firstIndex(of: $0.id) ?? 99) < (cardOrder.firstIndex(of: $1.id) ?? 99) }
   }
   /// The card's rows for the chosen scene, in `cardOrder`.
+  ///
+  /// A Kid match has no throw to go (the engine never plays one there), so its row goes
+  /// while Computer is Kid rather than offer a choice that does nothing.
   public func cardRows(_ selections: [String: String]) -> [MatchOption] {
-    Self.ordered(card(selections["scene"])?.rows ?? [])
+    let kid = (selections["computer"] ?? defaults["computer"]) == "kid"
+    return Self.ordered(card(selections["scene"])?.rows ?? []).filter { !(kid && $0.id == "togo") }
   }
   /// The selections a match starts with: through the scene (core/scenes' resolve), so a
   /// surface or set the scene does not allow is its own. `PitchSession.startSolo` applies
@@ -143,6 +157,11 @@ public struct MatchNeed: Decodable {
       public let name: String
       public let cpu: Bool?
       public let level, key: String?
+      /// A person's throw level (engine 1.3): "easy" or "hard", absent for standard: the
+      /// width of the meter's bars (ThrowChoice).
+      public let `throw`: String?
+      /// The player's id in the match (engine 1.4's togo `throwers`, a raise's `players`).
+      public let id: String?
     }
     public let n, of: Int
     public let projectile, label: String
@@ -207,6 +226,14 @@ public struct MatchNeed: Decodable {
     public let which: Int, ok: Bool?, why: String?
   }
   struct Other: Decodable { let id: String, pose: Pose }
+  /// A field kubb still lying in a raise (engine 1.4.0, `lying`, in id order, the first
+  /// being `kubb`): any of them may be raised next, each with its own ends and choice.
+  public struct Lying: Decodable {
+    public let id: String
+    let pose: Pose
+    let choices, ends: [End]?
+    let `default`: Int?
+  }
   struct Bounds: Decodable { let xMin, xMax, yMin, yMax: Double }
   struct Last: Decodable { let short: String? }
   public let resignPending: String?
@@ -215,12 +242,47 @@ public struct MatchNeed: Decodable {
   public let kind: String, side, team: String?, cpu: Bool?, setup: Setup?
   public let turn, n, of: Int?, teams: [String: String]?, standing: [String: Int]?
   public let card: Card?, winner: Winner?, how, short: String?
-  public let ends: [End]?
-  let choices: [End]?, others: [Other]?, pose, king: Pose?, kubb: String?
+  public internal(set) var ends: [End]?
+  var choices: [End]?, others: [Other]?, pose: Pose?, kubb: String?
+  let king: Pose?
   /// The engine's choice when no end is named (a one-based index into `choices`): the end
   /// an automatic raise stands the kubb on.
-  let `default`: Int?
+  var `default`: Int?
   let cursor: GroundMark?, bounds: Bounds?, keepOut: [GroundMark]?, last: Last?
+  /// Engine 1.4.0: every field kubb still lying (a raise in any order), the one camera the
+  /// whole raise is drawn through (kind "raise" at the raiser's end, "end" at the viewer's
+  /// for the other side's), and the frame every pose is in (the viewer's with `setView`).
+  public let lying: [Lying]?
+  let camera: Camera?
+  public let frame: String?
+  /// The raising side's players (engine 1.4.0): any of them may raise.
+  public let players: [Setup.Player]?
+  /// The throw to go (engine 1.4.0, kind "togo"): the round, the sides still to throw,
+  /// whose baton is in, each side's thrower, the sides the engine throws for, and the last
+  /// round's verdict when this round is a rethrow.
+  public let round: Int?, owe: [String]?, thrown: [String: Bool]?
+  public let throwers: [String: Setup.Player]?, computer: [String: Bool]?
+  public let again: ThrowResult?
+
+  /// A baton is aimed under this need: a throw, or a baton to go set up on this device
+  /// (engine 1.4.0; while it waits for the other team's, `side` is nil and nothing aims).
+  public var aims: Bool { kind == "throw" || (kind == "togo" && side != nil) }
+
+  /// The raise need as it is for lying kubb `id` (engine 1.4.0's `lying`): its pose, ends,
+  /// choices and default in the top-level fields the raise screen reads. Itself when `id`
+  /// is the first or not lying.
+  func picking(_ id: String?) -> MatchNeed {
+    guard let id, id != kubb, let e = lying?.first(where: { $0.id == id }) else { return self }
+    var n = self
+    // the first kubb lies among the others now, and the picked one leaves them
+    n.others = (others ?? []).filter { $0.id != id } + (kubb.flatMap { k in pose.map { Other(id: k, pose: $0) } }.map { [$0] } ?? [])
+    n.kubb = e.id
+    n.pose = e.pose
+    n.ends = e.ends
+    n.choices = e.choices
+    n.default = e.default
+    return n
+  }
 }
 
 /// The match's game file as the engine writes it, but for a Duration that cannot be true
@@ -247,7 +309,11 @@ public struct ScoreSheet: Decodable {
   }
 }
 
-public struct PlacementCheck: Decodable { public let ok: Bool, label: String? }
+public struct PlacementCheck: Decodable {
+  public let ok: Bool, label: String?
+  /// Why a raise was refused (engine 1.4.0: "not raising", "not lying", "no end", "that end").
+  public var why: String? = nil
+}
 
 /// The local save contains precisely the tagged session's snapshot text.
 public struct MatchSave {

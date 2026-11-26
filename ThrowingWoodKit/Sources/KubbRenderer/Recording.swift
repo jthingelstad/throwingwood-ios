@@ -21,6 +21,30 @@ public struct ThrowResult: Decodable, Equatable, Sendable {
     var codes: [String] { (parts?.compactMap(\.code)).flatMap { $0.isEmpty ? nil : $0 } ?? (code.map { [$0] } ?? []) }
   }
   let ruling: Ruling?
+  /// The throw to go's verdict (engine 1.4.0, `recording.result` of kind "togo"): each
+  /// side's baton (`gap` in m to the king's side, 0 touching; `toppled` the king), the
+  /// side that throws first, how ("closer", "king", "again") and why again ("tie", "both
+  /// king").
+  public struct TogoBaton: Decodable, Equatable, Sendable {
+    public let gap: Double?, mm: Int?, toppled: Bool?, cpu: Bool?
+    let verdicts: Words?
+  }
+  public internal(set) var togo: Bool? = nil
+  public internal(set) var first: String? = nil, how: String? = nil, why: String? = nil
+  public internal(set) var round: Int? = nil
+  public internal(set) var A: TogoBaton? = nil, B: TogoBaton? = nil
+  /// The teams' names and the viewer's side, set by the session for the words (never the
+  /// engine's).
+  public internal(set) var togoTeams: [String: String]? = nil
+  public internal(set) var togoViewer: String? = nil
+  /// The flag over the pitch: a throw to go's verdict (TogoWords), else `shownFlag`.
+  public var headline: String? {
+    togo == true ? TogoWords.flag(self) : shownFlag
+  }
+  /// The line under the flag: a throw to go's distances, else the engine's `restText`.
+  public var shownRest: String? {
+    togo == true ? TogoWords.rest(self) : restText
+  }
   /// The flag over the pitch after the throw (the web's rulings.js flagFor): the
   /// recording's `flag`, except where a Kid match's ruling says what happened better. A
   /// Kid match has no punishments and no losing throws, so the flag never says one: a king
@@ -39,7 +63,9 @@ public struct ThrowResult: Decodable, Equatable, Sendable {
     public let text: String, offTarget: Bool
   }
   public var words: [Verdict] {
-    guard let v = verdicts else { return [] }
+    // a throw to go's: the viewer's own baton's
+    let own = togo == true ? (togoViewer == "A" ? A : togoViewer == "B" ? B : nil)?.verdicts : nil
+    guard let v = togo == true ? own : verdicts else { return [] }
     var off = [Verdict]()
     var on = [Verdict]()
     for (word, good, label) in [

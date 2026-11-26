@@ -398,9 +398,14 @@ extension PitchSession {
   /// The end a `raise` action stands the board's need's kubb on (its choice, else the
   /// engine's default), or nil when it is not a raise of this need.
   public func raiseEnd(of action: JSONText) -> Int? {
-    guard let n = need, n.kind == "raise", let node = try? JSONNode.parse(action.text),
+    guard let n0 = need, n0.kind == "raise", let node = try? JSONNode.parse(action.text),
       node["type"]?.string == "raise"
     else { return nil }
+    // engine 1.4.0: the raise names its kubb (any order) and the end by `which`; the
+    // watched raise is drawn on that kubb
+    let n = n0.picking(node["kubb"]?.string)
+    if let id = node["kubb"]?.string, n.kubb == id { raisePicked = id }
+    if let which = node["which"]?.int { return n.ends?.firstIndex { $0.which == which } }
     if let c = node["choice"]?.int, let choices = n.choices, choices.indices.contains(c - 1) {
       let which = choices[c - 1].which
       return n.ends?.firstIndex { $0.which == which }
@@ -415,6 +420,8 @@ extension PitchSession {
   }
 
   private func startRaiseShow(lies: Bool) throws {
+    // the engine's choice raises its own first kubb
+    raisePicked = nil
     guard let n = need else { return }
     // the first kubb of this turn's automatic raise lies a moment first, and its one line
     // for VoiceOver is said then, not a line a kubb (AUTO's one kubb: no lying, one line)
@@ -443,8 +450,10 @@ extension PitchSession {
   /// Another member's raise, already applied to this board's engine (OnlinePitch): its
   /// kubb tips up onto end `i` before the board moves on, at the sender's pace with no
   /// lying first (it lay while the sender chose).
-  public func watchRaise(end i: Int?, choice: Int? = nil) throws {
-    let final = need.flatMap { finalPose($0, choice: choice) }
+  public func watchRaise(end i: Int?, choice: Int? = nil, which: Int? = nil) throws {
+    let final = raiseNeed.flatMap { n in
+      which.map { w in n.choices?.first { $0.which == w }?.pose } ?? finalPose(n, choice: choice)
+    }
     raiseShow = RaiseShow(i: i, pending: nil, lead: 0, beat: Pacing.raiseBeat(need?.of ?? 1), final: final)
     _ = try raiseShowTick(0)
   }
@@ -495,7 +504,7 @@ extension PitchSession {
     try settleScene()
     // standing: from the footprint it tipped onto to where the engine put it (a crowded
     // raise's search moved it), in half the beat's rest
-    if t >= 1, !reduceMotion, let f = s.final, let n = need, let id = n.kubb, let i = s.i,
+    if t >= 1, !reduceMotion, let f = s.final, let n = raiseNeed, let id = n.kubb, let i = s.i,
       let lying = n.pose.map({ $0.piece(id: id) })
     {
       let top = RaiseTouch.tilt(n, lying: lying, i: i, t: 1)

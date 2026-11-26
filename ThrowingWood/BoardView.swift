@@ -19,6 +19,8 @@ import UIKit
   private var meterGrab: CGFloat = 0
   /// The lying kubb as drawn when a press landed on it: the press may tip it up (RaiseTouch).
   private var raiseShape: RaiseTouch.Geometry?
+  /// This press picked another lying kubb (engine 1.4.0): a tap only picks it.
+  private var pickedOnPress = false
   /// A finger turning the clock from beside its ring (drawn as a spoke to it).
   private var besideRing = false
   /// A stroke from the throw zone or beside the ring: the engine takes the
@@ -492,6 +494,8 @@ import UIKit
     } catch {
       model.error = error.localizedDescription
     }
+    // the player's own side's view (engine 1.4.0): off for a watcher and in practice
+    pitch.sideView(size: bounds.size, safe: insets)
     isMultipleTouchEnabled = pitch.freeOn
     if !pitch.freeOn { freeTouches = [] }
     if was != pitch.wideOn { DispatchQueue.main.async { [weak self] in self?.model.refresh() } }
@@ -591,12 +595,14 @@ import UIKit
     #endif
     let hud = PracticeHUD(context: ctx, size: bounds.size)
     if model.screen == .match, pitch.handoff == nil {
-      if pitch.need?.kind == "throw", !pitch.wideOn, !pitch.raiseShowing,
+      if pitch.need?.aims == true, !pitch.wideOn, !pitch.raiseShowing,
         let map = Self.minimapFrame(model: model, size: bounds.size, safe: insets)
       {
         // under the header's right end in every layout, still while a control is held
         pitch.scene.drawMap(in: ctx, rect: map, look: look)
       }
+      // the other kubbs still lying, any of which may be raised next: a dashed outline
+      for l in pitch.lyingShapes(in: bounds.size) { hud.pickOutline(l.shape.outline) }
       for e in pitch.raiseEnds(in: bounds.size) { hud.endLabel(e) }
       if pitch.held == .side, !pitch.throwsKubb, let circle = pitch.marker(in: bounds.size) {
         hud.leaningBaton(at: circle, tiltDegrees: Double(pitch.sideStep ?? 0))
@@ -609,7 +615,7 @@ import UIKit
     }
     // the meter, its nudge and the coach: never over a watched raise
     if model.screen == .practice || model.screen == .match, !pitch.playing, !pitch.raiseShowing, !pitch.wideOn,
-      pitch.handoff == nil, pitch.need == nil || pitch.need?.kind == "throw"
+      pitch.handoff == nil, pitch.need == nil || pitch.need?.aims == true
     {
       let hint = model.screen == .practice
       let meter = meter
@@ -630,7 +636,7 @@ import UIKit
       let caption = pitch.dial.prompt == "WIND BACK" ? ghost?.caption : nil
       // the computer's or another player's throw: the meter faded, a WATCH tab on the
       // thrower's team colour where the prompt goes, no distance (the 1.0 design)
-      let watching = model.screen == .match && pitch.need?.kind == "throw" && !pitch.canAim
+      let watching = model.screen == .match && pitch.need?.aims == true && !pitch.canAim
       let distance = watching ? nil : MeterWords.distance(pitch.distance)
       let team = pitch.need?.side == "B"
       let watch = (fill: UIColor(team ? skin.teamB : skin.teamA), type: UIColor(team ? skin.onTeamB : skin.onTeamA))
@@ -739,9 +745,17 @@ import UIKit
     nudge.input()
     if pitch.need?.kind == "raise" {
       gesture = .raise
-      // a press on the kubb may become a drag that tips it up
-      let g = pitch.raiseGeometry(in: bounds.size)
-      raiseShape = RaiseTouch.on(g, p) ? g : nil
+      // a press on another lying kubb picks it (any order, engine 1.4.0); then, as on the
+      // picked one, a drag tips it up
+      pickedOnPress = false
+      if let picked = try? pitch.pickLying(at: p, size: bounds.size) {
+        pickedOnPress = true
+        raiseShape = picked
+        setNeedsDisplay()
+      } else {
+        let g = pitch.raiseGeometry(in: bounds.size)
+        raiseShape = RaiseTouch.on(g, p) ? g : nil
+      }
     } else if pitch.need?.kind == "punish" {
       gesture = .punishment
       run { try pitch.movePunishment(to: p, size: bounds.size) }
@@ -897,7 +911,7 @@ import UIKit
       // a tap: the end it means; a drag: past half way it stands, short of that nothing
       if !moved {
         let p = t.location(in: self)
-        if let i = pitch.raisePick(at: p, size: bounds.size) { run { try pitch.raiseTap(i) } }
+        if !pickedOnPress, let i = pitch.raisePick(at: p, size: bounds.size) { run { try pitch.raiseTap(i) } }
       } else {
         run { try pitch.raiseLetGo() }
       }

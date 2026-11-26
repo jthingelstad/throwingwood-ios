@@ -271,7 +271,7 @@ import Testing
     // the app drops it, trail and all, and a new match starts on the newest
     save.dropOld(engine: Engine.majorMinor(engine)!)
     #expect(try save.read() == nil && save.readTrail() == nil)
-    var choices = app.options.defaults
+    var choices = app.options.withoutTogo
     choices["computer"] = "pro"
     try app.startSolo(name: "Lucky Larch", selections: choices, save: save)
     #expect(Engine.majorMinor(save.readTrail()?.trail.engine) == Engine.newest)
@@ -316,7 +316,7 @@ import Testing
 
   private func startSolo(_ save: MatchSave, name: String) throws -> PitchSession {
     let app = try PitchSession(appVersion: "test")
-    var choices = app.options.defaults
+    var choices = app.options.withoutTogo
     choices["computer"] = "pro"
     try app.startSolo(name: name, selections: choices, save: save)
     return app

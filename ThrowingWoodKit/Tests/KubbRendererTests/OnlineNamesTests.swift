@@ -106,8 +106,10 @@ private func quick() -> PitchClient.Timing {
     defer { online.close() }
     online.connect()
     try await soon { online.stage == .lobby && online.isHost && !online.optionRows.isEmpty }
-    #expect(online.optionRows.map(\.id) == ["scene", "computer", "opening", "raising", "wind"])
+    #expect(online.optionRows.map(\.id) == ["scene", "computer", "opening", "togo", "raising", "wind"])
     #expect(online.optionRows.first { $0.id == "computer" }?.choices.first?.first == "kid")
+    // the throw to go is on for a new pitch (engine 1.4.0; the engine's absent is off)
+    try await soon { online.options["togo"] == "on" }
     #expect(OnlinePitch.hiddenRows == ["set"])
     #expect(online.options["set"] == "classic")
     // a set the scene does not allow is held to the scene's
@@ -120,10 +122,29 @@ private func quick() -> PitchClient.Timing {
     #expect(online.options["set"] == "usa" && online.options["surface"] == "grass")
     try await online.option("scene", "bw")
     try await soon { online.optionRows.map(\.id).contains("surface") }
-    #expect(online.optionRows.map(\.id) == ["scene", "surface", "computer", "opening", "raising", "wind"])
+    #expect(online.optionRows.map(\.id) == ["scene", "surface", "computer", "opening", "togo", "raising", "wind"])
     try await online.option("surface", "snow")
     try await soon { online.options["surface"] == "snow" }
     #expect(online.options["scene"] == "bw" && online.options["set"] == "classic")
     #expect(!online.optionRows.map(\.id).contains("set"))
+  }
+
+  /// The person's throw (engine 1.3) goes in the member's presence (`me.throw`) and shows
+  /// on its lobby line; a change is told to the pitch at once.
+  @Test func theLobbyShowsEachPlayersThrow() async throws {
+    let fake = FakePitch()
+    let online = try OnlinePitch(
+      url: URL(string: "ws://127.0.0.1:1")!, link: try #require(PitchLink(fake.code)), create: true,
+      name: "Brave Birch", throw: "hard", appVersion: "0.0-test", store: TestID("Host_Member"),
+      timing: quick(), defaults: UserDefaults(suiteName: "lobby-\(UUID().uuidString)")!, factory: fake.factory)
+    defer { online.close() }
+    online.connect()
+    try await soon { online.stage == .lobby && online.members.contains { $0.you } }
+    #expect(online.throwLevel == "hard")
+    try await soon { online.members.first { $0.you }?.throwLevel == "hard" }
+    online.profile(throw: "easy")
+    #expect(online.members.first { $0.you }?.throwLevel == "easy")
+    online.profile(throw: "pro")  // a computer's level is never a person's throw
+    #expect(online.throwLevel == "easy")
   }
 }

@@ -140,6 +140,9 @@ struct LobbyCard: View {
     }.buttonStyle(WoodButton())
     // the name is the device's (Settings): the pitch hears a change at once
     PlayerLine(model: model)
+    // the person's throw (engine 1.3), where the lobby's engine has one: told to the
+    // pitch at once (`me.throw`) and shown beside each player's name
+    if online.members.contains(where: { $0.you && $0.throwLevel != nil }) { ThrowRow(model: model) }
     ForEach(["A", "B"], id: \.self) { side in
       // the team in throwing order: its people and its computer seats (engine 0.17)
       let players = online.players(side)
@@ -252,6 +255,11 @@ struct LobbyCard: View {
       Image(systemName: m.connected ? "circle.fill" : "circle").font(.caption2)
         .accessibilityLabel(m.connected ? "Connected" : "Away")
       Text(m.name).font(bodyFont(16, .semibold))
+      if let level = m.throwLevel {
+        // the way a computer seat's level is shown: " · Easy"
+        Text(" · \(ThrowChoice.name(level))").font(bodyFont(14, .bold)).foregroundStyle(Color.woodMuted)
+          .accessibilityLabel("Throw, \(ThrowChoice.name(level))")
+      }
       if m.you { Text("YOU").modifier(Chip(fill: .woodInk, ink: .woodPaper)) }
       if m.host { Text("HOST").modifier(Chip()) }
       if !m.connected { Text("Away").font(bodyFont(14)) }

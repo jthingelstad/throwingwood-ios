@@ -75,14 +75,14 @@ import Testing
   // MARK: Play the computer
 
   /// Scene first (engine 0.14's `optionRows`), Surface right under it only where the
-  /// scene leaves one (Black & White), then Computer, Opening, Raising and Wind; no
+  /// scene leaves one (Black & White), then Computer, Opening, Throw to go, Raising and Wind; no
   /// Kubbs row (the scene decides the set).
   @Test func theCardsRowsAreInTheDesignsOrder() throws {
     let app = try PitchSession(appVersion: "test")
     var chosen = app.options.defaults
-    #expect(app.options.cardRows(chosen).map(\.id) == ["scene", "computer", "opening", "raising", "wind"])
+    #expect(app.options.cardRows(chosen).map(\.id) == ["scene", "computer", "opening", "togo", "raising", "wind"])
     chosen = app.options.choosing(scene: "bw", chosen)
-    #expect(app.options.cardRows(chosen).map(\.id) == ["scene", "surface", "computer", "opening", "raising", "wind"])
+    #expect(app.options.cardRows(chosen).map(\.id) == ["scene", "surface", "computer", "opening", "togo", "raising", "wind"])
     #expect(app.options.cardRows(chosen)[1].choices.map { $0[0] } == ["grass", "sand", "snow"])
     for scene in SceneID.catalogue.map(\.id) {
       #expect(!app.options.cardRows(app.options.choosing(scene: scene, chosen)).contains { $0.id == "set" })

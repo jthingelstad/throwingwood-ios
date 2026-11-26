@@ -9,7 +9,10 @@ extension PitchSession {
   /// `surface` where the scene allows it, else the scene's own (engine 0.14: the scene
   /// decides). The scene is always sent (the engine's client guide); an id the engine
   /// does not list is Park.
-  public func practice(scene: String? = nil, surface: Surface = .grass) throws {
+  ///
+  /// `throw` is the person's throw (Easy, Standard or Hard, engine 1.3, `ThrowChoice`): on
+  /// an engine that knows it (`options.throwLevels`), and never Standard, the engine's own.
+  public func practice(scene: String? = nil, surface: Surface = .grass, throw level: String? = nil) throws {
     try useEngine(minor: nil)  // practice is always on the newest
     resetPresentation()
     trail = ReportTrail()
@@ -17,19 +20,31 @@ extension PitchSession {
     save = nil
     trailKept = false
     trailComplete = false
+    practiceThrow = sentThrow(level)
     let look = options.takesScene ? (scene.flatMap { options.cards[$0] != nil ? $0 : nil } ?? "day") : nil
     try adopt(
       read(
         "new",
         #"{"mode":"practice","surface":"\#(surface.rawValue)""#
-          + (look.map { #","scene":"\#($0)""# } ?? "") + "}"))
+          + (look.map { #","scene":"\#($0)""# } ?? "")
+          + (sentThrow(level).map { #","throw":"\#($0)""# } ?? "") + "}"))
   }
+
+  /// The person's throw as an entry or a practice carries it: only on an engine that has
+  /// throw levels, and never Standard (absent is the engine's Standard).
+  func sentThrow(_ level: String?) -> String? {
+    options.throwLevels.contains(level ?? "") ? ThrowChoice.sent(level) : nil
+  }
+  /// What a practice started now with `level` would carry (nil for Standard).
+  public func sentThrowLevel(_ level: String?) -> String? { sentThrow(level) }
 
   /// `selections["computer"]` is the computer's level, the set-up's per-game choice: the
   /// match's `computer` option (on an engine before 0.9 it would go on the computer's
-  /// player entry). The person's entry names no level: from engine 0.13 every person
-  /// throws on one meter (kubb-engine docs/notes/throw.md "The person's meter").
-  public func startSolo(name: String, selections chosen: [String: String], save: MatchSave?) throws {
+  /// player entry). The person's entry carries their throw (engine 1.3: Easy or Hard, the
+  /// width of the meter's bars; Standard goes as nothing), `ThrowChoice`.
+  public func startSolo(
+    name: String, selections chosen: [String: String], throw level: String? = nil, save: MatchSave?
+  ) throws {
     // the set is the scene's (the card has no Kubbs row): never one kept from before
     let selections = options.starting(chosen)
     // the device's name, a generated one (PlayerName); anything else is never a name
@@ -39,6 +54,8 @@ extension PitchSession {
     let start = try JSONSerialization.jsonObject(with: Data(MatchClock.start(clockNow()).ascii.utf8))
     var setup: [String: Any] = selections.filter { options.rows.map(\.id).contains($0.key) }
     var cpu: [String: Any] = ["name": "Computer"]
+    var person: [String: Any] = ["name": player]
+    if let t = sentThrow(level) { person["throw"] = t }
     if !options.takesComputer {
       setup["computer"] = nil
       cpu["level"] = computer
@@ -46,7 +63,7 @@ extension PitchSession {
     setup.merge([
       "mode": "match", "cpu": "B", "first": "A", "seed": Int.random(in: 0..<2_147_483_648),
       "teams": [
-        "A": ["name": player, "players": [["name": player]]],
+        "A": ["name": player, "players": [person]],
         "B": ["name": "Computer", "players": [cpu]],
       ],
       "start": start,
@@ -130,7 +147,7 @@ extension PitchSession {
     } catch {}
   }
 
-  private func finishTrail() {
+  func finishTrail() {
     guard trailKept, let save else { return }
     trailKept = false
     guard let n: MatchNeed = try? read("need"), n.kind == "over", let winner = n.winner?.winner
@@ -228,11 +245,22 @@ extension PitchSession {
 
   /// Raises the kubb on an end, or by the engine's choice. False when refused.
   @discardableResult public func raise(end: Int? = nil) throws -> Bool {
-    guard acceptsInput, need?.kind == "raise" else { return false }
+    guard acceptsInput, let n = raiseNeed, n.kind == "raise" else { return false }
     if let end {
-      guard need?.ends?.contains(where: { $0.which == end && $0.ok != false }) == true,
-        let index = need?.choices?.firstIndex(where: { $0.which == end })
+      guard n.ends?.contains(where: { $0.which == end && $0.ok != false }) == true,
+        let index = n.choices?.firstIndex(where: { $0.which == end })
       else { return false }
+      if n.lying != nil, let id = n.kubb {
+        // engine 1.4.0: the raise names its kubb and the end (`End.which`), any order
+        if try applyPlacement(#"{"type":"raise","kubb":"\#(id)","which":\#(end)}"#) { return true }
+        // a kubb a team-mate raised first: drawn again from the need as it is now
+        if placement?.why == "not lying" {
+          raisePicked = nil
+          placement = nil
+          try adopt(read("view"))
+        }
+        return false
+      }
       return try applyPlacement(#"{"type":"raise","choice":\#(index+1)}"#)
     } else {
       return try applyPlacement(#"{"type":"raise"}"#)
@@ -251,7 +279,8 @@ extension PitchSession {
     guard acceptsInput, need?.kind == "punish", placement?.ok == true, let c = cursor else {
       return
     }
-    try applyPlacement(#"{"type":"punish","x":\#(c.x),"y":\#(c.y)}"#)
+    let frame = need?.frame.map { #","frame":"\#($0)""# } ?? ""
+    try applyPlacement(#"{"type":"punish","x":\#(c.x),"y":\#(c.y)\#(frame)}"#)
   }
 
   @discardableResult private func applyPlacement(_ unstamped: String) throws -> Bool {

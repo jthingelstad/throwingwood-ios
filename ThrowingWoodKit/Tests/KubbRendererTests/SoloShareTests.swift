@@ -14,7 +14,7 @@ import Testing
 
   private func finished(_ save: MatchSave, name: String) throws -> PitchSession {
     let app = try PitchSession(appVersion: "test")
-    try app.startSolo(name: name, selections: app.options.defaults, save: save)
+    try app.startSolo(name: name, selections: app.options.withoutTogo, save: save)
     app.dismissHandoff()
     try app.resign()
     return app
@@ -54,7 +54,7 @@ import Testing
     defer { try? FileManager.default.removeItem(at: dir) }
     let save = MatchSave(file: dir.appending(path: "solo-match.json"))
     let app = try PitchSession(appVersion: "test")
-    var choices = app.options.defaults
+    var choices = app.options.withoutTogo
     choices["scene"] = "night"
     try app.startSolo(name: "Brave Birch", selections: choices, save: save)
     app.dismissHandoff()
@@ -92,7 +92,7 @@ import Testing
     let save = MatchSave(file: dir.appending(path: "solo-match.json"))
     // nothing finished yet
     let playing = try PitchSession(appVersion: "test")
-    try playing.startSolo(name: "Brave Birch", selections: playing.options.defaults, save: save)
+    try playing.startSolo(name: "Brave Birch", selections: playing.options.withoutTogo, save: save)
     #expect(playing.shareableMatch(save: save) == nil)
     // practice
     let practice = try PitchSession(appVersion: "test")
@@ -101,7 +101,7 @@ import Testing
     // a finished match, but the one on the screen is another
     _ = try finished(save, name: "Brave Birch")
     let other = try PitchSession(appVersion: "test")
-    try other.startSolo(name: "Mighty Maple", selections: other.options.defaults, save: nil)
+    try other.startSolo(name: "Mighty Maple", selections: other.options.withoutTogo, save: nil)
     other.dismissHandoff()
     try other.resign()
     #expect(other.shareableMatch(save: save) == nil)

@@ -152,7 +152,7 @@ import Testing
       if online.board.raiseShowing {
         // the raise view, its camera and no aim over it
         #expect(online.shownAims == shown)
-        #expect(online.board.scene.stillZoom != nil)
+        #expect(online.board.scene.stillZoom != nil || online.board.scene.heldRaise == true)
         #expect(online.board.scene.marker == nil)
       }
     }

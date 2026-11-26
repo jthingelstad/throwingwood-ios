@@ -73,6 +73,7 @@ struct MatchOptionsCard: View {
         // the player's name is the device's (Settings); this card's rows are the
         // game's, its Computer level the match's `computer` option
         PlayerLine(model: model)
+        if model.pitch?.options.throwLevels.isEmpty == false { ThrowRow(model: model) }
         Rule()
         ForEach(model.pitch?.options.cardRows(model.selections) ?? []) { row in
           if row.id == "scene", let pitch = model.pitch {
@@ -106,6 +107,21 @@ struct MatchOptionsCard: View {
           return options.starting(s)
         }()
       })
+  }
+}
+
+/// The person's throw (engine 1.3, `ThrowChoice`): Throw, Easy / Standard / Hard as a
+/// segmented bar, the device's, wherever a person throws (the solo card under the name
+/// row, the practice menu, the lobby's You row). It is the width of the meter's bars,
+/// never a hidden miss (the owner, 2026-11-26: what you do shows).
+struct ThrowRow: View {
+  @Bindable var model: GameModel
+  var body: some View {
+    FormRow(ThrowChoice.label) { full in
+      Segmented(
+        label: ThrowChoice.label, choices: ThrowChoice.choices.map { ($0.id, $0.name) },
+        value: $model.throwLevel, full: full)
+    }
   }
 }
 
@@ -418,6 +434,9 @@ struct PracticeMenu: View {
         }
         .buttonStyle(WoodButton())
         .lineLimit(1).minimumScaleFactor(0.7)
+        if model.offline?.options.throwLevels.isEmpty == false {
+          ThrowRow(model: model).disabled(model.playing)
+        }
         if let options = model.offline?.options, options.takesScene,
           let rows = options.card(model.practiceScene)?.rows
         {
@@ -649,6 +668,10 @@ struct MatchScreen: View {
           placement(n).frame(maxWidth: 360)
             .padding(edge, (side == .left ? safe.left : safe.right) + WideLayout.margin)
             .padding(.bottom, safe.bottom + 8)
+        } else if pitch.computerTurn {
+          cpuControls
+            .padding(edge, (side == .left ? safe.left : safe.right) + WideLayout.margin)
+            .padding(.bottom, safe.bottom + 10)
         } else if playing {
           tool("SKIP", label: "Skip playback") {
             if let online = model.online { try online.skip() } else { try pitch.skipPlayback() }
@@ -679,7 +702,9 @@ struct MatchScreen: View {
     return HStack(spacing: 10) {
       VStack(alignment: .leading, spacing: 0) {
         Text(
-          pitch.engineRaising.map { HeaderWords.engineRaise(turn: n.turn ?? 1, k: $0.k, of: $0.of, placed: $0.placed) }
+          n.kind == "togo"
+            ? TogoWords.header
+            : pitch.engineRaising.map { HeaderWords.engineRaise(turn: n.turn ?? 1, k: $0.k, of: $0.of, placed: $0.placed) }
             ?? HeaderWords.line(
               turn: n.turn ?? 1, n: n.setup?.n, of: n.setup?.of, projectile: n.setup?.projectile, watching: watching,
               at: n.kind == "throw" ? pitch.railAt : nil, thrower: n.kind == "throw" ? n.setup?.thrower : nil)
@@ -688,7 +713,11 @@ struct MatchScreen: View {
         // the header's plate has a fixed height
         .labelStyle().foregroundStyle(Color.woodMuted).lineLimit(fills ? 1 : 2).minimumScaleFactor(0.7)
         Text(
-          (online && !playing && !pitch.raiseShowing && model.online?.turnLabel.isEmpty == false)
+          n.kind == "togo"
+            // the throw to go: who throws this baton, or whose is still to come (nothing
+            // of this device's own baton shows while it waits)
+            ? (pitch.togoWaitingFor.map(TogoWords.waiting(for:)) ?? n.setup?.thrower?.name ?? n.team ?? "Match")
+            : (online && !playing && !pitch.raiseShowing && model.online?.turnLabel.isEmpty == false)
             ? model.online!.turnLabel
             : (pitch.engineRaising.flatMap { r in r.side.flatMap { n.teams?[$0] } }
               ?? n.setup?.thrower?.name ?? n.team ?? "Match")
@@ -747,7 +776,7 @@ struct MatchScreen: View {
   /// clips so nothing reaches a control.
   @ViewBuilder private func captions(_ n: MatchNeed, held from: Alignment? = nil, room: CGSize? = nil) -> some View {
     if let room {
-      let live = model.slow || (n.kind == "throw" && (pitch.standCaption != nil || pitch.held != nil))
+      let live = model.slow || (n.aims && (pitch.standCaption != nil || pitch.held != nil))
       ViewThatFits(in: .vertical) {
         captionStack(n, held: from, top: true, verdict: .full)
         if live {
@@ -775,15 +804,19 @@ struct MatchScreen: View {
       if !top {
       } else if model.slow {
         Text("SLOW MOTION").font(bodyFont(14, .bold, relativeTo: .footnote)).modifier(Plate(inset: 5))
-      } else if let stand = pitch.standCaption, n.kind == "throw" {
+      } else if let stand = pitch.standCaption, n.aims {
         SliderCaption(text: stand, maxWidth: wide).aligned(from)
-      } else if let held = pitch.held, n.kind == "throw" {
+      } else if let held = pitch.held, n.aims {
         SliderCaption(text: PlanScale.caption(held, kubb: pitch.throwsKubb, drive: pitch.isDrive), maxWidth: wide).aligned(from)
-      } else if let wind = pitch.windText, n.kind == "throw" {
+      } else if n.kind == "togo", n.side != nil, model.result == nil {
+        // what a baton to go is for, said on the pitch where it is thrown
+        Text(TogoWords.hint).font(bodyFont(14, .bold, relativeTo: .footnote)).modifier(Plate(inset: 5))
+        if let wind = pitch.windText { Text(wind).font(bodyFont(14, .bold, relativeTo: .footnote)).modifier(Plate(inset: 5)) }
+      } else if let wind = pitch.windText, n.aims {
         Text(wind).font(bodyFont(14, .bold, relativeTo: .footnote)).modifier(Plate(inset: 5))
       }
       // the engine's own raise watched: the last throw's verdict waits (its time does not run)
-      if let cut, let result = model.result, n.kind == "throw", pitch.raiseWatch != .engine {
+      if let cut, let result = model.result, n.kind == "throw" || n.kind == "togo", pitch.raiseWatch != .engine {
         Verdict(result: result, cut: cut, row: row)
       }
     }
@@ -836,6 +869,13 @@ struct MatchScreen: View {
     if (n.kind == "raise" || n.kind == "punish") && pitch.acceptsInput {
       // the web's .panel, min(520px, 100% - 24px), centred: an iPad's is not a strip
       placement(n).frame(maxWidth: 520)
+    } else if pitch.computerTurn {
+      // the computer's turn against the computer: its speed and the skip, where SKIP is
+      HStack {
+        if !skipAtLeft { Spacer() }
+        cpuControls
+        if skipAtLeft { Spacer() }
+      }
     } else if playing {
       // the bottom corner away from the meter (the web's): the right beside the clock,
       // the left beside a linear meter at the right
@@ -870,6 +910,31 @@ struct MatchScreen: View {
       bounds: CGRect(origin: .zero, size: size),
       safe: UIEdgeInsets(top: safe.top, left: safe.left, bottom: safe.bottom, right: safe.right))
     return m.linear?.side == .right
+  }
+
+  /// The computer's turn against the computer (engine 1.4.0, `CpuSpeed`): the speed it is
+  /// watched at, 1x, 2x or 4x, a tap moving to the next and the choice kept for every turn
+  /// and match after, and the skip to the person's next throw (the engine's `cpuPlay`).
+  /// Both plain, 48 pt; they stand where SKIP does.
+  private var cpuControls: some View {
+    HStack(spacing: 8) {
+      Button {
+        model.cpuSpeed = CpuSpeed.next(after: model.cpuSpeed)
+      } label: {
+        Text(CpuSpeed.label(model.cpuSpeed)).monospacedDigit().frame(minWidth: 48)
+      }
+      .buttonStyle(WoodButton())
+      .accessibilityLabel("Computer's speed")
+      .accessibilityValue(CpuSpeed.spoken(model.cpuSpeed))
+      .accessibilityHint("Watch the computer's turn faster")
+      Button {
+        model.perform { try pitch.skipComputer() }
+      } label: {
+        Image(systemName: "forward.end.fill").font(.system(size: 20, weight: .bold)).frame(minWidth: 48)
+      }
+      .buttonStyle(WoodButton())
+      .accessibilityLabel("Skip the computer's turn")
+    }
   }
 
   /// SKIP (the 1.0 design): a plain button of normal size, 48 pt tall.
@@ -950,8 +1015,11 @@ struct MatchScreen: View {
       // The kubb on the pitch is the control (RaiseTouch): END 1 and END 2 stay for
       // VoiceOver only, as actions on this text, which names the end on each side.
       let ends = pitch.raiseEndNames()
+      let others = pitch.otherLyingNames()
       Text(
-        "Touch the kubb or drag it to the end to stand it on. The menu's Raising does it for the rest of the game."
+        others.isEmpty
+          ? "Touch the kubb or drag it to the end to stand it on. The menu's Raising does it for the rest of the game."
+          : "Raise them in any order: tap a kubb to pick it, drag it to the end to stand it on."
       ).font(.subheadline)
         .accessibilityLabel(
           "A kubb lying, to be stood up: \(ends.map(\.name).joined(separator: ", ")). Tap the kubb nearer the end to stand it on, or use the actions."
@@ -959,6 +1027,9 @@ struct MatchScreen: View {
         .accessibilityActions {
           ForEach(ends.filter(\.ok), id: \.index) { e in
             Button("Stand it on \(e.name)") { model.perform { try pitch.raise(end: e.which) } }
+          }
+          ForEach(others, id: \.id) { o in
+            Button("Pick \(o.name)") { model.perform { try pitch.pickLying(id: o.id) } }
           }
         }
     }

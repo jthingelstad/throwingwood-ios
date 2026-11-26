@@ -551,7 +551,8 @@ extension NeighbourFrameTests {
         app.watching = true
         _ = try app.watchWide(size: side, safe: ScreenInsets())
         try app.adopt(app.read("view"))
-        #expect(app.scene.wide && app.scene.stillZoom != nil, "\(kind!)")
+        // a raise on the engine's held camera (1.4.0) or the punishment's close one
+        #expect(app.scene.wide && (app.scene.stillZoom != nil || app.scene.heldRaise == true), "\(kind!)")
         #expect(app.scene.frameSide == "B" && app.scene.neighboursTurned, "watched \(kind!)")
         try Self.agree(app, "watched \(kind!) B")
         watched.insert(kind!)

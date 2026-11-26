@@ -17,6 +17,11 @@ public struct Camera: Decodable, Sendable {
   let px, py, pz, fx, fy, fz, rx, ry, rz, ux, uy, uz, f, cx, cy: Double
   /// The point looked at (core/camera's lookAt keeps it; the free camera turns about it).
   var lx, ly, lz: Double?
+  /// The engine's camera kind (engine 1.4.0): "end" at the viewer's end for the other
+  /// side's throw, "raise" for a raise's one camera. Both are fitted to the `setView` box
+  /// and drawn in the letterbox fit (`fitted`).
+  var kind: String? = nil
+  var fitted: Bool { kind == "end" || kind == "raise" }
   var eye: V3 { V3(px, py, pz) }
   var forward: V3 { V3(fx, fy, fz) }
   var right: V3 { V3(rx, ry, rz) }
@@ -57,6 +62,9 @@ public struct PitchScene: Decodable, Sendable {
   /// throws from where (the web's Game.farFrameY).
   var farFrameY: Double? = nil
   var stillZoom: Double? = nil
+  /// A raise on the engine's held camera (engine 1.4.0, `need.camera`): a still scene in
+  /// the raiser's frame though it has no close zoom of its own.
+  var heldRaise: Bool? = nil
   /// A raise or punishment scene's lowest point the player works on: a frame y
   /// and the screen points below it (WideLayout.stillLift).
   var stillLowest: Double? = nil, stillPad: Double? = nil
@@ -76,19 +84,22 @@ public struct PitchScene: Decodable, Sendable {
   var frameSide: String? = nil
   /// The neighbours are drawn turned half round: the board draws in Team B's frame. The
   /// watcher's wide view is the world frame (Team A's), except a raise or punishment
-  /// scene (`stillZoom`), which keeps its own close camera on the need's poses, in the
-  /// defender's frame, for a watcher too.
-  public var neighboursTurned: Bool { (!wide || stillZoom != nil) && frameSide == "B" }
+  /// scene (`stillZoom`, or the engine's held raise camera), which keeps its own camera on
+  /// the need's poses, in the defender's frame, for a watcher too.
+  public var neighboursTurned: Bool { (!wide || stillZoom != nil || heldRaise == true) && frameSide == "B" }
   var wide: Bool {
     get { wideView == true }
     set { wideView = newValue ? true : nil }
   }
   func projection(_ size: CGSize, _ camera: Camera) -> PitchProjection {
-    if wide && stillZoom == nil { return PitchProjection(size: size, camera: camera, letterbox: true) }
+    if wide && stillZoom == nil && !camera.fitted { return PitchProjection(size: size, camera: camera, letterbox: true) }
     var lift = 0.0
     if let low = stillLowest, let floor = stillFloor {
       lift = WideLayout.stillLift(size: size, lowest: low, pad: stillPad ?? 0, floor: floor)
     }
+    // the engine's end and raise cameras are fitted to the box it was given, in the
+    // letterbox frame (engine 1.4.0, `setView`)
+    if camera.fitted { return PitchProjection(size: size, camera: camera, lift: lift, letterbox: true) }
     return PitchProjection(
       size: size, camera: camera, focusX: focusX ?? 200, stillZoom: stillZoom, lift: lift, anchorY: farFrameY)
   }

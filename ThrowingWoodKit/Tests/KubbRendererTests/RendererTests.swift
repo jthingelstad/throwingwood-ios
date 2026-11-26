@@ -227,9 +227,10 @@ struct RendererTests {
     let old = try #require(reference.project(shadow))
     // Check the 16e shadow in the original centred framing for the tuned release
     // (engine 0.13: the default arc goes by distance since 0.10, and the person's
-    // throw is on the one meter, so the baton is elsewhere 22 frames in).
+    // throw is on the one meter, so the baton is elsewhere 22 frames in; engine 1.4's
+    // baton flight moved it 2.8 pt).
     #expect(abs(old.x * 0.975 - 267.25) < 1)
-    #expect(abs((old.y - 120) * 0.975 + 422 - 626.50) < 1)
+    #expect(abs((old.y - 120) * 0.975 + 422 - 623.66) < 1)
     let center = try #require(pitch.scene.projection(size, pitch.camera).project(shadow))
     var ground = pitch.scene
     ground.items.removeAll { $0.kind == "baton" }
