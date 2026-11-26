@@ -279,6 +279,18 @@ public final class PitchSession {
   /// ARC open shows the side view (`plan`).
   public internal(set) var openPlate: TrayPlate?
   public var playing: Bool { playback != nil }
+  /// Runs once the throw playing has played out (or been skipped), on the next turn of the
+  /// main queue; at once when none plays (the web's afterPlay: a practice's throw level
+  /// changed in the menu waits for the throw to finish).
+  public func whenPlayedOut(_ f: @escaping @MainActor () -> Void) {
+    if playback == nil { f() } else { afterPlay = f }
+  }
+  private var afterPlay: (@MainActor () -> Void)?
+  private func playedOut() {
+    guard let f = afterPlay else { return }
+    afterPlay = nil
+    DispatchQueue.main.async { MainActor.assumeIsolated { f() } }
+  }
   /// The watcher's free camera (FreeCamera.swift), its lens the wide camera while the
   /// wide view is on.
   public let freeCamera = FreeCamera()
@@ -870,6 +882,7 @@ public final class PitchSession {
     noteOwnResult()
     bursts = []
     playback = nil
+    playedOut()
     effects?.clear()
     // the engine's own raises before the next throw are still watched (the web's skip
     // runs on to its endPlayback)
@@ -955,6 +968,7 @@ public final class PitchSession {
     p.realTime += dt
     if p.rest >= Pacing.restAfterThrow && bursts.isEmpty {
       playback = nil
+      playedOut()
       // kubbs the engine stood up and placed after this throw (the computer's raises, a
       // match raising automatically, a punishment kubb) are watched first, from the
       // engine's own list (AutoRaise.swift, engine 0.16.0's `setup.settled`)

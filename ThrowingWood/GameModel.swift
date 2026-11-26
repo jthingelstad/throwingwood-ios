@@ -125,15 +125,22 @@ import UIKit
   /// The person's throw (engine 1.3, `ThrowChoice`): Easy, Standard or Hard, the width
   /// of the meter's bars, chosen on the solo card, the practice menu and the lobby's You
   /// row, and kept on the device. A change starts a new practice (the engine keeps a
-  /// practice's throw from its start) and is told to the pitch (`me.throw`).
+  /// practice's throw from its start) once a throw playing has played out, and is told
+  /// to the pitch (`me.throw`).
   var throwLevel = ThrowChoice.load(.standard) {
     didSet {
       guard throwLevel != oldValue else { return }
       ThrowChoice.keep(throwLevel, in: .standard)
       if let online { online.profile(throw: throwLevel) }
       if screen == .practiceMenu || screen == .practice {
-        perform {
-          try offline?.practice(scene: practiceScene, surface: practiceSurface, throw: throwLevel)
+        // from the next throw: a throw still playing (the menu over it) plays out first
+        offline?.whenPlayedOut { [weak self] in
+          guard let self, self.screen == .practiceMenu || self.screen == .practice, let offline = self.offline,
+            offline.practiceThrow != offline.sentThrowLevel(self.throwLevel)
+          else { return }
+          self.perform {
+            try offline.practice(scene: self.practiceScene, surface: self.practiceSurface, throw: self.throwLevel)
+          }
         }
       }
     }

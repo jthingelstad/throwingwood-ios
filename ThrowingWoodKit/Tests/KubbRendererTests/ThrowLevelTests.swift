@@ -73,6 +73,38 @@ import Testing
     #expect(app.practiceThrow == nil)
   }
 
+  /// A throw level changed while a practice throw plays (the menu over it) waits for the
+  /// throw to play out (the web's afterPlay), then runs; with none playing, at once.
+  @Test func aChangeWaitsForTheThrowPlaying() async throws {
+    let app = try PitchSession(appVersion: "test")
+    try app.practice()
+    var ran = 0
+    app.whenPlayedOut { ran += 1 }
+    #expect(ran == 1)
+    let d = app.dial
+    let back = try #require(d.powerLo.flatMap { lo in d.powerHi.map { (lo + $0) / 2 } })
+    let stop = try #require(d.releaseLo.flatMap { lo in d.releaseHi.map { (lo + $0) / 2 } })
+    var a = -5.0
+    var angles = [0.0, a]
+    while a > -back { a = max(-back, a - 400 / 60); angles.append(a) }
+    while a < stop { a = min(stop, a + 2400 / 60); angles.append(a) }
+    for a in angles {
+      app.sample(CGPoint(x: sin(a * .pi / 180), y: cos(a * .pi / 180)))
+      try app.tick(1.0 / 60)
+    }
+    app.sample(nil)
+    for _ in 0..<120 where !app.playing { try app.tick(1.0 / 60) }
+    try #require(app.playing)
+    app.whenPlayedOut { ran += 1 }
+    try app.tick(1.0 / 60)
+    try await Task.sleep(for: .milliseconds(20))
+    #expect(ran == 1, "not while the throw plays")
+    for _ in 0..<4000 where app.playing { try app.tick(1.0 / 30) }
+    #expect(!app.playing)
+    try await Task.sleep(for: .milliseconds(50))
+    #expect(ran == 2)
+  }
+
   /// The screens: the solo card and the lobby show the player's line and the Throw row;
   /// no screen words a level as the player's difficulty, and the computer's level is
   /// never the person's.
