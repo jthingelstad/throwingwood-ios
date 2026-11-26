@@ -62,6 +62,7 @@ struct ReportCard: View {
   @State private var sending = false
   @State private var sent = false
   @State private var status = ""
+  @FocusState private var typing: String?
 
   init(model: GameModel, report: PitchReport, kind: Kind? = nil) {
     self.model = model
@@ -116,7 +117,14 @@ struct ReportCard: View {
         }.buttonStyle(WoodButton())
       }
     }
+    // the keyboard goes with a drag down the rows, or DONE over it
     .scrollDismissesKeyboard(.interactively)
+    .toolbar {
+      ToolbarItemGroup(placement: .keyboard) {
+        Spacer()
+        Button("Done") { typing = nil }.font(bodyFont(17, .bold))
+      }
+    }
   }
 
   private func send() {
@@ -148,15 +156,32 @@ struct ReportCard: View {
     _ label: String, _ value: Binding<String>, limit: Int, lines: ClosedRange<Int>,
     hint: String? = nil
   ) -> some View {
+    ReportField(
+      label: label, value: value, limit: limit, lines: lines, hint: hint, typing: $typing, sending: sending)
+  }
+}
+
+/// One answer box: its label, any hint, and the field. Where the card is short (a phone
+/// on its side with the keyboard up, `cardShort`) the field keeps to three lines, so the
+/// line being typed stays in view over the keyboard.
+private struct ReportField: View {
+  let label: String
+  @Binding var value: String
+  let limit: Int, lines: ClosedRange<Int>, hint: String?
+  var typing: FocusState<String?>.Binding
+  let sending: Bool
+  @Environment(\.cardShort) private var short
+
+  var body: some View {
     VStack(alignment: .leading) {
       Text(label).font(.subheadline.bold())
       if let hint { Text(hint).font(bodyFont(14, relativeTo: .footnote)) }
-      TextField("", text: value, axis: .vertical).lineLimit(lines)
-        .textFieldStyle(.roundedBorder).accessibilityLabel(label)
+      TextField("", text: $value, axis: .vertical).lineLimit(short ? 1...3 : lines)
+        .textFieldStyle(.roundedBorder).focused(typing, equals: label).accessibilityLabel(label)
         .accessibilityHint(hint ?? "").disabled(sending)
-        .onChange(of: value.wrappedValue) { _, text in
+        .onChange(of: value) { _, text in
           if text.unicodeScalars.count > limit {
-            value.wrappedValue = String(text.unicodeScalars.prefix(limit))
+            value = String(text.unicodeScalars.prefix(limit))
           }
         }
     }

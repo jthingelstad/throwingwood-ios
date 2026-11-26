@@ -287,6 +287,13 @@ import UIKit
           raiseAutomatically = mode == "raiseauto" || mode == "raisetip"
           if mode == "raiserest" { pitch.raiseRest() }
           if mode == "menu" { screen = .menu }
+          if mode == "report" || mode == "feedback" {
+            // the feedback card over the match, as FEEDBACK in its menu opens it (the
+            // review's kind: ReportCard's own default where it has a last throw)
+            report = try pitch.captureReport(size: .zero, scale: 3)
+            reportReturn = .match
+            screen = .report
+          }
           if mode == "matchsettings" {
             // Settings from the match's menu, in the match's scene
             screen = .menu

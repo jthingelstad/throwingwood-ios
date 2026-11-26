@@ -57,12 +57,13 @@ struct WoodButton: ButtonStyle {
 }
 
 /// A card that fits the screen is shown whole; one that does not (a phone on its
-/// side is about 390 pt tall) scrolls.
+/// side is about 390 pt tall) scrolls. One copy of the content either way (FitHeight).
 struct FitOrScroll: ViewModifier {
   func body(content: Content) -> some View {
-    ViewThatFits(in: .vertical) {
-      content
-      ScrollView { content }.scrollBounceBehavior(.basedOnSize).defaultScrollAnchor(.top)
+    FitHeight {
+      // centred across the scroll view's width, as the content alone was
+      ScrollView { content.fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity) }
+        .scrollBounceBehavior(.basedOnSize).defaultScrollAnchor(.top)
         .scrollIndicatorsFlash(onAppear: true)
     }
   }
@@ -207,7 +208,8 @@ struct GameView: View {
   /// card's default).
   private var reviewReportKind: ReportCard.Kind? {
     #if targetEnvironment(simulator)
-      switch ProcessInfo.processInfo.environment["ONLINE_REVIEW"] {
+      let env = ProcessInfo.processInfo.environment
+      return switch env["ONLINE_REVIEW"] ?? env["MATCH_REVIEW"] {
       case "report": .throw  // the review's match has no last throw yet
       case "feedback": .feedback
       default: nil

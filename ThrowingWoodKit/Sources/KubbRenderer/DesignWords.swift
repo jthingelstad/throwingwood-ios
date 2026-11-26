@@ -187,3 +187,26 @@ public enum VerdictWords {
     return parts.joined(separator: " ")
   }
 }
+
+/// A card's rows (the app's `CardScreen` and `FitOrScroll`, through its `FitHeight`
+/// layout): one scroll view, as tall as its rows where they fit and as tall as it is
+/// offered where they do not. One copy of the rows either way: two copies to choose
+/// between (a `ViewThatFits`) swapped when the keyboard took the room, which dropped the
+/// focused field and its keyboard (Send feedback, builds 181 to 1.0.0).
+public enum FitHeightRule {
+  /// The rows' height shown: their own, no more than `offered` (nil: no limit).
+  public static func height(ideal: Double, offered: Double?) -> Double {
+    guard let offered, offered.isFinite else { return ideal }
+    return max(0, min(ideal, offered))
+  }
+  /// The least a card's rows keep beside its pinned button row: a phone on its side with
+  /// the keyboard up leaves a card about 180 pt, where pinned buttons left the rows none
+  /// and the field being typed in out of sight.
+  public static let rowsRoom: Double = 120
+  /// Whether the button row stays pinned under the rows: where it leaves them `rowsRoom`
+  /// of the card's inside height `room` (its spacing, 14, between), else it scrolls
+  /// with them, under the last.
+  public static func pinsButtons(room: Double, buttons: Double) -> Bool {
+    !room.isFinite || room - buttons - 14 >= rowsRoom
+  }
+}

@@ -36,6 +36,8 @@ MODES = {
     "raisetip": "raise-many",
     # the last throw's verdict still up over the next aim, untouched
     "verdictaim": "aim",
+    # the feedback card over the match, each kind (FEEDBACK in the match's menu)
+    "report": "aim", "feedback": "aim",
 }
 # Shots that belong to one scene: taken in that scene's run (--scene), and only there.
 SCENE_OWN = {
@@ -44,7 +46,7 @@ SCENE_OWN = {
 }
 ON_REQUEST = {s for shots in SCENE_OWN.values() for s in shots}
 # one moment of a watched raise, and the verdict over the next aim: asked for by name
-ON_REQUEST |= {"raisetip", "verdictaim"}
+ON_REQUEST |= {"raisetip", "verdictaim", "report", "feedback"}
 # A run in a scene (--scene, no --only) takes the screens a scene changes, not every
 # fixture: its tile chosen, its skin on the cards and plates, its world in play.
 SCENE_SHOTS = [

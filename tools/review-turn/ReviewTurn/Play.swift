@@ -14,11 +14,15 @@ import XCTest
 ///   tap <x> <y>
 ///   drag <x1> <y1> <x2> <y2> <seconds>
 ///   swing <cx> <cy> <radius> <back> <stop> [<back deg/s> <flick deg/s> <hold>]
+///   type <words...>
+///   field <n>
 ///
 /// `swing` is a throw on the clock at (cx, cy): a press on the ring at six, round to
 /// `back` degrees on the left, held `hold` seconds, a flick through six to `stop`
 /// degrees on the right and the finger lifted (the dial's own angles: 0 is six, the
-/// backswing negative).
+/// backswing negative). `type` types the rest of the step into the focused field
+/// through the software keyboard, and `field` taps the app's nth text field (from 0)
+/// wherever it is, turned or not (the feedback card's review pictures).
 ///
 /// XCTest's public gestures are one straight stroke; a throw is a curve with a slow
 /// part and a fast part in one touch, so the path is built with the same event
@@ -48,6 +52,16 @@ final class Play: XCTestCase {
           hold: n.count > 7 ? n[7] : 0.12)
         print("PLAY \(index) release \(began + (path.last?.1 ?? 0))")
         try touch(path)
+      case "field":
+        let app = XCUIApplication(bundleIdentifier: "com.throwingwood.app")
+        let fields = app.descendants(matching: .any).matching(
+          NSPredicate(
+            format: "elementType == %d OR elementType == %d", XCUIElement.ElementType.textField.rawValue,
+            XCUIElement.ElementType.textView.rawValue))
+        fields.element(boundBy: Int(n[0])).tap()
+      case "type":
+        XCUIApplication(bundleIdentifier: "com.throwingwood.app")
+          .typeText(words.dropFirst().joined(separator: " "))
       default:
         XCTFail("unknown step \(verb)")
       }

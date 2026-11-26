@@ -566,7 +566,12 @@ the colours and nothing else (`SceneSkinTests` 7:1; the day 4.5:1, `DesignTests`
   three text sizes, or where they do not fit, the control drops under its label.
 - **Cards** (`CardScreen`): one top edge (64 pt under the safe top upright), one dim
   (ink at 50%), the rows scrolling where the card does not fit and the button row pinned
-  under them.
+  under them. The rows are one copy in one scroll view, as tall as they are where they
+  fit (`FitHeight`, `FitHeightRule`), never two copies in a `ViewThatFits`: the keyboard
+  taking the room swapped the copies and dropped the field being typed in, with its
+  keyboard (Send feedback, builds 181 to 1.0.0; `CardFieldTests`). Where pinning the
+  button row would leave the rows under 120 pt (a phone on its side with the keyboard
+  up) it scrolls under them, and a text field keeps to three lines (`cardShort`).
 - **The header**: "Turn 4 · baton 2 of 6" over the thrower's name in sentence case, the
   base kubbs standing as two numbers on the team colours, MENU as a word inside the
   plate, upright and on its side (`HeaderWords`).
