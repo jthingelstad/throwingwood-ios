@@ -23,6 +23,11 @@ struct ReportTrail {
 public struct ReportPiece: Identifiable {
   public let id, kind: String
   public let x, y: Double
+  /// "A" or "B" for a kubb that has a team, else nil.
+  public let team: String?
+  public let toppled: Bool
+  /// The piece's orientation (core/quat), the identity when the pose has none.
+  public let qw, qx, qy, qz: Double
   let pose: JS
 
   init?(_ piece: JSONNode) {
@@ -33,6 +38,12 @@ public struct ReportPiece: Identifiable {
     self.kind = kind
     self.x = x
     self.y = y
+    team = piece["team"]?.string
+    toppled = piece["toppled"]?.bool == true
+    qw = piece["qw"]?.double ?? 1
+    qx = piece["qx"]?.double ?? 0
+    qy = piece["qy"]?.double ?? 0
+    qz = piece["qz"]?.double ?? 0
     var values = ["id", "kind", "team", "toppled"].compactMap { key in
       piece[key].map { (key, JS.raw($0.raw)) }
     }
@@ -40,6 +51,62 @@ public struct ReportPiece: Identifiable {
       if let n = piece[key]?.double { values.append((key, .number((n * 10000).rounded() / 10000))) }
     }
     pose = .object(values)
+  }
+}
+
+/// Where the player painted on the report's picture of the pitch, in the frame and metres
+/// of its pieces (x across, y along): a brush radius and strokes of points.
+public struct ReportPaint: Equatable, Sendable {
+  public var brush: Double
+  public var strokes: [[CGPoint]]
+  public init(brush: Double, strokes: [[CGPoint]] = []) {
+    self.brush = brush
+    self.strokes = strokes
+  }
+
+  /// The api's limits (backend/api/API.md "report", the web's src/net/paint.js).
+  public static let maxStrokes = 32
+  public static let maxPoints = 800
+  public static let brushRange = 0.05...1.0
+  public static let xRange = -6.0...6.0
+  public static let yRange = -4.0...12.0
+
+  public var points: Int { strokes.reduce(0) { $0 + $1.count } }
+  /// Is there room for another point (and, `newStroke`, another stroke)?
+  public func hasRoom(newStroke: Bool) -> Bool {
+    points < Self.maxPoints && (!newStroke || strokes.count < Self.maxStrokes)
+  }
+
+  /// The paint as the message carries it (the web's normalizePaint): numbers to 2
+  /// decimals, x and y clamped, a point the same as the one before it left out, the
+  /// strokes after the 32nd and the points after the 800th left off, empty strokes
+  /// dropped. nil when nothing is painted.
+  public var wire: JS? {
+    func r2(_ v: Double) -> Double { (v * 100).rounded() / 100 }
+    func clamp(_ v: Double, _ r: ClosedRange<Double>) -> Double { min(r.upperBound, max(r.lowerBound, v)) }
+    var left = Self.maxPoints
+    var out: [[(Double, Double)]] = []
+    for s in strokes {
+      if out.count >= Self.maxStrokes || left <= 0 { break }
+      var pts: [(Double, Double)] = []
+      for p in s {
+        if pts.count >= left { break }
+        let x = Double(p.x), y = Double(p.y)
+        guard x.isFinite, y.isFinite else { continue }
+        let q = (r2(clamp(x, Self.xRange)), r2(clamp(y, Self.yRange)))
+        if let last = pts.last, last == q { continue }
+        pts.append(q)
+      }
+      if pts.isEmpty { continue }
+      left -= pts.count
+      out.append(pts)
+    }
+    if out.isEmpty { return nil }
+    let b = r2(clamp(brush.isFinite ? brush : Self.brushRange.lowerBound, Self.brushRange))
+    return .object([
+      ("brush", .number(b)),
+      ("strokes", .array(out.map { .array($0.map { .array([.number($0.0), .number($0.1)]) }) })),
+    ])
   }
 }
 
@@ -60,8 +127,8 @@ public struct PitchReport {
   public static let answerChars = 1000
   public static let feedbackChars = 2000
 
-  /// A throw that looked wrong: `kind: "throw"`, the two answers and any pieces marked.
-  public func message(happened: String, should: String, selected: Set<String> = []) throws
+  /// A throw that looked wrong: `kind: "throw"`, the two answers and any paint.
+  public func message(happened: String, should: String, paint: ReportPaint? = nil) throws
     -> JSONText
   {
     guard
@@ -72,51 +139,62 @@ public struct PitchReport {
       typed: [
         ("kind", .string("throw")), ("happened", .string(clip(happened))),
         ("should", .string(clip(should))),
-      ], selected: selected)
+      ], paint: paint)
   }
 
   /// Anything else: `kind: "feedback"` and one `text`, trimmed, 1 to 2000 characters, and
-  /// never a throw's answers or marked pieces.
-  public func feedback(_ text: String) throws -> JSONText {
+  /// never a throw's answers; any paint, as a throw's.
+  public func feedback(_ text: String, paint: ReportPaint? = nil) throws -> JSONText {
     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { throw PitchError("empty-report") }
     return try message(
       typed: [
         ("kind", .string("feedback")),
         ("text", .string(String(trimmed.unicodeScalars.prefix(Self.feedbackChars)))),
-      ], selected: [])
+      ], paint: paint)
   }
 
-  private func message(typed: [(String, JS)], selected: Set<String>) throws -> JSONText {
+  /// `paint`, when anything is painted: `{ brush, strokes }` in the frame and metres of
+  /// `pieces` (backend/api/API.md "report"). A painted report's `pieces` are the ones its
+  /// picture showed (`candidates`: the last throw's rest when there is one) and are never
+  /// dropped to fit, so a reader puts the strokes on the pieces the player saw (the web's
+  /// src/net/report.js). No piece is picked by name any more: no `selectedPieces`.
+  private func message(typed: [(String, JS)], paint: ReportPaint?) throws -> JSONText {
     var dropped: [String] = []
-    for pass in 0...3 {
+    let painted = paint?.wire
+    var typed = typed
+    if let painted { typed.append(("paint", painted)) }
+    let shown = painted == nil ? pieces : candidates.map(\.pose)
+    // what goes first to fit: the history, the pieces (never when painted), the after
+    let drops = ["history", "pieces", "after"].filter { painted == nil || $0 != "pieces" }
+    for pass in 0...drops.count {
+      let cut = Set(drops.prefix(pass))
       var contents = fields
-      let ops = pass == 0 ? JS.array(trail.actions.map(JS.raw)) : .null
+      let ops = !cut.contains("history") ? JS.array(trail.actions.map(JS.raw)) : .null
       if let now = trail.now {
         contents += [
           ("actions", ops),
           (
             "snapshots",
             .object([
-              ("start", pass == 0 ? trail.start.map(JS.string) ?? .null : .null),
+              ("start", !cut.contains("history") ? trail.start.map(JS.string) ?? .null : .null),
               ("before", trail.before.map(JS.string) ?? .null),
-              ("now", pass < 3 ? .string(now) : .null),
+              ("now", !cut.contains("after") ? .string(now) : .null),
             ])
           ),
         ]
       } else {
-        let initialSurface = pass > 0 && practiceBefore == nil ? surface : "grass"
+        let short = cut.contains("history")
+        let initialSurface = short && practiceBefore == nil ? surface : "grass"
         var practice: [(String, JS)] = [("opts", .object([("surface", .string(initialSurface))]))]
-        if pass > 0, let practiceBefore {
+        if short, let practiceBefore {
           practice += [("before", .string(practiceBefore)), ("ops", .null)]
         } else {
-          practice.append(("ops", pass == 0 ? ops : .array([])))
+          practice.append(("ops", !short ? ops : .array([])))
         }
         contents.append(("practice", .object(practice)))
       }
-      contents.append(("pieces", pass < 2 ? .array(pieces) : .null))
-      let marked = candidates.filter { selected.contains($0.id) }.map(\.pose)
-      if !marked.isEmpty { contents.append(("selectedPieces", .array(marked))) }
+      contents.append(("pieces", !cut.contains("pieces") ? .array(shown) : .null))
       var text = JS.object(contents).ascii
       for (i, id) in ids.enumerated() {
         text = text.replacingOccurrences(of: id, with: "member\(i+1)")
@@ -129,7 +207,7 @@ public struct PitchReport {
       {
         return r.json
       }
-      if pass < 3 { dropped.append(["history", "pieces", "after"][pass]) }
+      if pass < drops.count { dropped.append(drops[pass]) }
     }
     throw PitchError("too-big")
   }

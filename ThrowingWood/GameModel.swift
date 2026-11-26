@@ -21,6 +21,18 @@ import UIKit
   var pitch: PitchSession? { online?.board ?? sealed?.board ?? offline }
   var online: OnlinePitch?
   var onlineRevision = 0
+  /// HOLLER's feed on a shared pitch (Holler.swift), and whether its panel is open.
+  var holler: (any HollerSource)? {
+    #if targetEnvironment(simulator)
+      if let reviewHoller { return reviewHoller }
+    #endif
+    return online
+  }
+  var hollerOpen = false
+  #if targetEnvironment(simulator)
+    /// The review pictures' HOLLER over a solo match (MATCH_REVIEW holler, hollered).
+    var reviewHoller: ReviewHoller?
+  #endif
   var report: PitchReport?
   var reportReturn = Screen.match
   /// The highlight reel of the pitch on the winner card (ReelCard.swift), kept while
@@ -45,6 +57,7 @@ import UIKit
 
   var screen = Screen.home {
     didSet {
+      if screen != .match { hollerOpen = false }
       feedback.onPitch = screen.usesFeedback
       syncNeighbours()
     }
@@ -287,7 +300,11 @@ import UIKit
           raiseAutomatically = mode == "raiseauto" || mode == "raisetip"
           if mode == "raiserest" { pitch.raiseRest() }
           if mode == "menu" { screen = .menu }
-          if mode == "report" || mode == "feedback" {
+          if mode == "holler" || mode == "hollered" {
+            reviewHoller = ReviewHoller(arrived: mode == "hollered")
+            hollerOpen = mode == "holler"
+          }
+          if mode == "report" || mode == "feedback" || mode == "painted" {
             // the feedback card over the match, as FEEDBACK in its menu opens it (the
             // review's kind: ReportCard's own default where it has a last throw)
             report = try pitch.captureReport(size: .zero, scale: 3)

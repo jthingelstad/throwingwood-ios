@@ -434,9 +434,10 @@ The web's docs/REEL.md "The share card" is the contract: its words are `ShareWor
   Members, host and connection changes come from the pitch server, which picks the host.
 - Aim goes as a cast `{t: "aim", s, k, c}` (`k` counts this device's samples, `c` its
   clock) at most 15 a second and only when it changed; the aim just before a release
-  goes with `all: true`, which the pitch never thins. The four shouts are casts too,
-  one per 700 ms, and spend an aim slot. Up to four shouts stay visible for 2.6
-  seconds. Neither cast identifies the application.
+  goes with `all: true`, which the pitch never thins. A holler is a cast too
+  (`{t: "shout", w}` for a phrase, `{t: "shout", e}` for an emoji, with `all: true`),
+  one per 700 ms, and spends an aim slot. Up to four hollers stay visible for 2.6
+  seconds. Neither cast identifies the application (section "HOLLER").
 - Lobby writes are compare-and-set `set {base, doc}`; START is one `start {base, doc,
   n, h, snap, meta}`, the document getting only the match header `{n, players, cpu,
   host, engine}` and `meta` being `{v: 1, setup, engine, version, players, cpu}`.
@@ -445,15 +446,48 @@ The web's docs/REEL.md "The share card" is the contract: its words are `ShareWor
   `keep`, no `game` message for it).
 - SEND FEEDBACK freezes the displayed action trail when the card opens. A throw
   report (`kind: "throw"`) sends the two answers; Something else
-  (`kind: "feedback"`) sends one trimmed text of up to 2000 characters. Both include
+  (`kind: "feedback"`) sends one trimmed text of up to 2000 characters. Either may
+  carry `paint` (docs/MATCH.md "Send feedback"), and then its `pieces` are the
+  pieces the picture showed and are never dropped to fit. Both include
   the pitch code (`pitch`), the document version and the match's head as the client
   holds it (`match: {n, seq}`), viewport, build, need, level, last action and throw
   result, pieces, options and replay snapshots. Member IDs are pseudonymised in the
   captured state, including snapshot strings. Answers are limited to 1,000 Unicode
   scalars each. History, pieces and the after snapshot are dropped in that order to
-  fit 64 KiB. It goes to the API as `POST report {r}` with the same client and engine
+  fit 64 KiB (with `paint`, history and the after snapshot; `paint` is always kept). It goes to the API as `POST report {r}` with the same client and engine
   tags as a game record. The review modes `report` and `feedback` show the card in
   each kind.
+
+## HOLLER
+
+HOLLER (the web's docs/MULTIPLAYER.md, its src/net/hollers.json and src/ui/holler.js)
+replaces SHOUT's four words. The lists are that file's section "What the iPhone app
+mirrors", word for word and in order, kept once in the app as `Holler` (KubbPitch),
+which the panel, `PitchController.shout` and `OnlinePitch` read and `HollerTests` pins:
+four groups of six phrases (Cheers, Groans, Banter, Calls) and twelve emoji.
+
+- **The wire** is unchanged in name: `{t: "shout", w: "<phrase>"}` or
+  `{t: "shout", e: "<emoji>"}`, cast with `all: true`, at most one per 700 ms, spending
+  an aim slot. A receiver shows a holler only when its `w` is exactly one of the phrases,
+  else its `e` exactly one of the emoji (`Holler.read`); anything else is dropped without
+  a word, so no text a player writes ever reaches another screen.
+- **The panel**: one tap on HOLLER opens it, and one tap on a phrase or an emoji sends it
+  and closes it; a tap on the dim round it, or on HOLLER, closes it. The groups are a
+  segmented bar over their six phrases (two or three a row by the panel's width), with the
+  emoji in a box of their own under them (four or six a row). It never covers the meter,
+  its prompt or the set-up tray (`HollerLayout`, `HollerLayoutTests`): upright HOLLER
+  stands at the left under the header, as on the web, and the panel hangs under it; on a
+  wide screen HOLLER is at the top right and the panel takes the room left between the
+  meter and the tray. Where the room is short the panel scrolls, never cut. It takes the
+  scene's skin; VoiceOver reads the group (Cheers), then each phrase in it ("Nice!",
+  hinted "Cheers. Sends it to everyone."), and each emoji by name ("Fire"); escape closes it.
+- **Received**: the sender's name and the phrase, or the emoji drawn larger (40 pt upright,
+  32 pt on a phone on its side), under HOLLER, newest last, as many of the newest as fit
+  above the meter (`HollerLayout.feedHeight`, `feedCount`). VoiceOver announces
+  "Mighty Maple: NICE!" or "Mighty Maple: Fire".
+- Observers see the hollers and have no HOLLER.
+- Review: the solo review modes `holler` (the panel open) and `hollered` (some received),
+  on the phones upright and on their side and the iPads.
 
 ## Observers and open games
 
@@ -473,7 +507,7 @@ would otherwise come back as a host that never acts, and the pitch would stall
 (the web's review finding, 2026-11-20).
 
 - **In a match** the board watches (`PitchSession.watching`) in the wide view and
-  the free camera (docs/RENDER.md "The watcher's wide view"). No SHOUT. The hand-off
+  the free camera (docs/RENDER.md "The watcher's wide view"). No HOLLER: an observer cannot send one, and sees those sent. The hand-off
   card names both teams with their base kubbs (`HandoffWords`, "NORTH BASE 5") and
   says "They throw 6 batons."; WATCH, and it closes by itself after 2.5 s.
 - **Between matches** the observer's own card (`WatchCard`): PITCH code, Watching,
@@ -530,7 +564,8 @@ Review images and baselines are in docs/review/online.
 The two phone sizes use the same scenarios and the existing tile comparator.
 With --landscape left or right the same scenarios run on a phone on its side,
 named `<phone>-landscape-<mode>.png` (the 16e turned right, the Pro Max left).
-The match takes the web's wide arrangement, SHOUT beside MENU, and the lobby
+The match takes the web's wide arrangement, HOLLER at the top right (SHOUT in these
+pictures, which are older than its new name), and the lobby
 and menu cards scroll from their titles (docs/RENDER.md "A phone on its side").
 The plan block at the far edge and the raise and punishment bar are the solo
 screen's own views, shown online only to the player who acts; the online review
@@ -556,7 +591,7 @@ web's widths and centred, e.g. [the lobby](review/online/ipad-mini-host.png),
 | Lobby, host | [16e](review/online/iphone-16e-landscape-host.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-host.png) |
 | Lobby, guest | [16e](review/online/iphone-16e-landscape-guest.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-guest.png) |
 | A match, watching | [16e](review/online/iphone-16e-landscape-flight.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-flight.png) |
-| SHOUT | [16e](review/online/iphone-16e-landscape-shout.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-shout.png) |
+| HOLLER (then SHOUT) | [16e](review/online/iphone-16e-landscape-shout.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-shout.png) |
 | Handoff | [16e](review/online/iphone-16e-landscape-handoff.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-handoff.png) |
 | Winner | [16e](review/online/iphone-16e-landscape-winner.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-winner.png) |
 | Pitch menu | [16e](review/online/iphone-16e-landscape-menu.png) | [17 Pro Max](review/online/iphone-17-pro-max-landscape-menu.png) |

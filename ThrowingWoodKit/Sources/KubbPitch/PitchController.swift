@@ -1194,13 +1194,16 @@ import KubbEngine
       lastAimAt = now
     }
   }
+  /// HOLLER: one of `Holler`'s phrases or emoji (the one list; nothing else is sent), at
+  /// most one each 0.7 s.
   @discardableResult public func shout(
-    _ word: String, now: Int = Int(Date().timeIntervalSince1970 * 1000)
+    _ piece: Holler.Piece, now: Int = Int(Date().timeIntervalSince1970 * 1000)
   ) -> Bool {
-    guard !observing, ["NICE!", "OOH!", "TOK!", "UNLUCKY"].contains(word),
+    let listed = piece.isEmoji ? Holler.listedEmoji(piece.text) : Holler.listedPhrase(piece.text)
+    guard !observing, listed != nil,
       lastShoutAt == nil || now - lastShoutAt! >= 700
     else { return false }
-    if pitch.cast(JS.object([("t", .string("shout")), ("w", .string(word))]).json, all: true) {
+    if pitch.cast(piece.payload.json, all: true) {
       lastShoutAt = now
       lastAimAt = now  // a shout spends an aim slot: the two stay under the cast limit
       return true

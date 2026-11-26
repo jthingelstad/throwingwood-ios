@@ -30,9 +30,10 @@ struct ReportButton: View {
   }
 }
 
-/// The feedback card (the web's src/ui/report.js): "A throw looked wrong" (two answers and
-/// pieces to mark) or "Something else" (one box), sent with the game as it stood when the
-/// card opened (PitchReport).
+/// The feedback card (the web's src/ui/report.js): "A throw looked wrong" (two answers) or
+/// "Something else" (one box), either with a picture of the pitch to paint on where there
+/// is one (PaintPicture), sent with the game as it stood when the card opened
+/// (PitchReport).
 struct ReportCard: View {
   enum Kind: String, CaseIterable, Identifiable {
     case `throw`, feedback
@@ -58,7 +59,7 @@ struct ReportCard: View {
   @State private var happened = ""
   @State private var should = ""
   @State private var text = ""
-  @State private var selected: Set<String> = []
+  @State private var paint = ReportPaint(brush: 0)
   @State private var sending = false
   @State private var sent = false
   @State private var status = ""
@@ -68,6 +69,18 @@ struct ReportCard: View {
     self.model = model
     self.report = report
     _kind = State(initialValue: kind ?? (report.hasLastThrow ? .throw : .feedback))
+    #if targetEnvironment(simulator)
+      // the "painted" review: a stroke over the near kubbs and a dab at the far ones
+      if ProcessInfo.processInfo.environment["MATCH_REVIEW"] == "painted" {
+        _paint = State(
+          initialValue: ReportPaint(
+            brush: 0.25,
+            strokes: [
+              (0..<12).map { CGPoint(x: -1.8 + Double($0) * 0.3, y: 0.2 + sin(Double($0) / 2) * 0.3) },
+              [CGPoint(x: 0.4, y: 7.6)],
+            ]))
+      }
+    #endif
   }
 
   private var ready: Bool {
@@ -90,11 +103,6 @@ struct ReportCard: View {
           ).disabled(sending)
             .onChange(of: kind) { status = "" }
           if kind == .throw {
-            if !report.candidates.isEmpty {
-              DisclosureGroup(selected.isEmpty ? "Mark pieces" : "Mark pieces (\(selected.count))") {
-                ReportPiecePicker(pieces: report.candidates, selected: $selected)
-              }.disabled(sending)
-            }
             field("What happened?", $happened, limit: PitchReport.answerChars, lines: 2...5)
             field("What should have happened?", $should, limit: PitchReport.answerChars, lines: 2...5)
           } else {
@@ -102,6 +110,9 @@ struct ReportCard: View {
               "What would you like to tell us?", $text, limit: PitchReport.feedbackChars,
               lines: 4...8,
               hint: "A problem, an idea, something you liked or did not. Anything.")
+          }
+          if !report.candidates.isEmpty {
+            PaintPicture(pieces: report.candidates, paint: $paint, disabled: sending)
           }
           Text(kind == .throw ? Self.throwNote : Self.feedbackNote).font(bodyFont(14, relativeTo: .footnote))
           if !status.isEmpty { Text(status) }
@@ -135,8 +146,8 @@ struct ReportCard: View {
       do {
         let message =
           kind == .throw
-          ? try report.message(happened: happened, should: should, selected: selected)
-          : try report.feedback(text)
+          ? try report.message(happened: happened, should: should, paint: paint)
+          : try report.feedback(text, paint: paint)
         // the same call online or not: no member id goes with a report
         try await PitchConfiguration.client.report(message)
         sent = true
@@ -185,57 +196,5 @@ private struct ReportField: View {
           }
         }
     }
-  }
-}
-
-private struct ReportPiecePicker: View {
-  let pieces: [ReportPiece]
-  @Binding var selected: Set<String>
-
-  var body: some View {
-    let left = min(0, pieces.map(\.y).min() ?? 0) - 0.6
-    let right = max(8, pieces.map(\.y).max() ?? 8) + 0.6
-    let top = min(-2.5, pieces.map(\.x).min() ?? 0) - 0.5
-    let bottom = max(2.5, pieces.map(\.x).max() ?? 0) + 0.5
-    GeometryReader { geo in
-      let dx = geo.size.width / (right - left)
-      let dy = geo.size.height / (bottom - top)
-      ZStack(alignment: .topLeading) {
-        Color(red: 0.33, green: 0.45, blue: 0.31)
-        Rectangle().stroke(.white).frame(width: 8 * dx, height: 5 * dy).offset(
-          x: -left * dx, y: (-2.5 - top) * dy)
-        Rectangle().fill(.white).frame(width: 1, height: 5 * dy).offset(
-          x: (4 - left) * dx, y: (-2.5 - top) * dy)
-        ForEach(pieces) { p in
-          toggle(p, compact: true)
-            .position(x: (p.y - left) * dx, y: (p.x - top) * dy)
-            .zIndex(selected.contains(p.id) ? 2 : (p.kind == "stake" ? 0 : 1))
-        }
-      }
-    }.aspectRatio(1.8, contentMode: .fit).accessibilityHidden(true)
-    LazyVGrid(columns: [GridItem(.adaptive(minimum: 75))], spacing: 5) {
-      ForEach(pieces) { p in toggle(p, compact: false) }
-    }
-  }
-
-  private func toggle(_ p: ReportPiece, compact: Bool) -> some View {
-    let suffix = p.id.hasPrefix(p.kind) ? String(p.id.dropFirst(p.kind.count)) : p.id.uppercased()
-    let label = [p.kind.capitalized, suffix].filter { !$0.isEmpty }.joined(separator: " ")
-    return Button {
-      if !selected.insert(p.id).inserted { selected.remove(p.id) }
-    } label: {
-      // the list's buttons are controls: Inter 14 (nothing under 14 pt) and 44 pt tall;
-      // the marks drawn on the small map stay small, a picture of where pieces lie
-      Text(compact ? (p.kind == "stake" ? "•" : p.id.uppercased()) : label)
-        .font(compact ? .system(size: 10, weight: .bold) : bodyFont(14, .bold))
-        .padding(compact ? 3 : 6)
-        .frame(minHeight: compact ? nil : TW.touch)
-        .background(
-          selected.contains(p.id) ? Color.woodGold : .woodPaper,
-          in: RoundedRectangle(cornerRadius: 3)
-        )
-        .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Color.woodInk))
-    }.buttonStyle(.plain).accessibilityLabel(label)
-      .accessibilityAddTraits(selected.contains(p.id) ? .isSelected : [])
   }
 }

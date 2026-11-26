@@ -30,7 +30,7 @@ import Testing
     await #expect(throws: PitchError.self) { try await p.joinTeam("A") }
     await #expect(throws: PitchError.self) { try await p.reduce("setOptions", fields: []) }
     #expect(try await p.start(seed: 1, at: startAt) == false)
-    #expect(p.shout("NICE!") == false)
+    #expect(p.shout(.phrase("NICE!")) == false && p.shout(.emoji("🔥")) == false)
     try p.castAim(now: 10_000)
     #expect(!p.pitch.cast(JSONText("{}")))
     p.pitch.act(id: "never-1", n: 1, seq: 1, a: JSONText("{}"), h: "h", snap: "s", over: false)

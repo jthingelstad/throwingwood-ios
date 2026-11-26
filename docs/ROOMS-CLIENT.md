@@ -107,7 +107,7 @@ other join error (busy, rate) tries again after the backoff.
 Sending (`PitchController.castAim`, the web's AimSender): at most 15 a second, only when
 the aim changed, as `{t: "aim", s, k, c}`, `k` counting this member's samples and `c` its
 clock in ms. The aim just before a release goes at once with `all: true`, which the pitch
-never thins. A shout spends a slot, so the two stay under the cast limit.
+never thins. A holler (the cast `shout`) spends a slot, so the two stay under the cast limit.
 
 Drawing (`AimBuffer`, the web's AimBuffer): the clock offset is the smallest
 `arrival − ts` over the last 40 casts; the render time is `now − offset − 100 ms`. Between
