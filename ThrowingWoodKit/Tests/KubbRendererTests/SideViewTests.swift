@@ -63,6 +63,27 @@ import Testing
     #expect(watcher.camera.kind != "end")
   }
 
+  /// A throw this device aims for the other side (a host standing in for a player who
+  /// left) is seen from the thrower's end, since the aim calls take the thrower's frame;
+  /// the next throw of the player's own side's is from the player's end again.
+  @Test func aStandInThrowIsSeenFromTheThrowersEnd() throws {
+    let size = CGSize(width: 390, height: 844), safe = ScreenInsets(top: 47, bottom: 34)
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(fixture("aim"), save: nil)
+    let other = try #require(app.need?.side)
+    let own = other == "A" ? "B" : "A"
+    app.playerSide = { own }
+    app.dismissHandoff()
+    app.acceptsInput = true
+    #expect(app.need?.kind == "throw" && app.need?.cpu != true)
+    app.sideView(size: size, safe: safe)
+    #expect(app.sideViewOn && app.camera.kind != "end")
+    // without the stand-in's hand the same throw is the other side's, from the player's end
+    app.acceptsInput = false
+    app.sideView(size: size, safe: safe)
+    #expect(app.camera.kind == "end")
+  }
+
   /// The computer's throw seen from the player's end is drawn in the player's frame: the
   /// recording's poses are the thrower's, so the pieces come from the engine's `showAt`,
   /// turned (core/frame: (x, y) -> (-x, 8 - y)), as the wide view's do.
@@ -154,6 +175,28 @@ import Testing
     // one naming its kubb is watched on that kubb
     _ = app.raiseEnd(of: JSONText(#"{"type":"raise","kubb":"\#(other.id)"}"#))
     #expect(app.raiseNeed?.kubb == other.id)
+  }
+
+  /// AUTO with another kubb picked raises that kubb, on the engine's end: it names the
+  /// kubb (the web's game.raise), where a raise naming none would stand the engine's first.
+  @Test func autoRaisesTheKubbPicked() throws {
+    let size = CGSize(width: 390, height: 844), safe = ScreenInsets(top: 47, bottom: 34)
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(fixture("raise-many"), save: nil)
+    _ = try app.engine.call("setControl", json: #"{"sides":["A","B"],"cpu":false}"#)
+    try app.adopt(app.read("view"))
+    app.sideView(size: size, safe: safe)
+    app.acceptsInput = true
+    let other = try #require(app.lyingShapes(in: size).first)
+    let first = try #require(app.need?.kubb)
+    try app.pickLying(id: other.id)
+    try app.raiseWatched()
+    #expect(app.raiseShowing)
+    for _ in 0..<600 where app.raiseShowing { try app.tick(1.0 / 30) }
+    // the kubb picked stands; the engine's first still lies
+    let lying = (app.need?.lying ?? []).map(\.id)
+    #expect(!app.raiseShowing && app.need?.kind == "raise")
+    #expect(!lying.contains(other.id) && lying.contains(first))
   }
 
   /// A watched raise (AUTO here) keeps the per-kubb camera, close enough to see the kubb

@@ -694,6 +694,34 @@ import KubbEngine
     return nil
   }
   private var rollingTeam = false
+
+  /// The host keeps the throw to go's setting in the document (engine 1.4, the web's
+  /// keepTogo): the engine's own default is off and the game's on, and a write by an
+  /// engine before 1.4 (an App Store 1.0.0 host) drops it. Written once a document while
+  /// the next match's engine has it, nobody has started, and it is missing; `kept` is
+  /// the host's last lobby options (off only where the host turned it off).
+  @discardableResult public func keepTogo(kept: [String: String]) async throws -> Bool {
+    guard !observing, pitch.isHost, state == .lobby || state == .versionMismatch, pitch.status == .open,
+      togoKeptAt != pitch.version
+    else { return false }
+    func lacks(_ doc: JSONText) throws -> Bool {
+      guard doc != .null else { return false }
+      let l = try pitchCall("lobbyOf", [("doc", .raw(doc))])
+      return l["started"]?.bool != true && l["settings"]?["togo"] == nil
+    }
+    guard try lacks(pitch.document) else { return false }
+    let togo = kept["togo"] == "off" ? "off" : "on"
+    // an engine without the throw to go (1.0) takes no `togo`: nothing is written
+    guard try takenOptions(["togo": togo])["togo"] != nil else { return false }
+    togoKeptAt = pitch.version
+    return try await pitch.update { [self] doc in
+      guard pitch.isHost, try lacks(doc) else { return nil }
+      let set = try Self.pitchCall(
+        lobbyEngine(), "setOptions", [("doc", .raw(doc)), ("options", .object([("togo", JS.string(togo))]))])
+      return set.isNull ? nil : set.raw
+    } != nil
+  }
+  private var togoKeptAt: Int?
   private var teamRolls = 0
 
   /// `node` (an object) with `fields` set: a key it has keeps its place, a new one goes

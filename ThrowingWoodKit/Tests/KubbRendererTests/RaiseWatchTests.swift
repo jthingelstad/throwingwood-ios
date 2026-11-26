@@ -84,7 +84,8 @@ import simd
       if seen.last != app.raiseWatch { seen.append(app.raiseWatch) }
     }
     #expect(seen == [.ownLeadIn, .ownTipping, .none, .ownTipping, .none], "\(seen)")
-    #expect(sent == [#"{"type":"raise"}"#, #"{"type":"raise"}"#])
+    // engine 1.4: each names the kubb it raises, the engine's next (the web's game.raise)
+    #expect(sent == [#"{"type":"raise","kubb":"b1"}"#, #"{"type":"raise","kubb":"b2"}"#], "\(sent)")
   }
 
   /// The unsent raise dropped (authority lost) and a resync during the lead-in: nothing

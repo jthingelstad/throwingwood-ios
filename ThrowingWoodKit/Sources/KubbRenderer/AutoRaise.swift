@@ -402,7 +402,7 @@ extension PitchSession {
       node["type"]?.string == "raise"
     else { return nil }
     // engine 1.4.0: the raise names its kubb (any order) and the end by `which`; the
-    // watched raise is drawn on that kubb; one that names none (AUTO, AUTO ALL) is the
+    // watched raise is drawn on that kubb; one that names none (an older sender) is the
     // engine's first, whatever this device had picked (Codex on PR #61)
     let id = node["kubb"]?.string
     let n = n0.picking(id)
@@ -422,9 +422,12 @@ extension PitchSession {
   }
 
   private func startRaiseShow(lies: Bool) throws {
-    // the engine's choice raises its own first kubb
-    raisePicked = nil
-    guard let n = need else { return }
+    // AUTO on engine 1.4: the kubb picked, on the engine's choice of end (a raise naming
+    // no kubb would stand the engine's first lying kubb instead; the web's game.raise)
+    guard let n = raiseNeed ?? need else { return }
+    let pending = n.lying != nil && n.kubb != nil
+      ? JS.object([("type", .string("raise")), ("kubb", .string(n.kubb!))]).ascii
+      : #"{"type":"raise"}"#
     // the first kubb of this turn's automatic raise lies a moment first, and its one line
     // for VoiceOver is said then, not a line a kubb (AUTO's one kubb: no lying, one line)
     let run = "\(n.turn ?? 0):\(n.side ?? "")"
@@ -437,7 +440,7 @@ extension PitchSession {
     let hurry = autoRaise.hurry
     raiseCatchUp = 0
     raiseShow = RaiseShow(
-      i: defaultEnd(n), pending: #"{"type":"raise"}"#,
+      i: defaultEnd(n), pending: pending,
       lead: hurry || !lies || !first ? 0 : Pacing.autoRaiseWait,
       beat: hurry ? 0 : Pacing.raiseBeat(n.of ?? 1), final: finalPose(n, choice: nil))
     _ = try raiseShowTick(0)

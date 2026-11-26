@@ -86,6 +86,32 @@ import Testing
 
   }
 
+  /// A document that lost the throw to go's setting (a write by an App Store 1.0.0 host,
+  /// whose engine has none) gets it back from the host once, before START: on, or off
+  /// where the host last turned it off (the web's keepTogo).
+  @Test func theHostWritesAMissingThrowToGoOnce() async throws {
+    let (p, pitch) = try await setup()
+    defer { withExtendedLifetime(pitch) { p.close() } }  // the fake pitch lives as long as the test
+    #expect(try await p.prepareLobby(options: [:]))
+    #expect(try p.roomOptions(p.pitch.document)["togo"] == "on")
+    // present: nothing to write
+    #expect(try await p.keepTogo(kept: [:]) == false)
+    func drop() async throws {
+      _ = try await p.pitch.update { doc in
+        var o = try #require(JSONSerialization.jsonObject(with: Data(doc.text.utf8)) as? [String: Any])
+        var st = o["settings"] as? [String: Any] ?? [:]
+        st["togo"] = nil
+        o["settings"] = st
+        return JSONText(String(decoding: try JSONSerialization.data(withJSONObject: o), as: UTF8.self))
+      }
+    }
+    try await drop()
+    #expect(try p.pitchCall("lobbyOf", [("doc", .raw(p.pitch.document))])["settings"]?["togo"] == nil)
+    #expect(try await p.keepTogo(kept: ["togo": "off"]))
+    #expect(try p.roomOptions(p.pitch.document)["togo"] == "off")
+    #expect(try await p.keepTogo(kept: [:]) == false)
+  }
+
   @Test func aStartGivesTheComputerTheRoomsLevel() async throws {
     let (p, pitch) = try await setup()
     defer { withExtendedLifetime(pitch) { p.close() } }  // the fake pitch lives as long as the test
