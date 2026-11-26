@@ -65,10 +65,14 @@ extension SoloOptions {
       app.sample(nil)
       try app.tick(1.0 / 60)
       var ticks = 0
+      var bothSeen = false
       while app.result?.togo != true && ticks < 4000 {
         try app.tick(1.0 / 60)
         ticks += 1
+        // both batons fly in the one recording, the other team's too (Codex on PR #61)
+        if app.playing, Set(["togoA", "togoB"]).isSubset(of: Set(app.scene.items.map(\.id))) { bothSeen = true }
       }
+      #expect(bothSeen, "both batons are drawn in flight")
       let r = try #require(app.result)
       #expect(r.togo == true && r.A != nil && r.B != nil)
       verdicts.append(r)

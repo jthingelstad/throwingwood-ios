@@ -86,6 +86,7 @@ public struct ThrowResult: Decodable, Equatable, Sendable {
 struct Recording: Decodable {
   struct Body: Decodable {
     let id: String, start, frames: Int, poses: [Int]
+    var kind: String? = nil, team: String? = nil
   }
   struct Burst: Decodable {
     let start: Double, kind: String, anchor: WorldPoint, takenBack: Bool?
@@ -117,6 +118,10 @@ struct Recording: Decodable {
 /// Pre-index moving tracks once. The other pieces keep their release pose.
 struct Playback {
   let recording: Recording
+  /// The pieces as the recording starts: its items, and a piece for each moving body it
+  /// has no item for (a throw to go's other baton, engine 1.4.0: its `items` are the
+  /// viewer's world, its `bodies` both batons; Codex on PR #61).
+  private let base: [Piece]
   private let tracks: [(index: Int, body: Recording.Body)]
   var nextTime = 0.0, rest = 0.0, realTime = 0.0
   let feedback: [TimedFeedback]
@@ -129,13 +134,21 @@ struct Playback {
   init(_ r: Recording, rings: Bool = false) {
     recording = r
     feedback = r.timeline.feedback(projectileID: r.projectile.id, rings: rings)
-    let indices = Dictionary(uniqueKeysWithValues: r.items.enumerated().map { ($1.id, $0) })
+    var base = r.items
+    let known = Set(r.items.map(\.id))
+    for b in r.bodies where !known.contains(b.id) && b.frames > 0 && b.poses.count >= 7 {
+      let d = b.poses.map { Double($0) / r.poseScale }
+      base.append(
+        Piece(id: b.id, kind: b.kind ?? "baton", team: b.team, x: d[0], y: d[1], z: d[2], qw: d[3], qx: d[4], qy: d[5], qz: d[6]))
+    }
+    self.base = base
+    let indices = Dictionary(base.enumerated().map { ($1.id, $0) }) { a, _ in a }
     tracks = r.bodies.compactMap { b in indices[b.id].map { ($0, b) } }
     starts = Array(repeating: nil, count: r.timeline.bursts.count)
   }
 
   func pieces(at t: Double) -> [Piece] {
-    var items = recording.items
+    var items = base
     let u = t / recording.frameDt
     let frame = Int(floor(u))
     for (index, b) in tracks where frame + 1 >= b.start && b.frames > 0 {
