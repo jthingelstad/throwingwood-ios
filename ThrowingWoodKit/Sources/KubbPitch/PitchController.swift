@@ -39,6 +39,8 @@ import KubbEngine
   /// each is taken again on top of the peer's (engine 1.4.0: a baton has no place in the
   /// order, and one already in is refused as "thrown", so a retry is harmless).
   private var droppedTogo: [JSONText] = []
+  /// The match (`n`) the dropped batons were thrown in: only that match takes them again.
+  private var droppedTogoMatch: Int?
   public struct Outstanding: Sendable {
     public let id: String
     public let n, seq: Int
@@ -1052,6 +1054,8 @@ import KubbEngine
     guard !droppedTogo.isEmpty, !awaitingState, state == .match else { return }
     let batons = droppedTogo
     droppedTogo = []
+    // a baton of another match (the pitch moved on while this member was away) is gone
+    guard let n = head?.n, n == droppedTogoMatch else { return }
     for a in batons {
       guard (try call("need"))["kind"]?.string == "togo" else { return }
       let out = try call("apply", .raw(a))
@@ -1081,7 +1085,12 @@ import KubbEngine
   }
   /// Back to the confirmed head: outstanding actions dropped, the board told.
   private func rollback() throws {
-    droppedTogo += outstanding.map(\.a).filter(Self.isTogo)
+    let dropped = outstanding.map(\.a).filter(Self.isTogo)
+    if !dropped.isEmpty {
+      if droppedTogoMatch != head?.n { droppedTogo = [] }
+      droppedTogo += dropped
+      droppedTogoMatch = head?.n
+    }
     outstanding.removeAll()
     pitch.dropActs()
     guard let headSnap, state == .match else { return }
@@ -1129,15 +1138,19 @@ import KubbEngine
       if let k = outstanding.firstIndex(where: { $0.seq == seq && $0.h == h }) {
         // the pitch has this member's actions up to k: they are the head now
         for _ in 0...k { try confirm() }
+        try retakeTogo()
         return
       }
       if current.seq == seq && current.h == h {
         head?.over = over
+        try retakeTogo()
         return
       }
     }
     adoptions += 1
     try begin(n: n, seq: seq, h: h, over: over, meta: meta, h0: Self.hashOf(m["h0"]), snap: snap, show: true)
+    // a full resync (`state`) as well as a resume takes back a baton a refusal dropped
+    try retakeTogo()
   }
 
   /// Whether the match on the pitch is over and has start info a replay is made from:

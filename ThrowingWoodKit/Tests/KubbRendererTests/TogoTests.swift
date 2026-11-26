@@ -121,6 +121,20 @@ extension SoloOptions {
     #expect(TogoWords.waiting(for: "Computer") == "Waiting for Computer")
   }
 
+  /// A baton passed to this device by a change of control (online, a stand-in for a
+  /// team-mate who left: Codex on PR #61) can be thrown at once: the need is read again.
+  @Test func aBatonHandedOnByTheControlIsThrownAtOnce() throws {
+    let app = try PitchSession(appVersion: "test")
+    try app.startSolo(name: "Mighty Maple", selections: app.options.defaults, save: nil)
+    app.dismissHandoff()
+    _ = try app.engine.call("setControl", json: #"{"sides":[],"cpu":false}"#)
+    try app.controlChanged()
+    #expect(!app.togoToThrow && !app.canAim)
+    _ = try app.engine.call("setControl", json: #"{"sides":["A"],"cpu":true}"#)
+    try app.controlChanged()
+    #expect(app.togoToThrow && app.canAim)
+  }
+
   /// A match with the throw to go is kept and reopened on it, and its replay holds it.
   @Test func aKeptMatchReopensOnTheThrowToGo() throws {
     let app = try PitchSession(appVersion: "test")

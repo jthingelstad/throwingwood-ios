@@ -752,6 +752,9 @@ public enum LobbyEntry: Identifiable, Equatable {
       }
       _ = try board.engine.call("setControl", json: control.text)
       displayControl = control
+      // the throw to go's need names the baton this device throws from the control
+      // (engine 1.4.0, `controlFor`): a stand-in given a team-mate's baton throws it now
+      if board.need?.kind == "togo" { try board.controlChanged() }
     }
     board.runsComputer = caughtUp && (try? JSONNode.parse(control)["cpu"]?.bool) == true
     // with no side in the match this board watches (the watcher's view and free camera)
