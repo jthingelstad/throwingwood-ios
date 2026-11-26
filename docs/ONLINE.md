@@ -11,7 +11,7 @@ The socket opens when the player starts or joins a pitch. The host initializes
 the lobby document. Presence sends the device's name, a generated one, as it is, and
 the engines this build carries (`pitch.announce`, below). The lobby shows names, sides,
 watchers, host and connection state. A member can join either team or sit out.
-The player's name is the device's (`PlayerName`), picked in the lobby's You row (the name row, "Names" below) or in Settings; a change goes to the room at once (`profile`). A member sends no level: engine 0.13 throws every person on one meter, and the lineup takes "club" for a member that names none (AGENTS.md "Levels are the computer's"). Team capacity, the computer's levels and match options come from the engine. The host sets
+The player's name is the device's (`PlayerName`), picked in the lobby's You row (the name row, "Names" below) or in Settings; a change goes to the room at once (`profile`). A member sends no level (the computer's alone), but from engine 1.3 its throw, `me.throw` (Easy, Standard or Hard, the device's, `ThrowChoice`), which the lineup gives its player entry; the You row has the Throw row where the room's engine has throw levels, a change goes to the room at once (`profile(throw:)`), and each player's line shows theirs beside the name (" · Hard"; AGENTS.md "Levels are the computer's; a person has a throw"). Team capacity, the computer's levels and match options come from the engine. The host sets
 options, invite-only or open access, and starts. An empty side plays as the
 computer. The options offered are the `MATCH_OPTIONS` of the engine the next match
 would run on (`PitchController.lobbyEngine`, the room's engine counting this member),
@@ -45,7 +45,10 @@ on `GET /open` while the host is there.
 
 A match belongs to the engine major.minor it started on, for its whole life
 (kubb-engine docs/PITCH.md "Engines in one match"), and the app carries only the
-engines we decide to support, today the newest alone (docs/ENGINES.md). It still
+engines we decide to support, today 1.4 and 1.0 (docs/ENGINES.md): a pitch with a player
+on the App Store's 1.0.0, which carries 1.0 alone, plays on 1.0, with none of 1.4's
+controls (no Throw row, no throw to go row or need, no any-order raise, no view from the
+player's side). It still
 speaks the engine's contract for clients that carry several ("The pitch's engine",
 "Speaking down"), so an older build or a web tab that carries several agrees with it:
 
@@ -190,6 +193,25 @@ at its own level. The web is the reference for every number and word (its docs/S
   with a pro partner each side in step between two controllers, every action stamped) and
   `ComputerSeatLobbyTests` (the phone host's lobby, and a phone joining a pitch that
   already holds seats, through to a computer player's throw).
+
+## Engine 1.4 on a pitch
+
+- **The throw to go** (kubb-engine docs/PITCH.md "The throw to go"): a new pitch's host
+  writes `togo: "on"` with the kept options when it makes the lobby
+  (`PitchController.prepareLobby`; a host who last turned it off keeps it off), and the
+  lobby shows the engine's Throw to go row. In the match each team throws its baton at
+  once, blind: `controlFor {ctx, me, need}` names the batons this member throws, the
+  release is sent at once and nothing of it shows; the header reads "Throw to go" over
+  "Waiting for <team>" while the other's is to come, and the verdict plays when the second
+  baton lands (the recording comes with it). No aim is cast or shown during it. Never in a
+  Kid match or with no person on a side.
+- **Raising in any order**: any player on the raising side may raise any lying kubb; a
+  refusal "not lying" (a team-mate's raise landed first) draws the need again.
+- **The view from one side**: a player's board sees its own team's throws from alongside
+  (the thrower's camera) and the other team's from the end camera at its own end
+  (`setView {side}` with this member's side). Watchers keep the wide view and the free
+  camera.
+- **The computer's speed** is solo only: on a pitch every member watches the same pace.
 
 ## One match, two clocks
 
