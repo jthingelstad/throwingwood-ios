@@ -63,6 +63,30 @@ import Testing
     #expect(watcher.camera.kind != "end")
   }
 
+  /// The computer's throw seen from the player's end is drawn in the player's frame: the
+  /// recording's poses are the thrower's, so the pieces come from the engine's `showAt`,
+  /// turned (core/frame: (x, y) -> (-x, 8 - y)), as the wide view's do.
+  @Test func theComputersThrowIsDrawnOnThePlayersPitch() throws {
+    func firstFrame(side: Bool) throws -> [String: Piece] {
+      let app = try PitchSession(appVersion: "test")
+      try app.restore(fixture("computer"), save: nil)
+      if side { app.sideView(size: CGSize(width: 390, height: 844), safe: ScreenInsets(top: 47, bottom: 34)) }
+      #expect(app.sideViewOn == side)
+      for _ in 0..<2000 where !app.playing {
+        app.dismissHandoff()
+        try app.tick(1.0 / 60)
+      }
+      try #require(app.playing && app.playbackCpu)
+      return Dictionary(app.scene.items.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+    }
+    let thrower = try firstFrame(side: false), player = try firstFrame(side: true)
+    #expect(!thrower.isEmpty && Set(thrower.keys) == Set(player.keys))
+    for (id, a) in thrower {
+      let b = try #require(player[id])
+      #expect(abs(b.x + a.x) < 1e-6 && abs(b.y - (8 - a.y)) < 1e-6, "\(id)")
+    }
+  }
+
   /// A raise in any order: the other lying kubbs are drawn to pick, a tap on one picks
   /// it (its ends and numbers move to it), and VoiceOver can pick each by name.
   @Test func anyLyingKubbMayBeRaisedNext() throws {

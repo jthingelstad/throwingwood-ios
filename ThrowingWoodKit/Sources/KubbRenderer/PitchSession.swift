@@ -288,6 +288,8 @@ public final class PitchSession {
   /// What each engine's Lua state was last told by `setView` (it outlasts `new`), and the
   /// screen it was for.
   private var sideArgs: [String: String] = [:]
+  /// The engine this match is on has the player's side view on (`setView` with a side).
+  var sideViewOn: Bool { (sideArgs[engine.minor] ?? "{}") != "{}" }
   private var sideScreen: (size: CGSize, safe: ScreenInsets)?
   /// The watcher's wide view is on (`watchWide`).
   public var wideOn: Bool { scene.wide }
@@ -898,9 +900,9 @@ public final class PitchSession {
     if !p.finished {
       let t = min(p.nextTime, p.recording.duration)
       let shown: Shown = try read("showAt", #"{"t":\#(t)}"#)
-      // the wide view's pieces come un-turned from the engine; the recording's own are
-      // in the thrower's frame
-      scene.items = scene.wide ? (shown.items ?? p.pieces(at: t)) : p.pieces(at: t)
+      // the wide view's pieces come un-turned from the engine, and the side view's turned
+      // into the player's frame; the recording's own are in the thrower's frame
+      scene.items = scene.wide || sideViewOn ? (shown.items ?? p.pieces(at: t)) : p.pieces(at: t)
       // a piece turning faster than the frames can show is drawn as a spin (Spin.swift),
       // from its pose the frame before
       scene.spins = SpinTune.spins(from: p.lastShown, to: scene.items)
