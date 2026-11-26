@@ -162,6 +162,7 @@ plan.tune = {
 	-- kubb's top; 4.5 cm up a kubb, the lower end meets the body with room over
 	-- it (tools/topprobe.lua, docs/notes/real-games.md "Aim lower, at the body").
 	aimHeightShare = 0.3,
+	aimByTurn = 1,         -- 1 (1.3.0): the centre's height by how the baton arrives (plan.solve); 0 as 1.2
 	-- The wrist checks the arm's rotation to aim for the level's tumbleTurns.
 	-- On longer throws the arm speed limits how much of that rotation can be
 	-- checked. A rough release adds seeded variation in turns (tumbleSd).
@@ -214,6 +215,9 @@ plan.tune = {
 -- club's nervesDeg 0.8 until 0.13: then its base kubbs from 8 m fell 19.5% (the bottom of
 -- club's reference row, 19 to 27) and the recorded people on the person's meter beat it
 -- about 60 games in 100; at 0.5 it is 25% and they win about 49 (docs/notes/gym.md)
+-- club's tumbleSd 0.06 until 1.3.0: with autothrow's swingScale.club 1.5 at 0.08 the recorded
+-- people on the honest Standard meter win about 40 games in 100 against club, where they won 20
+-- (docs/notes/computer-player.md "Club against a typical player")
 plan.levels = {
 	-- kid (0.15.0, docs/notes/kid-mode.md): the Kid computer, gentle and a little clumsy, set
 	-- in the Gym so a child's hand on the Kid meter wins about three games in four
@@ -222,7 +226,7 @@ plan.levels = {
 	beginner = { powerHalf = 15, releaseHalf = 30, inGain = 0.1, shakeGain = 0.5,  overGain = 0.5,
 		nervesDeg = 1.6, nervesLen = 0.06, tumbleTurns = 0.62, tumbleSd = 0.10, drillScatter = 2 },
 	club     = { powerHalf = 8,  releaseHalf = 18, inGain = 0.3, shakeGain = 0.75, overGain = 0.75,
-		nervesDeg = 0.5, nervesLen = 0.03, tumbleTurns = 0.50, tumbleSd = 0.06, drillScatter = 1 },
+		nervesDeg = 0.5, nervesLen = 0.03, tumbleTurns = 0.50, tumbleSd = 0.08, drillScatter = 1 },
 	pro      = { powerHalf = 4,  releaseHalf = 10, inGain = 0.6, shakeGain = 1,    overGain = 1,
 		nervesDeg = 0.5, nervesLen = 0.02, tumbleTurns = 0.50, tumbleSd = 0.035, drillScatter = 0.35 },
 }
@@ -247,6 +251,18 @@ plan.LEVELS = { "kid", "beginner", "club", "pro" }
 -- cause. A drilled kubb's release scatter is drillScatter (pro's: a clean swing lands
 -- dead) times 1 + scatterGain x the shake as it counts + roughGain x how far past a
 -- bar the swing was (plan.scatterFor), so a rough swing scatters.
+-- The honest meter (1.3.0; the owner, 2026-11-26: what the player does must show in the
+-- result, no hidden random draw on a person's throw, a perfect throw always lands, and a
+-- drilled kubb is not placed "literally wherever you want"). A person's throw has no
+-- nerves (nervesDeg, nervesLen and tumbleSd 0: the draws are still made from the swing's
+-- own stream and count nothing). Instead the release sets the line inside its bar too:
+-- at the bar's edge the throw is edgeM off the line at the target, in between in
+-- proportion, and past the edge that plus pullPerDeg a degree (plan.releasePull). A thrown
+-- kubb takes the same pull (kubbPull past the bar; none on a meter without it) and an
+-- error inside a bar counts kubbInGain of itself (a baton's inGain). Three player levels
+-- (a person's `throw`: easy, standard, hard; docs/SESSION.md) are three meters that
+-- differ in their bars only: an easier one makes a good throw easier to make and never
+-- makes one fail.
 -- plan.tune.meter names the meter the session uses by default; `kid` (0.15.0,
 -- docs/notes/kid-mode.md) is the Kid match's: much wider bars at every range, the same
 -- honest rule (inside both bars and steady goes where aimed), a gentler pull past the
@@ -255,7 +271,7 @@ plan.LEVELS = { "kid", "beginner", "club", "pro" }
 -- away about half the time and a field kubb 3 m away about four times in five.
 plan.meters = {
 	standard = {
-		powerHalf8 = 2, releaseHalf8 = 7.5, widen = 0.45, nearM = 3, farM = 10, narrowMin = 0.5,
+		powerHalf8 = 2, releaseHalf8 = 5, widen = 0.45, nearM = 3, farM = 10, narrowMin = 0.5,
 		-- a thrown kubb's bars are a baton's (0.16; 1.35 times them until then). The owner,
 		-- owner-2026-11-22#s4: "Drilling physics is great. Amazing. But the player can now
 		-- drill too good." On the wider bars the recorded hand's drill swings were mostly
@@ -267,8 +283,47 @@ plan.meters = {
 		-- power bar held to the bar of the distance a throw on the line before needs its
 		-- planned speed at, when that is farther (plan.meterLevel). Measured and left off:
 		-- docs/notes/throw.md "A hard throw's power bar"
-		inGain = 0.1, pullPerDeg = 0.15, shakeIn = 0.1, shakeGain = 0.75, overGain = 0.75,
-		nervesDeg = 0.12, nervesLen = 0.008, tumbleTurns = 0.50, tumbleSd = 0.015,
+		inGain = 0.1, pullPerDeg = 0.25, shakeIn = 0.1, shakeGain = 0.75, overGain = 0.75,
+		-- the honest meter (1.3.0): no nerves; the release sets the line inside its bar
+		-- (edgeM at the edge) and past it, for a thrown kubb too (kubbPull), and a kubb's
+		-- error inside a bar counts kubbInGain. releaseHalf8 7.5 until 1.3.0. edgeM 3.5 cm,
+		-- under the 5.7 cm a baton's centre may be off a kubb's and still touch it: at 5 cm
+		-- a swing at a corner of both bars could glance off (docs/notes/throw.md "The bars'
+		-- corners"); pullPerDeg 0.25 past the bar (0.15 until 1.3.0) so a release past it is
+		-- pulled about as far as at 5 cm a degree past the edge, and farther beyond
+		nervesDeg = 0, nervesLen = 0, tumbleTurns = 0.50, tumbleSd = 0,
+		edgeM = 0.035, kubbPull = 0.15, kubbInGain = 0.3,
+		drillScatter = 0.35, scatterGain = 3, roughGain = 6, roughMax = 2,
+	},
+	-- the player levels (1.3.0): a person's `throw`, easy and hard beside standard. The
+	-- same honest rules (no nerves, the release's pull, a kubb's), only the bars differ:
+	-- easy's wider, so a good swing is easier to make, hard's narrower; inside both bars
+	-- and steady a throw goes where aimed at every level. Set with tools/meterprobe.lua
+	-- (--meter easy|hard): on easy a newcomer's hand (the recorded misses x2) fells about
+	-- as the club rows say; on hard a master's (x0.5) about as pro's, the recorded hand
+	-- under club's (docs/notes/throw.md "The honest meter")
+	-- easy: bars two and a half times standard's at 8 m (5 / 12), and an error inside them
+	-- counting less (inGain 0.04, kubbInGain 0.12: standard's over 2.5), so the most an
+	-- error inside a bar moves the throw is about standard's and a swing inside both still
+	-- goes where aimed (at standard's gains a steady drill inside these bars landed within
+	-- 0.3 m only 61% of the time)
+	easy = {
+		powerHalf8 = 5, releaseHalf8 = 12, widen = 0.45, nearM = 3, farM = 10, narrowMin = 0.5,
+		kubbPower = 1, kubbRelease = 1,
+		inGain = 0.04, pullPerDeg = 0.25, shakeIn = 0.1, shakeGain = 0.75, overGain = 0.75,
+		nervesDeg = 0, nervesLen = 0, tumbleTurns = 0.50, tumbleSd = 0,
+		edgeM = 0.035, kubbPull = 0.15, kubbInGain = 0.12,
+		drillScatter = 0.35, scatterGain = 3, roughGain = 6, roughMax = 2,
+	},
+	-- hard: standard's power bar (2 at 8 m: the floor the meter keeps so a bar stays usable
+	-- on a phone and a crank; 1.5 in the 1.3.0 draft) and seven tenths of its release bar
+	-- (3.5), the same gains: a release has to be truer, the backswing as true as standard's
+	hard = {
+		powerHalf8 = 2, releaseHalf8 = 3.5, widen = 0.45, nearM = 3, farM = 10, narrowMin = 0.5,
+		kubbPower = 1, kubbRelease = 1,
+		inGain = 0.1, pullPerDeg = 0.25, shakeIn = 0.1, shakeGain = 0.75, overGain = 0.75,
+		nervesDeg = 0, nervesLen = 0, tumbleTurns = 0.50, tumbleSd = 0,
+		edgeM = 0.035, kubbPull = 0.15, kubbInGain = 0.3,
 		drillScatter = 0.35, scatterGain = 3, roughGain = 6, roughMax = 2,
 	},
 	-- the Kid meter (0.15.0): bars about five times the standard's at 6 m and three at 3 m,
@@ -286,6 +341,14 @@ plan.meters = {
 	},
 }
 
+-- A person's player levels (1.3.0): the meters a player entry's `throw` may name, easiest
+-- first, and the one a player without it throws on.
+plan.THROW_LEVELS = { "easy", "standard", "hard" }
+plan.THROW_DEFAULT = "standard"
+function plan.isThrowLevel(v)
+	return v == "easy" or v == "standard" or v == "hard"
+end
+
 -- The meter for a name (nil: plan.tune.meter). Any name it does not know is the
 -- standard meter: a level name ("club") is not a meter.
 function plan.meter(name)
@@ -294,8 +357,8 @@ end
 
 -- The level-shaped table a person's throw at distance d (m) with projectile ("baton"
 -- or "kubb") is planned and launched on, from meter m (plan.meters). Fills and
--- returns out (a new table when nil): powerHalf, releaseHalf, inGain, shakeIn,
--- pullPerDeg, flickIn (the Kid meter's: a soft flick's shortfall counts this share), shakeGain, overGain, nervesDeg, nervesLen, tumbleTurns, tumbleSd, drillScatter,
+-- returns out (a new table when nil): powerHalf, releaseHalf, inGain (a kubb's:
+-- kubbInGain when the meter has one), shakeIn, pullPerDeg (a kubb's: kubbPull), edgeM, flickIn (the Kid meter's: a soft flick's shortfall counts this share), shakeGain, overGain, nervesDeg, nervesLen, tumbleTurns, tumbleSd, drillScatter,
 -- scatterGain, roughGain, roughMax, and meter = m.
 function plan.meterLevel(m, d, projectile, out, speed)
 	out = out or {}
@@ -327,7 +390,13 @@ function plan.meterLevel(m, d, projectile, out, speed)
 	if projectile == "kubb" then kp, kr = m.kubbPower or 1, m.kubbRelease or 1 end
 	out.powerHalf, out.releaseHalf = m.powerHalf8 * kpow * kp, m.releaseHalf8 * k * kr
 	out.inGain, out.shakeIn, out.shakeGain, out.overGain = m.inGain, m.shakeIn, m.shakeGain, m.overGain
-	out.pullPerDeg = m.pullPerDeg
+	out.pullPerDeg, out.edgeM = m.pullPerDeg, m.edgeM
+	-- a thrown kubb (1.3.0): its own share of an error inside a bar, and the release's
+	-- pull at kubbPull (none on a meter without it: the Kid meter's kubb is not pulled)
+	if projectile == "kubb" then
+		out.inGain = m.kubbInGain or m.inGain
+		out.pullPerDeg = m.kubbPull
+	end
 	out.flickIn = m.flickIn
 	out.nervesDeg, out.nervesLen, out.tumbleTurns, out.tumbleSd = m.nervesDeg, m.nervesLen, m.tumbleTurns, m.tumbleSd
 	out.drillScatter, out.scatterGain, out.roughGain, out.roughMax = m.drillScatter, m.scatterGain, m.roughGain, m.roughMax
@@ -371,18 +440,25 @@ function plan.level(l)
 end
 local levelOf = plan.level
 
--- The release's pull (a person's baton, 0.13): degrees off the planned line, + = right,
--- for a release er degrees off the release target's centre at level lv: the part past
--- the bar's edge times pullPerDeg, a late release (past the bar's top, HIGH) pulling
--- left and an early one (LOW) right; inside the bar none. 0 for a level without
--- pullPerDeg (the computer's).
-function plan.releasePull(lv, er)
+-- The release's pull (a person's baton, 0.13; a thrown kubb and inside the bar, 1.3.0):
+-- degrees off the planned line, + = right, for a release er degrees off the release
+-- target's centre at level lv, the throw dist metres long. A late release (HIGH side)
+-- pulls left and an early one (LOW side) right. Inside the bar the pull grows in
+-- proportion to the error, so that at the bar's edge the throw is lv.edgeM off the line
+-- at the target (none without edgeM or a distance); past the edge, that plus pullPerDeg
+-- a degree past it. 0 for a level without pullPerDeg (the computer's, the Kid meter's
+-- kubb). The same release always gives the same pull: no draw.
+function plan.releasePull(lv, er, dist)
 	local k = lv.pullPerDeg
 	if not k then return 0 end
 	local h = lv.releaseHalf
-	if er > h then return -k * (er - h) end
-	if er < -h then return k * (-h - er) end
-	return 0
+	local e = 0
+	local em = lv.edgeM
+	if em and em > 0 and dist and dist > 0 then e = deg(atan(em / dist)) end
+	if er > h then return -e - k * (er - h) end
+	if er < -h then return e + k * (-h - er) end
+	if e == 0 or h <= 0 then return 0 end
+	return -e * er / h
 end
 
 -- ---------------------------------------------------------------------------
@@ -738,6 +814,50 @@ local function driveFloor(R, flat, hz)
 	return res
 end
 
+-- A baton's line for plan.solve: from the stance R metres short of the target, the
+-- planned release rel and its loft (flattened by flat), the hand at h and the aim at z,
+-- the release and loft it is thrown at (a drive under the knee may be raised to the
+-- floor, driveFloor) and the clean speed and flight time that carry it there. No tables.
+local function batonLine(R, rel, loft, flat, h, z)
+	local pt = plan.tune
+	local fitSpeed, fitT = nil, nil
+	if rel < pt.driveKneeDeg then
+		-- the drive's floor (plan.tune.driveBackMaxDeg): a release whose line the hand
+		-- cannot make or whose speed is past the swing's is raised to the lowest that
+		-- can (driveFloor), never past the knee (above it every release is as before
+		-- 0.16). A release that fits costs one carry speed and no floor; one whose
+		-- drag-free speed is already past the swing's costs no carry (1.0)
+		local e, hz = rad(loft), h - z
+		local den = R * tan(e) + hz
+		if den > 0 then
+			local vmax = topSpeed()
+			if not dragFreeOver(R, e, hz, den, vmax) then
+				local sp, spT = carrySpeed(R, e, hz)
+				-- a line that fits keeps its carry speed: the same call as below, the same bits
+				if sp == sp and sp > 0 and sp <= vmax then fitSpeed, fitT = sp, spT end
+			end
+		end
+		if not fitSpeed then
+			rel = driveFloor(R, flat, h - z)
+			loft = plan.loftFor(rel) * flat
+		end
+	end
+	local speed, T = fitSpeed, fitT
+	if not speed then speed, T = carrySpeed(R, rad(loft), h - z) end
+	return rel, loft, speed, T
+end
+
+-- A drive's planned turn (plan.tune.driveTurnToDeg): from the knee's loft down the turn
+-- eases to none. The rate for release rel.
+local function driveTurn(rate, rel)
+	local pt = plan.tune
+	if rel >= pt.driveKneeDeg then return rate end
+	local l0 = plan.loftFor(pt.driveKneeDeg)
+	local f = (l0 - plan.loftFor(rel)) / (l0 - pt.driveTurnToDeg)
+	if f > 1 then f = 1 end
+	return rate * (1 - f)
+end
+
 -- Solve the plan. q = { projectile = "baton" | "kubb", px, py (the stance),
 -- tx, ty (the target), release (planned degrees, clamped to the plan's
 -- range), level (name or table: the computer's standard, plan.levels) or meter (a
@@ -786,30 +906,9 @@ function plan.solve(q, out)
 		local R = d - fwd
 		if R < 0.1 then R = 0.1 end
 		local pt = plan.tune
-		local fitSpeed, fitT = nil, nil
-		if rel < pt.driveKneeDeg then
-			-- the drive's floor (plan.tune.driveBackMaxDeg): a release whose line the hand
-			-- cannot make or whose speed is past the swing's is raised to the lowest that
-			-- can (driveFloor), never past the knee (above it every release is as before
-			-- 0.16). A release that fits costs one carry speed and no floor; one whose
-			-- drag-free speed is already past the swing's costs no carry (1.0)
-			local e, hz = rad(loft), h - z
-			local den = R * tan(e) + hz
-			if den > 0 then
-				local vmax = topSpeed()
-				if not dragFreeOver(R, e, hz, den, vmax) then
-					local sp, spT = carrySpeed(R, e, hz)
-					-- a line that fits keeps its carry speed: the same call as below, the same bits
-					if sp == sp and sp > 0 and sp <= vmax then fitSpeed, fitT = sp, spT end
-				end
-			end
-			if not fitSpeed then
-				rel = driveFloor(R, flat, h - z)
-				loft = plan.loftFor(rel) * flat
-			end
-		end
-		local speed, T = fitSpeed, fitT
-		if not speed then speed, T = carrySpeed(R, rad(loft), h - z) end
+		local rel0, loft0 = rel, loft
+		local speed, T
+		rel, loft, speed, T = batonLine(R, rel, loft, flat, h, z)
 		if near > 0 and z > 0 and speed < ft.nearSpeed and h - z > 0.005 then
 			-- the hand is as low as it goes (flight.handAt) and the bowl would still
 			-- be soft: aim higher through the face until it is firm again (the
@@ -849,13 +948,30 @@ function plan.solve(q, out)
 			end
 			out.tumble = r > plan.tune.tumbleMin and r or plan.tune.tumbleMin
 		end
-		if rel < pt.driveKneeDeg then
-			-- a drive does not flip (plan.tune.driveTurnToDeg): from the knee's loft down
-			-- the planned turn eases to none
-			local l0 = plan.loftFor(pt.driveKneeDeg)
-			local f = (l0 - plan.loftFor(rel)) / (l0 - pt.driveTurnToDeg)
-			if f > 1 then f = 1 end
-			out.tumble = out.tumble * (1 - f)
+		-- a drive does not flip (plan.tune.driveTurnToDeg): from the knee's loft down
+		-- the planned turn eases to none
+		out.tumble = driveTurn(out.tumble, rel)
+		if pt.aimByTurn == 1 and near == 0 and z > 0 and T and T > 0 then
+			-- the aim by how the baton arrives (1.3.0): plan.aimZFor puts the centre a half
+			-- length over the lower end, for a baton that arrives upright. One that has made
+			-- about a quarter turn (a drive at 3 to 4 m: the drive's turn eases to none) arrives
+			-- lying along its line, and at that height its centre passed over a kubb's top: a
+			-- perfect swing at 3.1 to 3.45 m missed one kubb in seven, and a release a little late
+			-- inside its bar missed every one at 3.5 m (docs/notes/throw.md "The bars' corners").
+			-- So the centre is put that end's height over the same point: hl x |cos| of the turn
+			-- the plan arrives with, solved again once at that height. Only a baton that arrives
+			-- short of a half turn: one past it (beginner's and club's 0.62 turns) is as before
+			local hl = body.kinds.baton.hl
+			local th = out.tumble * T
+			local c = cos(th)
+			if c < 0 then c = -c end
+			local z2 = z - hl * (1 - c)
+			if th < pi and z2 < z then
+				z = z2
+				rel, loft, speed, T = batonLine(R, rel0, loft0, flat, h, z)
+				out.loft, out.aimZ, out.speed = loft, z, speed
+				out.tumble, out.flightT = driveTurn(plan.tumbleFor(speed, loft, T, lv), rel), T
+			end
 		end
 	end
 	if q.meter then
@@ -1083,8 +1199,9 @@ function plan.launch(sol, r, opts, out)
 	end
 	local sdSide, sdLen = plan.nervesSd(lv, plan.nervesBack(sol, effBack, kubb), shake, m, kubb)
 	local sideDeg = pull * t.lateralDeg * se + zs * sdSide
-	-- a person's baton: a release past its bar sets the line off too (plan.releasePull)
-	if not kubb then sideDeg = sideDeg + plan.releasePull(lv, rel - sol.release) end
+	-- a person's throw: the release sets the line off too (plan.releasePull; a baton's
+	-- past its bar since 0.13, inside it and a thrown kubb's since 1.3.0)
+	if lv.pullPerDeg then sideDeg = sideDeg + plan.releasePull(lv, rel - sol.release, sol.dist) end
 	local len = zl * sdLen
 	if len < t.lenMin then len = t.lenMin end
 	out.speed = out.speed * sqrt(1 + len)

@@ -34,6 +34,8 @@
 --   save.mode, opts.mode                       the sheet's [Mode]
 --   save.game.surface, .first, .winner         the sheet's headers
 --   save.lineup.<side>[].level, opts levels    [Throw Levels] (cpu.levelName writes it)
+--   save.lineup.<side>[].throw, opts players' throw   a person's throw level (1.3.0):
+--       easy, standard or hard; [Throw Levels] writes easy and hard
 --   opts.set, opts.scene                       a set and a scene core/scenes lists
 --   the rest (sides, phases, kubb and piece ids, keys)  never shown, held to the values
 --       the engine writes so a string cannot hide in them
@@ -246,18 +248,21 @@ local function enum(s, why) return function(v) return s[v] == true, why end end
 local function pid(v, ctx) return ctx.pids[v] == true, "not a player of this match" end
 local function level(v) return plan.levels[v] ~= nil, "not a throw level" end
 local function key(v) return #v <= 64, "a key longer than 64" end
+local function throwLevel(v) return plan.isThrowLevel(v), "not a person's throw level" end
 
 for _, side in ipairs { "A", "B" } do
 	RULES[".opts.teams." .. side .. ".name"] = { name = "team", side = side, part = "opts" }
 	RULES[".opts.teams." .. side .. ".players[].name"] = { name = "player", side = side, part = "opts" }
 	RULES[".opts.teams." .. side .. ".players[].key"] = key
 	RULES[".opts.teams." .. side .. ".players[].level"] = level
+	RULES[".opts.teams." .. side .. ".players[].throw"] = throwLevel
 	RULES[".save.game.teams." .. side .. ".name"] = { name = "team", side = side, part = "save" }
 	RULES[".save.game.teams." .. side .. ".players[].name"] = { name = "player", side = side, part = "save" }
 	RULES[".save.game.teams." .. side .. ".players[].id"] = pid
 	RULES[".save.lineup." .. side .. "[].id"] = pid
 	RULES[".save.lineup." .. side .. "[].key"] = key
 	RULES[".save.lineup." .. side .. "[].level"] = level
+	RULES[".save.lineup." .. side .. "[].throw"] = throwLevel
 	RULES[".save.order." .. side .. ".ids[]"] = pid
 end
 local kubb = function(v) return isKubb(v), "not a kubb" end
@@ -318,6 +323,17 @@ RULES[".save.order.deal[]"] = pid
 RULES[".save.order.inkaster"] = pid
 RULES[".save.order.side"] = side
 RULES[".save.text"] = { line = "ruling" }
+-- the throw to go (1.4.0): how first was decided (core/togo togo.text, kept as
+-- game.firstBy), and a baton to go already in while the other is owed (Session:applyTogo
+-- keeps only these strings of it)
+RULES[".save.game.firstBy"] = { line = "togo" }
+for _, s in ipairs { "A", "B" } do
+	RULES[".togo." .. s .. ".type"] = enum(set { "togo" }, "not a baton to go")
+	RULES[".togo." .. s .. ".side"] = side
+	RULES[".togo." .. s .. ".how"] = enum(set { "baton" }, "not a baton's throw")
+	RULES[".togo." .. s .. ".input"] = enum(set { "pointer", "touch" }, "not an input")
+	RULES[".togo." .. s .. ".target.on"] = piece
+end
 
 KEYS[".save.game.kubbs"] = kubb
 KEYS[".save.game.sheet.turns[].inkast"] = pid
@@ -333,10 +349,30 @@ end
 for _, w in ipairs { "opts", "save", "game", "teams", "players", "name", "id", "A", "B", "setup", "start", "snap",
 	"log", "a", "teamNames", "match", "members", "me", "computers" } do VOCAB[w] = true end
 
+-- togo.text's words: "throw to go: Team A 0.42 m, Team B king down" and, after rounds
+-- thrown again, "; 2 rounds".
+local function togoPart(p, side)
+	if p == "Team " .. side .. " king down" then return true end
+	return p:match("^Team " .. side .. " %d+%.%d%d m$") ~= nil
+end
+function nc.isTogoText(v)
+	if type(v) ~= "string" or #v > 120 then return false end
+	local body, rounds = v:match("^throw to go: (.-); (%d+) rounds$")
+	if body then
+		if tonumber(rounds) < 2 then return false end
+	else
+		body = v:match("^throw to go: (.*)$")
+	end
+	if not body then return false end
+	local a, b = body:match("^(.-), (Team B .*)$")
+	return a ~= nil and togoPart(a, "A") and togoPart(b, "B")
+end
+
 local function lineOk(kind, v, ctx)
 	if kind == "mode" then return MODES[v] == true end
 	if kind == "how" then return HOWS[v] == true end
 	if kind == "note" then return isNote(v) end
+	if kind == "togo" then return nc.isTogoText(v) end
 	return isRuling(v, ctx.teams)
 end
 

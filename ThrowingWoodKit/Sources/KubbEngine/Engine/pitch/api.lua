@@ -38,6 +38,7 @@ function R.constants()
 		MATCH_OPTIONS = options, LEVELS = { table.unpack(lobby.LEVELS) }, LOG_BUDGET = lobby.LOG_BUDGET,
 		REPLAY_VERSION = lobby.REPLAY_VERSION, CLIENT = sync.CLIENT, WITH_BYTES = sync.WITH_BYTES,
 		ENGINE = lobby.ENGINE, SEAT_LEVELS = { table.unpack(lobby.SEAT_LEVELS) },
+		THROW_LEVELS = { table.unpack(tw.plan.THROW_LEVELS) },   -- a person's (me.throw), since 1.3
 	}
 end
 
@@ -86,7 +87,7 @@ function R.teamIds(a) return seats.teamIds(a.ctx, a.side) end
 function R.actorsFor(a) return seats.actorsFor(a.need, a.ctx) end
 function R.mayAct(a) return seats.mayAct(a.need, a.ctx, a.me) end
 function R.shownActor(a) return seats.shownActor(a.need, a.ctx) end
-function R.controlFor(a) return seats.controlFor(a.ctx, a.me) end
+function R.controlFor(a) return seats.controlFor(a.ctx, a.me, a.need) end
 function R.sameControl(a) return seats.sameControl(a.a, a.b) end
 function R.playingSide(a) return seats.playingSide(a.ctx, a.me) end
 function R.nextHost(a) return seats.nextHost(a.members, a.host) end

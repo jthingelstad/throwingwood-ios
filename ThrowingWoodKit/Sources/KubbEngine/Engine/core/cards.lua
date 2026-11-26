@@ -28,10 +28,11 @@ cards.teamName = team
 
 -- "2FB" -> 2, 1, hit; "F" -> 1, 0, hit; "K" -> 0, 0, hit; "2FE" -> 2, 0,
 -- hit; "E", "-", "=", "Z" -> 0, 0, no hit. The fourth value is false for
--- "X" (a baton left when the game ended) and "G" (a resign): not throws.
+-- "X" (a baton left when the game ended), "G" (a resign) and "W" (a game called, which
+-- record mode writes since 1.1.0): not throws.
 function cards.batonCounts(token)
 	if token == "K" then return 0, 0, true, true end
-	if token == "X" or token == "G" then return 0, 0, false, false end
+	if token == "X" or token == "G" or token == "W" then return 0, 0, false, false end
 	local f, b = 0, 0
 	local fs = token:match("^(%d*)F")
 	if fs then f = fs == "" and 1 or tonumber(fs) end

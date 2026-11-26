@@ -67,7 +67,7 @@ cpu.tune = {
 		run = 4,         -- kubbs in one column before the next starts beside it (laneDeep holds four)
 		x = 0,           -- m from the middle the first column lies at; 0: the basket's (basketX)
 		back = 0,        -- m past the basket the first kubb of an empty basket rests
-		front = 4.35,    -- m from the baseline: no kubb of a column nearer the centre line than
+		front = 4.15,    -- m from the baseline (4.35 until 1.2.0): no kubb of a column nearer the centre line than
 		                 -- this, and an empty basket's first kubb rests deep enough that a full
 		                 -- column fits behind it. The other team's columns stand in the
 		                 -- thrower's own half by the same corner (the baskets face each other):
@@ -119,7 +119,7 @@ local function intoSpot(s, t, bx, by, shortLying)
 	if n == 0 then return nil end
 	local best, bestX, bestY, bestP
 	for _, p in ipairs(s.pieces) do
-		if p.role == "field" and p.half ~= s.side and p.toppled and read.nearBasket(p, bx, by) then
+		if p.role == "field" and p.half ~= s.side and p.toppled and read.inNow(p) and read.nearBasket(p, bx, by) then
 			-- the kubb's half extent along the throw (it lies along its angle)
 			local a = p.pose and p.pose.angle or 0
 			local ca, sa = math.cos(a), math.sin(a)
@@ -197,7 +197,7 @@ end
 local function depthSpot(s, side, ik, t)
 	local dt = cpu.tune.depth
 	local bx = side * ((dt.x ~= 0) and dt.x or t.basketX)
-	local by = s.lineY + t.basketY + dt.back
+	local by = s.lineY + (ik.basketY or t.basketY) + dt.back
 	-- where a drill comes down in front of its rest: its run on at this spin, at least
 	-- spotShortLying (a kubb lying there is in its way)
 	local short = tw.drill.slideFor(plan.loftFor(plan.arcFor("drill")), s.surface, ik.spin * plan.tune.spinPerStep)
@@ -206,13 +206,13 @@ local function depthSpot(s, side, ik, t)
 	local best, bestX, bestY, bestP
 	local inner, n = nil, 0
 	for _, p in ipairs(s.pieces) do
-		if read.farField(s, p) and p.toppled and math.abs(p.x - bx) < 0.5 and math.abs(p.y - by) < 1 then
+		if read.farField(s, p) and p.toppled and read.inNow(p) and math.abs(p.x - bx) < 0.5 and math.abs(p.y - by) < 1 then
 			n = n + 1
 			if not inner or side * p.x < side * inner.x then inner = p end
 			-- the column it heads: kubbs lying within 4 cm across of it
 			local col = 0
 			for _, q in ipairs(s.pieces) do
-				if read.farField(s, q) and q.toppled and math.abs(q.x - p.x) < 0.04 and math.abs(q.y - by) < 1 then col = col + 1 end
+				if read.farField(s, q) and q.toppled and read.inNow(q) and math.abs(q.x - p.x) < 0.04 and math.abs(q.y - by) < 1 then col = col + 1 end
 			end
 			if col < dt.run then
 				local _, ey = extents(p)
@@ -237,11 +237,25 @@ local function depthSpot(s, side, ik, t)
 	-- every column full: the next starts beside the innermost column's back kubb
 	local back = inner
 	for _, q in ipairs(s.pieces) do
-		if read.farField(s, q) and q.toppled and math.abs(q.x - inner.x) < 0.04 and q.y > back.y and math.abs(q.y - by) < 1 then back = q end
+		if read.farField(s, q) and q.toppled and read.inNow(q) and math.abs(q.x - inner.x) < 0.04 and q.y > back.y and math.abs(q.y - by) < 1 then back = q end
 	end
 	local x, y = back.x - side * t.rowStep, back.y
 	if depthFree(s, x, y, short, t) then return x, y, "column", back end
 	return inner.x - side * t.rowStep, inner.y, "row", inner
+end
+
+-- How deep a row's later kubb, laid beside one lying at depth y, is aimed (1.3.0,
+-- autothrow.tune.inkast rowCap; inkast.first, inkast.roll): at y, but with rowCap on no
+-- deeper than rowPast past the basket's depth by, so a kubb that ran on is not copied by
+-- the next. One aimed short of it lands in front and runs on toward it, the kubb already
+-- down its backstop. (A pro column is laid deep on purpose and grows forward; it is not
+-- capped.)
+local function rowDepth(ik, by, y)
+	if (ik.rowCap or 0) ~= 0 then
+		local cap = by + (ik.rowPast or 0)
+		if y > cap then return cap end
+	end
+	return y
 end
 
 -- Where a toss to basket `side` should rest (view frame), for the level's inkast entry
@@ -259,7 +273,7 @@ end
 --   the same (a cluster). The basket itself when every spot is taken.
 function cpu.spot(s, side, ik, lname)
 	local t = autothrow.tune
-	local bx, by = side * t.basketX, s.lineY + t.basketY
+	local bx, by = side * t.basketX, s.lineY + ((ik and ik.basketY) or t.basketY)
 	if ik and ik.group == 0 then return bx, by, "basket" end
 	if ik and lname and knows("depth", lname) then return depthSpot(s, side, ik, t) end
 	if ik and ik.row ~= 0 then
@@ -267,7 +281,7 @@ function cpu.spot(s, side, ik, lname)
 		-- its inner side. The plan lands it short of that across and its spin rolls it
 		-- in (drill.rollFor)
 		local best = read.innermostLying(s, side)
-		if best then return best.x - side * t.rowStep, best.y, "row", best end
+		if best then return best.x - side * t.rowStep, rowDepth(ik, by, best.y), "row", best end
 		return bx, by, "basket"
 	end
 	local best, bestX, bestY

@@ -36,12 +36,16 @@ autothrow.tune = {
 	-- Beginner 1.6 until 0.13: then it cleared 88% of its fields against beginner's
 	-- reference 35 to 55 and a newcomer on the person's meter won 3 games in 100; at
 	-- 2.2 it clears about half and the newcomer wins about 52 (docs/notes/gym.md
-	-- "The person's meter")
+	-- "The person's meter"). Club 1.3 until 1.3.0: then the recorded people on the honest
+	-- Standard meter won 20 games in 100 against it; at 1.5 (and club's tumbleSd 0.08) they
+	-- win about 40 (docs/notes/computer-player.md "Club against a typical player"). 1.5 is
+	-- the most club can take: a steady swing's shake then reaches 0.33, a 30-degree tilt, so
+	-- past it the swing helicopters (1.8: 19% of its batons illegal)
 	drillSpin = 1,           -- taps of axial spin on every drill, to steady the flight: what a
 	                         -- thrower's hand does, not a thing a level's name decides (until
 	                         -- 0.10: beginner 0, club 1, pro 2). One tap is the least that holds
 	                         -- the nose to the touch; the levels differ by their swings' mistakes
-	swingScale = { kid = 1.5, beginner = 2.2, club = 1.3, pro = 1 },
+	swingScale = { kid = 1.5, beginner = 2.2, club = 1.5, pro = 1 },
 	-- the king shot (0.18.0): one throw from the baseline that ends the game, or loses it
 	-- when it fells a kubb with it (II.B), under the most pressure of any. Its swing's
 	-- mistakes and its nerves are the level's times kingScale, set in the Gym so each
@@ -72,6 +76,8 @@ autothrow.tune = {
 	basketX = 1.9,           -- m from the middle: just inside the sideline's middle stake
 	basketY = 4.75,          -- m from the baseline (view y): just past the centre line
 	basketNear = 1.5,        -- m: field kubbs within this of a basket count for it
+	inkastSkipOut = 1,       -- 1 (1.2.0): the inkast reads leave out a kubb that is out for now
+	                         -- (core/read inNow); 0: every kubb on the pitch counts, as in 1.1
 	-- The spot (2026-11-16): a kubb drilled onto one already lying in the
 	-- basket lands on it and skips a metre away, so each kubb goes beside
 	-- the group instead: the clear spot nearest the basket on a small grid.
@@ -123,12 +129,25 @@ autothrow.tune = {
 	-- kubb at the basket itself, 1 rests each beside the kubbs already lying
 	-- (cpu.spot); row: with group, 1 lays them flank to flank in a row
 	-- (rowStep apart), 0 picks a clear spot from the grid as 0.10 did. How steady
-	-- the release is comes from the level too (plan.levels' drillScatter).
+	-- the release is comes from the level too (plan.levels' drillScatter). basketY
+	-- (1.2.0; Jamie, 2026-11-26: the computer drilled "a couple meters back from the
+	-- midline. That isn't what real players do"): how far from the baseline the level's
+	-- basket lies, for its spot; nil is basketY above. Club a safe step past the centre
+	-- line, pro pushed to it (docs/reference/play-levels.json inkast-spot): a kubb that
+	-- runs short is thrown again (II.C.4), and real pro inkasts rethrow one kubb in seven.
+	-- rowCap (1.3.0; inkast.first, inkast.roll): 1 aims a later kubb of a row (core/cpu
+	-- rowDepth; not a pro column) no deeper than rowPast past the level's basket, so one kubb that ran on is the backstop the next rolls into instead of the
+	-- depth the next one copies; 0 aims it level with the kubb it goes beside, as 1.2 did,
+	-- and every overshoot adds to the last (an owner's club inkast rested 5.21, 5.43, 5.77
+	-- and 6.23 m from the baseline, the centre line at 4). On since 1.3.0 (Gym 300 seeds:
+	-- the club computer with it beats club without 60.6%, and its kubbs rest past the
+	-- centre line p90 0.86 m against 1.25; docs/notes/computer-player.md "The row's depth").
+	-- Pro lays columns (cpu.tune.depth), which this does not reach.
 	inkast = {
 		kid = { spin = 0, hand = 0.6, group = 0, row = 0 },   -- 0.15.0: tossed out, as a beginner, rougher
 		beginner = { spin = 0, hand = 0.5, group = 0, row = 0 },
-		club = { spin = 1, hand = 0.26, group = 1, row = 1 },
-		pro = { spin = 1, hand = 0.06, group = 1, row = 1 },
+		club = { spin = 1, hand = 0.26, group = 1, row = 1, basketY = 4.45, rowCap = 1, rowPast = 0.15 },
+		pro = { spin = 1, hand = 0.06, group = 1, row = 1, basketY = 4.3, rowCap = 1, rowPast = 0.15 },
 	},
 	rowStep = 0.075,         -- m across between kubbs lying flank to flank in a row
 	drillScale = 0.2,        -- a drilled kubb's swing mistakes are this much of a baton's, for a

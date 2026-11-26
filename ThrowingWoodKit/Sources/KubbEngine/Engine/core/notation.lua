@@ -12,7 +12,8 @@
 --   Q  every established field kubb a toss knocked out of bounds (II.C.5a).
 --   N  every kubb that came to rest on top of another (II.D.6), at most 5
 --      per token (the grammar's limit).
---   Y  never written: a failed rescue attempt is intent the game cannot see.
+--   Y  never written by the rules engine: a failed rescue attempt is intent the game
+--      cannot see. Record mode (core/record, 1.1.0) writes it as a scorer saw it.
 --
 -- The file is Planet Kubb Notation 2 in its canonical form (pk-kubb-score's
 -- docs/notation-2.md, edition 2026.11; the grammar's CanonicalGame): one
@@ -222,13 +223,14 @@ local function count(n, code)
 	return n .. code
 end
 
--- Inkast token body from { I, R, P, Q, N, E }: "5I2R", "2IRP", "3IQ", "4IE"; "0I"
--- for none (the canonical form's only zero).
+-- Inkast token body from { I, R, P, Y, Q, N, E }: "5I2R", "2IRP", "3IQ", "4IE", "2I2Y";
+-- "0I" for none (the canonical form's only zero). Y (failed rescues, since 1.1.0) is
+-- only ever set by record mode.
 function notation.inkastBody(k)
 	local n = k.N or 0
 	if n > 5 then n = 5 end
 	local s = count(k.I or 0, "I") .. count(k.R or 0, "R") .. count(k.P or 0, "P")
-		.. count(k.Q or 0, "Q") .. count(n, "N")
+		.. count(k.Y or 0, "Y") .. count(k.Q or 0, "Q") .. count(n, "N")
 	if s == "" then s = "0I" end
 	if k.E then s = s .. "E" end
 	return s
@@ -553,6 +555,11 @@ function notation.render(game, meta)
 	h("First", teamLabel(game.first))
 	if game.winner then h("Win", teamLabel(game.winner)) end
 	h("Scored by", notation.scorer .. " " .. (meta.version or "0.0.0"))
+	-- how First was decided (1.4.0: the throw to go, core/togo; meta.firstBy, or the
+	-- game's): a writer's own key (notation-2.md: a key with a character other than a
+	-- letter or a space is the writer's for good), before Mode in code-point order
+	local firstBy = meta.firstBy or game.firstBy
+	if firstBy then h("Engine:first", firstBy) end
 	if meta.mode then h("Mode", meta.mode) end
 	-- the throw levels given (docs/PLAYERS.md decision 7; the computer's players
 	-- since 0.13.2, match.fileLevels): "kim pro, sam club"

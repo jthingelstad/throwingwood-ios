@@ -10,8 +10,9 @@ local gamefile = {}
 
 local MONTHS <const> = { "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC" }
 
--- An inkast token carries I or R (core/notation writes IRPQN in order).
-local function isInkast(tok) return tok:find("[IR]") ~= nil end
+-- An inkast token carries I, R or Y (core/notation writes IRPYQN in order; record mode
+-- writes a token of failed rescues alone, "2Y", since 1.1.0). No baton token has any.
+local function isInkast(tok) return tok:find("[IRY]") ~= nil end
 
 -- The game's summary, or nil and why. Fields: headers (every [Key "Value"]),
 -- a, b (team names), winner ("A" | "B" | nil), first ("A" | "B"), turns,

@@ -406,6 +406,12 @@ local function pitchLoop(P)
 		if pre then
 			if pre.phase ~= "aim" or not sameItems(items, P.lastItems) then
 				pre.items = items
+			else
+				-- (1.2.0) no items sent: the pitch shows the last ones, so the throw's
+				-- `after` is baked from those too; baked from the new set, a body this
+				-- throw leaves still would move a rounding step on the view and not on
+				-- a client playing the events
+				items = P.lastItems
 			end
 			if pre.phase == "setup" then pre.teams = P.teams end
 			queue(P, pre)
