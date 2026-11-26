@@ -111,6 +111,30 @@ import Testing
     #expect(try app.engine.hash() != hash)
   }
 
+  /// A watched raise (AUTO here) keeps the per-kubb camera, close enough to see the kubb
+  /// tip up: the held camera is for raising by hand (Codex on PR #61).
+  @Test func aWatchedRaiseKeepsTheCloseCamera() throws {
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(fixture("raise-many"), save: nil)
+    app.sideView(size: CGSize(width: 390, height: 844), safe: ScreenInsets(top: 47, bottom: 34))
+    #expect(app.scene.heldRaise == true)
+    try app.raiseWatched()
+    #expect(app.raiseShowing)
+    #expect(app.scene.heldRaise != true && app.scene.stillZoom != nil && app.camera.kind != "raise")
+  }
+
+  /// A watcher on a tall screen keeps the free camera: the wide view's own camera there
+  /// is of kind "end" too (Codex on PR #61).
+  @Test func aWatcherUprightKeepsTheFreeCamera() throws {
+    let app = try PitchSession(appVersion: "test")
+    try app.restore(fixture("computer"), save: nil)
+    app.watching = true
+    let size = CGSize(width: 375, height: 667), safe = ScreenInsets(top: 20)
+    app.sideView(size: size, safe: safe)
+    #expect(try app.watchWide(size: size, safe: safe))
+    #expect(app.wideOn && app.freeOn)
+  }
+
   /// A number on another lying kubb moves both square to their line, the same way, keeping
   /// their order along it.
   @Test func numbersStepOffAnotherKubb() {

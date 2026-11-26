@@ -92,7 +92,9 @@ public struct PitchScene: Decodable, Sendable {
     set { wideView = newValue ? true : nil }
   }
   func projection(_ size: CGSize, _ camera: Camera) -> PitchProjection {
-    if wide && stillZoom == nil && !camera.fitted { return PitchProjection(size: size, camera: camera, letterbox: true) }
+    // the wide view's own camera is of kind "end" on a tall screen: only a held raise
+    // camera leaves it for the fit below
+    if wide && stillZoom == nil && camera.kind != "raise" { return PitchProjection(size: size, camera: camera, letterbox: true) }
     var lift = 0.0
     if let low = stillLowest, let floor = stillFloor {
       lift = WideLayout.stillLift(size: size, lowest: low, pad: stillPad ?? 0, floor: floor)
