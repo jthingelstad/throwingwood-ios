@@ -46,12 +46,14 @@ set -euo pipefail
 
 # The supported engines, decided here and nowhere else (docs/ENGINES.md): the
 # kubb-engine release every match plays on, and the older ones we decide to keep
-# supporting beside it, one per major.minor, newest first. None (the owner,
+# supporting beside it, one per major.minor, newest first (the owner,
 # 2026-11-21: "We should only support engines that we decide are worth supporting
 # not just ones that have published so that we can push players to the new
-# engines.").
-TAG=v1.0.0
-OLDER=()
+# engines."). 1.0 is kept with app 1.1.0 (2026-11-26): the App Store's 1.0.0 plays
+# only 1.0, so a pitch with one of its players, and a 1.0 match kept on the device,
+# play on it (docs/ENGINES.md).
+TAG=v1.4.0
+OLDER=(v1.0.0)
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 source_dir=${KUBB_ENGINE_SOURCE:-$root/../kubb-engine}
@@ -150,8 +152,8 @@ check_one() {
     corpus=$(json_version "$golden/hashes.json")
     # A hash-neutral patch ships the exact corpus of the last release that changed
     # hashes (kubb-engine docs/VERSIONING.md "Release notes"): 0.4.1 carries 0.2.0's,
-    # 0.5.1 and 0.7.1 to 0.7.4 0.5.0's, 0.8.1 and 0.8.2 0.8.0's, 0.13.1 to 0.13.4 0.13.0's, 0.15.1 0.15.0's (1.0.0 carries its own:
-    # 21 matches, 880 actions). Arbitrary older corpora are
+    # 0.5.1 and 0.7.1 to 0.7.4 0.5.0's, 0.8.1 and 0.8.2 0.8.0's, 0.13.1 to 0.13.4 0.13.0's, 0.15.1 0.15.0's, 1.4.0 1.3.0's (1.0.0 carries its own:
+    # 21 matches, 880 actions; 1.3.0's has 21 and 886). Arbitrary older corpora are
     # not accepted when moving to another release.
     case $version in
       0.4.1) expected=0.2.0 ;;
@@ -159,6 +161,7 @@ check_one() {
       0.8.[12]) expected=0.8.0 ;;
       0.13.[1-4]) expected=0.13.0 ;;
       0.15.1) expected=0.15.0 ;;
+      1.4.0) expected=1.3.0 ;;
       *) expected=$version ;;
     esac
     [[ $corpus == "$expected" ]] || fail "golden corpus is $corpus, expected $expected; run sync"

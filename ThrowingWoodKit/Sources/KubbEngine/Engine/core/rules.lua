@@ -179,8 +179,13 @@ function Game:need()
 	elseif ph == "raise" then
 		local k = self.kubbs[self.current]
 		local ctx = self:context(self.defender, k.id)
+		-- lying (1.4.0): every field kubb of the half still lying, in id order (the first is
+		-- `kubb`, the one raised when an action names none); any may be raised next
+		-- (Game:raise with an id)
+		local lying = {}
+		for _, f in ipairs(self:lyingKubbs()) do lying[#lying + 1] = f.id end
 		return { kind = "raise", side = self.defender, kubb = k.id, pose = copyPose(k.pose),
-			decision = raising.options(k.pose, ctx) }
+			decision = raising.options(k.pose, ctx), lying = lying }
 	elseif ph == "punish" then
 		return { kind = "punish", side = self.defender, kubb = self.current, half = self.defender }
 	elseif ph == "batons" then
@@ -588,11 +593,58 @@ end
 
 -- ---------- raising (II.D) ----------
 
+-- The field kubbs of the defender's half still lying, in id order (1.4.0): the kubbs
+-- that may be raised now, in any order.
+function Game:lyingKubbs()
+	local out = {}
+	if self.phase ~= "raise" then return out end
+	for _, k in ipairs(self:fieldKubbs(self.defender)) do
+		if not k.pose.standing then out[#out + 1] = k end
+	end
+	return out
+end
+
+-- The raise of kubb `id` as it lies now (1.4.0): its decision (raising.options, the same
+-- as need().decision gives the first) and its context, or nil and why ("not raising",
+-- "not lying": no field kubb of the defender's half lying with that id).
+function Game:raiseOptions(id)
+	if self.phase ~= "raise" then return nil, "not raising" end
+	local k = id and self.kubbs[id]
+	if not (k and k.where == "pitch" and k.kind == "field" and k.half == self.defender and not k.pose.standing) then
+		return nil, "not lying"
+	end
+	local ctx = self:context(self.defender, k.id)
+	return raising.options(k.pose, ctx), ctx, k
+end
+
+-- Could kubb `id` be raised on end `which` now (1.4.0)? true, the choice's index; or
+-- false and why: "not raising", "not lying", "no end" (no end of it can stand in
+-- bounds), "that end" (`which` is not one of the decision's choices). which nil: the
+-- side's choice (policy), always one when the kubb has any.
+function Game:canRaise(id, which)
+	local dec, why = self:raiseOptions(id)
+	if not dec then return false, why end
+	if #dec.choices == 0 then return false, "no end" end
+	if which == nil then return true, nil end
+	for i, c in ipairs(dec.choices) do
+		if c.which == which then return true, i end
+	end
+	return false, "that end"
+end
+
 -- choice: an index into need().decision.choices, or nil for the automatic
--- chooser (game.raisePolicy, or `policy`).
-function Game:raise(choice, policy)
+-- chooser (game.raisePolicy, or `policy`). id (1.4.0): the lying field kubb to raise,
+-- any of need().lying, its choice an index into its own decision (Game:raiseOptions);
+-- nil: need().kubb, as before. Raising one kubb can change another's ends (a kubb
+-- stood up in the way), so each raise reads the pitch as it is then.
+function Game:raise(choice, policy, id)
 	if self.phase ~= "raise" then fail("not raising now (" .. self.phase .. ")") end
 	local k = self.kubbs[self.current]
+	if id ~= nil and id ~= k.id then
+		local dec, why = self:raiseOptions(id)
+		if not dec then fail("no lying kubb " .. tostring(id) .. " to raise (" .. why .. ")") end
+		k = self.kubbs[id]
+	end
 	local ctx = self:context(self.defender, k.id)
 	local dec = raising.options(k.pose, ctx)
 	if #dec.choices == 0 then fail("kubb " .. k.id .. " cannot be raised in bounds") end
@@ -603,6 +655,14 @@ function Game:raise(choice, policy)
 	k.pose.standing, k.pose.onTop = true, nil
 	self:_next()
 	return c
+end
+
+-- Raise kubb `id` on its end `which` (1.4.0; nil: the side's choice, `policy`): the
+-- choice made. Fails as Game:raise does when it cannot (Game:canRaise says first).
+function Game:raiseKubb(id, which, policy)
+	local ok, i = self:canRaise(id, which)
+	if not ok then fail("cannot raise " .. tostring(id) .. " on end " .. tostring(which) .. " (" .. tostring(i) .. ")") end
+	return self:raise(i, policy, id)
 end
 
 -- Raise every pending kubb automatically.

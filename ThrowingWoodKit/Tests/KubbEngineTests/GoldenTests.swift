@@ -56,7 +56,8 @@ func goldenFolder(_ minor: String) -> String {
 /// The corpus each carried engine is pinned to, and its size: a new engine, or one we
 /// decide to support again (docs/ENGINES.md), changes this on purpose.
 let pinnedCorpora: [String: (corpus: String, matches: Int)] = [
-  "1.0": ("1.0.0", 21)
+  "1.4": ("1.3.0", 21),
+  "1.0": ("1.0.0", 21),
 ]
 
 /// One golden match on one carried engine.
@@ -123,7 +124,7 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
   @Test func corpusIsForTheVendoredEngine() throws {
     let engine = try Engine(appVersion: testAppVersion)
     // Hash-neutral releases retain the exact corpus from the last change to match physics.
-    let expected = ["0.4.1": "0.2.0", "0.5.1": "0.5.0", "0.7.1": "0.5.0", "0.7.2": "0.5.0", "0.7.3": "0.5.0", "0.7.4": "0.5.0", "0.8.1": "0.8.0", "0.8.2": "0.8.0", "0.13.1": "0.13.0", "0.13.2": "0.13.0", "0.13.3": "0.13.0", "0.13.4": "0.13.0", "0.15.1": "0.15.0"][engine.engineVersion] ?? engine.engineVersion
+    let expected = ["0.4.1": "0.2.0", "0.5.1": "0.5.0", "0.7.1": "0.5.0", "0.7.2": "0.5.0", "0.7.3": "0.5.0", "0.7.4": "0.5.0", "0.8.1": "0.8.0", "0.8.2": "0.8.0", "0.13.1": "0.13.0", "0.13.2": "0.13.0", "0.13.3": "0.13.0", "0.13.4": "0.13.0", "0.15.1": "0.15.0", "1.4.0": "1.3.0"][engine.engineVersion] ?? engine.engineVersion
     #expect(corpus.version == expected, "run scripts/vendor-engine.sh sync")
     #expect(corpus.tune == Engine.tune)
     #expect(corpus.matches.count == pinnedCorpora[Engine.newest]?.matches)
@@ -131,10 +132,10 @@ let appleLibmProof = ProcessInfo.processInfo.environment["KUBB_APPLE_LIBM_PROOF"
   }
 
   /// Every engine the build carries, each with the corpus it is pinned to: the newest
-  /// alone, since we support only the newest (docs/ENGINES.md). An engine it once
-  /// carried (0.9, 0.8, 0.7) is not carried.
+  /// and 1.0, which the App Store's 1.0.0 plays (docs/ENGINES.md). An engine it once
+  /// carried (0.18, 0.9, 0.8, 0.7) is not carried.
   @Test func everyCarriedEngineHasItsOwnCorpus() throws {
-    #expect(Engine.carried == ["1.0"])
+    #expect(Engine.carried == ["1.4", "1.0"])
     #expect(Set(pinnedCorpora.keys) == Set(Engine.carried))
     for mm in Engine.carried {
       let engine = try Engine(minor: mm, appVersion: testAppVersion)

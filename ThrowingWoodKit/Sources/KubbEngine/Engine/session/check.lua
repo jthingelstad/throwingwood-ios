@@ -31,12 +31,15 @@
 --   shake        that over shakeGain x the overpower multiplier, unforgiven (the
 --                meter forgives a steady shake: plan.unshake): 0..1, and under
 --                steadyBelow exactly when the verdict says steady
---   swivel       the plan's, plus the pull's lateralDeg x the shake, plus (a baton, 0.13)
---                the release's pull past its bar (plan.releasePull of the stop), plus a nerves draw
---                of at most ZMAX sds (plan.rng's normal: its u1 never under 1e-12)
+--   swivel       the plan's, plus the pull's lateralDeg x the shake, plus the release's
+--                pull (plan.releasePull of the stop: a baton's past its bar since 0.13; on
+--                the 1.3.0 meters inside the bar too, edgeM at its edge, and a thrown
+--                kubb's, kubbPull), plus a nerves draw of at most ZMAX sds (plan.rng's
+--                normal: its u1 never under 1e-12); with no nerves (1.3.0) exactly that
 --   sideV        the side cell of that angle at the plan's distance (straightM)
 --   speed        speedFor(the backswing as forgiven) x a flick of minFlickFrac..1 x
---                sqrt(1 + a length draw of at most ZMAX sds, never under lenMin)
+--                sqrt(1 + a length draw of at most ZMAX sds, never under lenMin); with no
+--                nerves the speed and the tumble each pin the flick, and must agree
 --   powerV       what that flick gives against the power target (the -2 rule too)
 --   tumble       a baton's: the plan's rate x the flick, plus at most ZMAX sds of turns
 --                over the planned flight, never under tumbleMin. A kubb's is 0
@@ -197,10 +200,15 @@ local function tryTilt(ctx, sol, ptilt, taps)
 	-- sideways
 	local sdSide, sdLen = plan.nervesSd(lv, plan.nervesBack(sol, effBack, kubb), shake, m, kubb)
 	local sideDeg = deg(L.swivel - sol.swivel)
-	-- a person's baton: the release's pull (plan.releasePull, 0.13), from the stop
-	local rp = kubb and 0 or plan.releasePull(lv, ctx.relA - sol.release)
-	local zs = (sideDeg - pull * t.lateralDeg * se - rp) / sdSide
-	if abs(zs) > check.ZMAX + EPS then return false, 4, "the swivel is off the line by more than the nerves give" end
+	-- the release's pull (plan.releasePull), from the stop: a person's baton's past its bar
+	-- since 0.13; inside the bar (edgeM) and a thrown kubb's (kubbPull) since 1.3.0. The
+	-- rest is the nerves' draw, at most ZMAX sds; on a meter without nerves (1.3.0) none,
+	-- so the swivel is pinned (TOL for the rounding of the angle)
+	local rp = lv.pullPerDeg and plan.releasePull(lv, ctx.relA - sol.release, sol.dist) or 0
+	local rest = sideDeg - pull * t.lateralDeg * se - rp
+	if abs(rest) > check.ZMAX * sdSide * (1 + EPS) + TOL then
+		return false, 4, "the swivel is off the line by more than the nerves give"
+	end
 	local sideM = tan(rad(sideDeg)) * (sol.dist or 0)
 	if not sideFits(v.sideV, sideM, -t.straightM, t.straightM) then
 		return false, 4, "the side verdict does not fit the swivel"
@@ -441,7 +449,7 @@ local function personThrow(s, a)
 	end
 	-- the target
 	local dt = drill.tune
-	local inArea = abs(target.x) <= dt.markerXMax + EPS and target.y - lineY >= dt.markerNear - EPS
+	local inArea = abs(target.x) <= dt.markerXMax + EPS and target.y - lineY >= (ts.markerNear or dt.markerNear) - EPS
 		and target.y - lineY <= dt.markerFar + EPS
 	local onPiece = nil
 	for _, it in ipairs(ts.items or {}) do
@@ -531,6 +539,7 @@ end
 -- and atLevel whether that is among them. From 0.13 a person's throw is on one meter
 -- whatever the level, so a throw that fits lists every level and atLevel is true.
 function check.throw(s, a)
+	if type(a) == "table" and a.type == "togo" then return check.togo(s, a) end
 	if type(a) ~= "table" or a.type ~= "throw" then return fail("not a throw") end
 	if s.kind ~= "match" or s.phase ~= "throw" or not s.setup then return fail("no throw set up") end
 	if a.seq == nil or math.tointeger(a.seq) ~= s.throws then return fail("throw out of step") end
@@ -540,6 +549,30 @@ function check.throw(s, a)
 		return { ok = false, computer = true, why = "not the computer's throw: " .. tostring(firstDiff(a, want)) }
 	end
 	local ok, r = pcall(personThrow, s, a)
+	if not ok then return fail("not a throw this engine can read: " .. tostring(r)) end
+	r.computer = false
+	return r
+end
+
+-- A baton to go (1.4.0; docs/SESSION.md "The throw to go"): could it be `a.side`'s baton
+-- in this round, thrown on a person's dial? The same checks as a person's throw, against
+-- the set-up the side's baton is thrown from (Session:togoPrepare's, on a throw state of
+-- its own, so the session is not moved). A computer's baton is never an action a client
+-- sends: the engine makes it when the people's are in, so one is refused here.
+function check.togo(s, a)
+	if type(a) ~= "table" or a.type ~= "togo" then return fail("not a baton to go") end
+	if s.kind ~= "match" or s.phase ~= "togo" or not s.togo then return fail("no throw to go") end
+	if a.round == nil or math.tointeger(a.round) ~= s.togo.round then return fail("not this round") end
+	local side = a.side
+	if side ~= "A" and side ~= "B" then return fail("no such side") end
+	if s.togo.acts[side] then return fail("thrown") end
+	if s:togoCpu(side) then return fail("the computer's baton is the engine's") end
+	local setup = tw.match.togoSetup(s.m, side)
+	local ts = throw.new { surface = s.opts.surface, set = s.opts.set, meter = session.meterOf(s.opts) }
+	ts.throwLevel = setup.thrower.throw
+	throw.prepare(ts, setup)
+	ts.level = setup.thrower.level
+	local ok, r = pcall(personThrow, { ts = ts, setup = setup, kind = "match" }, a)
 	if not ok then return fail("not a throw this engine can read: " .. tostring(r)) end
 	r.computer = false
 	return r

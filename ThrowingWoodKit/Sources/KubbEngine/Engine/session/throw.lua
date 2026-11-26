@@ -89,10 +89,12 @@ throw.level = plan.tune.defaultLevel
 function throw.levelFor(s)
 	return s.level or s.defaultLevel or throw.level
 end
--- The meter a person's throw is planned on (plan.meter): the same for every person,
--- whatever throw.levelFor(s) says.
+-- The meter a person's throw is planned on (plan.meter), whatever throw.levelFor(s) says:
+-- the match's (s.meter: the Kid meter in a Kid match), else the thrower's own throw
+-- level (s.throwLevel, 1.3.0: a player entry's `throw`, easy, standard or hard), else
+-- the standard meter.
 function throw.meterFor(s)
-	return plan.meter(s.meter)
+	return plan.meter(s.meter or s.throwLevel)
 end
 
 -- ---------- pieces ----------
@@ -394,7 +396,13 @@ local function replan(s)
 	-- ARC's real range for the throw in hand (throw.controls)
 	s.arcMin = plan.arcFloor(q)
 	s.swivel, s.loftDeg = sol.swivel, sol.loft
-	s.planLevel, s.planDirty = throw.levelFor(s), false
+	s.planLevel, s.planMeter, s.planDirty = throw.levelFor(s), q.meter, false
+end
+
+-- Is the plan stale: marked so, or made for another level or meter (1.3.0: a thrower
+-- with another throw level)?
+local function stale(s)
+	return s.planDirty or s.planLevel ~= throw.levelFor(s) or s.planMeter ~= throw.meterFor(s)
 end
 throw.replan = replan
 
@@ -500,6 +508,7 @@ function throw.new(opts)
 		set = opts.set or throw.tune.set,
 		defaultLevel = opts.level,
 		meter = opts.meter,   -- the meter a person throws on (plan.meters): "kid" in a Kid match, nil the standard
+		throwLevel = opts.throwLevel, -- the person's throw level (1.3.0): "easy" or "hard", nil standard
 		layout = throw.defaultLayout(),
 		items = {}, targets = {}, snaps = {},
 		lineY = throw.tune.lineY, forwardY = throw.tune.lineY, advY = nil,
@@ -543,6 +552,7 @@ function throw.prepare(s, setup)
 	s.kid = setup.kid or nil -- a Kid match: a helicopter counts, so the flag says what it did
 	s.projectile, s.projectileId = setup.projectile, setup.kubb or setup.batonId
 	s.targetIds = setup.targets
+	s.markerNear = setup.markerNear -- (1.4.0) the throw to go's nearest circle
 	s.auto = false
 	updateTargets(s)
 	if s.stanceSide ~= setup.side then clearLast(s) end
@@ -636,13 +646,23 @@ function throw.reset(s)
 	aimCamera(s)
 end
 
+-- drill.clampMarker, with a set-up's own nearest circle (1.4.0: the throw to go's,
+-- setup.markerNear, m from the line; nil: drill's).
+local function clampMarker(s, x, my)
+	local near = s.markerNear
+	local mx, cy = drill.clampMarker(x, my)
+	if near and my < cy then cy = max(near, my) end
+	return mx, cy
+end
+throw.clampMarker = clampMarker
+
 -- The circle onto (x, y) (view frame), clamped by drill.clampMarker.
 -- snap: onto a standing target within snapRadius (scenes/throw.lua aimAt);
 -- without it the circle is where it was put, as the d-pad leaves it
 -- (markerSet: kept for the team's next throw while a target stands near).
 function throw.setTarget(s, x, y, snap)
 	if s.markerFixed then return false end
-	local mx, my = drill.clampMarker(x, y - s.lineY)
+	local mx, my = clampMarker(s, x, y - s.lineY)
 	s.markerX, s.markerY = mx, s.lineY + my
 	if snap then
 		settleMarker(s, s.projectile ~= "kubb")
@@ -825,7 +845,7 @@ function throw.aimFrame(s, inp)
 		local dtn = drill.tune
 		s.markerHeld = s.markerHeld + dt
 		local v = min(dtn.markerSpeedMax, dtn.markerSpeed + dtn.markerAccel * s.markerHeld)
-		local mx, my = drill.clampMarker(s.markerX + mdx * v * dt, s.markerY - s.lineY + mdy * v * dt)
+		local mx, my = clampMarker(s, s.markerX + mdx * v * dt, s.markerY - s.lineY + mdy * v * dt)
 		s.markerX, s.markerY, s.markerOnId, s.markerSet = mx, s.lineY + my, nil, true
 		s.planDirty = true
 		moving = true
@@ -835,7 +855,7 @@ function throw.aimFrame(s, inp)
 		if s.markerMoving then settleMarker(s, false) end
 	end
 	s.markerMoving = moving
-	local changed = s.planDirty or s.planLevel ~= throw.levelFor(s)
+	local changed = stale(s)
 	if changed then replan(s) end
 	-- the plan view: a smooth move both ways (camera.tune.shoulder.time)
 	local st = camera.tune.shoulder
@@ -1035,7 +1055,7 @@ function throw.playerLaunch(s, r)
 	-- (no level: the solution's, the person's meter at this distance)
 	local o = { projectile = kubb and "kubb" or "baton", tilt = s.tilt, spin = s.spin }
 	o.nerves = nervesFor(s) or nil
-	if s.planDirty or s.planLevel ~= throw.levelFor(s) then replan(s) end
+	if stale(s) then replan(s) end
 	local L = plan.launch(s.sol, r, o, {})
 	return L, kubb and "drill" or "baton"
 end
@@ -1544,6 +1564,132 @@ function throw.showAt(s, t)
 		t = t, done = t >= dur, speed = playback.speed(t, L.hitAt),
 		camera = view, items = items, burst = burst,
 	}
+end
+
+-- ---------- the throw to go (1.4.0) ----------
+
+-- The half turn of a pose (core/frame, "B": its own inverse) when `turn`.
+local function turned(turn, x, y, z, qw, qx, qy, qz)
+	if not turn then return x, y, z, qw, qx, qy, qz end
+	return -x, pitch.length - y, z, -qz, -qy, qx, qw
+end
+
+-- Which bodies of the two throws to go are shown (one recording, docs/SESSION.md "The
+-- throw to go"): every body that moved in either throw, each kubb from the first throw
+-- (A's, then B's) that moved it, and the king from `kingFrom`'s throw only (the two
+-- batons were thrown on two worlds: two kings cannot both be drawn). A list of
+-- { side, i } in a fixed order.
+local function togoBodies(lasts, kingFrom)
+	local out, taken = {}, {}
+	for _, S in ipairs { "A", "B" } do
+		local L = lasts[S]
+		if L then
+			local w, pb = L.w, L.pb
+			for i = 1, w.n do
+				local bd, r = w.bodies[i], pb.rec[i]
+				local keep = r.start >= 0 and bd.kind ~= "stake"
+				if bd.kind == "king" then keep = S == kingFrom end
+				if keep and bd.kind ~= "baton" and taken[bd.id] then keep = false end
+				if keep then
+					taken[bd.id] = true
+					out[#out + 1] = { side = S, i = i }
+				end
+			end
+		end
+	end
+	return out
+end
+
+-- The two throws to go as one recording in `side`'s view frame: lasts = { A = s.last,
+-- B = s.last } (each throw.fire's on its own throw state), kingFrom the throw whose king
+-- is shown, result the verdict's table. The shape of throw.fire's recording, with
+-- kind = "togo", the two batons in `projectiles` and both launches in `launches`.
+function throw.togoRecording(lasts, side, kingFrom, result)
+	local wt = wtune().throw
+	local K = 10 ^ wt.poseDecimals
+	local frames = 0
+	for _, S in ipairs { "A", "B" } do
+		if lasts[S] and lasts[S].pb.frames > frames then frames = lasts[S].pb.frames end
+	end
+	local bodies = {}
+	for _, e in ipairs(togoBodies(lasts, kingFrom)) do
+		local L = lasts[e.side]
+		local bd, r = L.w.bodies[e.i], L.pb.rec[e.i]
+		local d, parts = r.data, {}
+		local turn = e.side ~= side
+		for j = 1, #d, 7 do
+			local x, y, z, qw, qx, qy, qz = turned(turn, d[j], d[j + 1], d[j + 2], d[j + 3], d[j + 4], d[j + 5], d[j + 6])
+			local n = #parts
+			parts[n + 1], parts[n + 2], parts[n + 3] = scaledInt(x, K), scaledInt(y, K), scaledInt(z, K)
+			parts[n + 4], parts[n + 5], parts[n + 6], parts[n + 7] = scaledInt(qw, K), scaledInt(qx, K),
+				scaledInt(qy, K), scaledInt(qz, K)
+		end
+		bodies[#bodies + 1] = {
+			id = bd.id, kind = bd.kind, team = teamOf(bd.id, bd.kind), start = r.start, frames = #d // 7,
+			poses = tw.web.json.raw("[" .. table.concat(parts, ",") .. "]"),
+			touchT = bd.touchT, toppleT = bd.toppleT, thrown = bd == L.w.projectile, by = e.side,
+		}
+	end
+	local own = lasts[side] or lasts[side == "A" and "B" or "A"]
+	local items0 = {}
+	for _, it in ipairs(own.rec.items) do
+		local o = {}
+		for k, v in pairs(it) do o[k] = v end
+		if own ~= lasts[side] and o.kind ~= "stake" then
+			o.x, o.y, o.z, o.qw, o.qx, o.qy, o.qz = turned(true, o.x, o.y, o.z, o.qw, o.qx, o.qy, o.qz)
+		end
+		items0[#items0 + 1] = o
+	end
+	local launches, projectiles = {}, {}
+	for _, S in ipairs { "A", "B" } do
+		local L = lasts[S]
+		if L then
+			local l = {}
+			for k, v in pairs(L.rec.launch) do l[k] = v end
+			if S ~= side then l.x, l.y = -l.x, pitch.length - l.y end
+			l.swivel = l.swivel -- (an angle in the thrower's own frame, as a throw's)
+			launches[S] = l
+			projectiles[S] = { id = L.b.id, kind = "baton", how = "baton" }
+		end
+	end
+	return {
+		kind = "togo", frameDt = wt.frameDt, frames = frames, duration = frames * wt.frameDt, poseScale = K,
+		projectile = { id = "togo", kind = "baton", how = "togo" }, projectiles = projectiles,
+		items = items0, bodies = bodies, launches = launches,
+		result = result,
+		timeline = { touches = {}, bursts = {}, contacts = {} },
+	}
+end
+
+-- The throws to go at shown time t, as throw.showAt's (camera: the caller's, fixed):
+-- every piece's pose in `side`'s frame.
+function throw.togoShowAt(lasts, side, kingFrom, t)
+	local dur = 0
+	for _, S in ipairs { "A", "B" } do
+		if lasts[S] then dur = max(dur, lasts[S].pb.frames * lasts[S].pb.frameDt) end
+	end
+	if t < 0 then t = 0 elseif t > dur then t = dur end
+	local items, seen = {}, {}
+	for _, e in ipairs(togoBodies(lasts, kingFrom)) do
+		local L = lasts[e.side]
+		local bd = L.w.bodies[e.i]
+		local x, y, z, qw, qx, qy, qz = turned(e.side ~= side, playback.poseAt(L.pb, e.i, t))
+		local toppled = bd.wasToppled or (bd.toppleT ~= nil and bd.toppleT <= t)
+		items[#items + 1] = itemOut(bd.id, bd.kind, x, y, z, qw, qx, qy, qz, toppled)
+		if bd.kind ~= "baton" then seen[bd.id] = true end
+	end
+	-- the pieces that did not move, from the shown side's own throw (or the other's, turned)
+	local own = lasts[side] or lasts[side == "A" and "B" or "A"]
+	local turn = own ~= lasts[side]
+	for i = 1, own.w.n do
+		local bd = own.w.bodies[i]
+		if bd.kind ~= "stake" and bd.kind ~= "baton" and not seen[bd.id] then
+			local x, y, z, qw, qx, qy, qz = turned(turn, playback.poseAt(own.pb, i, 0))
+			items[#items + 1] = itemOut(bd.id, bd.kind, x, y, z, qw, qx, qy, qz, bd.wasToppled)
+		end
+	end
+	stakeItems(items)
+	return { t = t, done = t >= dur, speed = 1, items = items }
 end
 
 tw.web.throw = throw

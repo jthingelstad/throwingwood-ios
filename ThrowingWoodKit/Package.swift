@@ -56,9 +56,9 @@ let package = Package(
       ]
     ),
     // The game engine: a kubb-engine release (Engine/, vendored byte for
-    // byte by scripts/vendor-engine.sh) behind kubbCall. Were an older engine
-    // supported again (OLDER in that script), Engines/ would be copied too.
-    .target(name: "KubbEngine", dependencies: ["CLua"], resources: [.copy("Engine")]),
+    // byte by scripts/vendor-engine.sh) behind kubbCall, and Engines/, the older
+    // engines it supports (OLDER in that script: 1.0 with app 1.1.0).
+    .target(name: "KubbEngine", dependencies: ["CLua"], resources: [.copy("Engine"), .copy("Engines")]),
     .target(name: "KubbRenderer", dependencies: ["KubbEngine", "KubbPitch"], resources: [.copy("Sounds")]),
     // The app's icons from the renderer's own king (scripts/make-app-icons.sh).
     .executableTarget(name: "MakeAppIcons", dependencies: ["KubbRenderer"]),

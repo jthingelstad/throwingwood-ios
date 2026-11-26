@@ -187,7 +187,27 @@ local function recording(side, rec)
 		for k, v in pairs(rec.result) do r[k] = v end
 		if r.landX and r.landY then r.landX, r.landY = frame.point(side, r.landX, r.landY) end
 		if r.restX and r.restY then r.restX, r.restY = frame.point(side, r.restX, r.restY) end
+		-- the throw to go (1.4.0): each side's baton's rest spot
+		for _, sd in ipairs { "A", "B" } do
+			if type(rec.result[sd]) == "table" and rec.result[sd].restX then
+				local e = {}
+				for k, v in pairs(rec.result[sd]) do e[k] = v end
+				e.restX, e.restY = frame.point(side, e.restX, e.restY)
+				r[sd] = e
+			end
+		end
 		o.result = r
+	end
+	-- the throw to go's two launches (1.4.0); its bodies' poses, as every recording's, are
+	-- not turned (a client draws from showAt)
+	if rec.launches then
+		o.launches = {}
+		for sd, l in pairs(rec.launches) do
+			local e = {}
+			for k, v in pairs(l) do e[k] = v end
+			if e.x and e.y then e.x, e.y = frame.point(side, e.x, e.y) end
+			o.launches[sd] = e
+		end
 	end
 	o.landing = point(side, rec.landing)
 	local tl = {}
@@ -292,6 +312,157 @@ function wide.out(r, cam, side, recSide)
 		r.need = n
 	end
 	r.wide = cam.kind
+	return r
+end
+
+-- ---------- a view from one side (1.4.0; docs/SESSION.md "A view from one side") ----------
+-- The session gives each thing in the frame of the side it belongs to: a throw's pitch in
+-- the thrower's, a raise in the raiser's. A client that always shows the pitch from its
+-- own end (setView { side }) gets every output in that side's frame instead: here, in
+-- Lua, as the wide view's un-turning is. From one side's frame to the other's is the
+-- half turn (core/frame "B", its own inverse), so the helpers above, given "B", turn and,
+-- given "A", leave alone. View only: nothing here is in a snapshot, a hash or an action.
+
+local function T(from, to) return (from and to and from ~= to) and "B" or "A" end
+wide.T = T
+
+local function turnPose(t, p)
+	if not p or t ~= "B" then return p end
+	return frame.pose("B", p)
+end
+
+-- A raise's or a punishment kubb's need (raiseInfo, punishInfo) turned by t.
+local function settleNeed(t, n)
+	local o = {}
+	for k, v in pairs(n) do o[k] = v end
+	if t ~= "B" then return o end
+	o.pose, o.king = turnPose(t, n.pose), turnPose(t, n.king)
+	local function poses(list, f)
+		if not list then return nil end
+		local out = {}
+		for i, e in ipairs(list) do
+			local x = {}
+			for k, v in pairs(e) do x[k] = v end
+			x.pose = turnPose(t, e.pose)
+			if f then f(x, e) end
+			out[i] = x
+		end
+		return out
+	end
+	o.others, o.choices, o.ends = poses(n.others), poses(n.choices), poses(n.ends)
+	o.lying = poses(n.lying, function(x, e) x.choices, x.ends = poses(e.choices), poses(e.ends) end)
+	if n.cursor then o.cursor = point(t, n.cursor) end
+	if n.bounds then
+		local b = n.bounds
+		o.bounds = { xMin = -b.xMax, xMax = -b.xMin, yMin = tw.pitch.length - b.yMax, yMax = tw.pitch.length - b.yMin }
+	end
+	if n.keepOut then
+		o.keepOut = {}
+		for i, e in ipairs(n.keepOut) do o.keepOut[i] = point(t, e) end
+	end
+	return o
+end
+
+-- A setup's settled list into side `to`'s frame (a copy), each kubb from its raiser's.
+local function settledTo(setup, to)
+	local o = settled(setup) -- the world frame: Team A's
+	if to ~= "B" then return o end
+	for _, n in ipairs(o.settled.list) do
+		for _, f in ipairs { "lying", "standing", "pose", "king" } do
+			if n[f] then n[f] = frame.pose("B", n[f]) end
+		end
+		if n.seat then
+			local qw, qx, qy, qz = frame.quat("B", n.seat.qw, n.seat.qx, n.seat.qy, n.seat.qz)
+			n.seat = { qw = qw, qx = qx, qy = qy, qz = qz }
+		end
+		if n.others then
+			for _, x in ipairs(n.others) do x.pose = frame.pose("B", x.pose) end
+		end
+		n.frame = "B"
+	end
+	return o
+end
+
+-- A need in side `to`'s frame (a copy): a throw's or a baton to go's set-up lines and
+-- settled list, a raise's or a punishment kubb's poses (and its camera, made again at the
+-- viewer's end when the raiser is the other side). `frame` says the frame it is in now;
+-- `actionFrame` the frame a punish action's x, y are read in (the session's: or send
+-- the action with frame = `frame`, Session:apply).
+local function needTo(n, to, box)
+	if type(n) ~= "table" then return n end
+	local from = n.side
+	if n.kind == "raise" or n.kind == "punish" then
+		local t = T(from, to)
+		local o = settleNeed(t, n)
+		o.frame, o.actionFrame = to, from
+		if n.kind == "raise" and t == "B" then
+			local pts = { { -2.5, 0, 0 }, { 2.5, 0, 0 } }
+			if o.king then pts[#pts + 1] = { o.king.x, o.king.y, 0.3 } end
+			for _, e in ipairs(o.lying or {}) do
+				pts[#pts + 1] = { e.pose.x, e.pose.y, 0 }
+				for _, en in ipairs(e.ends) do pts[#pts + 1] = { en.pose.x, en.pose.y, 0 } end
+			end
+			o.camera = camera.fromEnd(nil, pts, box, "end")
+		end
+		return o
+	end
+	local o = {}
+	for k, v in pairs(n) do o[k] = v end
+	if n.setup then
+		local t = T(n.setup.side, to)
+		local st = n.setup
+		if st.settled and st.settled.list then st = settledTo(st, to) end
+		if t == "B" then
+			local c = {}
+			for k, v in pairs(st) do c[k] = v end
+			for _, k in ipairs { "lineY", "forwardY", "advY", "kidY" } do
+				if c[k] then c[k] = frame.y("B", c[k]) end
+			end
+			st = c
+		end
+		o.setup = st
+	end
+	o.frame = to
+	return o
+end
+wide.needTo = needTo
+
+-- The camera at the viewer's end for the other side's throw or inkast (view frame of the
+-- viewer): the thrower, the circle, the king and the viewer's own baseline, and where a
+-- recording's projectile landed and came to rest.
+function wide.endCamera(box, aimTurned, rec)
+	local pts = { { -2.5, 0, 0 }, { 2.5, 0, 0 }, { tw.pitch.king.x, tw.pitch.king.y, 0.3 } }
+	if aimTurned then
+		if aimTurned.thrower then pts[#pts + 1] = { aimTurned.thrower.x, aimTurned.thrower.y, 1.2 } end
+		if aimTurned.marker then pts[#pts + 1] = { aimTurned.marker.x, aimTurned.marker.y, 0 } end
+	end
+	if rec and rec.result then
+		local r = rec.result
+		if r.landX then pts[#pts + 1] = { r.landX, r.landY, 0 } end
+		if r.restX then pts[#pts + 1] = { r.restX, r.restY, 0 } end
+	end
+	if rec and rec.launch and rec.launch.x then pts[#pts + 1] = { rec.launch.x, rec.launch.y, 1.2 } end
+	return camera.fromEnd(nil, pts, box, "end")
+end
+
+-- A call's result from side `to`'s end. side: the frame the session's pitch is in
+-- (Session.frameSide); recSide: its last recording's. A camera of the thrower's is kept
+-- when the thrower is `to`; otherwise it is the end camera (cams.aim: made for the aim in
+-- hand, cams.rec: for the recording). `r` is a fresh table from the session.
+function wide.toSide(r, to, side, recSide, cams)
+	if type(r) ~= "table" then return r end
+	local t = T(side, to)
+	if t == "B" then
+		if r.items then r.items = items("B", r.items) end
+		if r.aim then r.aim = aim("B", r.aim) end
+		if r.minimap then r.minimap = minimap("B", r.minimap) end
+		if r.camera and cams and cams.aim then r.camera = cams.aim(r.aim) end
+	end
+	if r.recording then r.recording = recording(T(recSide, to), r.recording) end
+	if r.setup and r.setup.settled and r.setup.settled.list then r.setup = settledTo(r.setup, to) end
+	if type(r.need) == "table" then r.need = needTo(r.need, to, cams and cams.box) end
+	if r.kind and r.side and (r.choices or r.cursor or r.lying) then r = needTo(r, to, cams and cams.box) end
+	r.view = to
 	return r
 end
 

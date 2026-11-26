@@ -14,6 +14,7 @@
 --   read.lyingNear(s, bx, by)         -> n, mean x, mean y of lying kubbs near (bx, by)
 --   read.innermostLying(s, side)      -> the lying kubb nearest the middle by basket side
 --   read.spotClear(s, x, y, shortLying, except) -> can a drill be aimed at (x, y)?
+--   read.inNow(p)                     -> is far-half kubb p in bounds as it lies (not out for now)?
 --   read.byId(s)                      -> { [id] = piece }
 --   read.lane(s, pos, f)              -> n, lo, hi: front kubb f's lane
 import "core/tw"
@@ -30,6 +31,19 @@ local read = {}
 -- the thrower's own half never count.
 function read.farField(s, p)
 	return p.role == "field" and p.half ~= s.side
+end
+
+-- Is field kubb p in bounds as it lies: could it be raised in the far half (the rules'
+-- own test, raising.canRaise in Game:_outNow)? A kubb thrown this turn that is out lies on
+-- the pitch until the round is judged and is then thrown again (II.C.4), so the inkast
+-- does not count it or build beside it (1.2.0). Read in the view frame, where the
+-- thrower's baseline is y = 0 and the far half is the world's B half; a lying kubb with
+-- no pose angle is taken to lie along the throw. autothrow.tune.inkastSkipOut = 0 counts
+-- every kubb, as 1.1 did.
+function read.inNow(p)
+	if (autothrow.tune.inkastSkipOut or 0) == 0 then return true end
+	local a = (p.pose and p.pose.angle) or math.pi / 2
+	return tw.raising.canRaise({ x = p.x, y = p.y, standing = not p.toppled, angle = a }, "B")
 end
 
 -- Where basket `side` is (view frame): -1 left, 1 right.
@@ -53,7 +67,7 @@ function read.basketCounts(s)
 	local ky = s.lineY + t.basketY
 	local near2 = t.basketNear * t.basketNear
 	for _, p in ipairs(s.pieces) do
-		if p.role == "field" and p.half ~= s.side then
+		if p.role == "field" and p.half ~= s.side and read.inNow(p) then
 			local dy = p.y - ky
 			local dl, dr = p.x + t.basketX, p.x - t.basketX
 			if dl * dl + dy * dy < near2 then left = left + 1 end
@@ -70,7 +84,7 @@ function read.lyingNear(s, bx, by)
 	near2 = near2 * near2
 	local n, cx, cy = 0, 0, 0
 	for _, p in ipairs(s.pieces) do
-		if p.role == "field" and p.half ~= s.side and p.toppled then
+		if p.role == "field" and p.half ~= s.side and p.toppled and read.inNow(p) then
 			local dx, dy = p.x - bx, p.y - by
 			if dx * dx + dy * dy < near2 then n, cx, cy = n + 1, cx + p.x, cy + p.y end
 		end
@@ -88,7 +102,7 @@ function read.innermostLying(s, side)
 	local near2 = t.basketNear * t.basketNear
 	local best
 	for _, p in ipairs(s.pieces) do
-		if p.role == "field" and p.half ~= s.side and p.toppled then
+		if p.role == "field" and p.half ~= s.side and p.toppled and read.inNow(p) then
 			local dx, dy = p.x - bx, p.y - by
 			if dx * dx + dy * dy < near2 and (not best or side * p.x < side * best.x) then best = p end
 		end

@@ -123,6 +123,18 @@ end
 -- The checks before an action (the options above).
 function Replay:checkAction(a, at)
 	local s = self.s
+	-- (1.4.0) a baton to go: a person's, held to the dial as a throw is (the computer's is
+	-- the engine's own, never in a log)
+	if a.type == "togo" then
+		if self.checkThrows and s.kind == "match" and s.phase == "togo" then
+			self.throwsChecked = self.throwsChecked + 1
+			local r = check.togo(s, a)
+			if not r.ok and not self.outOfBounds then
+				self.outOfBounds, self.outOfBoundsAt, self.outOfBoundsWhy = true, at, r.why
+			end
+		end
+		return
+	end
 	if a.type ~= "throw" or s.kind ~= "match" or s.phase ~= "throw" or not s.setup then return end
 	if session.cpuThrow(s, s.setup) then
 		if not self.checkCpu then return end

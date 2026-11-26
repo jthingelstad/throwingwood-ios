@@ -56,7 +56,8 @@ end
 -- players in order, so the two lists line up. `cpu` (0.17.0) is true for a computer
 -- player in a team (a computer partner, or one of a team of computers at mixed
 -- levels), and absent for everyone else, so a lineup without one is the lineup it
--- always was.
+-- always was. `throw` (1.3.0) is a person's throw level when their entry gave one
+-- (easy or hard; the session keeps no standard), the meter they throw on.
 function match.lineupOf(g, teams)
 	local out = {}
 	for _, side in ipairs { "A", "B" } do
@@ -65,7 +66,8 @@ function match.lineupOf(g, teams)
 		for i, p in ipairs(g.teams[side].players) do
 			local q = given[i] or {}
 			if type(q) ~= "table" then q = {} end
-			list[i] = { id = p.id, key = q.key, level = q.level, guest = q.guest or nil, cpu = (q.cpu == true) or nil }
+			list[i] = { id = p.id, key = q.key, level = q.level, guest = q.guest or nil, cpu = (q.cpu == true) or nil,
+				throw = (q.cpu ~= true and type(q.throw) == "string") and q.throw or nil }
 		end
 		out[side] = list
 	end
@@ -138,7 +140,7 @@ function match.thrower(m)
 	local p = match.player(m, g.attacker, pid)
 	local e = match.member(m, g.attacker, pid)
 	return { id = pid, name = p and p.name or pid, key = e and e.key, level = e and e.level,
-		cpu = (e and e.cpu) or nil }
+		cpu = (e and e.cpu) or nil, throw = e and e.throw or nil }
 end
 
 -- ---------- computer players (0.17.0) ----------
@@ -804,14 +806,22 @@ end
 -- (cpu.levelName: its lineup's level, else autothrow.tune.level). Since 0.17.0 a
 -- computer player in a team (match.isComputer) is listed with its own level beside the
 -- rest, in team order, so a team of computers at mixed levels or a person's computer
--- partner reads as it played.
+-- partner reads as it played. Since 1.3.0 a person who threw on a player level other
+-- than standard (their lineup entry's `throw`: easy or hard) is listed too, with that
+-- level, so the file says which meter they threw on; a person on standard is not
+-- listed, and in a Kid match no person is (every person throws on the Kid meter). The
+-- words never meet: a computer's level is beginner, club, pro or kid, a person's easy or
+-- hard.
 function match.fileLevels(m)
 	local levels = {}
+	local kid = m.game.rules == "kid"
 	for _, side in ipairs { "A", "B" } do
 		for _, p in ipairs(m.game.teams[side].players) do
+			local e = match.member(m, side, p.id)
 			if match.isComputer(m, side, p.id) then
-				local e = match.member(m, side, p.id)
 				levels[#levels + 1] = p.id .. " " .. tw.cpu.levelName { thrower = e }
+			elseif e and e.throw and not kid then
+				levels[#levels + 1] = p.id .. " " .. e.throw
 			end
 		end
 	end
@@ -825,8 +835,56 @@ function match.file(m, finish, version, location)
 	local start = m.start or finish
 	local g = m.game
 	local text = notation.render(g, { start = start, finish = finish, version = version, mode = m.mode,
-		levels = match.fileLevels(m), location = location })
+		levels = match.fileLevels(m), location = location, firstBy = g.firstBy })
 	return text, notation.filename(start, g.teams.A.name, g.teams.B.name)
+end
+
+-- ---------- the throw to go (1.4.0, core/togo) ----------
+
+-- Who throws `side`'s baton to go: the first player in its throwing order (the team's
+-- first player), with match.thrower's shape { id, name, key, level, cpu, throw }.
+function match.togoThrower(m, side)
+	local p = m.game.teams[side].players[1]
+	local e = match.member(m, side, p.id)
+	local cpu = match.isComputer(m, side, p.id) or nil
+	local level = e and e.level
+	return { id = p.id, name = p.name, key = e and e.key, level = level, cpu = cpu, throw = e and e.throw or nil }
+end
+
+-- The set-up for `side`'s baton to go (view frame of side): the pitch as the match
+-- starts, one baton from the middle of its own baseline, the king its only target. The
+-- shape of match.setup's, kind "togo"; not kept on m (m.setup stays the turn's).
+function match.togoSetup(m, side)
+	local g = m.game
+	local s = { kind = "togo", side = side, pieces = outcome.pieces(g, side), lineY = 0, forwardY = 0,
+		surface = match.surfaceName(g), debris = {}, projectile = "baton", targets = {},
+		n = 1, of = 1, batonId = "togo" .. side, togo = true, markerNear = 2 }
+	s.label = fmt("%s  throw to go", match.teamName(side, g))
+	s.thrower = match.togoThrower(m, side)
+	return s
+end
+
+-- The throw to go decided it: `side` throws first. Only before the first throw of the
+-- match; the game is made again with that side first (nothing has happened in it), its
+-- players' ids kept, and `how` (togo.text) kept on it as game.firstBy, which the game
+-- file writes as [Engine:first]. Returns the new game.
+function match.setFirst(m, side, how)
+	local g = m.game
+	assert(g.turn == 1 and #g.sheet.turns <= 1 and m.tossed == 0, "setFirst: only before the first throw")
+	local teams = {}
+	for _, sd in ipairs { "A", "B" } do
+		local ps = {}
+		for i, p in ipairs(g.teams[sd].players) do ps[i] = { name = p.name } end
+		teams[sd] = { name = g.teams[sd].name, players = ps }
+	end
+	local ng = rules.new { teams = teams, surface = g.surface, opening = g.opening, first = side, rules = g.rules,
+		raisePolicy = g.raisePolicy }
+	for _, sd in ipairs { "A", "B" } do
+		for i, p in ipairs(g.teams[sd].players) do ng.teams[sd].players[i].id = p.id end
+	end
+	ng.firstBy = how
+	m.game, m.turn = ng, ng.turn
+	return ng
 end
 
 -- Standing kubbs of a side's half (field and base), for the HUD.

@@ -102,7 +102,7 @@ import Testing
     let me = try #require(fake.links[0].sent.first { $0["t"]?.string == "join" }?["me"])
     #expect(me["engine"]?.string == Engine.newest + "+engines")
     #expect(me["engines"]?.items.compactMap(\.string) == Engine.carried)
-    #expect(Engine.carried == [Engine.newest])  // the newest alone (docs/ENGINES.md)
+    #expect(Engine.carried == [Engine.newest, "1.0"])  // the newest and 1.0 (docs/ENGINES.md)
     #expect(me["level"] == nil)  // a person has no level to send (engine 0.13)
     #expect(Engine.majorMinor(me["engine"]?.string) == Engine.newest)
   }

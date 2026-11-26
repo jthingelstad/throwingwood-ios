@@ -13,6 +13,7 @@
 --   the computer's throw   mix(seed, 1, throws)
 --   the wind of a turn     mix(seed, 2, turn)
 --   the gust of a throw    mix(seed, 3, throws)
+--   the computer's baton to go  mix(seed, 5, 2 * round + (side B: 1, A: 0))  (1.4.0)
 -- so a session restored from a snapshot draws exactly what the original
 -- would have. (The Playdate keeps one rng per purpose running instead; the
 -- draws are the same kind, not the same numbers.)
@@ -35,6 +36,7 @@ import "core/notation"
 import "core/gamefile"
 import "core/scenes"
 import "core/namegen"
+import "core/togo"
 import "version"
 import "session/json"
 import "session/throw"
@@ -46,6 +48,7 @@ local raising, frame, pitch, quat, swing, plan = tw.raising, tw.frame, tw.pitch,
 local camera, outcome, debris = tw.camera, tw.outcome, tw.debris
 local notation, gamefile, scenes, namegen = tw.notation, tw.gamefile, tw.scenes, tw.namegen
 local json, throw = tw.web.json, tw.web.throw
+local togo = tw.togo
 
 local fmt, upper = string.format, string.upper
 local floor, max, min, sqrt = math.floor, math.max, math.min, math.sqrt
@@ -365,6 +368,15 @@ local function matchOptions(o)
 				local level = p.level
 				if level == nil and isCpuSide then level = out.computer end
 				players[#players + 1] = { name = tostring(p.name or ("Player " .. i)), level = level, key = p.key }
+				-- a person's throw level (1.3.0): the meter they throw on, easy, standard or
+				-- hard (plan.THROW_LEVELS). Kept only when given and not standard, the
+				-- default, so a match without it has the start a match always had
+				if p.throw ~= nil and p.throw ~= plan.THROW_DEFAULT then
+					if not plan.isThrowLevel(p.throw) then
+						error("newMatch: Team " .. side .. "'s player " .. i .. "'s throw level is easy, standard or hard", 0)
+					end
+					players[#players].throw = p.throw
+				end
 			end
 			if players[#players].name then taken[players[#players].name] = true end
 		end
@@ -398,6 +410,22 @@ local function matchOptions(o)
 		t.named = nil
 	end
 	out.teams = teams
+	-- the throw to go (1.4.0; core/togo, docs/SESSION.md "The throw to go"): who throws
+	-- first is thrown for before turn 1. Kept only when asked for (true or "on"), never in
+	-- a Kid match (a child's match starts at once, as it always did) and never when no
+	-- person throws a baton to go (each team's first player throws it: match.togoThrower;
+	-- with the computer first on both, nobody would throw and nobody watch it decided), so
+	-- every other match has the start it always had
+	if (o.togo == true or o.togo == "on") and out.rules ~= "kid" then
+		local person = false
+		for _, side in ipairs { "A", "B" } do
+			local whole = false
+			for _, c2 in ipairs(cpu) do if c2 == side then whole = true end end
+			local p1 = teams[side].players[1]
+			if not whole and p1 and not p1.cpu then person = true end
+		end
+		if person then out.togo = true end
+	end
 	return out
 end
 -- (session/namecheck reads a replay's setup through it, on a copy: matchOptions fills in
@@ -471,9 +499,12 @@ function session.new(o)
 	s.throws = 0
 	s.recording = nil
 	if s.kind == "practice" then
+		-- the person's throw level (1.3.0), as a match's player entry takes it: absent,
+		-- standard or unknown, the standard meter
+		local tl = (plan.isThrowLevel(o.throw) and o.throw ~= plan.THROW_DEFAULT) and o.throw or nil
 		s.opts = { surface = surfaceKey(o.surface), level = o.level, set = o.set or "classic",
-			scene = tw.shared.lobby.isScene(o.scene) and o.scene ~= "day" and o.scene or nil }
-		s.ts = throw.new { surface = s.opts.surface, level = o.level, set = s.opts.set }
+			scene = tw.shared.lobby.isScene(o.scene) and o.scene ~= "day" and o.scene or nil, throw = tl }
+		s.ts = throw.new { surface = s.opts.surface, level = o.level, set = s.opts.set, throwLevel = tl }
 		-- practice set up under a scene (session.sceneOptions) keeps its surface to the scene's
 		s.sceneRule = o.sceneRule and true or nil
 		s.phase = "throw"
@@ -489,14 +520,21 @@ function session.new(o)
 	for _, side in ipairs { "A", "B" } do
 		local t = s.opts.teams[side]
 		local ps = {}
-		for i, p in ipairs(t.players) do ps[i] = { name = p.name, level = p.level, key = p.key, cpu = p.cpu } end
+		for i, p in ipairs(t.players) do
+			ps[i] = { name = p.name, level = p.level, key = p.key, cpu = p.cpu, throw = p.throw }
+		end
 		teams[side] = { name = t.name, players = ps }
 	end
 	s.m = cmatch.new { start = s.opts.start, surface = SURFACES[s.opts.surface], opening = s.opts.opening,
 		teams = teams, first = s.opts.first, mode = mode, cpu = s.opts.cpu, rules = s.opts.rules }
 	s.byHand = s.opts.raising == "hand"
 	s.side, s.lastThrower = nil, nil
-	s:advance()
+	if s.opts.togo then
+		s.togo = { round = 1, acts = {} }
+		s:togoBegin()
+	else
+		s:advance()
+	end
 	return s
 end
 
@@ -597,6 +635,8 @@ function Session:advance()
 	self.phase = "throw"
 	self.pitchFromMatch = nil -- ts holds the match's pitch from here on
 	local ts = self.ts
+	-- the thrower's throw level (1.3.0), before the plan is made: the meter it is made on
+	ts.throwLevel = setup.thrower and setup.thrower.throw or nil
 	throw.prepare(ts, setup)
 	self.frameSide = setup.side -- the frame ts is in now (session/wide)
 	ts.level = setup.thrower and setup.thrower.level or nil
@@ -746,19 +786,27 @@ local function plainSetup(setup)
 		-- cpu (0.17.0): the thrower is a computer (a computer player in a team, or a
 		-- player of a side the computer plays), so a client can say "computer · Pro"
 		thrower = setup.thrower and { id = setup.thrower.id, name = setup.thrower.name,
-			level = setup.thrower.level, key = setup.thrower.key, cpu = setup.thrower.cpu or nil } or nil,
+			level = setup.thrower.level, key = setup.thrower.key, cpu = setup.thrower.cpu or nil,
+			throw = setup.thrower.throw } or nil,
 		settled = plainSettled(setup.settled),
 	}
 end
 
--- The raise: the kubb, its two ends (footprints), the engine's choices, the
--- default choice, the pieces near it (view frame of the defender).
-function Session:raiseInfo()
-	local g, st = self.m.game, self.settle
-	local n = g:need()
-	local side = n.side
-	local ctx = g:context(side, n.kubb)
-	local dec = n.decision
+-- A side's players as a need names a thrower (1.4.0).
+local function sidePlayers(m, side)
+	local out = {}
+	for i, p in ipairs(m.game.teams[side].players) do
+		local e = cmatch.member(m, side, p.id)
+		out[i] = { id = p.id, name = p.name, key = e and e.key, level = e and e.level,
+			cpu = cmatch.isComputer(m, side, p.id) or nil, throw = e and e.throw or nil }
+	end
+	return out
+end
+
+-- One lying kubb's raise (view frame of the raiser): its pose, the engine's choices, its
+-- two ends (footprints) and the default choice.
+local function raiseEntry(self, side, id, pose, dec, ctx)
+	local g = self.m.game
 	-- the end the engine would stand it on for this side: a person's, the engine's best
 	-- advice (cpu.advice, par; 0.12.0)
 	local default = raising.choose(dec, ctx, cmatch.raisePolicy(self.m, side) or g.raisePolicy) or 1
@@ -768,7 +816,7 @@ function Session:raiseInfo()
 			crowded = c.crowded or false }
 	end
 	local ends = {}
-	local fps = n.pose.standing and {} or raising.footprints(n.pose)
+	local fps = pose.standing and {} or raising.footprints(pose)
 	for i = 1, #fps do
 		local e = dec.ends and dec.ends[i]
 		local ok = false
@@ -777,14 +825,51 @@ function Session:raiseInfo()
 			obstructedBy = e and e.obstructedBy or nil, ok = ok,
 			why = (not ok) and ((e and not e.inBounds) and "THAT END IS OUT" or "THAT END IS BLOCKED") or nil }
 	end
+	return { id = id, pose = viewPose(side, pose), mode = dec.mode, choices = choices, ends = ends, default = default }
+end
+
+-- The raise: the kubb, its two ends (footprints), the engine's choices, the
+-- default choice, the pieces near it (view frame of the defender). Since 1.4.0 also
+-- every field kubb still lying (`lying`, in id order, the first being `kubb`), each with
+-- its own pose, choices, ends and default: any of them may be raised next (a raise
+-- action that names `kubb` and `which`); and the camera the whole raise is shown
+-- through (`camera`: at the raiser's own end, every lying kubb, its ends and the king in
+-- it; one for the raise, fitted again as the kubbs stand).
+function Session:raiseInfo()
+	local g, st = self.m.game, self.settle
+	local n = g:need()
+	local side = n.side
+	local ctx = g:context(side, n.kubb)
+	local dec = n.decision
+	local first = raiseEntry(self, side, n.kubb, n.pose, dec, ctx)
 	local others = {}
 	for _, o in ipairs(ctx.others) do others[#others + 1] = { id = o.id, pose = viewPose(side, o.pose) } end
+	local lying = { first }
+	local pts = { { -2.5, 0, 0 }, { 2.5, 0, 0 } }
+	local king = viewPose(side, ctx.king)
+	if king then pts[#pts + 1] = { king.x, king.y, 0.3 } end
+	for _, id in ipairs(n.lying or {}) do
+		if id ~= n.kubb then
+			local d2, c2, k2 = g:raiseOptions(id)
+			if d2 then lying[#lying + 1] = raiseEntry(self, side, id, k2.pose, d2, c2) end
+		end
+	end
+	for _, e in ipairs(lying) do
+		pts[#pts + 1] = { e.pose.x, e.pose.y, 0 }
+		for _, en in ipairs(e.ends) do pts[#pts + 1] = { en.pose.x, en.pose.y, 0 } end
+	end
 	return {
-		kind = "raise", side = side, kubb = n.kubb, pose = viewPose(side, n.pose), mode = dec.mode,
-		choices = choices, ends = ends, default = default, others = others,
-		king = viewPose(side, ctx.king),
+		kind = "raise", side = side, kubb = n.kubb, pose = first.pose, mode = first.mode,
+		choices = first.choices, ends = first.ends, default = first.default, others = others,
+		king = king,
 		n = st.raised + 1, of = max(st.raiseTotal or 0, st.raised + 1),
 		team = upper(cmatch.teamName(side, g)),
+		lying = lying, frame = side,
+		camera = camera.fromEnd(nil, pts, session.viewBox, "raise"),
+		-- (1.4.0) the raising side's players, as a throw's `thrower` (id, name, level, key,
+		-- cpu, throw: each person's meter, absent standard): any of them may raise, and the
+		-- one who throws next throws on their own `throw`
+		players = sidePlayers(self.m, side),
 	}
 end
 
@@ -828,13 +913,15 @@ end
 function Session:need()
 	if self.kind == "practice" then
 		return { kind = "throw", practice = true, drill = self.ts.drill, surface = self.opts.surface,
-			level = throw.levelFor(self.ts), set = self.opts.set }
+			level = throw.levelFor(self.ts), set = self.opts.set, throw = self.opts.throw }
 	end
 	local out
 	if self.phase == "over" then
 		local o = self.overInfo
 		out = { kind = "over", winner = o.winner, how = o.how, file = o.file, text = self.m.text,
 			short = session.short(self.m.text) }
+	elseif self.phase == "togo" then
+		out = self:togoNeed()
 	elseif self.phase == "settle" then
 		out = (self.settle.mode == "raise") and self:raiseInfo() or self:punishInfo()
 		out.cpu = false
@@ -982,7 +1069,9 @@ end
 -- ---------- aiming ----------
 
 function Session:canAim()
-	return self.phase == "throw" and self.ts.mode == "aim" and not self.ts.watching
+	-- (1.4.0) and a baton to go this client has set up (togoPrepare)
+	local ph = self.phase == "throw" or (self.phase == "togo" and self.togoAt ~= nil)
+	return ph and self.ts.mode == "aim" and not self.ts.watching
 end
 
 local function aimOut(s)
@@ -1083,12 +1172,25 @@ function Session:setControl(c)
 	local sides = c.sides or { "A", "B" }
 	self.control = { A = false, B = false, cpu = c.cpu ~= false }
 	for _, side in ipairs(sides) do self.control[side] = true end
+	-- (1.4.0) the sides whose baton to go this client throws (seats.controlFor with a togo
+	-- need): a host that may stand in for both sides throws only the one it is given
+	if type(c.togo) == "table" then
+		self.control.togo = {}
+		for _, side in ipairs(c.togo) do
+			if side == "A" or side == "B" then self.control.togo[side] = true end
+		end
+	end
 	-- (0.17.0) this client now throws for the computer, which another was throwing for and
 	-- this one held at the release (the host changed mid-throw): it releases on the next
 	-- frame, the very throw the other would have made
 	if self.control.cpu and self.ts.mode == "cpuhold" then self.ts.mode = "cpuswing" end
 	if self.ts.touch and self.setup and not self.control[self.setup.side] then
 		tw.web.touch.frame(self.ts, { { phase = "cancel" } })
+	end
+	-- (1.4.0) the throw to go: this client's baton is the first side it now controls that
+	-- owes one
+	if self.phase == "togo" then
+		if self:togoMine() ~= self.togoAt then self:togoPrepare() end
 	end
 	return self:need()
 end
@@ -1138,14 +1240,15 @@ end
 local function practiceCheckpoint(s)
 	local ts = s.ts
 	return json.encode { items = ts.items, surface = ts.surface, set = ts.set, scene = s.opts.scene,
-		level = throw.levelFor(ts),
+		level = throw.levelFor(ts), throw = s.opts.throw,
 		drill = ts.drill, drillSeq = ts.drillSeq, baton = ts.practiceBaton,
 		throws = s.throws }
 end
 
 function session.restorePractice(text)
 	local c = json.decode(text)
-	local s = session.new { mode = "practice", surface = c.surface, set = c.set, scene = c.scene, level = c.level }
+	local s = session.new { mode = "practice", surface = c.surface, set = c.set, scene = c.scene, level = c.level,
+		throw = c.throw }
 	local ts = s.ts
 	ts.items, ts.drillSeq, ts.practiceBaton = c.items, c.drillSeq, c.baton
 	s.throws, ts.throws = c.throws, c.throws
@@ -1161,6 +1264,7 @@ function Session:applyThrow(a)
 		assert(I(a.seq) == self.throws, "throw out of step: seq " .. tostring(a.seq) .. ", expected " .. self.throws)
 	end
 	local ts = self.ts
+	self.togoShow = nil
 	if self.kind == "practice" then self.practiceBefore = practiceCheckpoint(self) end
 	-- the frame this throw's recording is in (session/wide)
 	self.recSide = self.kind == "match" and self.setup.side or nil
@@ -1241,6 +1345,249 @@ local function stampOf(at)
 end
 session.stampOf = stampOf
 
+-- ---------- the throw to go (1.4.0; docs/SESSION.md "The throw to go") ----------
+-- Before turn 1, each team throws one baton from its own baseline at the king (core/togo).
+-- Blind and simultaneous: each side's baton is an action of its own ({ type = "togo",
+-- side, round, ... }, no seq: it is no throw of the match), kept until both are in; then
+-- each is thrown on its own world, the pitch as the match starts, the two are judged
+-- (togo.decide) and one recording shows both. A computer's baton is the engine's, made
+-- when the people's are in (mix(seed, 5, ...)), so it never sees theirs.
+
+-- Does the computer throw `side`'s baton to go (the side's first player is a computer,
+-- or the computer plays the side whole)?
+function Session:togoCpu(side)
+	if isCpu(self, side) then return true end
+	return cmatch.togoThrower(self.m, side).cpu == true
+end
+
+-- The sides that still owe a baton to go (a person's to throw), in A, B order.
+function Session:togoOwed()
+	local out = {}
+	local tg = self.togo
+	if not tg then return out end
+	for _, side in ipairs { "A", "B" } do
+		if not tg.acts[side] and not self:togoCpu(side) then out[#out + 1] = side end
+	end
+	return out
+end
+
+-- The phase starts (or a round starts again): the aim memory a fresh throw state has, and
+-- this client's baton set up.
+function Session:togoBegin()
+	self.ts = throw.new { surface = self.opts.surface, set = self.opts.set, meter = session.meterOf(self.opts) }
+	self.pre = { side = nil, lastThrower = nil, mem = memOf(self.ts) }
+	self.phase = "togo"
+	self.card, self.windInfo, self.settle = nil, nil, nil
+	self:togoPrepare()
+end
+
+-- The side whose baton to go this client throws next: the first side, A then B, that owes
+-- one and that this client controls (one device: A's, then B's), or, when setControl gave a
+-- `togo` list (a pitch), the first owed side in it.
+function Session:togoMine()
+	local only = self.control.togo
+	for _, s2 in ipairs(self:togoOwed()) do
+		if self.control[s2] and (not only or only[s2]) then return s2 end
+	end
+	return nil
+end
+
+-- Set this client's next baton to go up (togoMine).
+function Session:togoPrepare()
+	local side = self:togoMine()
+	self.togoAt = side
+	if not side then
+		self.setup = nil
+		return
+	end
+	local setup = cmatch.togoSetup(self.m, side)
+	self.setup = setup
+	local ts = self.ts
+	ts.throwLevel = setup.thrower.throw
+	throw.prepare(ts, setup)
+	self.frameSide = side
+	ts.level = setup.thrower.level
+	ts.watching, ts.scripted = false, false
+	-- no wind: the two batons are judged against each other, thrown on two worlds
+	ts.windX, ts.windY, ts.windText = 0, 0, nil
+	-- the starting circle: short of the king on the ground, at the arc a baton to go is
+	-- thrown on (togo.tune; the person may move either)
+	if togo.tune.arc then throw.setArc(ts, togo.arc()) end
+	local kx, ky = pitch.king.x, pitch.king.y - togo.tune.markerShort
+	throw.setTarget(ts, kx, ky, false)
+	self.rail = { r1 = "TO GO" }
+	ts.railName = self:railName(setup)
+end
+
+-- The computer's baton to go for `side` in this round: an action as a person's, made by
+-- the engine (togo.cpuThrow at the thrower's level, the computer's scatter).
+function Session:togoCpuAction(side)
+	local tg = self.togo
+	local setup = cmatch.togoSetup(self.m, side)
+	local th = setup.thrower
+	local level = th.level or self.opts.computer or autothrow.tune.level
+	local r = rngFor(self, 5, 2 * tg.round + (side == "B" and 1 or 0))
+	local c = togo.cpuThrow(setup, r, level, tw.web.tune.throw.cpuScatter)
+	local L = c.launch
+	local a = {
+		type = "togo", side = side, round = tg.round, how = "baton", cpu = true,
+		launch = { speed = L.speed, loft = L.loft, swivel = L.swivel, tilt = L.tilt or 0, tumble = L.tumble or 0,
+			legal = L.legal ~= false },
+		stance = { x = c.x, y = c.y, set = true },
+		target = { x = c.tx, y = c.ty, set = true },
+		scripted = true,
+	}
+	if c.swing then a.swing = { back = c.swing.back, stop = c.swing.releaseAngle } end
+	return json.decode(json.encode(a))
+end
+
+-- One baton to go thrown on its own world: the throw state it was thrown on, its
+-- recording, its gap to the king (togo.gap) and whether the king fell.
+function Session:togoFire(a)
+	local side = a.side
+	local setup = cmatch.togoSetup(self.m, side)
+	local ts = throw.new { surface = self.opts.surface, set = self.opts.set, meter = session.meterOf(self.opts) }
+	ts.throwLevel = setup.thrower.throw
+	throw.prepare(ts, setup)
+	ts.level = setup.thrower.level
+	ts.windX, ts.windY, ts.windText = 0, 0, nil
+	local st, tg = a.stance or {}, a.target or {}
+	ts.playerX, ts.playerY, ts.stanceSet = F(st.x), F(st.y), st.set and true or false
+	ts.markerX, ts.markerY, ts.markerSet, ts.markerOnId = F(tg.x), F(tg.y), tg.set and true or false, tg.on
+	local l = a.launch or {}
+	local L = { speed = F(l.speed), loft = F(l.loft), swivel = F(l.swivel), tilt = F(l.tilt or 0),
+		tumble = F(l.tumble or 0), legal = l.legal ~= false }
+	local verdicts
+	if a.verdicts then
+		verdicts = { powerV = I(a.verdicts.powerV), releaseV = I(a.verdicts.releaseV), steady = a.verdicts.steady,
+			sideV = a.verdicts.sideV and I(a.verdicts.sideV) or nil }
+	end
+	local sw = a.swing
+	ts.scripted = a.scripted and true or false
+	ts.watching, ts.cpuTarget, ts.camMix = false, false, 0
+	local rec = throw.fire(ts, L, "baton", { verdicts = verdicts, back = sw and F(sw.back), stop = sw and F(sw.stop) })
+	local gap, toppled = togo.gap(ts.last.res, setup.batonId)
+	local b = ts.last.res.bodies[setup.batonId]
+	return ts, rec, gap, toppled, b
+end
+
+-- The frame the throw to go is shown in on this client: A's, unless it plays B alone.
+function Session:togoSide()
+	if self.control.B and not self.control.A then return "B" end
+	return "A"
+end
+
+-- Both batons are in: throw both, judge them, and start turn 1 (or throw again).
+function Session:togoResolve()
+	local tg = self.togo
+	local lasts, e, res = {}, {}, {}
+	local view = session.viewSide or self:togoSide()
+	for _, side in ipairs { "A", "B" } do
+		local ts, rec, gap, toppled, b = self:togoFire(tg.acts[side])
+		lasts[side] = ts.last
+		e[side] = { gap = gap, toppled = toppled }
+		local mm = togo.mm(gap)
+		local r = { gap = gap ~= math.huge and F(gap) or nil, mm = mm ~= math.huge and mm or nil, toppled = toppled,
+			cpu = tg.acts[side].cpu or nil, verdicts = rec.result.verdicts }
+		if b then
+			-- where the baton came to rest, in the frame the recording is in
+			local x, y = b.x, b.y
+			if side ~= view then x, y = frame.point("B", x, y) end
+			r.restX, r.restY = F(x), F(y)
+		end
+		res[side] = r
+	end
+	local v = togo.decide(e)
+	local rounds = tg.round
+	-- the king shown: the one that fell (so its fall is seen), else the winner's
+	local kingFrom = (e.A.toppled and "A") or (e.B.toppled and "B") or v.first or "A"
+	local result = { togo = true, A = res.A, B = res.B, first = v.first, how = v.how, why = v.why, round = rounds }
+	result.text = togo.text(e, v, rounds)
+	local rec = throw.togoRecording(lasts, view, kingFrom, result)
+	-- the camera it is shown through: at the viewer's end, the king and both batons in it
+	local pts = { { -1.2, 0, 0 }, { 1.2, 0, 0 }, { 0, pitch.king.y, 0.4 }, { 0, pitch.length, 0 } }
+	for _, side in ipairs { "A", "B" } do
+		if res[side].restX then pts[#pts + 1] = { res[side].restX, res[side].restY, 0 } end
+	end
+	local cam = camera.fromEnd(nil, pts, session.viewBox, "end")
+	self.togoShow = { lasts = lasts, side = view, kingFrom = kingFrom, cam = cam }
+	self.recSide = view
+	self.togoLast = result
+	if v.how == "again" then
+		self.togo = { round = rounds + 1, acts = {} }
+		self:togoBegin()
+	else
+		cmatch.setFirst(self.m, v.first, result.text)
+		self.togo, self.togoAt = nil, nil
+		self.ts = throw.new { surface = self.opts.surface, set = self.opts.set, meter = session.meterOf(self.opts) }
+		self.side, self.lastThrower = nil, nil
+		self:advance()
+	end
+	rec.seq = nil
+	self.recording = rec
+	return rec
+end
+
+-- A baton to go from this client or another: { type = "togo", side, round, launch, stance,
+-- target, swing?, verdicts?, plan?, input?, at? }. Refused (ok = false, why) out of its
+-- phase or round, for a side that has thrown or that the computer throws for. Returns
+-- { ok, recording? (once both are in), need }.
+function Session:applyTogo(a)
+	local tg = self.togo
+	local function no(why) return { ok = false, why = why, need = self:need() } end
+	if self.kind ~= "match" or self.phase ~= "togo" or not tg then return no("no throw to go") end
+	if type(a) ~= "table" or I(a.round) ~= tg.round then return no("not this round") end
+	local side = a.side
+	if side ~= "A" and side ~= "B" then return no("no such side") end
+	if tg.acts[side] then return no("thrown") end
+	if self:togoCpu(side) then return no("the computer's") end
+	if type(a.launch) ~= "table" then return no("no launch") end
+	local stamp = stampOf(a.at)
+	-- kept (in the snapshot while the other baton is owed) with only the fields a baton
+	-- reads, so nothing a client added rides along (session/namecheck checks each string)
+	local keep = {}
+	for _, k in ipairs { "type", "side", "round", "how", "launch", "stance", "target", "swing", "verdicts",
+		"plan", "input", "scripted", "at" } do keep[k] = a[k] end
+	tg.acts[side] = json.decode(json.encode(keep))
+	if stamp then self.finish = stamp end
+	if #self:togoOwed() > 0 then
+		-- a new baton only when this client's changes (the side it threw is in): the other
+		-- side's arriving leaves the baton it is aiming or swinging as it is
+		if self:togoMine() ~= self.togoAt then self:togoPrepare() end
+		return { ok = true, need = self:need() }
+	end
+	for _, s2 in ipairs { "A", "B" } do
+		if not tg.acts[s2] then tg.acts[s2] = self:togoCpuAction(s2) end
+	end
+	local rec = self:togoResolve()
+	return { ok = true, recording = rec, need = self:need() }
+end
+
+-- The throw to go's need (Session:need).
+function Session:togoNeed()
+	local tg = self.togo
+	local thrower = {}
+	for _, side in ipairs { "A", "B" } do
+		local th = cmatch.togoThrower(self.m, side)
+		thrower[side] = { id = th.id, name = th.name, level = th.level, key = th.key,
+			cpu = self:togoCpu(side) or nil, throw = th.throw }
+	end
+	local ps = self.togoAt and plainSetup(self.setup) or nil
+	if ps then ps.togo = true end
+	return {
+		kind = "togo", round = tg.round, owe = self:togoOwed(), side = self.togoAt, setup = ps,
+		thrown = { A = tg.acts.A ~= nil, B = tg.acts.B ~= nil },
+		throwers = thrower,
+		-- which side's baton the computer throws (not `cpu`: no one acts for the computer
+		-- here; the engine makes its baton when the people's are in)
+		computer = { A = self:togoCpu("A"), B = self:togoCpu("B") },
+		cpu = false,
+		["local"] = self.togoAt ~= nil,
+		-- the last round's verdict when this is a throw again (a tie, or both kings down)
+		again = self.togoLast,
+	}
+end
+
 -- One frame while aiming (docs/SESSION.md "The frame"). inp = { dt, arm,
 -- plan, move = {dx, dy}, walk = {dx, dy}, at (a host's stamp for the action it makes) }.
 -- Returns { dial, camera, aim, event, action, recording, need }.
@@ -1251,11 +1598,21 @@ function Session:frame(inp)
 	if dt > 0.1 then dt = 0.1 end
 	local ts = self.ts
 	local out = {}
-	if self.phase ~= "throw" then
+	local togoPhase = self.phase == "togo"
+	if self.phase ~= "throw" and not (togoPhase and self.togoAt) then
 		out.dial = throw.dial(ts, true)
 		return out
 	end
-	local cpu = self.kind == "match" and cpuThrow(self, self.setup)
+	local cpu = self.kind == "match" and not togoPhase and cpuThrow(self, self.setup)
+	-- the computer's speed (1.4.0, docs/SESSION.md "The computer's turn, fast"): 1, 2 or 4
+	-- (any of 1 to 8) times the frame's time for its think and swing, after the cap, so a
+	-- client at 60 frames a second plays its turn 2 or 4 times as fast. The time never
+	-- changes what it throws (its throw is chosen before it shows: autothrow.choose)
+	if cpu then
+		local sp = F(inp.speed or 1) or 1
+		if sp ~= sp or sp < 1 then sp = 1 elseif sp > 8 then sp = 8 end
+		dt = dt * sp
+	end
 	local ev, L, how, info, crossings
 	if cpu then
 		if ts.mode == "aim" then
@@ -1277,7 +1634,7 @@ function Session:frame(inp)
 				ev = nil
 			end
 		end
-	elseif self.kind == "match" and not self.control[self.setup.side] then
+	elseif self.kind == "match" and not togoPhase and not self.control[self.setup.side] then
 		-- someone else's throw: their aim comes in by showAim
 		throw.aimCamera(ts)
 		out.dial = throw.dial(ts, true)
@@ -1297,6 +1654,10 @@ function Session:frame(inp)
 	out.event = ev
 	if L then
 		local action = self:throwAction(L, how, info)
+		if togoPhase then
+			-- a baton to go (1.4.0): no seq, its side and round instead
+			action.type, action.seq, action.side, action.round = "togo", nil, self.togoAt, self.togo.round
+		end
 		-- the host's stamp (0.18.0): on the action, so every client applying it gets the
 		-- same finish
 		local at = stampOf(inp.at)
@@ -1304,7 +1665,11 @@ function Session:frame(inp)
 		-- the actor runs the action exactly as every other browser will: through JSON
 		action = json.decode(json.encode(action))
 		out.action = action
-		out.recording = self:applyThrow(action)
+		if togoPhase then
+			out.recording = self:applyTogo(action).recording
+		else
+			out.recording = self:applyThrow(action)
+		end
 		out.need = self:need()
 	end
 	out.dial = throw.dial(ts, not L)
@@ -1316,6 +1681,14 @@ end
 
 -- The last throw at shown time t.
 function Session:showAt(t)
+	if self.togoShow and self.recording and self.recording.kind == "togo" then
+		-- the throw to go's two batons (1.4.0), through its fixed camera at the viewer's end
+		local g = self.togoShow
+		local r = throw.togoShowAt(g.lasts, g.side, g.kingFrom, F(t or 0))
+		r.camera = g.cam
+		r.dial = throw.dial(self.ts, false)
+		return r
+	end
 	local r = throw.showAt(self.ts, F(t or 0))
 	if not r then return nil end
 	r.dial = throw.dial(self.ts, false)
@@ -1353,11 +1726,12 @@ end
 
 -- ---------- the match's other actions ----------
 
-function Session:checkPunish(x, y)
+function Session:checkPunish(x, y, fs)
 	assert(self.phase == "settle" and self.settle.mode == "punish", "no punishment kubb to place")
 	local g = self.m.game
 	local n = g:need()
-	local wx, wy = frame.point(n.side, F(x), F(y))
+	-- (1.4.0) fs: the frame x, y are in (a client's view from one side, need.frame)
+	local wx, wy = frame.point((fs == "A" or fs == "B") and fs or n.side, F(x), F(y))
 	local ok, why = raising.punishmentCheck({ x = wx, y = wy, standing = true, angle = 0 }, g:context(n.side, n.kubb))
 	return { ok = ok and true or false, why = why, label = whyLabel(why) }
 end
@@ -1370,6 +1744,7 @@ function Session:apply(a)
 		local rec = self:applyThrow(a)
 		return { ok = true, recording = rec, need = self:need() }
 	end
+	if t == "togo" then return self:applyTogo(a) end
 	assert(self.kind == "match", "only a match takes " .. tostring(t))
 	local g = self.m.game
 	-- a raise or a punishment kubb placed by hand carries the host's stamp as a throw does
@@ -1377,7 +1752,26 @@ function Session:apply(a)
 	-- Kept only once the action is taken: a refused one must leave the match as it was,
 	-- since `finish` is in the snapshot and its hash
 	local stamp = (t == "raise" or t == "punish") and stampOf(a.at) or nil
-	if t == "raise" then
+	if t == "raise" and a.kubb ~= nil then
+		-- (1.4.0) a raise that names its kubb (any of need.lying) and its end (`which`, as
+		-- raiseInfo's choices name it; absent: the side's choice). Refused, the match as
+		-- it was, when that kubb is not lying in the half or that end cannot stand: so a
+		-- teammate's raise applied again after another's (a pitch's refusal and retry)
+		-- raises the kubb it named or is cleanly refused
+		if not (self.phase == "settle" and self.settle.mode == "raise") then
+			return { ok = false, why = "not raising", need = self:need() }
+		end
+		local which = a.which ~= nil and I(a.which) or nil
+		local ok, why = g:canRaise(a.kubb, which)
+		if not ok then return { ok = false, why = why, label = upper(why), need = self:need() } end
+		local n = g:need()
+		g:raiseKubb(a.kubb, which, cmatch.raisePolicy(self.m, n.side))
+		if stamp then self.finish = stamp end
+		self.settle.raised = self.settle.raised + 1
+		self.card = nil
+		if not settleBegin(self) then self.settle = nil; self:advance() end
+		return { ok = true, need = self:need() }
+	elseif t == "raise" then
 		assert(self.phase == "settle" and self.settle.mode == "raise", "no kubb to raise")
 		local choice = a.choice and I(a.choice) or nil
 		local n = g:need()
@@ -1393,7 +1787,10 @@ function Session:apply(a)
 	elseif t == "punish" then
 		assert(self.phase == "settle" and self.settle.mode == "punish", "no punishment kubb to place")
 		local n = g:need()
-		local wx, wy = frame.point(n.side, F(a.x), F(a.y))
+		-- (1.4.0) a.frame: the frame x, y are in (need.frame in a view from one side); absent,
+		-- the placing side's
+		local fs = (a.frame == "A" or a.frame == "B") and a.frame or n.side
+		local wx, wy = frame.point(fs, F(a.x), F(a.y))
 		local ok, why = g:placePunishment({ x = wx, y = wy, standing = true, angle = 0 })
 		if not ok then return { ok = false, why = why, label = whyLabel(why), need = self:need() } end
 		if stamp then self.finish = stamp end
@@ -1420,6 +1817,7 @@ function Session:apply(a)
 		local setup = self.setup
 		self.lastThrower = setup.thrower.id
 		self.ts.level = setup.thrower.level
+		self.ts.throwLevel = setup.thrower.throw
 		self.ts.planDirty = true
 		throw.replan(self.ts)
 		self.ts.railName = self:railName(setup)
@@ -1450,6 +1848,30 @@ function Session:cpuAction(at)
 	local st = stampOf(at)
 	if st then action.at = st end
 	return json.decode(json.encode(action))
+end
+
+-- The computer's turn, fast (1.4.0; docs/SESSION.md "The computer's turn, fast"): every
+-- computer throw from here until a person is needed, with no frames: each the action
+-- Session:frame would have made (cpuAction) applied as any action is (applyThrow), so the
+-- match ends exactly as a watched one does, throw for throw and hash for hash. Only
+-- where this client throws for the computer (control.cpu). o = { at? } (a host's stamp
+-- for every action it makes). Returns { steps = [{ a, h, seq, side, text, short, ruling,
+-- recording? }], need, view }: each step's action and the hash after it (a log's entry,
+-- docs/SESSION.md "Replay"), what it did, and, with o.recordings, its recording; then the
+-- need and the view as they stand (a person's throw, a raise by hand, or the end).
+function Session:cpuPlay(o)
+	o = o or {}
+	local steps = {}
+	while self.kind == "match" and self.phase == "throw" and cpuThrow(self, self.setup) and self.control.cpu do
+		local side = self.setup.side
+		local a = self:cpuAction(o.at)
+		local rec = self:applyThrow(a)
+		local st = { a = a, h = self:hash(), seq = a.seq, side = side, text = self.m.text,
+			short = self.m.text and session.short(self.m.text) or nil, ruling = rec.result.ruling }
+		if o.recordings then st.recording = rec end
+		steps[#steps + 1] = st
+	end
+	return { steps = steps, need = self:need(), view = self:view() }
 end
 
 -- Standing kubbs in each half now, by role, and the king: { A = { field, base }, B = ...,
@@ -1580,6 +2002,8 @@ function Session:snapshotTable()
 		side = pre.side, lastThrower = pre.lastThrower, mem = pre.mem,
 		settle = self.settle and { raised = self.settle.raised, placed = self.settle.placed,
 			raiseTotal = self.settle.raiseTotal, punishTotal = self.settle.punishTotal } or nil,
+		-- the throw to go while it is undecided (1.4.0): its round and the batons in
+		togo = self.togo and { round = self.togo.round, A = self.togo.acts.A, B = self.togo.acts.B } or nil,
 	}
 end
 
@@ -1628,6 +2052,14 @@ function session.restore(text, control, opts)
 	-- match's pitch (Session:pitchItems) in the frame a live session holds it in, the last
 	-- throw's
 	s.pitchFromMatch, s.frameSide = true, s.side
+	if s.opts.togo and not m.game.firstBy then
+		-- (1.4.0) the throw to go is undecided: its round and the batons already in
+		local t = type(d.togo) == "table" and d.togo or {}
+		s.togo = { round = I(t.round or 1), acts = { A = t.A, B = t.B } }
+		s:togoBegin()
+		if control then s:setControl(control) end
+		return s
+	end
 	s:advance()
 	if control then s:setControl(control) end
 	return s

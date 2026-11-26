@@ -91,6 +91,40 @@ camera.tune = {
 		openDist = 3.4,      -- m
 		openF = 420,         -- px
 	},
+	-- The camera at the viewer's own end (1.4.0; docs/SESSION.md "A view from one side"): a
+	-- fixed camera behind and above the near baseline (view frame: the viewer's baseline
+	-- at y = 0, the pitch running to +y), looking down the pitch, its lens and principal
+	-- point fitted (camera.fit) so the points the caller keeps fall in the box. For the
+	-- other team's throws and inkast (the batons and kubbs come toward it), the raising
+	-- of a half's kubbs and the throw to go. Chosen by framing on a 400 x 240 and a tall
+	-- box at 4, 6 and 8 m targets (tests/lua/session/test_view.lua).
+	["end"] = {
+		back = 3.2,          -- m behind the near baseline
+		height = 3.0,        -- m above the ground
+		lookY = 3.4,         -- m: the ground point down the middle it looks at (before the fit)
+		lookZ = 0,
+		pad = 0.25,          -- m kept round every point it keeps (a piece's size, a margin)
+		padZ = 0.4,          -- m: each point is also kept this high (a kubb's top, a baton's hop)
+		fMax = 2400,         -- px: never longer (a tiny box, a few close points)
+		box = { left = 6, top = 22, right = 394, bottom = 236 }, -- the box when none is given: the
+		                     -- 400 x 240 frame less the rail
+		-- a tall box (higher than 1.05 times its width: a phone upright) is filled by the
+		-- pitch's width either way; from higher and nearer, the pitch runs up the screen and
+		-- the far end's pieces come out a little larger (4 px at 6 m on a 390 x 844
+		-- window, against 3.3 from the landscape place)
+		tall = { back = 2.0, height = 5.0, lookY = 3.4 },
+	},
+	-- the raise's camera (1.4.0): the end camera at the raiser's own end, nearer (its half
+	-- only, the kubbs lying in it); the same fit
+	raise = {
+		back = 2.2,
+		height = 3.4,
+		lookY = 2.0,
+		lookZ = 0,
+		pad = 0.3,
+		padZ = 0.2,
+		fMax = 2400,
+	},
 	follow = {
 		marginX = 30,        -- px kept between the baton's center and the screen edge while following
 		marginTop = 60,
@@ -467,6 +501,61 @@ end
 -- The minimap (DESIGN 3): a 45 x 72 px top-down pitch at 9 px per meter with
 -- the far baseline (y = 8) at the top. ox, oy is its top-left pixel: the
 -- bottom left of the screen, inside a 2 px frame at 4 162 49 76 (docs/design).
+-- Fit camera c's lens and principal point (1.4.0; the wide view's way, session/wide) so
+-- every point of pts ({ x, y, z } triples, in c's frame) falls inside box { left, top,
+-- right, bottom } (frame px), centred in it, never longer than fMax. Points behind the
+-- near plane are left out. Returns c.
+function camera.fit(c, pts, box, fMax)
+	local huge = math.huge
+	local umin, umax, vmin, vmax = huge, -huge, huge, -huge
+	for i = 1, #pts do
+		local p = pts[i]
+		local r, u, d = camera.toView(c, p[1], p[2], p[3])
+		if d >= camera.tune.near then
+			local a, b = r / d, u / d
+			if a < umin then umin = a end
+			if a > umax then umax = a end
+			if b < vmin then vmin = b end
+			if b > vmax then vmax = b end
+		end
+	end
+	if umin > umax then return c end
+	local bw, bh = max(1, box.right - box.left), max(1, box.bottom - box.top)
+	local du, dv = max(1e-6, umax - umin), max(1e-6, vmax - vmin)
+	local f = min(fMax or huge, bw / du, bh / dv)
+	c.f = f
+	c.cx = (box.left + box.right) / 2 - f * (umin + umax) / 2
+	c.cy = (box.top + box.bottom) / 2 + f * (vmin + vmax) / 2
+	return c
+end
+
+-- The camera at the near end of the view frame (1.4.0; tune "end", or tune.raise with
+-- kind "raise"): behind the baseline at y = 0, straight down the middle, fitted to keep
+-- each point of pts ({ x, y } or { x, y, z }, view frame) with the tune's pad round it and
+-- its padZ above it, in box (default the tune's). Returns c (a new camera when c is nil).
+function camera.fromEnd(c, pts, box, kind)
+	local t = camera.tune[kind == "raise" and "raise" or "end"]
+	local b = box or camera.tune["end"].box
+	local at = t
+	if t.tall and (b.bottom - b.top) > 1.05 * (b.right - b.left) then at = t.tall end
+	c = c or camera.new()
+	camera.lookAt(c, 0, -at.back, at.height, 0, at.lookY, t.lookZ or 0)
+	local fit = {}
+	local pad = t.pad
+	for i = 1, #pts do
+		local p = pts[i]
+		local x, y, z = p[1] or p.x, p[2] or p.y, p[3] or p.z or 0
+		fit[#fit + 1] = { x - pad, y - pad, z }
+		fit[#fit + 1] = { x + pad, y - pad, z }
+		fit[#fit + 1] = { x - pad, y + pad, z }
+		fit[#fit + 1] = { x + pad, y + pad, z }
+		fit[#fit + 1] = { x, y, z + t.padZ }
+	end
+	camera.fit(c, fit, b, t.fMax)
+	c.kind = kind == "raise" and "raise" or "end"
+	return c
+end
+
 camera.minimap = { scale = 9, w = 45, h = 72, ox = 6, oy = 164 }
 
 -- The HUD's clear area (docs/design "HUD" 7): under the rail (y rail) the
