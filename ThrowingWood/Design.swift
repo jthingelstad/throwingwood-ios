@@ -202,7 +202,8 @@ struct Rule: View {
 /// one dim over the pitch (ink at 50% in the day), the card's face (paper, a 3 pt ink
 /// line, radius 8, a 5 pt shadow, 20 pt in). Its rows scroll where it does not fit (a
 /// phone on its side, the largest text sizes) and its button row stays pinned in view
-/// under them. Upright on a phone it is the screen's width less 16 a side; elsewhere
+/// under them (but where that would leave the rows almost no room: the keyboard up on
+/// a phone on its side). Upright on a phone it is the screen's width less 16 a side; elsewhere
 /// (on its side, an iPad) it keeps `width`, centred.
 struct CardScreen<Rows: View, Buttons: View>: View {
   var width: CGFloat = 400
@@ -213,42 +214,89 @@ struct CardScreen<Rows: View, Buttons: View>: View {
   @ViewBuilder let rows: () -> Rows
   @ViewBuilder let buttons: () -> Buttons
   @Environment(\.screenGeometry) private var screen
+  /// The height the card's screen gives it (less where the keyboard is up) and its
+  /// button row's own: where the rows would keep less than `FitHeightRule.rowsRoom`
+  /// (a phone on its side with the keyboard up), the button row scrolls under them.
+  @State private var room: CGFloat = .infinity
+  @State private var buttonsHeight: CGFloat = 0
   var body: some View {
     let upright = !screen.wide
     let phone = UIDevice.current.userInterfaceIdiom == .phone
+    let top = upright ? TW.cardTop : WideLayout.edge
+    let pinned =
+      fill
+      || FitHeightRule.pinsButtons(
+        room: Double(room - top - TW.cardSide - 2 * TW.cardPadding), buttons: Double(buttonsHeight))
     ZStack(alignment: .top) {
       if dim { SkinDim().ignoresSafeArea().accessibilityHidden(true) }
       VStack(alignment: .leading, spacing: 14) {
         if fill {
           rows().frame(maxHeight: .infinity, alignment: .top)
         } else {
-          ViewThatFits(in: .vertical) {
-            rows().fixedSize(horizontal: false, vertical: true)
+          // one copy of the rows, always in the scroll view, as tall as they are where
+          // they fit (FitHeight): never two copies to pick between, which swapped when
+          // the keyboard took the room and dropped the focused field with its keyboard
+          // (Send feedback, build 181 to 1.0.0)
+          FitHeight {
             ScrollView {
-              rows().fixedSize(horizontal: false, vertical: true)
+              VStack(alignment: .leading, spacing: 14) {
+                rows().fixedSize(horizontal: false, vertical: true)
+                  .environment(\.cardShort, !pinned)
+                if !pinned { buttonRow(upright: upright) }
+              }
             }
             .scrollBounceBehavior(.basedOnSize).defaultScrollAnchor(Self.anchor)
-            .modifier(MoreBelow())
+            // no fade where the rows are short: it would fall on the line being typed
+            .modifier(MoreBelow(fades: pinned))
           }
           // the rows are offered all the height the button row leaves (a VStack
           // would offer them a share), so a card that fits is shown whole
           .layoutPriority(1)
         }
-        // the button row keeps its whole height, pinned under the rows; on its side a
-        // phone is about 390 pt tall, so there its words stop growing at the first
-        // accessibility size and the rows keep room to scroll
-        buttons().fixedSize(horizontal: false, vertical: true)
-          .dynamicTypeSize(upright ? .xSmall ... .accessibility5 : .xSmall ... .accessibility1)
+        if pinned { buttonRow(upright: upright) }
       }
       .padding(TW.cardPadding)
       .frame(maxWidth: upright && phone ? .infinity : width, alignment: .leading)
       .modifier(CardFace())
       .padding(.horizontal, TW.cardSide)
-      .padding(.top, upright ? TW.cardTop : WideLayout.edge)
+      .padding(.top, top)
       .padding(.bottom, TW.cardSide)
       .frame(maxWidth: .infinity, maxHeight: fill ? .infinity : nil, alignment: .top)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { room = $0 }
+  }
+
+  /// The button row keeps its whole height, pinned under the rows; on its side a phone
+  /// is about 390 pt tall, so there its words stop growing at the first accessibility
+  /// size and the rows keep room to scroll.
+  private func buttonRow(upright: Bool) -> some View {
+    buttons().fixedSize(horizontal: false, vertical: true)
+      .dynamicTypeSize(upright ? .xSmall ... .accessibility5 : .xSmall ... .accessibility1)
+      .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { buttonsHeight = $0 }
+  }
+}
+
+extension EnvironmentValues {
+  /// The card's rows have little room (a phone on its side with the keyboard up): a
+  /// text field keeps to fewer lines, so the line being typed stays in view.
+  @Entry var cardShort = false
+}
+
+/// Its one view as tall as it would be (a scroll view: its rows' height), and no taller
+/// than it is offered: a card's rows shown whole where they fit and scrolling where they
+/// do not, with one identity either way (`FitHeightRule`), so a focused text field keeps
+/// its focus when the keyboard takes the room.
+struct FitHeight: Layout {
+  func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+    guard let view = subviews.first else { return .zero }
+    let ideal = view.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil))
+    return CGSize(
+      width: proposal.width ?? ideal.width,
+      height: CGFloat(FitHeightRule.height(ideal: Double(ideal.height), offered: proposal.height.map { Double($0) })))
+  }
+  func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+    subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
   }
 }
 
@@ -281,6 +329,7 @@ extension View {
 /// still below the cut the last few points fade into the paper, so a cut row (a phone
 /// on its side shows a card's first rows only) reads as more to come, not as the end.
 struct MoreBelow: ViewModifier {
+  var fades = true
   @State private var below = false
   func body(content: Content) -> some View {
     content
@@ -291,7 +340,7 @@ struct MoreBelow: ViewModifier {
       .mask {
         VStack(spacing: 0) {
           Color.black
-          LinearGradient(colors: [.black, below ? .black.opacity(0.15) : .black],
+          LinearGradient(colors: [.black, below && fades ? .black.opacity(0.15) : .black],
                          startPoint: .top, endPoint: .bottom)
             .frame(height: TW.moreBelowFade)
         }

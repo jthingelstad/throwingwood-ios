@@ -69,7 +69,7 @@ import Testing
       #expect(!text.contains("NameField"), "\(name) keeps a name field")
     }
     #expect(fields.sorted() == ["", "Pitch link or code"])
-    #expect(try file("ThrowReport.swift").contains(#"TextField("", text: value"#))
+    #expect(try file("ThrowReport.swift").contains(#"TextField("", text: $value"#))
   }
 
   /// Settings is reached from home and from inside a match: the match and pitch

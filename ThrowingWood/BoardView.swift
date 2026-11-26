@@ -558,6 +558,7 @@ import UIKit
           case "driveshortcoach": reviewReady && pitch.canAim && pitch.coachShort
           case "cpuraise": reviewReady && pitch.raiseWatch == .engine
           case "menu": model.screen == .menu
+          case "report", "feedback": model.screen == .report
           case "verdict": pitch.result != nil
           case "verdictaim": reviewReady && pitch.result != nil && pitch.canAim
           case "plan": pitch.plan
