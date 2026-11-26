@@ -79,9 +79,9 @@ extension SoloOptions {
       // the flag names the side that throws first or says to throw again
       let flag = try #require(r.headline)
       if r.how == "again" {
-        #expect(flag == "THROW AGAIN")
+        #expect(flag.hasSuffix("THROW AGAIN"))
       } else {
-        #expect(flag == (r.first == "A" ? "YOU THROW FIRST" : "COMPUTER THROWS FIRST"))
+        #expect(flag.hasSuffix(" GOES FIRST"))
       }
       ticks = 0
       while app.need?.kind == "togo" && !app.canAim && ticks < 4000 {
@@ -109,20 +109,22 @@ extension SoloOptions {
       return r
     }
     let closer = try result(#"{"first":"B","how":"closer","A":{"gap":0.88},"B":{"gap":0.42}}"#)
-    #expect(closer.headline == "COMPUTER THROWS FIRST")
-    #expect(closer.shownRest == "0.42 m against 0.88 m")
-    let mine = try result(#"{"first":"A","how":"closer","A":{"gap":0},"B":{"gap":0.3}}"#)
-    #expect(mine.headline == "YOU THROW FIRST" && mine.shownRest == "touching against 0.30 m")
+    #expect(closer.headline == "COMPUTER GOES FIRST")
+    #expect(closer.shownRest == "Mighty Maple 0.88 m · Computer 0.42 m")
+    let mine = try result(#"{"first":"A","how":"closer","A":{"gap":0},"B":{"mm":300}}"#)
+    #expect(mine.headline == "MIGHTY MAPLE GOES FIRST" && mine.shownRest == "Mighty Maple 0.00 m · Computer 0.30 m")
     let king = try result(#"{"first":"B","how":"king","A":{"gap":0,"toppled":true},"B":{"gap":1}}"#)
-    #expect(king.headline == "COMPUTER THROWS FIRST" && king.shownRest == "You knocked the king over")
+    #expect(king.headline == "COMPUTER GOES FIRST" && king.shownRest == "Mighty Maple hit the king · Computer 1.00 m")
     let tie = try result(#"{"how":"again","why":"tie","A":{"gap":0.5},"B":{"gap":0.5}}"#)
-    #expect(tie.headline == "THROW AGAIN" && tie.shownRest == "A tie: both just as close")
+    #expect(tie.headline == "A TIE: THROW AGAIN" && tie.shownRest == "Mighty Maple 0.50 m · Computer 0.50 m")
     let both = try result(#"{"how":"again","why":"both king","A":{"toppled":true},"B":{"toppled":true}}"#)
-    #expect(both.headline == "THROW AGAIN" && both.shownRest == "Both knocked the king over")
-    // a watcher has no side of its own: the team's name
+    #expect(both.headline == "BOTH HIT THE KING: THROW AGAIN")
+    #expect(both.shownRest == "Mighty Maple hit the king · Computer hit the king")
+    // a watcher reads the same: the team's name
     let watched = try result(#"{"first":"A","how":"closer","A":{"gap":0.1},"B":{"gap":0.2}}"#, viewer: nil)
-    #expect(watched.headline == "MIGHTY MAPLE THROWS FIRST")
-    #expect(TogoWords.waiting(for: "Computer") == "Waiting for Computer")
+    #expect(watched.headline == "MIGHTY MAPLE GOES FIRST")
+    #expect(TogoWords.waiting(for: ["Computer"]) == "Waiting for Computer")
+    #expect(TogoWords.waiting(for: ["Bold Birch", "Calm Cedar"]) == "Waiting for Bold Birch and Calm Cedar")
   }
 
   /// A baton passed to this device by a change of control (online, a stand-in for a

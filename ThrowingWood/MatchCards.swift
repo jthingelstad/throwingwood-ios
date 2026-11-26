@@ -720,7 +720,7 @@ struct MatchScreen: View {
       VStack(alignment: .leading, spacing: 0) {
         Text(
           n.kind == "togo"
-            ? TogoWords.header
+            ? (pitch.togoToThrow && pitch.acceptsInput ? TogoWords.yours : TogoWords.header)
             : pitch.engineRaising.map { HeaderWords.engineRaise(turn: n.turn ?? 1, k: $0.k, of: $0.of, placed: $0.placed) }
             ?? HeaderWords.line(
               turn: n.turn ?? 1, n: n.setup?.n, of: n.setup?.of, projectile: n.setup?.projectile, watching: watching,

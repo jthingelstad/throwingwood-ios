@@ -216,10 +216,13 @@ public enum FitHeightRule {
 /// The engine's own line (`result.text`) is the game file's; these are the screen's, short
 /// and plain. `togoTeams` and `togoViewer` come from the session, never the engine.
 public enum TogoWords {
-  /// The header's first line while a baton to go is thrown or waited for.
+  /// The header's first line while a baton to go is thrown or waited for, and while this
+  /// device throws its own (the web's "YOUR THROW TO GO", in the header's sentence case).
   public static let header = "Throw to go"
-  /// Under it while this device's baton is in and the other team's is not.
-  public static func waiting(for team: String) -> String { "Waiting for \(team)" }
+  public static let yours = "Your throw to go"
+  /// Under it while this device's baton is in and another team's is not (the web's
+  /// "WAITING FOR <TEAM>", its teams joined by "and").
+  public static func waiting(for teams: [String]) -> String { "Waiting for " + teams.joined(separator: " and ") }
   /// The coach's line on the first round: what a baton to go is for.
   public static let hint = "CLOSEST TO THE KING THROWS FIRST"
 
@@ -228,37 +231,26 @@ public enum TogoWords {
     return r.togoTeams?[side] ?? "Team \(side)"
   }
 
-  /// "YOU THROW FIRST", "COMPUTER THROWS FIRST", "THROW AGAIN".
+  /// The web's togoWords (src/game/rulings.js): "MIGHTY MAPLE GOES FIRST", "A TIE: THROW
+  /// AGAIN", "BOTH HIT THE KING: THROW AGAIN", "THROW AGAIN".
   public static func flag(_ r: ThrowResult) -> String {
-    if r.how == "again" || r.first == nil { return "THROW AGAIN" }
-    if r.first == r.togoViewer { return "YOU THROW FIRST" }
-    return "\(name(r, r.first).uppercased()) THROWS FIRST"
+    if r.how == "again" || r.first == nil {
+      return r.why == "tie" ? "A TIE: THROW AGAIN" : r.why == "both king" ? "BOTH HIT THE KING: THROW AGAIN" : "THROW AGAIN"
+    }
+    return "\(name(r, r.first).uppercased()) GOES FIRST"
   }
 
-  /// "0.42 m against 0.88 m" (the winner's first; "touching" for a baton at the king),
-  /// "Computer knocked the king over", "A tie: both the same", "Both knocked the king over".
+  /// Under it, each team's baton, A then B: "Mighty Maple 0.42 m · Computer hit the king".
   public static func rest(_ r: ThrowResult) -> String? {
-    switch r.how {
-    case "closer":
-      guard let w = r.first, let win = baton(r, w), let lose = baton(r, w == "A" ? "B" : "A") else { return nil }
-      return "\(gap(win)) against \(gap(lose))"
-    case "king":
-      guard let w = r.first else { return nil }
-      let loser = w == "A" ? "B" : "A"
-      return loser == r.togoViewer ? "You knocked the king over" : "\(name(r, loser)) knocked the king over"
-    case "again":
-      return r.why == "tie" ? "A tie: both just as close" : "Both knocked the king over"
-    default:
-      return nil
+    func one(_ side: String) -> String {
+      let n = name(r, side)
+      guard let b = baton(r, side) else { return n }
+      if b.toppled == true { return "\(n) hit the king" }
+      guard let g = b.gap ?? b.mm.map({ Double($0) / 1000 }) else { return n }
+      return "\(n) \(String(format: "%.2f", g)) m"
     }
+    return "\(one("A")) · \(one("B"))"
   }
 
   static func baton(_ r: ThrowResult, _ side: String) -> ThrowResult.TogoBaton? { side == "A" ? r.A : r.B }
-
-  /// A baton's distance to the king: "0.42 m", "touching".
-  public static func gap(_ b: ThrowResult.TogoBaton) -> String {
-    let g = b.gap ?? Double(b.mm ?? 0) / 1000
-    if g <= 0 { return "touching" }
-    return String(format: "%.2f m", g)
-  }
 }

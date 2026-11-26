@@ -256,8 +256,8 @@ struct LobbyCard: View {
         .accessibilityLabel(m.connected ? "Connected" : "Away")
       Text(m.name).font(bodyFont(16, .semibold))
       if let level = m.throwLevel {
-        // the way a computer seat's level is shown: " · Easy"
-        Text(" · \(ThrowChoice.name(level))").font(bodyFont(14, .bold)).foregroundStyle(Color.woodMuted)
+        // the web's roster words: " · Easy throw" (Standard shows nothing)
+        Text(" · \(ThrowChoice.name(level)) throw").font(bodyFont(14, .bold)).foregroundStyle(Color.woodMuted)
           .accessibilityLabel("Throw, \(ThrowChoice.name(level))")
       }
       if m.you { Text("YOU").modifier(Chip(fill: .woodInk, ink: .woodPaper)) }

@@ -63,7 +63,7 @@ import Testing
     CpuSpeed.keep(3, in: d)
     #expect(CpuSpeed.load(d) == 4)
     #expect([1, 2, 4].map(CpuSpeed.next(after:)) == [2, 4, 1])
-    #expect(CpuSpeed.label(2) == "2x" && CpuSpeed.spoken(1) == "Normal" && CpuSpeed.spoken(4) == "4 times")
+    #expect(CpuSpeed.label(2) == "2X" && CpuSpeed.spoken(1) == "Normal" && CpuSpeed.spoken(4) == "4 times")
   }
 
   /// The button shows on the computer's turn of a solo match, and never on a practice or
