@@ -17,7 +17,17 @@ Beta App Review for the Beta group the same day, at 1:13 PM Central (the owner a
 new build for dev and beta once that day's changes were in): a match playing behind the
 first screen, watching the other team from your own baseline, a raise view that stands
 over the lying kubbs, and RESIGN against the computer ending at once. It was uploaded from
-the development Mac. Until Apple passes it, outside testers have build 284.
+the development Mac. Apple passed it for the Beta group the same day.
+Build 294, `1.1.0 (1.4.1)`, went to the Internal group on 2026-11-27 and was submitted to
+Beta App Review for the Beta group the same day, at 5:27 PM Central (the owner, after
+playing build 291 on an iPad: "When it merges, submit a new build to dev and beta
+testflights"): a press on the target's ring always aims, the minimap at the tray's edge on
+an iPad on its side, and a quiet settings gear on the first screen. Until Apple passes it,
+outside testers have build 291.
+The App Store's 1.1.0 record was made on 2026-11-27 (the owner: "yes, create the 1.1.0
+version record in App Store Connect"; "release on approval is fine"), in Prepare for
+Submission with a draft of What's New, to release as soon as it is approved. It has no
+build, and nothing is submitted: the submission is the owner's call.
 
 ## The App Store submission
 
