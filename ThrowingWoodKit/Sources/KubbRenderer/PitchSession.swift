@@ -228,6 +228,9 @@ public final class PitchSession {
     didSet {
       guard stillFloor != oldValue else { return }
       scene.stillFloor = stillFloor
+      // the engine's held raise camera is fitted again over the bar (SideView.box)
+      carrySideView()
+      scene.stillFloor = stillFloor
       revision += 1
     }
   }
@@ -279,6 +282,11 @@ public final class PitchSession {
   /// ARC open shows the side view (`plan`).
   public internal(set) var openPlate: TrayPlate?
   public var playing: Bool { playback != nil }
+  /// How far the throw playing is through its recording, 0 to 1 (nil: none plays). The
+  /// review tools' frozen moments of a watched throw.
+  public var playbackProgress: Double? {
+    playback.map { $0.recording.duration > 0 ? min(1, $0.nextTime / $0.recording.duration) : 1 }
+  }
   /// Runs once the throw playing has played out (or been skipped), on the next turn of the
   /// main queue; at once when none plays (the web's afterPlay: a practice's throw level
   /// changed in the menu waits for the throw to finish).
@@ -491,14 +499,17 @@ public final class PitchSession {
     // aiming for the other side (a host standing in for a player who left): the aim calls
     // take the thrower's frame, so that throw is seen from the thrower's end, and the view
     // goes back to the player's own after it (the web's applySideView)
-    if let own = side, let n = need, n.kind == "throw" || n.kind == "togo", let s = n.side,
+    // (engine 1.4.1) a raise by hand it makes for the other side likewise, so the held raise
+    // camera stands over that side's kubbs from the raiser's own side, not from this end
+    if let own = side, let n = need, n.kind == "throw" || n.kind == "togo" || n.kind == "raise", let s = n.side,
       s == "A" || s == "B", s != own, n.cpu != true, acceptsInput
     {
       side = s
     }
     let args: String
     if let side, side == "A" || side == "B" {
-      let b = SideView.box(size: size, safe: safe)
+      // a raise or punishment bar measured on a short wide screen keeps the box over it
+      let b = SideView.box(size: size, safe: safe, floor: stillFloor)
       args = JS.object([
         ("side", .string(side)),
         ("box", .object([("left", .number(b.left)), ("top", .number(b.top)), ("right", .number(b.right)), ("bottom", .number(b.bottom))])),
@@ -935,7 +946,14 @@ public final class PitchSession {
       p.lastShown = Dictionary(scene.items.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
       effects?.observe(scene.items, t)
       slow = shown.speed < 0.99
-      camera = shown.camera
+      // the other side's throw from the player's end (engine 1.4.1) follows the projectile;
+      // Reduce Motion holds its first frame's camera, which frames the whole throw
+      if reduceMotion, shown.camera.kind == "end" {
+        if p.heldEnd == nil { p.heldEnd = shown.camera }
+        camera = p.heldEnd ?? shown.camera
+      } else {
+        camera = shown.camera
+      }
       dial = shown.dial
       while p.nextCue < p.feedback.count && p.feedback[p.nextCue].time <= t {
         if p.feedback[p.nextCue].cue.sound != nil { knockAge = 0 }

@@ -320,14 +320,29 @@ public enum SideView {
   public static let barRoom: CGFloat = 96
   /// pt under the safe top: the header (and on its side the header row).
   public static let headerRoom: CGFloat = 86
-  public static func box(size: CGSize, safe: ScreenInsets) -> (left: Double, top: Double, right: Double, bottom: Double) {
+  /// pt kept over a measured raise or punishment bar (`floor`, `PitchSession.stillFloor`):
+  /// its clearance and a drag's room past half of its least travel, so the engine's held
+  /// raise camera (engine 1.4.1, framed close on the lying group) keeps the group, its
+  /// numbers and a drag on it above the bar.
+  public static let overBar: CGFloat = WideLayout.stillClear + RaiseTouch.travelMin * 0.6
+  /// pt of box kept however tall the bar (the scene moves up by any shortfall,
+  /// `WideLayout.stillLift`).
+  public static let leastHeight: CGFloat = 40
+
+  /// `floor`: a raise or punishment bar's top, in pt above the screen's foot, while one
+  /// shows on a short wide screen (nil: the fixed `barRoom`).
+  public static func box(size: CGSize, safe: ScreenInsets, floor: Double? = nil) -> (left: Double, top: Double, right: Double, bottom: Double) {
     let w = size.width, h = size.height
     let k = min(w / 400, h / 240)
     let ox = (w - 400 * k) / 2, oy = (h - 240 * k) / 2
     let m = WatchView.margin
     let foot: CGFloat =
       !WideLayout.isWide(size) ? panelRoom : WideLayout.isShort(size) ? barRoom : m
-    let top = safe.top + headerRoom, bottom = h - safe.bottom - foot
+    let top = safe.top + headerRoom
+    var bottom = h - safe.bottom - foot
+    if let floor, WideLayout.isShort(size) {
+      bottom = max(top + leastHeight, min(bottom, h - CGFloat(floor) - overBar))
+    }
     return (
       Double((safe.left + m - ox) / k), Double((top - oy) / k),
       Double((w - safe.right - m - ox) / k), Double((bottom - oy) / k)

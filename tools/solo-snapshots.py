@@ -125,6 +125,12 @@ DRIVE_SHOTS["inkast-meter"] = ("aim", "inkast", "clock", "right", {})
 DRIVE_SHOTS["inkast-meter-linear"] = ("aim", "inkast", "linear", "right", {})
 for i, at in enumerate([0.05, 0.3, 0.42, 0.55, 0.68, 0.8, 0.9, 0.98]):
     DRIVE_SHOTS[f"cpu-raise-{i:02d}"] = ("cpuraise", "inkast", "clock", "right", {"STOOD_AT": str(at)})
+# The computer's throw watched from the player's end (engine 1.4.1: a person's eyes on the
+# baseline, turning with the throw), frozen CPU_AT of the way through it, and the player's
+# own raise by hand after the computer's inkast
+for i, at in enumerate([0, 0.2, 0.4, 0.6, 0.8, 1.0]):
+    DRIVE_SHOTS[f"cpu-watch-{i}"] = ("cpuwatch", "computer", "clock", "right", {"CPU_AT": str(at)})
+DRIVE_SHOTS["cpu-then-raise"] = ("cpuraisehand", "computer", "clock", "right", {})
 # The App Store's own two (tools/store-snapshots.sh), asked for by name: the clock wound
 # to its band, aimed at the advantage fixture's group from the baseline (DRIVE_AT 6
 # stands the thrower back there, about 4 m off, ARC over the knee), and one kubb of two
@@ -238,6 +244,7 @@ def capture(phone, args):
             "--batteryLevel", "100", "--cellularBars", "4", "--wifiBars", "3")
         tmp = Path(sim("get_app_container", udid, APP, "data", capture_output=True,
                        text=True).stdout.strip()) / "tmp"
+        tmp.mkdir(parents=True, exist_ok=True)  # a device the app has never run on has none yet
         if is_ipad(phone):
             turn_device(udid, args.landscape)  # an iPad turns as a device, not from the app
         prefix = (DEVICES[phone] + (f"-{args.scene}" if args.scene else "") + ("-ax3" if args.text_size else "")
@@ -276,6 +283,7 @@ def capture(phone, args):
                     if "game" in snap.get("save", {}):
                         snap["save"]["game"]["surface"] = SCENES[args.scene][0].capitalize()
                     text = json.dumps(snap)
+                tmp.mkdir(parents=True, exist_ok=True)
                 (tmp / "review-solo.json").write_text(text)
             scene = {"SIMCTL_CHILD_REVIEW_SCENE": args.scene} if args.scene else {}
             scene.update({f"SIMCTL_CHILD_{k}": v for k, v in ENV.get(shot, {}).items()})

@@ -761,7 +761,11 @@ import simd
           let app = try #require(try atRealRaise(acts, nth))
           let g = try #require(app.raiseGeometry(in: size))
           let at = CGPoint.between(g.caps[0], g.caps[1], t)
-          let want = nearestFoot(app, at)
+          // a tap on the drawn kubb is the end drawn nearer it (its cap), unless it is on a
+          // number's own circle (engine 1.4.1's held camera draws the kubb nearer and larger,
+          // where a footprint's projection is no longer a fair stand-in for its end)
+          let onNumber = app.raiseEnds(in: size).first { $0.label.distance(to: at) <= RaiseTouch.numberR + 2 }
+          let want = onNumber?.index ?? RaiseTouch.nearerEnd(g, at)
           let i = try #require(app.raisePick(at: at, size: size))
           #expect(i == want, "\(side) raise \(nth), tap at \(t)")
           #expect(try app.raiseTap(i))

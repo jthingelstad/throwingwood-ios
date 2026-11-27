@@ -845,9 +845,9 @@ function Session:raiseInfo()
 	local others = {}
 	for _, o in ipairs(ctx.others) do others[#others + 1] = { id = o.id, pose = viewPose(side, o.pose) } end
 	local lying = { first }
-	local pts = { { -2.5, 0, 0 }, { 2.5, 0, 0 } }
+	-- (1.4.1) the camera keeps the lying kubbs and their ends alone (camera.tune.raise)
+	local pts = {}
 	local king = viewPose(side, ctx.king)
-	if king then pts[#pts + 1] = { king.x, king.y, 0.3 } end
 	for _, id in ipairs(n.lying or {}) do
 		if id ~= n.kubb then
 			local d2, c2, k2 = g:raiseOptions(id)
@@ -1505,7 +1505,9 @@ function Session:togoResolve()
 	result.text = togo.text(e, v, rounds)
 	local rec = throw.togoRecording(lasts, view, kingFrom, result)
 	-- the camera it is shown through: at the viewer's end, the king and both batons in it
-	local pts = { { -1.2, 0, 0 }, { 1.2, 0, 0 }, { 0, pitch.king.y, 0.4 }, { 0, pitch.length, 0 } }
+	-- (1.4.1: from a person's eyes on the viewer's baseline, a point 2 m out stands for
+	-- the viewer's own baton leaving, where before the baseline itself was kept)
+	local pts = { { 0, 2, 0 }, { 0, pitch.king.y, 0.4 }, { 0, pitch.length, 0 } }
 	for _, side in ipairs { "A", "B" } do
 		if res[side].restX then pts[#pts + 1] = { res[side].restX, res[side].restY, 0 } end
 	end

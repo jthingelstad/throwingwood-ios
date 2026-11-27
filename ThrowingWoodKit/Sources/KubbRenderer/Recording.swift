@@ -130,6 +130,10 @@ struct Playback {
   var starts: [Double?]
   /// The pieces as the frame before showed them (Spin.swift).
   var lastShown: [String: Piece] = [:]
+  /// Under Reduce Motion, the end camera of the recording's first frame, held for the
+  /// whole of it (engine 1.4.1 turns the end camera toward the projectile as it flies; at
+  /// t = 0 it is fitted to the whole throw, so the calm view still shows all of it).
+  var heldEnd: Camera?
   /// `rings`: the scene rings at each ground impact, and taps with it (PitchFeedback).
   init(_ r: Recording, rings: Bool = false) {
     recording = r

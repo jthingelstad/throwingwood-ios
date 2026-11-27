@@ -219,9 +219,14 @@ at its own level. The web is the reference for every number and word (its docs/S
   (the thrower's camera) and the other team's from the end camera at its own end
   (`setView {side}` with this member's side), but for a throw it aims for the other side
   (a host standing in for a player who left), which is seen from the thrower's end, since
-  the aim calls take the thrower's frame; the view goes back after it. The other side's
+  the aim calls take the thrower's frame; the view goes back after it. A raise by hand it
+  makes for the other side is seen from the raiser's side too (engine 1.4.1's held raise
+  camera stands over the group from there; the web does not do this yet). The other side's
   throw is drawn from the engine's `showAt` pieces, in this side's frame. Watchers keep the
-  wide view and the free camera.
+  wide view and the free camera. A pitch on engine 1.0 (an App Store 1.0.0 player in it)
+  has no side view: every throw there is seen from its thrower's camera, as before 1.4.
+  `OnlineSideViewTests` hold the side view through another member's throw arriving as an
+  action and through a resync.
 - **The computer's speed** is solo only: on a pitch every member watches the same pace.
 
 ## One match, two clocks
