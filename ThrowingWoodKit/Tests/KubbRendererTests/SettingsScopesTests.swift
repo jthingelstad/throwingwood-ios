@@ -75,10 +75,21 @@ import Testing
   /// Settings is reached from home and from inside a match: the match and pitch
   /// menus and the practice menu.
   @Test func settingsIsReachedFromHomeAndEveryMatch() throws {
-    // home: SETTINGS inside the masthead (Home.swift), off the way to play
+    // home: the settings gear in the masthead's top right corner (Home.swift), off the way
+    // to play, and quiet (the owner, 2026-11-27: "The settings button is way too prominent
+    // and notable in the top."): the gear alone in the muted colour, no word, border,
+    // plate or shadow, its touch target the whole 48 pt square
     #expect(try body("Home.swift", "HomeCard").contains("HomeMasthead(model: model"))
-    #expect(try body("Home.swift", "HomeMasthead").contains("HomeSettingsButton(action: model.openSettings)"))
-    #expect(try body("Home.swift", "HomeSettingsButton").contains(#".accessibilityLabel("Settings")"#))
+    let masthead = try body("Home.swift", "HomeMasthead")
+    #expect(masthead.contains("HomeSettingsButton(action: model.openSettings)"))
+    #expect(masthead.contains("HStack(alignment: .top"))
+    let gear = try body("Home.swift", "HomeSettingsButton")
+    #expect(gear.contains(#".accessibilityLabel("Settings")"#))
+    #expect(gear.contains("gearshape.fill") && gear.contains(".foregroundStyle(Color.woodMuted)"))
+    #expect(gear.contains(".frame(width: TW.touch, height: TW.touch)") && gear.contains(".contentShape(Rectangle())"))
+    for loud in [#"Text("SETTINGS")"#, "strokeBorder", ".background(", "Plate(", ".shadow(", "WoodButton"] {
+      #expect(!gear.contains(loud), "the gear keeps \(loud)")
+    }
     // the menus' two by two grid (the 1.0 design) holds SETTINGS
     #expect(try body("MatchCards.swift", "MenuGrid").contains("SettingsButton(model: model)"))
     #expect(try body("MatchCards.swift", "MatchMenu").contains("MenuGrid(model: model)"))

@@ -6,8 +6,8 @@ import UIKit
 // more ... this screen lacks the finesse and polish of the rest of the app."): a real
 // match plays behind it (HomeMatch, the computer against the computer in the Park scene),
 // and the controls sit on their own grounds over it, never as words on the grass. The
-// title is a plate across the top like a match's header, with SETTINGS inside it as MENU
-// is inside the header; the three ways to play are one card at the foot, go last; the
+// title is a plate across the top like a match's header, a quiet settings gear in its top
+// right corner; the three ways to play are one card at the foot, go last; the
 // version is that card's foot line. docs/RENDER.md "Home".
 
 /// Home: the masthead at the top and the play card at the foot, the match between them.
@@ -70,14 +70,14 @@ enum HomeLayout {
   static let wideWidth: CGFloat = 600
 }
 
-/// The masthead: KUBB over THROWING WOOD on the header's plate, and SETTINGS inside it at
-/// the right, as MENU is inside a match's header (the 1.0 design): a quiet way to the
-/// device's settings, off the way to play.
+/// The masthead: KUBB over THROWING WOOD on the header's plate, and the settings gear in
+/// its top right corner: a quiet way to the device's settings, off the way to play (the
+/// owner, 2026-11-27: "The settings button is way too prominent and notable in the top.").
 struct HomeMasthead: View {
   let model: GameModel
   let wide: Bool
   var body: some View {
-    HStack(alignment: .center, spacing: 10) {
+    HStack(alignment: .top, spacing: 10) {
       VStack(alignment: .leading, spacing: wide ? -3 : -5) {
         Text("KUBB").font(displayFont(wide ? 38 : 50, relativeTo: .largeTitle))
         Text("THROWING WOOD").font(displayFont(wide ? 17 : 21, relativeTo: .title3))
@@ -98,32 +98,23 @@ struct HomeMasthead: View {
   }
 }
 
-/// SETTINGS inside the masthead: the header's own button (MENU's: paper, a 2 pt ink line,
-/// display capitals at 17), with the gear before the word; the gear alone where the word
-/// would not fit (the largest text sizes). 48 pt tall, read "Settings".
+/// Settings in the masthead's top right corner: the gear alone, in the skin's muted
+/// colour (7:1 or better on the masthead's baton plate, `SceneSkin.textPairs`), with no
+/// word, border, plate or shadow; the whole 48 pt square is its touch target, read
+/// "Settings".
 struct HomeSettingsButton: View {
   let action: () -> Void
   var body: some View {
     Button(action: action) {
-      ViewThatFits(in: .horizontal) {
-        HStack(spacing: 6) {
-          gear
-          Text("SETTINGS").font(displayFont(17, relativeTo: .headline)).lineLimit(1).fixedSize()
-        }
-        gear
-      }
-      .foregroundStyle(Color.woodInk)
-      .padding(.horizontal, 12).frame(minWidth: TW.touch, minHeight: TW.touch)
-      .background(Color.woodPaper, in: RoundedRectangle(cornerRadius: TW.controlRadius))
-      .overlay(RoundedRectangle(cornerRadius: TW.controlRadius).strokeBorder(Color.woodInk, lineWidth: 2))
-      .contentShape(Rectangle())
+      Image(systemName: "gearshape.fill")
+        .font(.system(size: 20, weight: .semibold))
+        .foregroundStyle(Color.woodMuted)
+        .frame(width: TW.touch, height: TW.touch)
+        .contentShape(Rectangle())
     }
     .buttonStyle(HeaderPress())
     .accessibilityLabel("Settings")
     .accessibilityHint("Your name, sound, haptics, the meter and the app icon")
-  }
-  private var gear: some View {
-    Image(systemName: "gearshape.fill").font(.system(size: 18, weight: .bold)).accessibilityHidden(true)
   }
   private struct HeaderPress: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {

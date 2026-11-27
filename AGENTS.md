@@ -235,14 +235,19 @@ its side has. The finger and the
 meter apart ("if you can have the control and the touch be slightly distant
 from each other, that could make that better"): a drag in the throw zone
 (the lower 40% upright, the meter's half on a wide screen) strokes the linear knob and a press beside the clock's ring turns its arm,
-while a tap there still aims. On a wide screen the linear body is throw zone
+while a tap there still aims. A press on the target's ring is always the aim, a tap or a
+drag, never a stroke (only the knob and the clock's ring come before it), and while the
+ring is in the upright zone the zone is only the meter's half (the owner, 2026-11-27, from
+an iPad: "when I tap it is activating the throw instead. I can't find a tap target to move
+the drill location."; `TargetRing`, `MeterLayout.start`; the web is to follow). On a wide screen the linear body is throw zone
 too (it stands over the far baseline's outer kubb): a tap on it aims, a drag
 strokes, and only the knob's channel grabs at once. The nudge ("Have the UI show it not a separate
 how to page.") draws on the meter itself and is never fed to the engine, and so
 does the coach line (`Coach.swift`, the web's coach.js: a few words over the
 prompt for a device under 3 throws, or after a SLOW flick, naming the marks by shape:
 "the stripes", "the solid mark"). Keep the linear
-meter (390 to 450 pt tall), the touch rules, the nudge's numbers and the coach's
+meter (390 to 450 pt tall), the touch rules (but the target's ring, above, until the web
+follows), the nudge's numbers and the coach's
 lines and placement the same as the web's. Review tools launch with
 `-pitch.throwsMade 9` so the coach stays out of other pictures.
 docs/RENDER.md "The meter".
@@ -268,7 +273,13 @@ so the user can control those with the left hand and the throw with the right
 hand"): the set-up tray sits at the edge away from the meter, 12 pt inside the
 safe area, its foot 10 pt above the meter box's foot, and the minimap under the
 header's right end (`WideLayout.plan`, the web's trayAt; the 1.0 tray, "The 1.0 design"
-below). The header takes the web's width there (0.4 W, at least min(300, 0.4 W), at
+below). On an iPad on its side and in big windows the minimap stands at the tray's edge
+instead (the owner, 2026-11-27: "The map of the pitch should be all the way to the left
+and under the other control. It is in the way in landscape on iPad."): in line with the
+column's outer side, `mapGap` under the header row, above the tray, only where the tray
+keeps its full plates and ARC its whole open height under it (`WideLayout.edgeMap`); every
+iPhone on its side, the iPad mini on its side and short windows keep the place under the
+header's right end exactly. The web's layout.js is to follow. The header takes the web's width there (0.4 W, at least min(300, 0.4 W), at
 most 400, short of the throwing line where it can), so the minimap stays off it. The caption strip
 never goes under 112 pt (`WideLayout.captionMin`): where the strip beside HOLLER
 cannot give that, the captions take a line of their own under the header row,
@@ -373,7 +384,9 @@ Lua state let go) on leaving, never under Reduce Motion (the still pitch). Scene
 sound, haptics, cards, HUD or names, nothing stored and nothing sent (`HomeMatchTests`).
 Its pace is `HomeTune` (the think and swing never shown, short rests, raises risen as the
 neighbours'): change it there. The controls never stand on the grass: the masthead plate
-with SETTINGS inside it (the header's button, as MENU), and one card at the foot with the
+with a quiet settings gear in its top right corner (the owner, 2026-11-27: "The settings
+button is way too prominent and notable in the top.": the gear alone in the skin's muted
+colour, no word, border, plate or shadow, a 48 pt touch target, read "Settings"), and one card at the foot with the
 three ways to play, PLAY THE COMPUTER the go button and last, the version its foot line.
 The review picture is one moment of seed 7 (`HomeReview`). docs/RENDER.md "Home".
 
@@ -628,10 +641,14 @@ the colours and nothing else (`SceneSkinTests` 7:1; the day 4.5:1, `DesignTests`
   tap opens one plate (`PitchSession.tapPlate`, one at a time): it grows up from its
   place, ARC into its slider with the side view (SIDE VIEW is no longer a button), TILT
   and STAND also in toward the middle, as the web's trayAt sizes them; a tap outside or
-  on its band closes it. The minimap is a plate under the header's right end in every
-  layout (on a wide screen with the linear meter at the left, where that end is over the
-  throwing line, under the header 24 pt short of the line, so it never covers the
-  target), never moving while a control is held, Team A circles and Team B squares. The
+  on its band closes it. The minimap is a plate under the header's right end upright and
+  on a phone on its side (on a wide screen with the linear meter at the left, where that
+  end is over the throwing line, under the header 24 pt short of the line, so it never
+  covers the target); on an iPad on its side and in big windows it stands at the tray's
+  edge, under the header row and above the column, where the tray keeps its whole room
+  (the owner, 2026-11-27: "The map of the pitch should be all the way to the left and
+  under the other control. It is in the way in landscape on iPad."; "A phone on its
+  side"). It never moves while a control is held, Team A circles and Team B squares. The
   meters' power band is striped and the release band solid, both with ink end-marks,
   and the throw's distance (the engine's plan `dist`, `MeterWords`) sits on an inverted
   tab beside WIND BACK and DRAW BACK. The verdict leads with each off word inverted

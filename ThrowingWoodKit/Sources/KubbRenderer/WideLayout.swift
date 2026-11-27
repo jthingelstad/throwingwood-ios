@@ -6,7 +6,7 @@ import Foundation
 // arrangement (src/game/layout.js, its numbers): the clock lower right or lower
 // left by Meter side, the set-up tray (ARC, TILT and STAND, three plates in a
 // column, the 1.0 design) at the other edge, the minimap under the header's right
-// end (`plan`), the header (the turn rail) top left with MENU inside
+// end (`plan`; on an iPad on its side at the tray's edge, `edgeMap`), the header (the turn rail) top left with MENU inside
 // its plate (the 1.0 design: "MENU never leaves it"), and online HOLLER top right. The
 // player's choice of meter holds on a phone on its side: the linear meter goes
 // at its edge with the whole safe height (`LinearMeter.layout`, its track at
@@ -152,8 +152,52 @@ public enum WideLayout {
     size: CGSize, safe: ScreenInsets, trayWidth: CGFloat = 0, meter: MeterLayout? = nil,
     side: MeterSide? = nil
   ) -> CGRect {
+    let strip = topStrip(size: size, safe: safe, trayWidth: trayWidth, meter: meter)
+    // the minimap at the tray's edge under the strip (the meter at the left): the strip
+    // stops `edge` short of it, so the stack can grow down beside it
+    if let meter, let map = edgeMap(meter: meter, size: size, safe: safe, side: side ?? meter.linear?.side ?? .right, trayWidth: trayWidth) {
+      return cut(strip, by: map, size: size)
+    }
+    guard strip.width < captionMin, let meter else { return strip }
     let r = rail(size: size, safe: safe, meter: meter)
     let m = menu(size: size, safe: safe, meter: meter)
+    let side = side ?? meter.linear?.side ?? .right
+    var row = CGRect(
+      x: safe.left + edge, y: max(r.maxY, m.maxY) + edge,
+      width: size.width - safe.left - safe.right - 2 * edge, height: r.height)
+    var keepOut = [meterBox(meter, size: size, safe: safe, side: side), tray(meter: meter, size: size, safe: safe, side: side, trayWidth: trayWidth).reach]
+    if let lm = meter.linear { keepOut += [lm.tab, coachBand(lm, size: size)] }
+    for k in keepOut where k.minY < row.maxY && k.maxY > row.minY {
+      if k.midX >= size.width / 2 {
+        row.size.width = max(0, min(row.maxX, k.minX - edge) - row.minX)
+      } else {
+        let x = min(row.maxX, max(row.minX, k.maxX + edge))
+        row.size.width = row.maxX - x
+        row.origin.x = x
+      }
+    }
+    return row
+  }
+
+  /// The strip cut `edge` short of `f` where `f` stands under it (its x span meets the
+  /// strip's): from the right where `f` is on the right half, from the left otherwise.
+  static func cut(_ strip: CGRect, by f: CGRect, size: CGSize) -> CGRect {
+    guard f.minX < strip.maxX, f.maxX > strip.minX else { return strip }
+    var s = strip
+    if f.midX >= size.width / 2 {
+      s.size.width = max(0, min(s.maxX, f.minX - edge) - s.minX)
+    } else {
+      let x = min(s.maxX, max(s.minX, f.maxX + edge))
+      s.size.width = s.maxX - x
+      s.origin.x = x
+    }
+    return s
+  }
+
+  /// The caption strip in the header row: between the header and the screen's right (and
+  /// HOLLER there online), short of a linear meter whose top comes up beside it.
+  static func topStrip(size: CGSize, safe: ScreenInsets, trayWidth: CGFloat, meter: MeterLayout?) -> CGRect {
+    let r = rail(size: size, safe: safe, meter: meter)
     let left = r.maxX + edge
     let right = topRight(size: size, safe: safe, meter: meter) - trayWidth
     var strip = CGRect(x: left, y: r.minY, width: max(0, right - left), height: r.height)
@@ -168,23 +212,7 @@ public enum WideLayout {
         strip.origin.x = x
       }
     }
-    guard strip.width < captionMin, let meter else { return strip }
-    let side = side ?? meter.linear?.side ?? .right
-    var row = CGRect(
-      x: safe.left + edge, y: max(r.maxY, m.maxY) + edge,
-      width: size.width - safe.left - safe.right - 2 * edge, height: r.height)
-    var keepOut = [meterBox(meter, size: size, safe: safe, side: side), tray(meter: meter, size: size, safe: safe, side: side).reach]
-    if let lm = meter.linear { keepOut += [lm.tab, coachBand(lm, size: size)] }
-    for k in keepOut where k.minY < row.maxY && k.maxY > row.minY {
-      if k.midX >= size.width / 2 {
-        row.size.width = max(0, min(row.maxX, k.minX - edge) - row.minX)
-      } else {
-        let x = min(row.maxX, max(row.minX, k.maxX + edge))
-        row.size.width = row.maxX - x
-        row.origin.x = x
-      }
-    }
-    return row
+    return strip
   }
 
   /// pt the caption stack keeps above the next frame under it (its plate's
@@ -260,7 +288,8 @@ public enum WideLayout {
     /// The screen edge the column is at: the one away from the meter.
     public var edge: MeterSide { tray.edge }
     /// The minimap: under the header's right end (the 1.0 design, "one home"),
-    /// `mapGap` under it, or under the captions' own line where they have one;
+    /// `mapGap` under it, or under the captions' own line where they have one; at the
+    /// tray's edge under the header row where the tray keeps its room (`edgeMap`);
     /// `.null` (not drawn) where it would meet the meter, the tray or the bottom. It
     /// is a picture, never a control: it gives way first.
     public var minimap: CGRect
@@ -285,7 +314,18 @@ public enum WideLayout {
   /// in toward the middle, short of the throwing line, the minimap and the meter. A
   /// window too short for the column under its ceiling brings its foot down toward
   /// the safe bottom, then shortens its plates (never under 48).
-  static func tray(meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide) -> TrayFrames {
+  static func tray(
+    meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide, trayWidth: CGFloat = 0
+  ) -> TrayFrames {
+    let map =
+      edgeMap(meter: meter, size: size, safe: safe, side: side, trayWidth: trayWidth)
+      ?? nominalMap(
+        size: size, rail: rail(size: size, safe: safe, meter: meter), menu: menu(size: size, safe: safe, meter: meter))
+    return tray(meter: meter, size: size, safe: safe, side: side, map: map)
+  }
+
+  /// The tray under the header row and `map`, the minimap wherever it stands.
+  static func tray(meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide, map: CGRect) -> TrayFrames {
     let box = meterBox(meter, size: size, safe: safe, side: side)
     let edge: MeterSide = side == .right ? .left : .right
     var plate = Tray.plate(wide: true)
@@ -293,7 +333,6 @@ public enum WideLayout {
     var colH = plate.height * 3 + Tray.gap * 2
     var foot = box.maxY - planLift
     let r = rail(size: size, safe: safe, meter: meter), m = menu(size: size, safe: safe, meter: meter)
-    let map = nominalMap(size: size, rail: r, menu: m)
     let over = [r, m, map]
     func across(_ f: CGRect, _ x0: CGFloat, _ w: CGFloat) -> Bool { f.minX < x0 + w && x0 < f.maxX }
     // under the header row across the screen (the header, the captions' strip,
@@ -335,8 +374,47 @@ public enum WideLayout {
     return CGRect(x: x, y: max(r.maxY, m.maxY) + mapGap, width: s.width, height: s.height)
   }
 
+  /// The minimap at the set-up tray's edge (the owner, 2026-11-27, from an iPad on its
+  /// side: "The map of the pitch should be all the way to the left and under the other
+  /// control. It is in the way in landscape on iPad."): at the edge away from the meter,
+  /// its outer side in line with the tray column's, `mapGap` under the header row (the
+  /// header where it is over it, else the captions' strip and HOLLER), above the tray.
+  /// Only where that leaves the tray its full plates on its own foot, ARC its whole open
+  /// height with the other two showing, and the captions' strip `captionMin` beside it,
+  /// and where it meets nothing: an iPad on its side and big windows. Elsewhere nil, and
+  /// the minimap keeps its place under the header's right end (`nominalMap`): every
+  /// iPhone on its side and short windows.
+  static func edgeMap(
+    meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide, trayWidth: CGFloat
+  ) -> CGRect? {
+    let s = mapSize(size)
+    let trayEdge: MeterSide = side == .right ? .left : .right
+    let x = trayEdge == .left ? safe.left + Tray.wideEdge : size.width - safe.right - Tray.wideEdge - s.width
+    let r = rail(size: size, safe: safe, meter: meter), m = menu(size: size, safe: safe, meter: meter)
+    let holler = shout(size: size, safe: safe, meter: meter)
+    let map = CGRect(
+      x: x, y: max(r.maxY, m.maxY, trayWidth > 0 ? holler.maxY : 0) + mapGap, width: s.width, height: s.height)
+    // the captions keep their line in the header row, beside it
+    let strip = topStrip(size: size, safe: safe, trayWidth: trayWidth, meter: meter)
+    guard strip.width >= captionMin, cut(strip, by: map, size: size).width >= captionMin else { return nil }
+    // the tray under it as it would be under the header alone
+    let t = tray(meter: meter, size: size, safe: safe, side: side, map: map)
+    let box = meterBox(meter, size: size, safe: safe, side: side)
+    let full = Tray.plate(wide: true)
+    guard t.plate == full, t.column.maxY == box.maxY - planLift,
+      t.open(.arc) == (CGSize(width: full.width, height: Tray.openHeight(.arc, wide: true)), false)
+    else { return nil }
+    let inside = CGRect(
+      x: safe.left, y: safe.top, width: size.width - safe.left - safe.right, height: size.height - safe.top - safe.bottom)
+    var keepOut = [r, box, t.reach]
+    if trayWidth > 0 { keepOut.append(holler) }
+    if let lm = meter.linear { keepOut += [lm.tab, coachBand(lm, size: size)] }
+    guard inside.contains(map), !keepOut.contains(where: { $0.intersects(map) }) else { return nil }
+    return map
+  }
+
   /// The set-up tray at the edge away from the meter and the minimap under the
-  /// header's right end (the 1.0 design's aim layout, "Wide": the column at the edge
+  /// header's right end, or at the tray's edge on an iPad on its side (`edgeMap`) (the 1.0 design's aim layout, "Wide": the column at the edge
   /// away from the meter, the header top left, the minimap under the header's right
   /// end).
   ///
@@ -345,7 +423,11 @@ public enum WideLayout {
   public static func plan(
     meter: MeterLayout, size: CGSize, safe: ScreenInsets, side: MeterSide, trayWidth: CGFloat = 0
   ) -> Plan {
-    let t = tray(meter: meter, size: size, safe: safe, side: side)
+    // at the tray's edge where it fits (an iPad, a big window)
+    if let map = edgeMap(meter: meter, size: size, safe: safe, side: side, trayWidth: trayWidth) {
+      return Plan(tray: tray(meter: meter, size: size, safe: safe, side: side, map: map), minimap: map)
+    }
+    let t = tray(meter: meter, size: size, safe: safe, side: side, trayWidth: trayWidth)
     let r = rail(size: size, safe: safe, meter: meter), m = menu(size: size, safe: safe, meter: meter)
     let cap = caption(size: size, safe: safe, trayWidth: trayWidth, meter: meter, side: side)
     var keepOut = [meterBox(meter, size: size, safe: safe, side: side), t.reach]
