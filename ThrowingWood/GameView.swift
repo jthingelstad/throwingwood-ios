@@ -93,7 +93,10 @@ struct GameView: View {
             VersionNotice(version: version) { model.online?.watch() }
           } else {
             switch model.screen {
-            case .home: HomeCard(model: model)
+            case .home:
+              // the match behind home (Home.swift); under Reduce Motion the still pitch
+              if model.homeMoving { HomeBackdrop(match: model.homeMatch).ignoresSafeArea() }
+              HomeCard(model: model)
             case .options: MatchOptionsCard(model: model)
             case .settings: SettingsCard(model: model)
             case .howTo: HowToCard(model: model)
@@ -166,7 +169,10 @@ struct GameView: View {
     }
     .onReceive(
       NotificationCenter.default.publisher(for: UIAccessibility.reduceMotionStatusDidChangeNotification).receive(on: RunLoop.main)
-    ) { _ in model.syncNeighbours() }
+    ) { _ in
+      model.syncNeighbours()
+      model.syncHome()
+    }
     .onReceive(NotificationCenter.default.publisher(for: NetworkPath.online).receive(on: RunLoop.main)) { _ in
       model.online?.pitch.retryNow()
     }

@@ -222,7 +222,10 @@ def island_drawn(file, phone):
 
 def capture(phone, args):
     devices = json.loads(sim("list", "devices", "available", "-j", capture_output=True).stdout)
-    device = next(d for d in devices["devices"]["com.apple.CoreSimulator.SimRuntime.iOS-26-2"]
+    # the review set's runtime, iOS 26.2; on a Mac without it, the newest iOS there is
+    runtimes = sorted((k for k in devices["devices"] if ".SimRuntime.iOS-" in k),
+                      key=lambda k: (k != "com.apple.CoreSimulator.SimRuntime.iOS-26-2", k), reverse=False)
+    device = next(d for k in runtimes for d in devices["devices"][k]
                   if (d["udid"] == args.udid if args.udid else d["name"] == phone))
     udid = device["udid"]
     boot = device["state"] == "Shutdown"
