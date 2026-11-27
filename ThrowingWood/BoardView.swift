@@ -548,7 +548,8 @@ import UIKit
       if let mode = matchReview, !signalled, model.error == nil, ReviewOrientation.settled(bounds.size) {
         let ready =
           switch mode {
-          case "home": model.screen == .home
+          // the match behind home signals its own picture (HomeBackdropView)
+          case "home": model.screen == .home && !model.homeMoving
           case "options": model.screen == .options
           case "settings", "matchsettings": model.screen == .settings
           case "practicemenu": model.screen == .practiceMenu

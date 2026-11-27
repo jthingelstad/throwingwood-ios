@@ -60,6 +60,7 @@ import UIKit
       if screen != .match { hollerOpen = false }
       feedback.onPitch = screen.usesFeedback
       syncNeighbours()
+      syncHome()
     }
   }
   /// The Tournament's live neighbouring pitches (TournamentNeighbours): their own engine,
@@ -70,7 +71,31 @@ import UIKit
   /// The app is in the background (the neighbours close; they open again, from the start
   /// of the same seed's tournament, on return).
   @ObservationIgnored var inBackground = false {
-    didSet { syncNeighbours() }
+    didSet {
+      syncNeighbours()
+      syncHome()
+    }
+  }
+  /// The match behind home (HomeMatch, Home.swift): its own engine on its own queue,
+  /// playing while home shows, still while the app is in the background on home, let go
+  /// on leaving home, never started under Reduce Motion (the still pitch instead).
+  @ObservationIgnored let homeMatch = HomeMatch(appVersion: GameModel.version, seed: GameModel.homeSeed)
+  /// The home match is wanted on the screen now (its view is there only then).
+  private(set) var homeMoving = false
+  /// Asks the home match for what the screen shows now: on every change of screen, of
+  /// the app's phase and of Reduce Motion.
+  func syncHome() {
+    let state = HomeMatch.state(
+      home: screen == .home && offline != nil, background: inBackground,
+      reduced: UIAccessibility.isReduceMotionEnabled)
+    homeMatch.want(state)
+    if homeMoving != (state != .off) { homeMoving = state != .off }
+  }
+  private static var homeSeed: Int? {
+    #if targetEnvironment(simulator)
+      if ProcessInfo.processInfo.environment["MATCH_REVIEW"] == "home" { return HomeReview.seed }
+    #endif
+    return nil
   }
   /// The screens a match, practice or watched match stays open under (its menu, its sheet,
   /// how to throw, settings from inside it, a throw report).

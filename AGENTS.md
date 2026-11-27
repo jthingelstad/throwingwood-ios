@@ -354,6 +354,24 @@ repository's backend/pitch-server (`npm run dev`, port 8797), then
 LocalPitchServerTests` (off without the variable, and it refuses any other host).
 
 
+## Home
+
+A real match plays behind home (the owner, 2026-11-27: "Instead of a static image, I'd
+like to have the Kubb Engine playing a game in the background. Pick the standard 'Park'
+scene so it looks 'normal'. If we can have the game minimize idle time it would be
+good."): `HomeMatch` (KubbRenderer), the computer against the computer in the Park scene
+through the thrower's camera, drawn by `HomeBackdropView` (Home.swift). Keep it as the
+Tournament's neighbours are kept: its own Lua state on its own queue, never the player's
+engine, never waited on by a frame; the queue plays each throw headless and the main thread
+only plays it back. On only while home shows, paused in the background on home, off (its
+Lua state let go) on leaving, never under Reduce Motion (the still pitch). Scenery: no
+sound, haptics, cards, HUD or names, nothing stored and nothing sent (`HomeMatchTests`).
+Its pace is `HomeTune` (the think and swing never shown, short rests, raises risen as the
+neighbours'): change it there. The controls never stand on the grass: the masthead plate
+with SETTINGS inside it (the header's button, as MENU), and one card at the foot with the
+three ways to play, PLAY THE COMPUTER the go button and last, the version its foot line.
+The review picture is one moment of seed 7 (`HomeReview`). docs/RENDER.md "Home".
+
 ## Computer players
 
 A team on a pitch may hold computer players beside its people, six a team together, each

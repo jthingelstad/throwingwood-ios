@@ -75,7 +75,10 @@ import Testing
   /// Settings is reached from home and from inside a match: the match and pitch
   /// menus and the practice menu.
   @Test func settingsIsReachedFromHomeAndEveryMatch() throws {
-    #expect(try body("MatchCards.swift", "HomeCard").contains("model.openSettings"))
+    // home: SETTINGS inside the masthead (Home.swift), off the way to play
+    #expect(try body("Home.swift", "HomeCard").contains("HomeMasthead(model: model"))
+    #expect(try body("Home.swift", "HomeMasthead").contains("HomeSettingsButton(action: model.openSettings)"))
+    #expect(try body("Home.swift", "HomeSettingsButton").contains(#".accessibilityLabel("Settings")"#))
     // the menus' two by two grid (the 1.0 design) holds SETTINGS
     #expect(try body("MatchCards.swift", "MenuGrid").contains("SettingsButton(model: model)"))
     #expect(try body("MatchCards.swift", "MatchMenu").contains("MenuGrid(model: model)"))
