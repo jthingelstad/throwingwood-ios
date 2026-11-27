@@ -223,10 +223,14 @@ extension PitchSession {
     guard need != nil, need?.kind != "over" else { return }
     let action = JSONText(stamped(#"{"type":"resign","side":"A"}"#))
     let r: PlacementCheck = try read("apply", action.text)
-    if r.ok {
-      if !playing { try adopt(read("view")) }
+    guard r.ok else { return }
+    // against the computer the match ends now, whatever is playing (endResignation)
+    if soloComputer {
       try committed(action)
+      return try endResignation()
     }
+    if !playing { try adopt(read("view")) }
+    try committed(action)
   }
 
   public func stancePoint(in size: CGSize) -> CGPoint? {

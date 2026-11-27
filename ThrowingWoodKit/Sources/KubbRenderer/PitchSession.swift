@@ -771,6 +771,10 @@ public final class PitchSession {
       eased = freeCamera.tick(dt)
       if was != freeCamera.moved { revision += 1 }
     }
+    if resignationWaits {
+      try endResignation()
+      return true
+    }
     if playback != nil {
       // the computer's throw, against the computer, at the speed button's pace
       try play(playbackCpu ? dt * Double(fastFactor) : dt)
@@ -1004,6 +1008,71 @@ extension PitchSession {
       var made: [(action: JSONText, hash: String?)] = []
       for st in steps { if let a = st["a"] { made.append((a.raw, st["h"]?.string)) } }
       try committedSteps(made)
+    }
+    try adopt(read("view"))
+  }
+
+  /// A resignation against the computer that is still to take (the engine takes one only on
+  /// the side's own turn, session.lua `resignPending`) with something between it and that
+  /// turn the person would otherwise watch or make: a throw playing, a raise watched, the
+  /// computer to throw, or this side's own raise or punishment kubb.
+  var resignationWaits: Bool {
+    guard soloComputer, let n = need, n.kind != "over", n.resignPending != nil else { return false }
+    return playing || raiseShowing || n.kind == "raise" || n.kind == "punish" || (n.kind == "throw" && n.cpu == true)
+  }
+
+  /// RESIGN in a match against the computer ends it at once (the owner, 2026-11-27: "they
+  /// should not have to watch the computer play out its turn"). Nothing more is watched or
+  /// heard: the throw playing, a watched raise and the verdict go. The engine holds a
+  /// resignation until the side is attacking again, so what stands between is made now
+  /// with no frames, every action into the trail and the save with the hash after it, as a
+  /// watched turn would make them: the computer's throws as SKIP makes them (`cpuPlay`),
+  /// this side's raises by the engine's advice (AUTO's `raise`) and a punishment kubb on
+  /// the engine's own spot (the need's `cursor`). Then the winner card.
+  func endResignation() throws {
+    cancelFeedback?()
+    input.reset()
+    bursts = []
+    playback = nil
+    playbackCpu = false
+    playedOut()
+    raiseShow = nil
+    raiseCatchUp = 0
+    stoodShow = nil
+    stoodFast = false
+    effects?.clear()
+    result = nil
+    plan = false
+    openPlate = nil
+    endSlide()
+    endStand()
+    resetRaiseTouch()
+    // each pass makes at least one action or stops; a match has far fewer than this
+    for _ in 0..<200 {
+      let n: MatchNeed = try read("need")
+      guard n.kind != "over", n.resignPending != nil else { break }
+      if n.kind == "throw" && n.cpu == true {
+        let text = try engine.call("cpuPlay", json: stamped(#"{"recordings":false}"#))
+        let steps = try JSONNode.parse(text)["steps"]?.items ?? []
+        var made: [(action: JSONText, hash: String?)] = []
+        for st in steps { if let a = st["a"] { made.append((a.raw, st["h"]?.string)) } }
+        guard !made.isEmpty else { break }
+        try committedSteps(made)
+      } else if n.kind == "raise" || n.kind == "punish" {
+        let action: String
+        if n.kind == "raise" {
+          action = stamped(#"{"type":"raise"}"#)
+        } else {
+          guard let c = n.cursor else { break }
+          let frame = n.frame.map { #","frame":"\#($0)""# } ?? ""
+          action = stamped(#"{"type":"punish","x":\#(c.x),"y":\#(c.y)\#(frame)}"#)
+        }
+        let r: PlacementCheck = try read("apply", action)
+        guard r.ok else { break }
+        try committed(JSONText(action))
+      } else {
+        break
+      }
     }
     try adopt(read("view"))
   }

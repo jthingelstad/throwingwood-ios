@@ -593,25 +593,6 @@ import simd
     #expect(StoodShow.news(stood: 0, placed: 1) == "A punishment kubb placed.")
   }
 
-  /// RESIGN while an automatic raise is watched: the engine holds a resignation until the
-  /// side is attacking again (session.lua resignPending), so the watched raise goes on and
-  /// sends its actions in order, the same as on a second engine.
-  @Test func resigningDuringAWatchedRaise() throws {
-    let app = try PitchSession(appVersion: "test")
-    try app.restore(fixture("raise-many"), save: nil)
-    app.raiseAutomatically = true
-    try app.tick(0.02)
-    #expect(app.raiseShowing)
-    let reference = try Engine(appVersion: "test")
-    _ = try reference.call("restore", json: try fixture("raise-many"))
-    try app.resign()
-    _ = try reference.call("apply", json: #"{"type":"resign","side":"A"}"#)
-    for _ in 0..<400 where app.need?.kind == "raise" { try app.tick(0.02) }
-    for _ in 0..<2 { _ = try reference.call("apply", json: #"{"type":"raise"}"#) }
-    #expect(app.need?.kind != "raise" && !app.raiseShowing && app.placement == nil)
-    #expect(try app.engine.hash() == reference.hash())
-  }
-
   @Test func noAutomaticRaiseUnderACardOrForTheOtherSide() throws {
     let app = try PitchSession(appVersion: "test")
     try app.restore(fixture("raise-many"), save: nil)
