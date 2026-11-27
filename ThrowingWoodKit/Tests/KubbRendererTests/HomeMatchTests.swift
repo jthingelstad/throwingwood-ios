@@ -90,6 +90,29 @@ import simd
     h.want(.off)
   }
 
+  /// Leaving home for a match never waits on the home match: letting it go is at once,
+  /// whatever its queue is making, and a solo match starts as fast beside it.
+  @Test func leavingHomeIsAtOnce() throws {
+    let player = try PitchSession(appVersion: "test")
+    var t0 = CACurrentMediaTime()
+    try player.startSolo(name: "Mighty Maple", selections: player.options.defaults, save: nil)
+    let alone = CACurrentMediaTime() - t0
+    let h = HomeMatch(appVersion: "test")
+    h.want(.on)
+    h.tick(1.0 / 60)  // its engine being made and its first throws asked for, on its queue
+    t0 = CACurrentMediaTime()
+    h.want(.off)
+    let off = CACurrentMediaTime() - t0
+    t0 = CACurrentMediaTime()
+    try player.startSolo(name: "Mighty Maple", selections: player.options.defaults, save: nil)
+    let beside = CACurrentMediaTime() - t0
+    print("home: off in \(String(format: "%.3f", off * 1000)) ms; a solo start \(Int(alone * 1000)) ms alone, \(Int(beside * 1000)) ms beside it")
+    #expect(off < 0.005)
+    #expect(beside < max(0.25, alone * 3))
+    h.drain()
+    #expect(!h.engineStarted)
+  }
+
   /// One seed is one picture: the review pictures' moment is the same every time.
   @Test func aSeedIsTheSameMatch() throws {
     func moment() throws -> [Double] {
