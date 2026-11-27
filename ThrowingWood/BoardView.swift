@@ -179,6 +179,9 @@ import UIKit
         if !reviewReady {
           reviewReady = true
           run {
+            // the player's side view for this screen before anything is prepared (a held
+            // raise camera, a drag on its kubb, a throw that plays without a draw between)
+            pitch.sideView(size: bounds.size, safe: insets)
             if mode == "flight" { try prepareReview("flight") }
             if mode == "ring" {
               // Techno's floor: the throw played on until a ring is part way grown
@@ -261,6 +264,27 @@ import UIKit
               for _ in 0..<3 { try pitch.tick(1.0 / 60) }
             }
             if mode.hasPrefix("drive") { try prepareDrive(mode) }
+            if mode == "cpuwatch" || mode == "cpuraisehand" {
+              // the computer's throw watched from the player's end (engine 1.4.1's eyes on
+              // the baseline, turning with the throw), frozen CPU_AT of the way through the
+              // recording; cpuraisehand: on to the player's own raise by hand after it
+              pitch.dismissHandoff()
+              for _ in 0..<3000 where !pitch.playing && pitch.need?.cpu == true {
+                try pitch.tick(1.0 / 60)
+                pitch.dismissHandoff()
+              }
+              if mode == "cpuwatch" {
+                let at = Double(ProcessInfo.processInfo.environment["CPU_AT"] ?? "") ?? 0
+                for _ in 0..<1200 where pitch.playing && (pitch.playbackProgress ?? 1) < at { try pitch.tick(1.0 / 60) }
+              } else {
+                for _ in 0..<12000 where !(pitch.need?.kind == "raise" && pitch.need?.cpu != true && !pitch.playing && !pitch.raiseShowing) {
+                  try pitch.tick(1.0 / 60)
+                  pitch.dismissHandoff()
+                  // a throw of the player's own between: thrown for them
+                  if pitch.canAim { try reviewSwing(back: nil) }
+                }
+              }
+            }
             if mode == "cpuraise" {
               // engine 0.16's own raises watched: the inkast fixture's two kubbs thrown
               // in, the computer raising them (setup.settled), frozen STOOD_AT s into it
@@ -562,6 +586,8 @@ import UIKit
           case "driveverdict", "driveshort": reviewReady && pitch.result != nil
           case "driveshortcoach": reviewReady && pitch.canAim && pitch.coachShort
           case "cpuraise": reviewReady && pitch.raiseWatch == .engine
+          case "cpuwatch": reviewReady
+          case "cpuraisehand": reviewReady && pitch.need?.kind == "raise"
           case "menu": model.screen == .menu
           case "report", "feedback", "painted": model.screen == .report
           case "verdict": pitch.result != nil

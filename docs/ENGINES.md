@@ -7,9 +7,11 @@ released (the owner, 2026-11-21: "Let's force all clients to the most recent eng
 should only support engines that we decide are worth supporting not just ones that have
 published so that we can push players to the new engines."). Today that is two:
 
-- **1.4** (v1.4.0, the newest, golden corpus 1.3.0, 21 matches and 886 actions: a person's
+- **1.4** (v1.4.1, the newest, golden corpus 1.3.0, 21 matches and 886 actions: a person's
   throw level, the throw to go, raising in any order, the view from one side and the
-  computer's turn fast; kubb-engine docs/VERSIONING.md 1.1.0 to 1.4.0). Every new match
+  computer's turn fast; kubb-engine docs/VERSIONING.md 1.1.0 to 1.4.0; 1.4.1, a patch, the
+  end camera on the player's baseline following the throw and a raise camera that frames
+  the lying kubbs, shares matches with 1.4.0). Every new match
   plays on it: solo, practice and every pitch whose players all carry it.
 - **1.0** (v1.0.0, golden corpus 1.0.0, 21 matches and 880 actions), kept with app 1.1.0 on
   2026-11-26 because the App Store's 1.0.0 carries 1.0 alone: a pitch with a 1.0.0 player

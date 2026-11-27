@@ -67,7 +67,7 @@ agrees. So:
   golden corpus, v0.5.1 and v0.7.1 to v0.7.4 the 0.5.0 one, v0.8.1 and v0.8.2 the 0.8.0 one, v0.13.1 to v0.13.4 the 0.13.0 one;
   v0.15.0 carries its own, 19 matches, and v0.15.1 keeps it; v0.16.0 its own, 19
   matches and 724 actions; v0.18.0 its own, 21 matches and 854 actions; v1.0.0, the
-  released engine, its own, 21 matches and 880 actions; v1.4.0 keeps v1.3.0's, 21
+  released engine, its own, 21 matches and 880 actions; v1.4.0 and v1.4.1 keep v1.3.0's, 21
   matches and 886 actions;
   arbitrary older corpora are not accepted). Never edit the
   vendored files; a fix belongs
@@ -186,7 +186,12 @@ per-kubb raise camera, which stands twice as far back as it did (`RaiseCamera`, 
 numbers). The player's side (engine 1.4.0, `setView {side, box}`, `PitchSession.sideView`):
 solo and online the view is from the player's own side, the other team's throws from the
 engine's end camera at the player's end (a stand-in throw for the other side from the
-thrower's end), drawn from `showAt`'s pieces; a watcher keeps the wide view. The throw to go
+thrower's end), drawn from `showAt`'s pieces; a watcher keeps the wide view. From engine
+1.4.1 the end camera is a person's eyes on the player's baseline and turns with the throw
+(the owner, 2026-11-27: "our view should be from the baseline ... we should be 'watching'
+the throw"), and the held raise camera stands over the lying group ("This POV doesn't work
+for raising the Kubbs"); both are the engine's, never re-derived here. Reduce Motion holds
+the first frame's end camera for the whole throw (`Playback.heldEnd`). The throw to go
 (engine 1.4.0, `need.kind == "togo"`, the `togo` option, on by default; never in a Kid
 match): each team throws one baton at the king, blind (nothing of this device's baton
 shows before the verdict, "Your throw to go", then "Waiting for <team>" while the other's

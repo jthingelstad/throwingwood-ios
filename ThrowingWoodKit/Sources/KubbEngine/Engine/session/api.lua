@@ -91,12 +91,19 @@ function M.setView(a)
 	return { side = viewSide, box = viewBox or tw.camera.tune["end"].box }
 end
 
--- The end camera for the last recording when it is the other side's (fixed for the
--- whole of it), made once per recording.
+-- The end camera for the last recording when it is the other side's: fitted once per
+-- recording to the whole throw (where it was thrown from, its flight, where it landed and
+-- came to rest), then at t (1.4.1) turned toward the projectile as a person watching it
+-- would (camera.endFollow; at t = 0 it is the fitted one, which a client that keeps one
+-- camera for the whole recording, under Reduce Motion, may hold).
 local recCam = { rec = nil, cam = nil }
-local function recordingCam()
+local FLIGHT_SAMPLES = 16
+local recordingFollow
+local function recordingCam(at)
 	local rec = S.recording
-	if recCam.rec == rec and recCam.side == viewSide and recCam.box == viewBox then return recCam.cam end
+	if recCam.rec == rec and recCam.side == viewSide and recCam.box == viewBox then
+		return recordingFollow(at)
+	end
 	local t = wide.T(S.recSide, viewSide)
 	local tr = wide.recording(t, rec)
 	if tr and tr.launch and tr.launch.x and t == "B" then
@@ -108,9 +115,30 @@ local function recordingCam()
 		c.launch = l
 		tr = c
 	end
-	recCam.rec, recCam.side, recCam.box = rec, viewSide, viewBox
-	recCam.cam = wide.endCamera(viewBox, nil, tr)
-	return recCam.cam
+	-- the projectile's path, in the viewer's frame
+	local path = {}
+	local _, _, _, dur = tw.web.throw.projectileAt(S.ts, 0)
+	if dur then
+		for i = 0, FLIGHT_SAMPLES do
+			local x, y, z = tw.web.throw.projectileAt(S.ts, dur * i / FLIGHT_SAMPLES)
+			if t == "B" then x, y = tw.frame.point("B", x, y) end
+			-- only what is over or near the pitch, and nothing behind the viewer's eyes
+			-- (camera.tune["end"].nearY)
+			if x and math.abs(x) < 3.5 and y < 9 then
+				path[#path + 1] = { x, math.max(tw.camera.tune["end"].nearY, y), z }
+			end
+		end
+	end
+	recCam.rec, recCam.side, recCam.box, recCam.turn = rec, viewSide, viewBox, t
+	recCam.cam = wide.endCamera(viewBox, nil, tr, path)
+	return recordingFollow(at)
+end
+
+-- recCam's camera at t s: turned toward the projectile (camera.endFollow)
+recordingFollow = function(at)
+	local x, y, z = tw.web.throw.projectileAt(S.ts, at or 0)
+	if x and recCam.turn == "B" then x, y = tw.frame.point("B", x, y) end
+	return tw.camera.endFollow(nil, recCam.cam, at or 0, x, y, z)
 end
 
 local viewOut
@@ -119,7 +147,7 @@ function viewOut(method, r)
 	if method == "showAt" then
 		if wide.T(S.recSide, viewSide) == "B" and r.items then
 			r.items = wide.items("B", r.items)
-			if S.recording then r.camera = recordingCam() end
+			if S.recording then r.camera = recordingCam(r.t) end
 		end
 		r.view = viewSide
 		return r

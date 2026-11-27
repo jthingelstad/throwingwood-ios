@@ -1566,6 +1566,19 @@ function throw.showAt(s, t)
 	}
 end
 
+-- The last throw's projectile at t s (clamped to the recording), in the thrower's frame,
+-- and the recording's duration (1.4.1, the end camera's follow: session/api). nil when
+-- there is no last throw.
+function throw.projectileAt(s, t)
+	local L = s.last
+	if not L or not L.b or not L.b.index then return nil end
+	local pb = L.pb
+	local dur = pb.frames * pb.frameDt
+	if t < 0 then t = 0 elseif t > dur then t = dur end
+	local x, y, z = playback.poseAt(pb, L.b.index, t)
+	return x, y, z, dur
+end
+
 -- ---------- the throw to go (1.4.0) ----------
 
 -- The half turn of a pose (core/frame, "B": its own inverse) when `turn`.

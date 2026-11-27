@@ -396,7 +396,8 @@ local function needTo(n, to, box)
 		local o = settleNeed(t, n)
 		o.frame, o.actionFrame = to, from
 		if n.kind == "raise" and t == "B" then
-			local pts = { { -2.5, 0, 0 }, { 2.5, 0, 0 } }
+			-- (1.4.1) the group, its ends and the king, from the viewer's eyes on its baseline
+			local pts = {}
 			if o.king then pts[#pts + 1] = { o.king.x, o.king.y, 0.3 } end
 			for _, e in ipairs(o.lying or {}) do
 				pts[#pts + 1] = { e.pose.x, e.pose.y, 0 }
@@ -428,20 +429,26 @@ end
 wide.needTo = needTo
 
 -- The camera at the viewer's end for the other side's throw or inkast (view frame of the
--- viewer): the thrower, the circle, the king and the viewer's own baseline, and where a
--- recording's projectile landed and came to rest.
-function wide.endCamera(box, aimTurned, rec)
-	local pts = { { -2.5, 0, 0 }, { 2.5, 0, 0 }, { tw.pitch.king.x, tw.pitch.king.y, 0.3 } }
+-- viewer): the thrower, the circle and the king, and where a recording's projectile was
+-- thrown from, landed and came to rest, and `path` (1.4.1: { x, y, z } points the
+-- projectile passes through, so the whole flight is in the box). Before 1.4.1 the
+-- viewer's own baseline was kept too; from a person's eyes on it, it is under their feet.
+function wide.endCamera(box, aimTurned, rec, path)
+	local pts = { { tw.pitch.king.x, tw.pitch.king.y, 0.3 } }
 	if aimTurned then
 		if aimTurned.thrower then pts[#pts + 1] = { aimTurned.thrower.x, aimTurned.thrower.y, 1.2 } end
 		if aimTurned.marker then pts[#pts + 1] = { aimTurned.marker.x, aimTurned.marker.y, 0 } end
 	end
+	-- (1.4.1) a spot behind the viewer's baseline is kept as the baseline's: the eyes turn
+	-- toward where a baton went past them, never round behind
+	local near = camera.tune["end"].nearY
 	if rec and rec.result then
 		local r = rec.result
-		if r.landX then pts[#pts + 1] = { r.landX, r.landY, 0 } end
-		if r.restX then pts[#pts + 1] = { r.restX, r.restY, 0 } end
+		if r.landX then pts[#pts + 1] = { r.landX, math.max(near, r.landY), 0 } end
+		if r.restX then pts[#pts + 1] = { r.restX, math.max(near, r.restY), 0 } end
 	end
 	if rec and rec.launch and rec.launch.x then pts[#pts + 1] = { rec.launch.x, rec.launch.y, 1.2 } end
+	for _, p in ipairs(path or {}) do pts[#pts + 1] = p end
 	return camera.fromEnd(nil, pts, box, "end")
 end
 

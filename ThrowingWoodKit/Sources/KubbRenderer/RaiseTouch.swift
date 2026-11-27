@@ -322,8 +322,19 @@ extension PitchSession {
   public func raisePick(at point: CGPoint, size: CGSize) -> Int? {
     // the nearest number within reach (engine 1.4.0's held camera draws the kubb small, so
     // the two numbers' reaches may overlap)
-    let near = raiseEnds(in: size).filter { $0.label.distance(to: point) < RaiseTouch.labelR }
-    if let pick = near.min(by: { $0.label.distance(to: point) < $1.label.distance(to: point) }) { return pick.index }
+    // a press on a number's own circle is that end's; then a press on the drawn kubb is the
+    // end drawn nearer it (engine 1.4.1's held camera draws the kubb 20 to 40 pt long, where
+    // both numbers' reaches cover it and a moved number's can be the nearer to the wrong
+    // half); then the nearest number within reach
+    let ends = raiseEnds(in: size)
+    let nearest = { (list: [RaiseEndPoint]) in
+      list.min(by: { $0.label.distance(to: point) < $1.label.distance(to: point) })
+    }
+    if let hit = nearest(ends.filter { $0.label.distance(to: point) <= RaiseTouch.numberR + 2 }) { return hit.index }
+    if let g = raiseGeometry(in: size), RaiseTouch.on(g, point, margin: 0) {
+      return RaiseTouch.nearerEnd(g, point)
+    }
+    if let pick = nearest(ends.filter { $0.label.distance(to: point) < RaiseTouch.labelR }) { return pick.index }
     if let g = raiseGeometry(in: size), RaiseTouch.on(g, point) {
       return RaiseTouch.nearerEnd(g, point)
     }

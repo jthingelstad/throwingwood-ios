@@ -91,37 +91,48 @@ camera.tune = {
 		openDist = 3.4,      -- m
 		openF = 420,         -- px
 	},
-	-- The camera at the viewer's own end (1.4.0; docs/SESSION.md "A view from one side"): a
-	-- fixed camera behind and above the near baseline (view frame: the viewer's baseline
-	-- at y = 0, the pitch running to +y), looking down the pitch, its lens and principal
-	-- point fitted (camera.fit) so the points the caller keeps fall in the box. For the
-	-- other team's throws and inkast (the batons and kubbs come toward it), the raising
-	-- of a half's kubbs and the throw to go. Chosen by framing on a 400 x 240 and a tall
-	-- box at 4, 6 and 8 m targets (tests/lua/session/test_view.lua).
+	-- The camera at the viewer's own end (1.4.0; docs/SESSION.md "A view from one side"):
+	-- the eyes of a person standing just behind the near baseline (view frame: the
+	-- viewer's baseline at y = 0, the pitch running to +y), turned toward the points the
+	-- caller keeps, its lens and principal point fitted (camera.fit) so they fall in the
+	-- box. For the other team's throws and inkast (the batons and kubbs come toward it),
+	-- the other team's raise and the throw to go. 1.4.1 (the owner, 2026-11-27: "our view
+	-- should be from the baseline. Now we are far far behind the baseline and almost
+	-- floating up in the air"): from 3.2 m back and 3 m up (2 m back and 5 m up on a tall
+	-- box) to a person's eyes on the line, and a throw is followed (camera.endFollow).
 	["end"] = {
-		back = 3.2,          -- m behind the near baseline
-		height = 3.0,        -- m above the ground
-		lookY = 3.4,         -- m: the ground point down the middle it looks at (before the fit)
-		lookZ = 0,
+		back = 1.2,          -- m behind the near baseline: a step or two behind the line
+		height = 1.6,        -- m above the ground: a person's eyes
 		pad = 0.25,          -- m kept round every point it keeps (a piece's size, a margin)
 		padZ = 0.4,          -- m: each point is also kept this high (a kubb's top, a baton's hop)
 		fMax = 2400,         -- px: never longer (a tiny box, a few close points)
 		box = { left = 6, top = 22, right = 394, bottom = 236 }, -- the box when none is given: the
 		                     -- 400 x 240 frame less the rail
-		-- a tall box (higher than 1.05 times its width: a phone upright) is filled by the
-		-- pitch's width either way; from higher and nearer, the pitch runs up the screen and
-		-- the far end's pieces come out a little larger (4 px at 6 m on a 390 x 844
-		-- window, against 3.3 from the landscape place)
-		tall = { back = 2.0, height = 5.0, lookY = 3.4 },
+		-- following a throw (camera.endFollow): the look point goes this part of the way
+		-- from the whole throw's middle toward the projectile, eased in over `ease` s from
+		-- the release, so the first frame is the fitted one; the lens and principal point
+		-- stay the fitted ones (a head turning, no zoom)
+		follow = 0.55,
+		ease = 0.35,         -- s
+		-- m: a point nearer than this (behind the baseline, a baton gone past) is kept and
+		-- followed as if it were this far out, so the eyes turn toward where it passed
+		nearY = 0.3,
+		-- ground points always kept besides the caller's: the middle of the viewer's own
+		-- half in front of its feet, so the view runs from the near kubbs to the far end as
+		-- a person's does when they look down the pitch (without them a throw's points,
+		-- all far, gave a long lens on the far half and grass below it)
+		keep = { { -1, 1, 0 }, { 1, 1, 0 } },
 	},
-	-- the raise's camera (1.4.0): the end camera at the raiser's own end, nearer (its half
-	-- only, the kubbs lying in it); the same fit
+	-- the raise's camera (1.4.0; 1.4.1 the owner, 2026-11-27: "This POV doesn't work for
+	-- raising the Kubbs"): over the lying group from the raiser's side, as a person
+	-- walking up to them would stand, fitted to the group and its ends alone (before, the
+	-- whole near baseline was kept too, which gave every raise the same far, wide lens:
+	-- a kubb about 5 pt long on an upright phone)
 	raise = {
-		back = 2.2,
-		height = 3.4,
-		lookY = 2.0,
-		lookZ = 0,
-		pad = 0.3,
+		back = 1.6,          -- m back from the group's near edge, toward the raiser's baseline
+		height = 1.9,        -- m above the ground (about the old close camera's angle down)
+		half = 0.5,          -- m: the least half width and depth of ground kept round the group
+		pad = 0.25,
 		padZ = 0.2,
 		fMax = 2400,
 	},
@@ -530,16 +541,56 @@ function camera.fit(c, pts, box, fMax)
 end
 
 -- The camera at the near end of the view frame (1.4.0; tune "end", or tune.raise with
--- kind "raise"): behind the baseline at y = 0, straight down the middle, fitted to keep
--- each point of pts ({ x, y } or { x, y, z }, view frame) with the tune's pad round it and
--- its padZ above it, in box (default the tune's). Returns c (a new camera when c is nil).
+-- kind "raise"), fitted to keep each point of pts ({ x, y } or { x, y, z }, view frame)
+-- with the tune's pad round it and its padZ above it, in box (default the tune's).
+-- Kind "end" (1.4.1): a person's eyes just behind the middle of the baseline at y = 0,
+-- turned toward the points. Kind "raise" (1.4.1): over the points' middle from the
+-- baseline's side, the ground at least tune.raise.half round them. Returns c (a new
+-- camera when c is nil).
 function camera.fromEnd(c, pts, box, kind)
-	local t = camera.tune[kind == "raise" and "raise" or "end"]
+	local raise = kind == "raise"
+	local t = camera.tune[raise and "raise" or "end"]
 	local b = box or camera.tune["end"].box
-	local at = t
-	if t.tall and (b.bottom - b.top) > 1.05 * (b.right - b.left) then at = t.tall end
 	c = c or camera.new()
-	camera.lookAt(c, 0, -at.back, at.height, 0, at.lookY, t.lookZ or 0)
+	if raise then
+		-- over the group's middle from the raiser's side, the ground kept at least `half`
+		-- round it
+		local x0, x1, y0, y1 = math.huge, -math.huge, math.huge, -math.huge
+		for i = 1, #pts do
+			local p = pts[i]
+			local x, y = p[1] or p.x, p[2] or p.y
+			if x < x0 then x0 = x end
+			if x > x1 then x1 = x end
+			if y < y0 then y0 = y end
+			if y > y1 then y1 = y end
+		end
+		if x0 > x1 then x0, x1, y0, y1 = 0, 0, 2, 2 end
+		local gx, gy = (x0 + x1) / 2, (y0 + y1) / 2
+		local hx, hy = max(t.half, (x1 - x0) / 2), max(t.half, (y1 - y0) / 2)
+		pts = { { gx - hx, gy - hy, 0 }, { gx + hx, gy - hy, 0 }, { gx - hx, gy + hy, 0 }, { gx + hx, gy + hy, 0 } }
+		camera.lookAt(c, gx, gy - hy - t.back, t.height, gx, gy, 0)
+	else
+		-- a person's eyes behind the middle of the baseline, turned toward the middle of
+		-- the points' directions (so the fitted principal point is near the box's middle)
+		local ex, ey, ez = 0, -t.back, t.height
+		local all = {}
+		for i = 1, #pts do all[i] = pts[i] end
+		for _, p in ipairs(t.keep or {}) do all[#all + 1] = p end
+		pts = all
+		local sx, sy, sz = 0, 0, 0
+		for i = 1, #pts do
+			local p = pts[i]
+			local dx, dy, dz = (p[1] or p.x) - ex, (p[2] or p.y) - ey, (p[3] or p.z or 0) - ez
+			local n = sqrt(dx * dx + dy * dy + dz * dz)
+			if n > 1e-6 then sx, sy, sz = sx + dx / n, sy + dy / n, sz + dz / n end
+		end
+		local n = sqrt(sx * sx + sy * sy + sz * sz)
+		if n < 1e-6 then sx, sy, sz, n = 0, 1, -0.2, 1 end
+		sx, sy, sz = sx / n, sy / n, sz / n
+		-- never more than about 70 degrees off the line down the pitch
+		if sy < 0.35 then sy = 0.35 end
+		camera.lookAt(c, ex, ey, ez, ex + sx, ey + sy, ez + sz)
+	end
 	local fit = {}
 	local pad = t.pad
 	for i = 1, #pts do
@@ -553,6 +604,35 @@ function camera.fromEnd(c, pts, box, kind)
 	end
 	camera.fit(c, fit, b, t.fMax)
 	c.kind = kind == "raise" and "raise" or "end"
+	return c
+end
+
+-- An end camera following a throw (1.4.1; tune["end"].follow and .ease): `base` is the
+-- end camera fitted to the whole throw (camera.fromEnd); at t s after the release, with
+-- the projectile at (bx, by, bz), the same eyes, lens and principal point turn from the
+-- base's look point toward the projectile, eased in from t = 0 (where it is `base`).
+-- Writes c (a new camera when c is nil) and returns it.
+function camera.endFollow(c, base, t, bx, by, bz)
+	local tn = camera.tune["end"]
+	c = c or camera.new()
+	for k, v in pairs(base) do c[k] = v end
+	if not bx then return c end
+	local w = tn.follow * smooth((t or 0) / tn.ease)
+	if w <= 0 then return c end
+	if by < tn.nearY then by = tn.nearY end
+	-- the directions blended, each a unit long: the turn is the same part of the angle
+	-- however far the projectile is
+	local dx, dy, dz = bx - base.px, by - base.py, bz - base.pz
+	local n = sqrt(dx * dx + dy * dy + dz * dz)
+	if n < 1e-6 then return c end
+	dx, dy, dz = dx / n, dy / n, dz / n
+	-- a projectile behind the eyes (over the viewer's head) turns the head no further than
+	-- a view still down the pitch
+	if base.fy + (dy - base.fy) * w < 0.2 then w = max(0, (base.fy - 0.2) / (base.fy - dy)) end
+	local fx = base.fx + (dx - base.fx) * w
+	local fy = base.fy + (dy - base.fy) * w
+	local fz = base.fz + (dz - base.fz) * w
+	camera.lookAt(c, base.px, base.py, base.pz, base.px + fx, base.py + fy, base.pz + fz)
 	return c
 end
 

@@ -63,6 +63,58 @@ import Testing
     #expect(watcher.camera.kind != "end")
   }
 
+  /// The computer's throw is watched from a person's eyes on the player's baseline, turning
+  /// with the throw (engine 1.4.1; the owner, 2026-11-27: "our view should be from the
+  /// baseline ... we should be 'watching' the throw"), and Reduce Motion holds the first
+  /// frame's camera. Then the player's own raise by hand after the computer's inkast takes
+  /// the engine's held raise camera, close enough to see each kubb ("This POV doesn't work
+  /// for raising the Kubbs").
+  @Test func theComputersThrowIsWatchedFromTheBaselineAndTheRaiseAfterItSeesTheKubbs() throws {
+    let size = CGSize(width: 402, height: 874), safe = ScreenInsets(top: 62, bottom: 34)
+    for reduced in [false, true] {
+      let app = try PitchSession(appVersion: "test")
+      try app.restore(fixture("computer"), save: nil)
+      app.reduceMotion = reduced
+      app.sideView(size: size, safe: safe)
+      app.dismissHandoff()
+      for _ in 0..<3000 where !app.playing {
+        try app.tick(1.0 / 60)
+        app.dismissHandoff()
+      }
+      try #require(app.playing && app.camera.kind == "end")
+      let first = app.camera
+      // a person's eyes just behind the player's baseline, not far back and high
+      #expect(first.py < 0 && first.py > -2 && first.pz > 1.3 && first.pz < 2)
+      var looks = Set<String>()
+      while app.playing {
+        #expect(app.camera.kind == "end" && app.camera.px == first.px && app.camera.pz == first.pz)
+        looks.insert(String(format: "%.4f %.4f", app.camera.fx, app.camera.fz))
+        try app.tick(1.0 / 60)
+      }
+      if reduced {
+        #expect(looks.count == 1, "Reduce Motion: one camera for the whole throw")
+      } else {
+        #expect(looks.count > 5, "the eyes follow the throw")
+      }
+      // on to the player's raise by hand after the computer's inkast
+      for _ in 0..<6000 where !(app.need?.kind == "raise" && app.need?.cpu != true && !app.playing && !app.raiseShowing) {
+        try app.tick(1.0 / 60)
+        app.dismissHandoff()
+      }
+      try #require(app.need?.kind == "raise" && app.need?.side == "A")
+      app.sideView(size: size, safe: safe)
+      #expect(app.scene.heldRaise == true && app.camera.kind == "raise", "the held raise camera, not the watching one")
+      // each lying kubb drawn long enough to see and tip (1.4.0's camera drew it about 5 pt)
+      let g = try #require(app.raiseGeometry(in: size))
+      #expect(g.caps[0].distance(to: g.caps[1]) >= 20, "the picked kubb \(g.caps[0].distance(to: g.caps[1])) pt long")
+      for o in app.lyingShapes(in: size) {
+        let s = o.shape.outline
+        let w = (s.map(\.x).max() ?? 0) - (s.map(\.x).min() ?? 0), h = (s.map(\.y).max() ?? 0) - (s.map(\.y).min() ?? 0)
+        #expect(max(w, h) >= 20, "\(o.id): \(max(w, h)) pt")
+      }
+    }
+  }
+
   /// A throw this device aims for the other side (a host standing in for a player who
   /// left) is seen from the thrower's end, since the aim calls take the thrower's frame;
   /// the next throw of the player's own side's is from the player's end again.

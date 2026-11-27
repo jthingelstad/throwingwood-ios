@@ -89,6 +89,9 @@ import Testing
         for h in Self.heights {
           let bar = WideLayout.bar(height: h, size: p.size, safe: p.safe)
           app.stillFloor = Double(p.size.height - bar.minY)
+          // the player's side view, as the board sends it (engine 1.4.1's held raise camera
+          // is fitted to its box, kept over the bar)
+          app.sideView(size: p.size, safe: p.safe)
           let top = bar.minY - WideLayout.stillClear
           let g = try #require(app.raiseGeometry(in: p.size))
           // the kubb, and a press within RaiseTouch.margin of it
