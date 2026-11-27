@@ -23,13 +23,14 @@ extension PracticeHUD {
   /// the plan's sliders sit there, so the fingertip presses the knob instead.
   static func nudgeFinger(
     _ meter: MeterLayout, arm: Double, swing: NudgeSwing, size: CGSize, safeLeft: CGFloat,
-    safeRight: CGFloat, besideFree: Bool = true, ceiling: CGFloat = 0
+    safeRight: CGFloat, besideFree: Bool = true, ceiling: CGFloat = 0, narrow: Bool = false
   ) -> CGPoint {
     switch meter {
     case .clock(let c):
       return c.point(arm: arm, radius: c.radius * (besideFree ? NudgePaint.beside : NudgePaint.onKnob))
     case .linear(let g):
-      let z = nudgePath(g, swing: swing, size: size, safeLeft: safeLeft, safeRight: safeRight, ceiling: ceiling)
+      let z = nudgePath(
+        g, swing: swing, size: size, safeLeft: safeLeft, safeRight: safeRight, ceiling: ceiling, narrow: narrow)
       return CGPoint(x: z.x, y: z.y0 + (g.y(arm: clampArm(arm)) - g.yHome))
     }
   }
@@ -37,12 +38,13 @@ extension PracticeHUD {
   /// The fingertip's path on the linear meter: in the throw zone, in the middle of
   /// what the meter leaves (where a thumb strokes), clear of the prompt tab at the
   /// knob's home, starting low enough that the whole draw back fits on the screen.
-  /// On a wide screen, in the meter's half between the centre line and the tab.
+  /// On a wide screen, and upright while the zone is the meter's half (`narrow`), in the
+  /// meter's half between the centre line and the tab.
   static func nudgePath(
     _ g: LinearMeter, swing: NudgeSwing, size: CGSize, safeLeft: CGFloat, safeRight: CGFloat,
-    ceiling: CGFloat = 0
+    ceiling: CGFloat = 0, narrow: Bool = false
   ) -> (x: CGFloat, y0: CGFloat) {
-    g.nudgePath(swing: swing, size: size, safeLeft: safeLeft, safeRight: safeRight, ceiling: ceiling)
+    g.nudgePath(swing: swing, size: size, safeLeft: safeLeft, safeRight: safeRight, ceiling: ceiling, narrow: narrow)
   }
 
   static func clampArm(_ a: Double) -> Double {
@@ -51,7 +53,7 @@ extension PracticeHUD {
 
   func nudge(
     _ f: NudgeFrame, swing: NudgeSwing, on meter: MeterLayout, safeLeft: CGFloat, safeRight: CGFloat,
-    besideFree: Bool = true, ceiling: CGFloat = 0
+    besideFree: Bool = true, ceiling: CGFloat = 0, narrow: Bool = false
   ) {
     guard f.alpha > 0 else { return }
     context.saveGState()
@@ -63,7 +65,7 @@ extension PracticeHUD {
     context.setLineJoin(.round)
     let finger = Self.nudgeFinger(
       meter, arm: f.arm, swing: swing, size: size, safeLeft: safeLeft, safeRight: safeRight,
-      besideFree: besideFree, ceiling: ceiling)
+      besideFree: besideFree, ceiling: ceiling, narrow: narrow)
     switch meter {
     case .clock(let c):
       let r = c.radius
@@ -85,7 +87,8 @@ extension PracticeHUD {
       ghostKnob(CGPoint(x: g.knobX, y: ky), kr, lw)
       if f.step == .still {
         let z = Self.nudgePath(
-          g, swing: swing, size: size, safeLeft: safeLeft, safeRight: safeRight, ceiling: ceiling)
+          g, swing: swing, size: size, safeLeft: safeLeft, safeRight: safeRight, ceiling: ceiling,
+          narrow: narrow)
         linearArrows(g, z, swing)
       }
     }

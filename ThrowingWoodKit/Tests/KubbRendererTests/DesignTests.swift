@@ -35,6 +35,8 @@ import Testing
     let d = SceneSkin.day
     #expect(SkinPaint.contrast(d.ink, d.paper) > 16)
     #expect(SkinPaint.contrast(d.muted, d.paper) > 7.3)
+    // home's settings gear, muted on the masthead's baton plate (Home.swift)
+    #expect(SkinPaint.contrast(d.muted, d.baton) >= 4.5)
     #expect(SkinPaint.contrast(d.onAccent, d.accent) > 10)
     #expect(SkinPaint.contrast(d.onTeamB, d.teamB) > 5.5)
   }

@@ -577,6 +577,121 @@ import Testing
     }
   }
 
+  // MARK: The minimap at the tray's edge
+
+  /// The iPad the report came from on its side (an 11-inch iPad Pro, 1194 x 834, the
+  /// status bar's 24 at the top, the home indicator's 20 at the bottom).
+  static let reportedIPad = (name: "iPad Pro 11-inch on its side", size: CGSize(width: 1194, height: 834), safe: ScreenInsets(top: 24, bottom: 20))
+
+  /// The review phones' minimaps as they stood before the map moved to the tray's edge on
+  /// an iPad (2026-11-27): under the header's right end, unchanged on every phone.
+  @Test func theReviewPhonesMinimapsDoNotMove() {
+    let pinned: [(phone: Int, kind: MeterKind, side: MeterSide, frame: CGRect)] = [
+      (0, .clock, .left, CGRect(x: 332.2, y: 80, width: 62.4, height: 121.68)),
+      (0, .clock, .right, CGRect(x: 332.2, y: 80, width: 62.4, height: 121.68)),
+      (0, .linear, .left, CGRect(x: 335.6, y: 80, width: 62.4, height: 121.68)),
+      (0, .linear, .right, CGRect(x: 332.2, y: 80, width: 62.4, height: 121.68)),
+      (2, .clock, .left, CGRect(x: 383.6, y: 80, width: 70.4, height: 137.28)),
+      (2, .clock, .right, CGRect(x: 383.6, y: 80, width: 70.4, height: 137.28)),
+      (2, .linear, .left, CGRect(x: 383.6, y: 80, width: 70.4, height: 137.28)),
+      (2, .linear, .right, CGRect(x: 383.6, y: 80, width: 70.4, height: 137.28)),
+    ]
+    func near(_ a: CGRect, _ b: CGRect) -> Bool {
+      abs(a.minX - b.minX) < 0.01 && abs(a.minY - b.minY) < 0.01 && abs(a.width - b.width) < 0.01
+        && abs(a.height - b.height) < 0.01
+    }
+    for pin in pinned {
+      // turned left and turned right alike
+      for p in [Self.phones[pin.phone], Self.phones[pin.phone + 1]] {
+        let meter = make(pin.kind, pin.side, p.size, p.safe)
+        for online in [false, true] {
+          let map = WideLayout.plan(
+            meter: meter, size: p.size, safe: p.safe, side: pin.side, trayWidth: online ? WideLayout.trayWidth : 0
+          ).minimap
+          #expect(near(map, pin.frame), "\(p.name) \(pin.kind) \(pin.side) \(online): \(map)")
+          #expect(WideLayout.edgeMap(meter: meter, size: p.size, safe: p.safe, side: pin.side, trayWidth: 0) == nil)
+        }
+      }
+    }
+    // and no iPhone on its side has the room for the tray's edge
+    for p in Self.iPhones + Self.phones {
+      for kind in MeterKind.allCases {
+        for side in MeterSide.allCases {
+          for tray in [0, WideLayout.trayWidth] {
+            #expect(
+              WideLayout.edgeMap(meter: make(kind, side, p.size, p.safe), size: p.size, safe: p.safe, side: side, trayWidth: tray)
+                == nil, "\(p.name) \(kind) \(side)")
+          }
+        }
+      }
+    }
+  }
+
+  /// An iPad on its side (the owner, 2026-11-27: "The map of the pitch should be all the
+  /// way to the left and under the other control. It is in the way in landscape on
+  /// iPad."): the minimap at the tray's edge, in line with the column's outer side,
+  /// `mapGap` under the header row, above the tray, whose plates, foot and ARC's whole
+  /// open height are as they were; clear of every frame, HOLLER's too, inside the safe
+  /// area; both meters, both sides, solo and online. The iPad mini on its side has no
+  /// room for it under the header row with ARC's whole height (400 of 456 pt) and keeps
+  /// the map under the header's right end.
+  @Test func onAnIPadOnItsSideTheMinimapStandsAtTheTraysEdge() throws {
+    for p in [Self.reportedIPad, Self.iPads[1]] {
+      for kind in MeterKind.allCases {
+        for side in MeterSide.allCases {
+          holds(p.name, p.size, p.safe, kind: kind, side: side)
+          let meter = make(kind, side, p.size, p.safe)
+          for online in [false, true] {
+            let tray: CGFloat = online ? WideLayout.trayWidth : 0
+            let plan = WideLayout.plan(meter: meter, size: p.size, safe: p.safe, side: side, trayWidth: tray)
+            let map = plan.minimap
+            let what = "\(p.name) \(kind) \(side)\(online ? " online" : "")"
+            let rail = WideLayout.rail(size: p.size, safe: p.safe, meter: meter)
+            // at the tray's edge, in line with the column's outer side
+            #expect(plan.edge == (side == .right ? .left : .right))
+            #expect(side == .right ? map.minX == plan.block.minX : map.maxX == plan.block.maxX, "\(what): \(map)")
+            // under the header row, above the tray, the tray's ceiling under it
+            #expect(map.minY == rail.maxY + WideLayout.mapGap, "\(what): \(map)")
+            #expect(map.maxY + Tray.ceilingGap <= plan.tray.ceiling && map.maxY < plan.reach.minY, "\(what)")
+            // the tray as it was: full plates on their foot, ARC open to its whole height
+            let box = WideLayout.meterBox(meter, size: p.size, safe: p.safe, side: side)
+            #expect(plan.block.size == Tray.column(wide: true) && plan.block.maxY == box.maxY - WideLayout.planLift)
+            #expect(plan.tray.open(.arc) == (CGSize(width: 104, height: 300), false), "\(what)")
+            // clear of the header, the captions' room, the meter, HOLLER and an open plate
+            let room = WideLayout.captionRoom(size: p.size, safe: p.safe, trayWidth: tray, meter: meter, side: side)
+            var others = [rail, room, box, plan.reach]
+            if online { others.append(WideLayout.shout(size: p.size, safe: p.safe, meter: meter)) }
+            if let m = meter.linear { others += [m.tab, WideLayout.coachBand(m, size: p.size)] }
+            for f in others { #expect(!map.intersects(f), "\(what): \(map) meets \(f)") }
+            // the captions keep their line beside it, and room for the stack under it
+            let caption = WideLayout.caption(size: p.size, safe: p.safe, trayWidth: tray, meter: meter, side: side)
+            #expect(!WideLayout.captionHasItsOwnLine(caption, size: p.size, safe: p.safe, meter: meter))
+            #expect(caption.width >= WideLayout.captionMin && room.height > caption.height + 100, "\(what): \(room)")
+            // the open plates keep under the map as under the header
+            for open in TrayPlate.allCases {
+              for f in plan.tray.plates(open: open).values { #expect(!f.intersects(map), "\(what) \(open)") }
+            }
+          }
+        }
+      }
+    }
+    // the iPad mini keeps today's place, under the header's right end
+    let mini = Self.iPads[0]
+    for kind in MeterKind.allCases {
+      for side in MeterSide.allCases {
+        let meter = make(kind, side, mini.size, mini.safe)
+        #expect(WideLayout.edgeMap(meter: meter, size: mini.size, safe: mini.safe, side: side, trayWidth: 0) == nil)
+        let rail = WideLayout.rail(size: mini.size, safe: mini.safe, meter: meter)
+        let map = WideLayout.plan(meter: meter, size: mini.size, safe: mini.safe, side: side).minimap
+        #expect(map.maxX == rail.maxX || map.maxX == mini.size.width / 2 - WideLayout.planClear, "\(map)")
+      }
+    }
+    // upright the minimap does not move: under the header's right end
+    #expect(
+      WideLayout.uprightMinimap(size: CGSize(width: 834, height: 1194), safe: ScreenInsets(top: 24, bottom: 20))
+        == CGRect(x: 744, y: 99, width: 78, height: 78 * WideLayout.mapTall))
+  }
+
   @Test func theUprightClockIsUnchanged() {
     let b = CGRect(x: 0, y: 0, width: 390, height: 844)
     #expect(

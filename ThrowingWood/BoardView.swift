@@ -421,8 +421,8 @@ import UIKit
   }
 
   /// The minimap's frame (the 1.0 design, "Minimap: one home"): under the header's
-  /// right end in every layout. Upright, under the header as measured; on its side,
-  /// WideLayout.plan's (nil where a narrow window has no room for it).
+  /// right end upright, under the header as measured; on its side, WideLayout.plan's
+  /// (at the tray's edge on an iPad; nil where a narrow window has no room for it).
   static func minimapFrame(model: GameModel, size: CGSize, safe: ScreenInsets) -> CGRect? {
     if WideLayout.isWide(size) {
       let meter = model.meter.layout(
@@ -625,7 +625,7 @@ import UIKit
       if pitch.need?.aims == true, !pitch.wideOn, !pitch.raiseShowing,
         let map = Self.minimapFrame(model: model, size: bounds.size, safe: insets)
       {
-        // under the header's right end in every layout, still while a control is held
+        // WideLayout.plan's place (or the upright one), still while a control is held
         pitch.scene.drawMap(in: ctx, rect: map, look: look)
       }
       // the other kubbs still lying, any of which may be raised next: a dashed outline
@@ -736,7 +736,8 @@ import UIKit
         }
         hud.nudge(
           ghost, swing: NudgeSwing(pitch.dial), on: meter, safeLeft: safeAreaInsets.left,
-          safeRight: safeAreaInsets.right, besideFree: model.screen == .practice, ceiling: ceiling)
+          safeRight: safeAreaInsets.right, besideFree: model.screen == .practice, ceiling: ceiling,
+          narrow: meter.zoneNarrows(ring: pitch.targetRing(in: bounds.size), in: bounds.size))
       }
     }
   }
@@ -788,44 +789,48 @@ import UIKit
       run { try pitch.movePunishment(to: p, size: bounds.size) }
     } else if !pitch.canAim {
       return
-    } else if let claim = meter.first(p, wide: WideLayout.isWide(bounds.size)) {
-      if claim == .zone {
-        // the linear meter's body on a wide screen: a tap still aims at the
-        // kubb behind it; a drag strokes the knob, as in the throw zone
-        nudge.zonePressed()
-        gesture = .zone
-      } else if case .meter(let grab) = claim {
+    } else {
+      // the meter's first claims, the thrower's mark, the meter's later claims, then the
+      // aim; a press on the target's ring is the aim whatever the body, the zone or the
+      // clock's outer reach would make of it (MeterLayout.start, the owner's of 2026-11-27)
+      let size = bounds.size
+      switch meter.start(
+        p, in: size, ring: pitch.targetRing(in: size), stance: pitch.stancePoint(in: size),
+        aimable: pitch.tapCouldAim(p, size: size))
+      {
+      case .meter(.meter(let grab)):
         nudge.meterPressed()
         gesture = .dial
         meterGrab = grab
         pitch.beginDial()
         wake()
         sampleDial(p)
-      } else {
+      case .meter(.beside):  // nothing to aim at under it: the arm turns at once
         nudge.meterPressed()
-        gesture = .body
-      }
-    } else if let stance = pitch.stancePoint(in: bounds.size),
-      hypot(p.x - stance.x, p.y - stance.y) < 44
-    {
-      gesture = .stance
-    } else if let claim = meter.after(p, in: bounds.size, aimable: pitch.tapCouldAim(p, size: bounds.size)) {
-      if claim == .beside { nudge.meterPressed() } else { nudge.zonePressed() }
-      switch claim {
-      case .beside:  // nothing to aim at under it: the arm turns at once
         gesture = .dial
         meterGrab = 0
         besideRing = true
         pitch.beginDial()
         wake()
         sampleDial(p)
-      case .besidePending: gesture = .track  // a tap still aims; a drag turns the arm
-      default: gesture = .zone  // a tap still aims; a drag strokes the knob
+      case .meter(.body):
+        nudge.meterPressed()
+        gesture = .body
+      case .meter(.besidePending):  // a tap still aims; a drag turns the arm
+        nudge.zonePressed()
+        gesture = .track
+      case .meter(.zone):
+        // the throw zone, or the linear meter's body on a wide screen: a tap still aims
+        // at the kubb behind it; a drag strokes the knob
+        nudge.zonePressed()
+        gesture = .zone
+      case .stance:
+        gesture = .stance
+      case .aim:
+        // A tap puts the circle there; a drag anywhere moves it from where it is (AimDrag).
+        gesture = .aim
+        lastAimPoint = p
       }
-    } else {
-      // A tap puts the circle there; a drag anywhere moves it from where it is (AimDrag).
-      gesture = .aim
-      lastAimPoint = p
     }
     tracking = t
   }

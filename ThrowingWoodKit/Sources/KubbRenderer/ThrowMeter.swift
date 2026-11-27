@@ -261,8 +261,11 @@ public struct LinearMeter: Equatable, Sendable {
   /// back fits on the screen. On a wide screen, in the meter's half between the
   /// centre line and the tab, its flick's top under `ceiling` (the captions'
   /// foot, or the practice header's) where the screen has the height.
+  /// `narrow`: the upright zone is the meter's half (`MeterLayout.zoneNarrows`), and the
+  /// fingertip strokes there, as on a wide screen.
   public func nudgePath(
-    swing: NudgeSwing, size: CGSize, safeLeft: CGFloat, safeRight: CGFloat, ceiling: CGFloat = 0
+    swing: NudgeSwing, size: CGSize, safeLeft: CGFloat, safeRight: CGFloat, ceiling: CGFloat = 0,
+    narrow: Bool = false
   ) -> (x: CGFloat, y0: CGFloat) {
     let R = Self.nudgeFinger
     let right = side == .right
@@ -284,6 +287,10 @@ public struct LinearMeter: Equatable, Sendable {
       // the stroke is relative: below the captions where the knob's home is under them
       return (x, min(max(yHome, ceiling + 4 + R + releasePt), size.height - R - 8 - backPt))
     }
+    if narrow {
+      let line = size.width * MeterLayout.wideZone
+      x = right ? max(line + R + 4, min(tab, (line + tab) / 2)) : min(line - R - 4, max(tab, (line + tab) / 2))
+    }
     let zoneTop = size.height * MeterLayout.zoneFrom
     var y0 = max(zoneTop + R + 4, yHome)
     y0 = min(y0, size.height - R - 8 - backPt)
@@ -293,9 +300,11 @@ public struct LinearMeter: Equatable, Sendable {
   /// All the nudge's fingertip covers in one swing: from the flick's top to the
   /// draw back's foot, a fingertip's radius round.
   public func nudgeSweep(
-    swing: NudgeSwing, size: CGSize, safeLeft: CGFloat, safeRight: CGFloat, ceiling: CGFloat = 0
+    swing: NudgeSwing, size: CGSize, safeLeft: CGFloat, safeRight: CGFloat, ceiling: CGFloat = 0,
+    narrow: Bool = false
   ) -> CGRect {
-    let p = nudgePath(swing: swing, size: size, safeLeft: safeLeft, safeRight: safeRight, ceiling: ceiling)
+    let p = nudgePath(
+      swing: swing, size: size, safeLeft: safeLeft, safeRight: safeRight, ceiling: ceiling, narrow: narrow)
     let R = Self.nudgeFinger
     let top = p.y0 - CGFloat(abs(swing.release)) * scale - R
     let foot = p.y0 + CGFloat(abs(swing.back)) * scale + R
@@ -315,9 +324,13 @@ public enum MeterLayout: Equatable, Sendable {
   case linear(LinearMeter)
 
   /// The throw zone (linear meter only): a drag that starts this far down the
-  /// screen or lower strokes the knob as a grab of it does. Targets are always
-  /// in the far half of the pitch and on a phone held upright the centre line is
-  /// at about 0.54 of the height, so below 0.6 there is nothing to aim at.
+  /// screen or lower strokes the knob as a grab of it does. Batons go to the far half
+  /// of the pitch, and on a phone held upright its centre line is at about 0.54 of the
+  /// height. A thrown kubb or a close target can be lower, most of all on a tall iPad
+  /// (the owner, 2026-11-27: "On iPad I'm trying to move the drill target and when I
+  /// tap it is activating the throw instead."): the target's ring is never zone
+  /// (`TargetRing`), and while the ring's centre is in the zone the zone is only the
+  /// meter's half of the width (`zoneNarrows`), so a drag on the other half moves the aim.
   public static let zoneFrom: CGFloat = 0.6
   /// The throw zone on a wide screen: a drag that starts on the meter's side of
   /// this share of the width (the centre line, the throwing line) strokes the
@@ -360,15 +373,16 @@ public enum MeterLayout: Equatable, Sendable {
   /// What a press claims for the throw. The host asks in two steps, so the
   /// claims merge with whatever else the pitch takes:
   ///
-  /// 1. `first(_:)`, before anything else (the target circle, the
+  /// 1. `first(_:)`, before anything else (the target's ring, the
   ///    thrower): the clock's ring (within 1.25 radii), the linear meter's knob
   ///    (46 pt up or down from home, across the body), then the rest of its body,
   ///    which takes the press and does nothing upright; on a wide screen the
 ///    body is throw zone (a tap aims, a drag strokes).
-  /// 2. `after(_:in:aimable:)`, only when nothing else took the press (after the
-  ///    target circle and the thrower, before a tap on the pitch): beside the
-  ///    clock's ring (1.25 to 2.1 radii), or the linear meter's throw zone (the
-  ///    lower 40% of a tall screen, the meter's half of a wide one). These wait to see whether they are a tap
+  /// 2. `after(_:in:aimable:ring:)`, only when nothing else took the press (after the
+  ///    thrower, before a tap on the pitch): beside the clock's ring (1.25 to 2.1
+  ///    radii), or the linear meter's throw zone (the lower 40% of a tall screen, only
+  ///    its meter's half while the target's ring is in it; the meter's half of a wide
+  ///    one), never on the target's ring. These wait to see whether they are a tap
   ///    (then the pitch's tap rules apply, as before) or a drag (then the throw).
   ///    Beside the clock where a tap could not aim, the press is the throw at once.
   public enum Claim: Equatable, Sendable {
@@ -394,14 +408,54 @@ public enum MeterLayout: Equatable, Sendable {
   /// drag strokes), since its whole-height box stands over the far baseline's
   /// outer kubb on its side and a tap there must still aim at it. Upright the
   /// body keeps the press (`.body`): nothing to aim at lies behind it.
-  public func first(_ p: CGPoint, wide: Bool = false) -> Claim? {
+  ///
+  /// `ring`: the target's ring on the screen. A press on it that is not the knob's or
+  /// the clock's ring is the aim's, never the body's or the zone's (nil here).
+  public func first(_ p: CGPoint, wide: Bool = false, ring: TargetRing? = nil) -> Claim? {
     switch self {
     case .clock(let c): return c.onRing(p) ? .meter(grab: 0) : nil
     case .linear(let m):
       if m.knobHit(p, wide: wide) { return .meter(grab: p.y - m.yHome) }
-      guard m.bodyHit(p) else { return nil }
+      guard m.bodyHit(p), ring?.contains(p) != true else { return nil }
       return wide ? .zone : .body
     }
+  }
+
+  /// Does the upright throw zone narrow to the meter's half of the width? Only for the
+  /// linear meter on a tall screen while the target's ring has its centre in the zone
+  /// (the owner, 2026-11-27, from an iPad). A wide screen's zone is that half already.
+  public func zoneNarrows(ring: TargetRing?, in size: CGSize) -> Bool {
+    guard linear != nil, !WideLayout.isWide(size), let ring else { return false }
+    return ring.center.y >= size.height * Self.zoneFrom
+  }
+
+  /// Is `p` on the meter's side of the screen's centre line (`wideZone`)?
+  func onMetersHalf(_ p: CGPoint, in size: CGSize) -> Bool {
+    guard let m = linear else { return false }
+    let line = size.width * Self.wideZone
+    return m.side == .right ? p.x >= line : p.x <= line
+  }
+
+  /// What a press starts, in the order the host asks: the meter's first claim (the
+  /// clock's ring, the knob, the linear meter's body), the thrower's mark (within
+  /// `stanceReach` of `stance`), the meter's later claim (beside the clock's ring, the
+  /// throw zone), and otherwise the aim (a tap puts the circle there, a drag moves it).
+  /// A press on the target's ring (`ring`) is the aim whatever the meter's body, zone or
+  /// outer reach would make of it; only the knob and the clock's ring come before it.
+  public enum Start: Equatable, Sendable {
+    case meter(Claim)
+    case stance
+    case aim
+  }
+  public static let stanceReach: CGFloat = 44
+
+  public func start(
+    _ p: CGPoint, in size: CGSize, ring: TargetRing?, stance: CGPoint?, aimable: @autoclosure () -> Bool
+  ) -> Start {
+    if let c = first(p, wide: WideLayout.isWide(size), ring: ring) { return .meter(c) }
+    if let s = stance, hypot(p.x - s.x, p.y - s.y) < Self.stanceReach { return .stance }
+    if let c = after(p, in: size, aimable: aimable(), ring: ring) { return .meter(c) }
+    return .aim
   }
 
   /// What a press comes to once it lifts or first moves past `tapSlop`.
@@ -429,17 +483,20 @@ public enum MeterLayout: Equatable, Sendable {
     }
   }
 
-  public func after(_ p: CGPoint, in size: CGSize, aimable: Bool) -> Claim? {
+  /// `ring`: the target's ring. A press on it is never the zone's or the clock's outer
+  /// reach's (nil: the aim's), and while its centre is in the upright zone the zone is
+  /// the meter's half only (`zoneNarrows`).
+  public func after(_ p: CGPoint, in size: CGSize, aimable: Bool, ring: TargetRing? = nil) -> Claim? {
+    if ring?.contains(p) == true { return nil }
     switch self {
     case .clock(let c):
       guard c.beside(p) else { return nil }
       return aimable ? .besidePending : .beside
-    case .linear(let m):
-      if WideLayout.isWide(size) {
-        let line = size.width * Self.wideZone
-        return (m.side == .right ? p.x >= line : p.x <= line) ? .zone : nil
-      }
-      return p.y >= size.height * Self.zoneFrom ? .zone : nil
+    case .linear:
+      if WideLayout.isWide(size) { return onMetersHalf(p, in: size) ? .zone : nil }
+      guard p.y >= size.height * Self.zoneFrom else { return nil }
+      if zoneNarrows(ring: ring, in: size) { return onMetersHalf(p, in: size) ? .zone : nil }
+      return .zone
     }
   }
 
