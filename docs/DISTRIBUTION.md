@@ -11,7 +11,13 @@ Build 284, `1.1.0 (1.4.0)`, went to the Internal group on 2026-11-26 and was
 submitted to Beta App Review for the Beta group the same day, at 4:30 PM Central (the
 owner asked for the TestFlight builds for dev and beta to be brought up to the current
 build). It is the first build on engine 1.4, and it carries 1.0 as well for a pitch with
-someone on the App Store version. Until Apple passes it, outside testers have build 260.
+someone on the App Store version. Apple passed it for the Beta group.
+Build 291, `1.1.0 (1.4.1)`, went to the Internal group on 2026-11-27 and was submitted to
+Beta App Review for the Beta group the same day, at 1:13 PM Central (the owner asked for a
+new build for dev and beta once that day's changes were in): a match playing behind the
+first screen, watching the other team from your own baseline, a raise view that stands
+over the lying kubbs, and RESIGN against the computer ending at once. It was uploaded from
+the development Mac. Until Apple passes it, outside testers have build 284.
 
 ## The App Store submission
 
@@ -89,7 +95,8 @@ matches, `0.11 (0.16.0)` for the first with the drive and the engine's own raise
 App Store (the owner, 2026-11-22: "lets move all four projects to version 1.0.0 and tag
 those releases. We will use that version to submit to the App Store as well."),
 `1.1.0 (1.4.0)` for the first on engine 1.4, with the throw to go, a person's throw
-level, the view from your own end, the computer's speed and tip-up in any order
+level, the view from your own end, the computer's speed and tip-up in any order,
+`1.1.0 (1.4.1)` for build 291, on the patch engine with the baseline and raise cameras
 (AGENTS.md "The version a player sees").
 `scripts/asc.swift` calls the App Store Connect API for the rest (groups,
 What to Test, review submissions).
