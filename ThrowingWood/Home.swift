@@ -30,15 +30,18 @@ struct HomeCard: View {
     .accessibilityElement(children: .contain)
   }
 
-  /// The width the masthead and the card keep: the screen's less its margins upright on
-  /// a phone; on a wide screen or an iPad, at most `HomeLayout.width`.
+  /// The width the masthead and the card share: the screen's less its margins upright on
+  /// a phone; on an iPad upright `HomeLayout.width`, on a wide screen `HomeLayout.wideWidth`.
+  /// Both are centred on one axis with the same edges, in every layout, so the two plates
+  /// read as one arrangement (the coordinator's review of PR 64: on its side the masthead
+  /// at the left and the card centred shared no edge and no axis).
   private func layout(wide: Bool, scrolls: Bool = false) -> some View {
     let phone = UIDevice.current.userInterfaceIdiom == .phone
     let width: CGFloat? = wide ? HomeLayout.wideWidth : (phone ? nil : HomeLayout.width)
     return VStack(spacing: 0) {
       HomeMasthead(model: model, wide: wide)
-        .frame(maxWidth: wide ? HomeLayout.mastheadWide : width)
-        .frame(maxWidth: .infinity, alignment: wide ? .leading : .center)
+        .frame(maxWidth: width)
+        .frame(maxWidth: .infinity)
       Spacer(minLength: HomeLayout.gap)
       HomePlay(model: model, wide: wide && !type.isAccessibilitySize)
         .frame(maxWidth: width)
@@ -63,9 +66,8 @@ enum HomeLayout {
   static let gap: CGFloat = 16
   /// The masthead and the card on an iPad held upright.
   static let width: CGFloat = 520
-  /// The card on a wide screen (its one row) and the masthead there (the header's width).
+  /// The masthead and the card on a wide screen (the card's one row).
   static let wideWidth: CGFloat = 600
-  static let mastheadWide: CGFloat = 400
 }
 
 /// The masthead: KUBB over THROWING WOOD on the header's plate, and SETTINGS inside it at
