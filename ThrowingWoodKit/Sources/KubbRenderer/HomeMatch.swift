@@ -360,8 +360,13 @@ private struct HomeNeed: Decodable {
       if turned { was = was.map(NeighbourField.halfTurned) }
       rises = Calm.rises(from: was, to: next.before.items, at: 0)
       hold = turned ? HomeTune.aimTurn : HomeTune.aimSame
-    } else {
+    } else if last != nil {
+      // the next match: its pitch set out again, every piece standing up
       rises = Calm.rises(from: [], to: next.before.items, at: 0, setup: true)
+      hold = HomeTune.firstAim
+    } else {
+      // the first: home opens on a pitch already set out, and it is thrown at soon
+      rises = [:]
       hold = HomeTune.firstAim
     }
     let rising = rises.values.map { $0.at + $0.length }.max() ?? 0
