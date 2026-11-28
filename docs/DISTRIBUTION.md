@@ -26,8 +26,11 @@ an iPad on its side, and a quiet settings gear on the first screen. Until Apple 
 outside testers have build 291.
 The App Store's 1.1.0 record was made on 2026-11-27 (the owner: "yes, create the 1.1.0
 version record in App Store Connect"; "release on approval is fine"), in Prepare for
-Submission with a draft of What's New, to release as soon as it is approved. It has no
-build, and nothing is submitted: the submission is the owner's call.
+Submission with a draft of What's New, to release as soon as it is approved. The same day it
+took build 294, the sixteen pictures retaken from that build's code in place of 1.0.0's
+("Screenshots"), and review notes that name HOLLER's fixed list and the painted feedback
+picture; the listing's words, keywords, previews and addresses are 1.0.0's, carried over.
+Nothing is submitted: the submission is the owner's call.
 
 ## The App Store submission
 
@@ -264,7 +267,11 @@ Every one is play on a pitch (the owner, 2026-11-22: "i want to make sure we hig
 some of the different scenes in the screenshots. no scoresheet -- show gameplay."): all
 seven scenes, no menu, no scene tiles, no winner card and no score sheet. The first three
 are the ones a search result shows, so they are the throw itself and the two scenes that
-look least like it. The set as retaken on 2026-11-22 from build 260 (commit `991223e`).
+look least like it. The set was retaken on 2026-11-22 from build 260 (commit `991223e`) for
+1.0.0, and again on 2026-11-27 from build 294's code for 1.1.0 (the iOS 27.2 simulator; the
+raise is now the held view over the lying kubbs with their numbers, and the hit is seen
+from the player's own side). `ASC_LOCALIZATION` points `tools/asc-upload-media.py` at a
+version's localization other than 1.0.0's.
 In order:
 
 1. `1-aim`: Park. The clock wound back to its band, FLICK!, the circle on a group of four field kubbs 4 m off.
