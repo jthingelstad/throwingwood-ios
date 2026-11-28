@@ -30,7 +30,7 @@ import Testing
     return angles.map { a in CGPoint(x: sin(a * .pi / 180), y: cos(a * .pi / 180)) }
   }
 
-  /// A solo match (seed fixed by the engine's options), the throw to go off, played by the
+  /// A solo match (its seed random, as a player's), the throw to go off, played by the
   /// person to the computer's first throw.
   private func atComputersTurn(_ save: MatchSave? = nil) throws -> PitchSession {
     let app = try PitchSession(appVersion: "test")
@@ -72,8 +72,12 @@ import Testing
     var hashes: [Int: String] = [:]
     var ticks: [Int: Int] = [:]
     let snapshot = try atComputersTurn().engine.call("snapshot")
+    // one time for both runs: each throw's stamp is the match's finish, which the hash
+    // holds to the minute, so two runs either side of a minute would differ by that alone
+    let now = Date()
     for speed in [1, 4] {
       let app = try PitchSession(appVersion: "test")
+      app.clockNow = { now }
       try app.restore(snapshot, save: nil)
       app.dismissHandoff()
       #expect(app.computerTurn)
@@ -106,6 +110,9 @@ import Testing
     defer { try? FileManager.default.removeItem(at: dir) }
     let save = MatchSave(file: dir.appending(path: "solo-match.json"))
     let app = try atComputersTurn(save)
+    // one time for the skipped and the watched turn (the finish is in the hash, as above)
+    let now = Date()
+    app.clockNow = { now }
     let before = try #require(save.readTrail()?.trail.entries.count)
     let start = try app.engine.call("snapshot")
     try app.skipComputer()
@@ -119,6 +126,7 @@ import Testing
     #expect(try again.engine.hash() == app.engine.hash())
     // played through at its own pace instead, the computer makes the same turn
     let watched = try PitchSession(appVersion: "test")
+    watched.clockNow = { now }
     try watched.restore(start, save: nil)
     watched.dismissHandoff()
     var n = 0
