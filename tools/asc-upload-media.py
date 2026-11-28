@@ -19,7 +19,9 @@ import sys
 import tempfile
 import urllib.request
 
-LOC = "183dc5ed-f18e-43fa-8fa0-5c016f09aba8"
+# The version localization the files go to: 1.0.0's unless ASC_LOCALIZATION names another
+# (1.1.0's en-US is 4dface02-76c0-472e-b8c7-87fb3a075360).
+LOC = os.environ.get("ASC_LOCALIZATION", "183dc5ed-f18e-43fa-8fa0-5c016f09aba8")
 
 
 def asc(method, path, body=None):
