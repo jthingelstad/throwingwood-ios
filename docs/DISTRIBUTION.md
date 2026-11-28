@@ -30,7 +30,11 @@ Submission with a draft of What's New, to release as soon as it is approved. The
 took build 294, the sixteen pictures retaken from that build's code in place of 1.0.0's
 ("Screenshots"), and review notes that name HOLLER's fixed list and the painted feedback
 picture; the listing's words, keywords, previews and addresses are 1.0.0's, carried over.
-Nothing is submitted: the submission is the owner's call.
+Version 1.1.0 with build 294 was submitted for App Review on 2026-11-27 at 8:57 PM Central
+(the owner's yes to "Submit 1.1.0 (build 294) for App Review now, or not yet?"), to release
+as soon as it is approved. The day it goes live, change the App Store row in the web
+repository's docs/ENGINES.md (1.1.0, build 294, engine 1.4.1) and say so here; the web can
+then drop engine 1.0 once no row names it.
 
 ## The App Store submission
 
