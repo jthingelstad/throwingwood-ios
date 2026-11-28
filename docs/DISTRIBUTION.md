@@ -22,8 +22,8 @@ Build 294, `1.1.0 (1.4.1)`, went to the Internal group on 2026-11-27 and was sub
 Beta App Review for the Beta group the same day, at 5:27 PM Central (the owner, after
 playing build 291 on an iPad: "When it merges, submit a new build to dev and beta
 testflights"): a press on the target's ring always aims, the minimap at the tray's edge on
-an iPad on its side, and a quiet settings gear on the first screen. Until Apple passes it,
-outside testers have build 291.
+an iPad on its side, and a quiet settings gear on the first screen. Apple passed it for the
+Beta group the same evening.
 The App Store's 1.1.0 record was made on 2026-11-27 (the owner: "yes, create the 1.1.0
 version record in App Store Connect"; "release on approval is fine"), in Prepare for
 Submission with a draft of What's New, to release as soon as it is approved. The same day it
